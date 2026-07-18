@@ -1,0 +1,19 @@
+{
+  "perks": {
+    "Aquaboy": {
+      "minimumLevel": 50,
+      "baseLevel": 18,
+      "addictionPenalty": 0.0
+    },
+    "RadResistant": {
+      "minimumLevel": 45,
+      "baseLevel": 5,
+      "addictionPenalty": 0.0
+    },
+    "ChemResistance": {
+      "minimumLevel": 0,
+      "baseLevel": 0,
+      "addictionPenalty": 0.5
+    }
+  }
+}

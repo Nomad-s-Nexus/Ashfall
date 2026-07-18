@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rad Overhaul - Gas Mask Filter</title>
+<style>
+/* Standalone gas-mask filter + condition widget, split out of radhud.html so PrismaHUD_F4 can
+   position it in the unified HUD editor (the radhud.html overlay itself is a fullscreen visor and
+   must never be editor-managed -- PrismaHUD Show/Hide/position operates per-VIEW, so registering the
+   fullscreen overlay would let the editor toggle/move the whole visor). Same registration contract
+   as hud_toxic.html. The visor fog (#visorFog) + mask overlay (#maskOverlay) stay in radhud.html.
+   CSS mirrors radhud.css's #filterWidget block; GasMask.png resolves from this same views folder. */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;
+  font-family:Consolas,"Courier New",monospace;-webkit-user-select:none;user-select:none}
+#root{transform-origin:top left;transform:scale(var(--s,1));
+  position:fixed;left:0;top:0;width:240px;height:44px;
+  display:flex;align-items:center;gap:9px;
+  opacity:0;transition:opacity .4s ease;pointer-events:none;
+}
+#root.on{opacity:1}
+#root.low{animation:filterPulse 1.1s ease-in-out infinite}
+@keyframes filterPulse{0%,100%{opacity:1}50%{opacity:.5}}
+#filterIcon{
+  width:36px;height:36px;flex:none;background-color:#5c9e3a;
+  -webkit-mask-image:url("GasMask.png");mask-image:url("GasMask.png");
+  -webkit-mask-size:contain;mask-size:contain;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+  filter:drop-shadow(0 0 2px #000);
+}
+#filterBars{display:flex;flex-direction:column;gap:3px}
+.fbrow{display:flex;align-items:center;gap:6px}
+.flab{width:38px;flex:none;font-size:8px;font-weight:bold;letter-spacing:1px;
+  color:#9aa79a;text-shadow:0 0 3px #000}
+.fbg{
+  width:100px;height:9px;background:rgba(0,0,0,.7);
+  box-shadow:inset 0 0 4px rgba(0,0,0,.85);position:relative;
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+  -webkit-clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+}
+.fbar{height:100%;width:100%;background:#5c9e3a;transition:width .3s linear,background .3s}
+.fpct{width:30px;flex:none;text-align:right;font-size:9px;color:#cdd6cd;
+  text-shadow:0 0 3px #000,0 1px 2px #000}
+#filterFoot{font-size:8px;letter-spacing:.5px;color:#9aa79a;text-align:right;
+  text-shadow:0 0 3px #000;padding-right:30px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="filterIcon"></div>
+  <div id="filterBars">
+    <div class="fbrow" id="rowFilter"><span class="flab">FILTER</span><div class="fbg"><div id="filterBar" class="fbar"></div></div><span id="filterPct" class="fpct">100%</span></div>
+    <div class="fbrow" id="rowCond"><span class="flab">MASK</span><div class="fbg"><div id="condBar" class="fbar"></div></div><span id="condPct" class="fpct">100%</span></div>
+    <div id="filterFoot"><span id="filterSpares">x0 filters</span></div>
+  </div>
+</div>
+<script>
+var root=document.getElementById('root');
+var _visState=false;
+var _preview=false;   // HUD-editor preview
+
+function fHsl(v){return "hsl("+Math.round(120*(Math.max(0,Math.min(100,v))/100))+",75%,48%)";}
+
+// Data push from the Rad Mod DLL: {charge, condition, spares, masked}. Bars recolour green->red;
+// a row hides when its system is off (value < 0); the icon tints to the worse of the two. The whole
+// widget shows only while a mask is worn (masked=true) and reports that to PrismaHUD for auto-hide.
+window.updateFilter=function(json){
+  try{
+    var d=(typeof json==="string")?JSON.parse(json):json;
+    var masked=!!d.masked;
+    if(!masked){
+      if(_preview) return;   // editor preview owns the display; keep the sample bars up
+      root.classList.remove('on');root.classList.remove('low');
+      if(_visState){_visState=false;window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:false}));}
+      return;
+    }
+    root.classList.add('on');
+    var low=false,worst=100;
+    var fr=document.getElementById('rowFilter');
+    if((+d.charge)<0){fr.style.display='none';}
+    else{
+      var c=Math.max(0,Math.min(100,+d.charge||0));
+      fr.style.display='';worst=Math.min(worst,c);
+      document.getElementById('filterBar').style.width=c+'%';
+      document.getElementById('filterBar').style.background=fHsl(c);
+      document.getElementById('filterPct').textContent=Math.round(c)+'%';
+      if(c<=20)low=true;
+    }
+    var cr=document.getElementById('rowCond');
+    if((+d.condition)<0){cr.style.display='none';}
+    else{
+      var k=Math.max(0,Math.min(100,+d.condition||0));
+      cr.style.display='';worst=Math.min(worst,k);
+      document.getElementById('condBar').style.width=k+'%';
+      document.getElementById('condBar').style.background=fHsl(k);
+      document.getElementById('condPct').textContent=Math.round(k)+'%';
+      if(k<=25)low=true;
+    }
+    document.getElementById('filterSpares').textContent='x'+(+d.spares||0)+' filters';
+    document.getElementById('filterIcon').style.backgroundColor=fHsl(worst);
+    if(low)root.classList.add('low');else root.classList.remove('low');
+    if(!_visState){_visState=true;window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));}
+  }catch(e){}
+};
+
+// HUD editor preview: force-show sample FILTER/MASK bars while positioning (the widget is normally
+// hidden unless a mask is worn, so it would otherwise be an empty box in the editor).
+window.setEditorPreview=function(json){
+  _preview=(json==='1'||json===1||json===true);
+  if(_preview){
+    root.classList.add('on');root.classList.remove('low');
+    document.getElementById('rowFilter').style.display='';
+    document.getElementById('rowCond').style.display='';
+    document.getElementById('filterBar').style.width='70%';document.getElementById('filterBar').style.background=fHsl(70);
+    document.getElementById('filterPct').textContent='70%';
+    document.getElementById('condBar').style.width='85%';document.getElementById('condBar').style.background=fHsl(85);
+    document.getElementById('condPct').textContent='85%';
+    document.getElementById('filterSpares').textContent='x2 filters';
+    document.getElementById('filterIcon').style.backgroundColor=fHsl(70);
+  } else {
+    root.classList.toggle('on',_visState);
+  }
+};
+
+// PrismaHUD positioning. setHUDPosition gives fractional {x,y,w,h}; apply as pixels.
+var WIDGET_ID='rad_filter';
+var DEF={xf:22/1920,yf:1014/1080,wf:240/1920,hf:44/1080};   // default: bottom-left (original visor spot)
+var _posSet=false;
+function applyPos(xf,yf,s){
+  var W=window.innerWidth,H=window.innerHeight;
+  if(!(W>1)||!(H>1))return;                       // hidden / not laid out
+  var r=document.getElementById('root');
+  r.style.left=(xf*W)+'px';r.style.top=(yf*H)+'px';r.style.setProperty('--s',s);  // transform:scale reads --s
+  window.reportPosition(JSON.stringify({id:WIDGET_ID,x:xf,y:yf,s:s}));
+}
+window.setHUDPosition=function(json){
+  _posSet=true;
+  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1));}catch(e){}
+};
+// no-op fallbacks if PrismaHUD hasn't injected these (e.g. PrismaHUD absent)
+window.reportPosition   =window.reportPosition   ||function(){};
+window.reportVisibility =window.reportVisibility ||function(){};
+window.requestUpdate    =window.requestUpdate    ||function(){};
+setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1);},50);
+</script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="radhud.css">
+</head>
+<body>
+  <!-- First-person gas-mask screen overlay (shown by C++ setMask when a mask is worn). -->
+  <img id="maskOverlay" src="gasmask_overlay.png" alt="">
+
+  <!-- Low-filter visor fog: condensation haze driven by updateFilter (builds as the filter dies,
+       or when the mask is broken). Sits just above the mask overlay, below all widgets. -->
+  <div id="visorFog"></div>
+
+  <!-- The gas-mask FILTER + MASK bar widget moved to the standalone hud_filter.html view so PrismaHUD_F4
+       can position it in the HUD editor (radhud.html is a fullscreen visor and must not be editor-managed).
+       This view keeps only the fullscreen pieces: #maskOverlay (above) + #visorFog (also driven by
+       updateFilter here, for the condensation haze). -->
+
+  <div id="emissionBanner"></div>
+  <div id="emissionSub"></div>
+
+  <div id="debugPanel">
+    <div class="dbg-title">RAD OVERHAUL - DEBUG</div>
+
+    <div class="dbg-tabs">
+      <button class="dbg-tab on" id="tabbtn-rad"  onclick="showTab('rad')">RAD MOD</button>
+      <button class="dbg-tab"    id="tabbtn-wthr" onclick="showTab('wthr')">WEATHER</button>
+    </div>
+
+    <!-- ===================== TAB: RAD MOD ===================== -->
+    <div class="dbg-pane on" id="tab-rad">
+
+    <!-- Vitals HUD moved to PrismaHUD_F4 (position the toxicity widget in PrismaHUD's HUD editor). -->
+
+    <div class="dbg-sec">TRIGGER STORM</div>
+    <div class="dbg-row">
+      <button onclick="cmd('storm:0')">Ash</button>
+      <button onclick="cmd('storm:1')">Firestorm</button>
+    </div>
+    <div class="dbg-row">
+      <button onclick="cmd('storm:2')">Sulfur</button>
+      <button onclick="cmd('storm:3')">Acid</button>
+    </div>
+    <div class="dbg-row">
+      <button onclick="cmd('storm:4')">Dust Storm</button>
+    </div>
+    <div class="dbg-row"><button class="warn" onclick="cmd('endstorm')">End Storm</button></div>
+
+    <div class="dbg-sec">WEATHER (visual)</div>
+    <div class="dbg-row">
+      <button onclick="cmd('weather:0')">Ash</button>
+      <button onclick="cmd('weather:1')">Fire</button>
+      <button onclick="cmd('weather:2')">Sulfur</button>
+      <button onclick="cmd('weather:3')">Acid</button>
+      <button onclick="cmd('weather:4')">Dust</button>
+    </div>
+    <div class="dbg-row"><button class="warn" onclick="cmd('weather:clear')">Clear Weather</button></div>
+
+    <div class="dbg-sec">RADIATION</div>
+    <div class="dbg-row">
+      <button onclick="cmd('rads:200')">+200</button>
+      <button onclick="cmd('rads:600')">+600</button>
+      <button onclick="cmd('heal')">Full Heal</button>
+    </div>
+
+    <div class="dbg-sec">TISSUE</div>
+    <div class="dbg-row">
+      <button onclick="cmd('tissue:150')">+150</button>
+      <button onclick="cmd('perm:40')">+40 Perm</button>
+      <button class="warn" onclick="cmd('clear')">Clear All</button>
+    </div>
+
+    <div class="dbg-sec">SPECIAL</div>
+    <div class="dbg-row"><button class="warn" onclick="cmd('fixstats')">Fix Stats (clear rad penalty, -5 debuffs)</button></div>
+
+    <div class="dbg-sec">ITEMS</div>
+    <div class="dbg-row">
+      <button onclick="cmd('give:chelation')">Chelation</button>
+      <button onclick="cmd('give:radaway')">RadAway</button>
+      <button onclick="cmd('give:radx')">Rad-X</button>
+    </div>
+
+    <div class="dbg-sec">GAS MASK OVERLAY</div>
+    <div class="dbg-row">
+      <button onclick="cmd('mask:on')">Mask ON</button>
+      <button onclick="cmd('mask:off')">Mask OFF</button>
+      <button onclick="cmd('mask:auto')">Auto</button>
+    </div>
+
+    <div class="dbg-sec">GAS MASK FILTER</div>
+    <div class="dbg-row">
+      <button onclick="cmd('give:filter')">+5 Filters</button>
+      <button onclick="cmd('filter:replace')">Replace</button>
+    </div>
+    <div class="dbg-row">
+      <button onclick="cmd('filter:full')">Full</button>
+      <button onclick="cmd('filter:low')">Low</button>
+      <button onclick="cmd('filter:dead')">Dead</button>
+    </div>
+
+    <div class="dbg-sec">GAS MASK CONDITION</div>
+    <div class="dbg-row">
+      <button onclick="cmd('give:repairkit')">+5 Repair Kits</button>
+      <button onclick="cmd('cond:repair')">Repair</button>
+    </div>
+    <div class="dbg-row">
+      <button onclick="cmd('cond:full')">Full</button>
+      <button onclick="cmd('cond:low')">Low</button>
+      <button onclick="cmd('cond:broken')">Broken</button>
+    </div>
+
+    <div class="dbg-sec">DIAGNOSTICS</div>
+    <div class="dbg-row"><button onclick="cmd('shelter')">Shelter Debug (toggle)</button></div>
+
+    </div><!-- /tab-rad -->
+
+    <!-- ===================== TAB: WEATHER =====================
+         FO4 strips EditorIDs at runtime, so this list is authored from the plugins and sends
+         "Plugin.esp|objectID" — C++ resolves it with LookupForm (survives load-order changes). -->
+    <div class="dbg-pane" id="tab-wthr">
+
+      <div class="dbg-sec">COMMONWEALTH (Fallout4.esm)</div>
+      <div class="wthr-grid">
+        <button onclick="cmd('forceweather:Fallout4.esm|02B52A')">Clear</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1D670E')">Clearest Skies</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1C8556')">Overcast</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|0F1033')">GS Overcast</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1209AF')">Neutral Overcast</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1CA7E4')">Rain</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1CC186')">Misty</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1CD096')">Misty Rainy</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1C3473')">Foggy</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1BD481')">GS Foggy</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1F61A1')">Dusty</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1EB2FF')">Polluted</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1E5E60')">Dark Skies</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|1C3D5E')">GS Radstorm</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|12A18E')">Sanctuary Clear</button>
+        <button onclick="cmd('forceweather:Fallout4.esm|00116D')">Diamond City</button>
+      </div>
+
+      <div class="dbg-sec">TRUE STORMS (TrueStormsFO4.esm)</div>
+      <div class="wthr-grid">
+        <button onclick="cmd('forceweather:TrueStormsFO4.esm|000859')">Radstorm Heavy</button>
+        <button onclick="cmd('forceweather:TrueStormsFO4.esm|00085A')">Radstorm Light</button>
+        <button onclick="cmd('forceweather:TrueStormsFO4.esm|000862')">Rain Light</button>
+        <button onclick="cmd('forceweather:TrueStormsFO4.esm|000864')">Misty Rainy Light</button>
+        <button onclick="cmd('forceweather:TrueStormsFO4.esm|000865')">Foggy Light</button>
+      </div>
+
+      <div class="dbg-sec">RAD MOD (RadiationOverhaul.esp)</div>
+      <div class="wthr-grid">
+        <button onclick="cmd('forceweather:RadiationOverhaul.esp|000840')">Ash Fallout</button>
+        <button onclick="cmd('forceweather:RadiationOverhaul.esp|000841')">Rad Firestorm</button>
+        <button onclick="cmd('forceweather:RadiationOverhaul.esp|000842')">Toxic Sulfur</button>
+        <button onclick="cmd('forceweather:RadiationOverhaul.esp|000843')">Acid Rain</button>
+        <button onclick="cmd('forceweather:RadiationOverhaul.esp|000844')">Dust Storm</button>
+      </div>
+
+      <div class="dbg-sec">RELEASE</div>
+      <div class="dbg-row"><button class="warn" onclick="cmd('weather:clear')">Release Forced Weather</button></div>
+
+    </div><!-- /tab-wthr -->
+
+    <div class="dbg-row" style="margin-top:8px;">
+      <button class="close" onclick="cmd('close')">CLOSE  (Shift+F8)</button>
+    </div>
+  </div>
+
+  <!-- Vitals (rads/tissue/health/AP) moved to PrismaHUD_F4: health/AP/rads are its own widgets; the
+       tissue "toxicity" readout is the standalone hud_toxic.html widget, registered with PrismaHUD. -->
+
+  <!-- SPECIAL-penalty diagnostic popup (shown by C++ showSpecialInfo; replaces the truncated corner). -->
+  <div id="specialPopup" onclick="if(event.target===this)closeSpecialInfo()">
+    <div id="specialPopupInner">
+      <div id="specialPopupTitle">SPECIAL STATS</div>
+      <div id="specialPopupBody"></div>
+      <button id="specialPopupClose" onclick="closeSpecialInfo()">CLOSE</button>
+    </div>
+  </div>
+
+  <script src="radhud.js"></script>
+</body>
+</html>

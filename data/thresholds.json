@@ -1,0 +1,143 @@
+{
+  "_comment": "Rebalanced 2026-06-06. SPECIAL penalties kept small (max SPECIAL is 10). Health drain only ramps at high rad and is per-4Hz-tick percent of max HP (effective %/sec = value x4). Loader reads: name, endPenalty, strPenalty, limbDamagePercent, healthDamagePercent, fastTravelDisabled, radAwayEffectiveness.",
+  "stages": {
+    "0": {
+      "name": "Healthy",
+      "rangeMin": 0,
+      "rangeMax": 99,
+      "description": "Safe radiation levels",
+      "endPenalty": 0,
+      "strPenalty": 0,
+      "limbDamagePercent": 0.0,
+      "healthDamagePercent": 0.0,
+      "fastTravelDisabled": false,
+      "radAwayEffectiveness": 1.0
+    },
+    "100": {
+      "name": "Minor Exposure",
+      "rangeMin": 100,
+      "rangeMax": 199,
+      "description": "Slight nausea, barely noticeable",
+      "endPenalty": 1,
+      "strPenalty": 0,
+      "limbDamagePercent": 0.0,
+      "healthDamagePercent": 0.0,
+      "fastTravelDisabled": false,
+      "radAwayEffectiveness": 1.0
+    },
+    "200": {
+      "name": "Acute Poisoning",
+      "rangeMin": 200,
+      "rangeMax": 299,
+      "description": "Visible symptoms, mild weakness",
+      "endPenalty": 1,
+      "strPenalty": 1,
+      "limbDamagePercent": 0.0,
+      "healthDamagePercent": 0.0,
+      "fastTravelDisabled": false,
+      "radAwayEffectiveness": 1.0
+    },
+    "300": {
+      "name": "Advanced Poisoning",
+      "rangeMin": 300,
+      "rangeMax": 399,
+      "description": "Noticeable weakness sets in",
+      "endPenalty": 2,
+      "strPenalty": 1,
+      "limbDamagePercent": 0.0,
+      "healthDamagePercent": 0.0,
+      "fastTravelDisabled": false,
+      "radAwayEffectiveness": 0.95
+    },
+    "400": {
+      "name": "Critical Poisoning",
+      "rangeMin": 400,
+      "rangeMax": 499,
+      "description": "Internal damage, body weakening",
+      "endPenalty": 2,
+      "strPenalty": 2,
+      "limbDamagePercent": 0.0,
+      "healthDamagePercent": 0.05,
+      "fastTravelDisabled": false,
+      "radAwayEffectiveness": 0.90
+    },
+    "500": {
+      "name": "Severe Injury",
+      "rangeMin": 500,
+      "rangeMax": 599,
+      "description": "Organ stress, slow health loss",
+      "endPenalty": 3,
+      "strPenalty": 2,
+      "limbDamagePercent": 0.5,
+      "healthDamagePercent": 0.08,
+      "fastTravelDisabled": false,
+      "radAwayEffectiveness": 0.80
+    },
+    "600": {
+      "name": "Extreme Injury",
+      "rangeMin": 600,
+      "rangeMax": 699,
+      "description": "Multiple systems struggling",
+      "endPenalty": 3,
+      "strPenalty": 3,
+      "limbDamagePercent": 1.0,
+      "healthDamagePercent": 0.12,
+      "fastTravelDisabled": true,
+      "radAwayEffectiveness": 0.65
+    },
+    "700": {
+      "name": "Critical Injury",
+      "rangeMin": 700,
+      "rangeMax": 799,
+      "description": "Body failing, steady health loss",
+      "endPenalty": 4,
+      "strPenalty": 3,
+      "limbDamagePercent": 1.5,
+      "healthDamagePercent": 0.18,
+      "fastTravelDisabled": true,
+      "radAwayEffectiveness": 0.45
+    },
+    "800": {
+      "name": "Terminal Injury",
+      "rangeMin": 800,
+      "rangeMax": 899,
+      "description": "System failure approaching",
+      "endPenalty": 5,
+      "strPenalty": 4,
+      "limbDamagePercent": 2.0,
+      "healthDamagePercent": 0.30,
+      "fastTravelDisabled": true,
+      "radAwayEffectiveness": 0.25
+    },
+    "900": {
+      "name": "Fatal Radiation",
+      "rangeMin": 900,
+      "rangeMax": 999,
+      "description": "Living corpse state",
+      "endPenalty": 6,
+      "strPenalty": 4,
+      "limbDamagePercent": 2.5,
+      "healthDamagePercent": 0.45,
+      "fastTravelDisabled": true,
+      "radAwayEffectiveness": 0.10
+    },
+    "1000": {
+      "name": "Ghoulification",
+      "rangeMin": 1000,
+      "rangeMax": 999999,
+      "description": "Complete systemic failure - death near",
+      "endPenalty": 7,
+      "strPenalty": 5,
+      "limbDamagePercent": 3.0,
+      "healthDamagePercent": 0.60,
+      "fastTravelDisabled": true,
+      "radAwayEffectiveness": 0.0
+    }
+  },
+  "balanceNotes": {
+    "specialPenalties": "Small on purpose - max SPECIAL is 10. END drives max HP, so even -7 END is significant.",
+    "healthDrain": "healthDamagePercent is percent of MAX HP per 4Hz tick. Effective drain/sec = value x 4. 0.30 = ~1.2%/sec.",
+    "limbDamage": "limbDamagePercent is per-tick % chance to apply 1 HP chip damage. Mostly flavor.",
+    "tuning": "Edit these values and restart the game to retune. No rebuild needed."
+  }
+}

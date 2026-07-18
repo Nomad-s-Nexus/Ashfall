@@ -1,0 +1,9 @@
+build/
+.xmake/
+*.zip
+*.ba2
+*.bsa
+*.psd
+*.blend
+*.blend1
+*.bak

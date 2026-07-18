@@ -1,0 +1,193 @@
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  background: transparent; overflow: hidden;
+  font-family: Consolas, "Courier New", monospace;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* First-person gas-mask screen overlay. Fullscreen, behind the bars/banners (z-index 1), never
+   captures input (the view is only focused for the debug menu). Hidden until C++ setMask shows it. */
+#maskOverlay {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+  pointer-events: none; z-index: 1;
+  opacity: 0; transition: opacity .45s ease;
+}
+#maskOverlay.on { opacity: 1; }
+
+/* Low-filter visor fog: condensation from rebreathing through a dying filter. Edge-heavy radial
+   haze + a mild overall film; opacity 0..~0.85 set by updateFilter in radhud.js. */
+#visorFog {
+  position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  opacity: 0; transition: opacity 1.2s ease;
+  background:
+    radial-gradient(ellipse at 50% 55%, rgba(255,255,255,0) 30%, rgba(210,220,220,.45) 75%, rgba(200,210,210,.78) 100%),
+    linear-gradient(rgba(190,200,200,.18), rgba(190,200,200,.18));
+}
+
+/* Gas-mask filter widget: mask icon + charge bar + spare count. Shown only while masked. */
+#filterWidget {
+  position: fixed; left: 22px; bottom: 22px; z-index: 22;
+  display: flex; align-items: center; gap: 9px;
+  opacity: 0; transition: opacity .4s ease; pointer-events: none;
+  font-family: Consolas,"Courier New",monospace;
+}
+#filterWidget.on { opacity: 1; }
+#filterWidget.low { animation: filterPulse 1.1s ease-in-out infinite; }
+@keyframes filterPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+/* icon is a CSS mask tinted by JS (green=full -> red=empty) */
+#filterIcon {
+  width: 36px; height: 36px; flex: none; background-color: #5c9e3a;
+  -webkit-mask-image: url("GasMask.png"); mask-image: url("GasMask.png");
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  filter: drop-shadow(0 0 2px #000);
+}
+#filterBars { display: flex; flex-direction: column; gap: 3px; }
+.fbrow { display: flex; align-items: center; gap: 6px; }
+.flab { width: 38px; flex: none; font-size: 8px; font-weight: bold; letter-spacing: 1px;
+  color: #9aa79a; text-shadow: 0 0 3px #000; }
+.fbg {
+  width: 100px; height: 9px; background: rgba(0,0,0,.7);
+  box-shadow: inset 0 0 4px rgba(0,0,0,.85); position: relative;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  -webkit-clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.fbar { height: 100%; width: 100%; background: #5c9e3a; transition: width .3s linear, background .3s; }
+.fpct { width: 30px; flex: none; text-align: right; font-size: 9px; color: #cdd6cd;
+  text-shadow: 0 0 3px #000, 0 1px 2px #000; }
+#filterFoot { font-size: 8px; letter-spacing: .5px; color: #9aa79a; text-align: right;
+  text-shadow: 0 0 3px #000; padding-right: 30px; }
+
+#emissionBanner {
+  position: fixed; top: 13%; left: 50%; transform: translateX(-50%);
+  font-size: 26px; font-weight: bold; letter-spacing: 4px;
+  opacity: 0; transition: opacity .5s ease;
+  pointer-events: none; white-space: nowrap; z-index: 30;
+}
+#emissionBanner.on  { opacity: 1; }
+
+#emissionBanner.ash-b {
+  color: #c8c2b8;
+  text-shadow: 0 0 6px #fff, 0 0 18px rgba(200,200,190,.7), 0 0 40px rgba(90,90,80,.4);
+  animation: bannerAsh 2.8s ease-in-out infinite;
+}
+@keyframes bannerAsh { 0%,100%{opacity:1;}50%{opacity:.5;} }
+
+#emissionBanner.fire-b {
+  color: #ff8822;
+  text-shadow: 0 0 8px #ff3300, 0 0 20px rgba(255,80,0,.9), 0 0 45px rgba(220,30,0,.55);
+  animation: bannerFire .25s steps(2,end) infinite;
+}
+@keyframes bannerFire { 0%,100%{opacity:1;}50%{opacity:.75;} }
+
+#emissionBanner.sulfur-b {
+  color: #e8f000;
+  text-shadow: 0 0 6px #c8d800, 0 0 16px rgba(200,220,0,.8), 0 0 32px rgba(120,140,0,.4);
+  animation: bannerSulfur 3.5s ease-in-out infinite;
+}
+@keyframes bannerSulfur { 0%,100%{opacity:1;letter-spacing:4px;}50%{opacity:.55;letter-spacing:5px;} }
+
+#emissionBanner.acid-b {
+  color: #00ff55;
+  text-shadow: 0 0 6px #00ee44, 0 0 16px rgba(0,230,55,.8), 0 0 32px rgba(0,150,30,.4);
+  animation: bannerAcid 2s ease-in-out infinite;
+}
+@keyframes bannerAcid { 0%,100%{opacity:1;transform:translateX(-50%) translateY(0);}50%{opacity:.65;transform:translateX(-50%) translateY(3px);} }
+
+#emissionBanner.dust-b {
+  color: #d8b97a;
+  text-shadow: 0 0 6px #b08a3c, 0 0 16px rgba(176,138,60,.8), 0 0 34px rgba(110,82,40,.45);
+  animation: bannerDust 3.2s ease-in-out infinite;
+}
+@keyframes bannerDust { 0%,100%{opacity:1;letter-spacing:4px;}50%{opacity:.6;letter-spacing:6px;} }
+
+#emissionSub {
+  position: fixed; top: calc(13% + 46px); left: 50%; transform: translateX(-50%);
+  font-size: 12px; letter-spacing: 6px; opacity: 0;
+  transition: opacity .5s ease; pointer-events: none;
+  white-space: nowrap; z-index: 30;
+  text-shadow: 0 0 4px #000, 0 0 10px rgba(0,0,0,.8);
+}
+#emissionSub.on { opacity: 0.80; }
+#emissionSub.ash-s    { color: #a0a0a0; }
+#emissionSub.fire-s   { color: #ff9944; animation: bannerFire .25s steps(2,end) infinite; }
+#emissionSub.sulfur-s { color: #c8d400; }
+#emissionSub.acid-s   { color: #44ff88; }
+#emissionSub.dust-s   { color: #d8b97a; }
+
+/* (The vitals HUD block — #hud, .vital, #pbar..#apbar, drag/resize — was excised 2026-07-03;
+   vitals live in PrismaHUD_F4 and the tissue readout is the standalone hud_toxic.html widget.) */
+
+#debugPanel {
+  position: fixed; top: 40px; right: 20px;
+  background: rgba(6,16,8,.96); border: 1px solid rgba(120,200,120,.5);
+  padding: 14px 16px; border-radius: 4px; z-index: 200;
+  display: none; width: 470px; max-height: 92vh; overflow-y: auto;
+  pointer-events: auto;
+  color: #9fe7a0; font-family: Consolas,"Courier New",monospace;
+  font-size: 12px; letter-spacing: 1px;
+  box-shadow: 0 0 14px rgba(40,220,60,.3), inset 0 0 24px rgba(0,40,0,.5);
+}
+
+/* Tabs: RAD MOD | WEATHER */
+#debugPanel .dbg-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+#debugPanel .dbg-tab {
+  flex: 1; background: rgba(12,30,14,.9);
+  border: 1px solid rgba(120,200,120,.35); color: #7fd07f;
+  padding: 7px 6px; cursor: pointer; font-family: inherit;
+  font-size: 11px; letter-spacing: 2px; border-radius: 2px;
+}
+#debugPanel .dbg-tab:hover { background: rgba(40,90,44,.8); }
+#debugPanel .dbg-tab.on {
+  background: rgba(60,140,66,.9); color: #dfffdf;
+  border-color: rgba(150,255,150,.8);
+  box-shadow: 0 0 8px rgba(60,255,90,.45);
+}
+#debugPanel .dbg-pane { display: none; }
+#debugPanel .dbg-pane.on { display: block; }
+
+/* Weather tab: two-column list of force buttons */
+#debugPanel .wthr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px; }
+#debugPanel .wthr-grid button { flex: none; width: 100%; text-align: left; padding: 6px 8px; }
+#debugPanel.on { display: block; }
+#debugPanel::-webkit-scrollbar { width: 7px; }
+#debugPanel::-webkit-scrollbar-thumb { background: #2f9e2f; border-radius: 4px; }
+#debugPanel .dbg-title { font-size: 12px; letter-spacing: 2px; color: #b6ffb6; margin-bottom: 8px; text-shadow: 0 0 6px rgba(40,255,80,.6); }
+#debugPanel .dbg-sec { font-size: 10px; letter-spacing: 2px; color: #7fd07f; margin: 9px 0 4px; border-bottom: 1px solid #1d4d1d; padding-bottom: 2px; }
+#debugPanel .dbg-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+#debugPanel button {
+  flex: 1; background: rgba(20,60,24,.9);
+  border: 1px solid rgba(120,200,120,.4); color: #cdfbcf;
+  padding: 6px 6px; cursor: pointer; font-family: inherit;
+  font-size: 11px; letter-spacing: 1px; border-radius: 2px;
+}
+#debugPanel button:hover { background: rgba(60,120,64,.85); box-shadow: 0 0 6px rgba(60,255,90,.5); }
+#debugPanel button.warn { border-color: rgba(200,100,100,.55); color: #ffd0b0; }
+#debugPanel button.warn:hover { background: rgba(120,50,40,.7); }
+#debugPanel button.close { border-color: #888; color: #ddd; }
+
+/* SPECIAL-penalty diagnostic popup — simple centred panel; shows the full report without corner truncation. */
+#specialPopup {
+  position: fixed; inset: 0; display: none; z-index: 250;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,.5); pointer-events: auto;
+  font-family: Consolas,"Courier New",monospace;
+}
+#specialPopup.on { display: flex; }
+#specialPopupInner {
+  background: rgba(6,16,8,.97); border: 1px solid rgba(120,200,120,.5); border-radius: 4px;
+  padding: 16px 20px; max-width: 60%; min-width: 340px;
+  box-shadow: 0 0 18px rgba(40,220,60,.3), inset 0 0 24px rgba(0,40,0,.5);
+}
+#specialPopupTitle { font-size: 14px; letter-spacing: 2px; color: #b6ffb6; margin-bottom: 10px;
+  text-shadow: 0 0 6px rgba(40,255,80,.6); }
+#specialPopupBody { font-size: 13px; line-height: 1.5; color: #cdfbcf; }
+#specialPopupBody .line { margin-bottom: 6px; }
+#specialPopupClose {
+  margin-top: 14px; background: rgba(20,60,24,.9); border: 1px solid rgba(120,200,120,.4);
+  color: #cdfbcf; padding: 7px 16px; cursor: pointer; font-family: inherit; font-size: 12px;
+  letter-spacing: 1px; border-radius: 2px;
+}
+#specialPopupClose:hover { background: rgba(60,120,64,.85); box-shadow: 0 0 6px rgba(60,255,90,.5); }

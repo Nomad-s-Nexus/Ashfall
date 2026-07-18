@@ -1,0 +1,22 @@
+{
+  "items": {
+    "RadAway": {
+      "baseRadRemoved": 75.0,
+      "radRemovedAtStage900": 0.0,
+      "healingRemoved": false
+    },
+    "RadX": {
+      "baseResistanceBoost": 50.0,
+      "healingRemoved": false
+    },
+    "Alcohol": {
+      "radReducedPerSecond": 0.5,
+      "durationSeconds": 600.0,
+      "healingRemoved": false
+    },
+    "ContaminatedFood": {
+      "baseRadRemoved": 0.0,
+      "healingRemoved": true
+    }
+  }
+}

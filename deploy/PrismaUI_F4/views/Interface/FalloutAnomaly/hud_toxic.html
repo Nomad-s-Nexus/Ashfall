@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rad Overhaul - Toxicity</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none}
+#root{transform-origin:top left;transform:scale(var(--s,1));
+  position:fixed;left:0;top:0;width:200px;height:44px;
+  display:flex;align-items:center;gap:7px;
+  font-family:Consolas,"Courier New",monospace;
+  opacity:0;transition:opacity .3s;
+}
+#root.visible{opacity:1}
+.vicon{
+  width:20px;height:18px;flex:none;background-color:#b07a28;
+  -webkit-mask-image:url("biohazard.png");mask-image:url("biohazard.png");
+  -webkit-mask-size:contain;mask-size:contain;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+  filter:drop-shadow(0 0 2px #000);
+}
+.barwrap{flex:1;position:relative;display:flex;align-items:center}
+.barbg{
+  flex:1;height:12px;background:rgba(0,0,0,.7);overflow:hidden;position:relative;
+  box-shadow:inset 0 0 4px rgba(0,0,0,.85);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  -webkit-clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+}
+.bar{height:100%;width:0%;position:relative;transition:width .25s linear;background:#b07a28}
+.bar::after{content:"";position:absolute;left:0;right:0;top:0;height:40%;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(255,255,255,.16),rgba(255,255,255,0))}
+/* permanent (scarred) tissue overlay — hatched, sits at the right end of the current tissue */
+#tperm{position:absolute;top:0;height:100%;width:0%;left:0%;pointer-events:none;
+  transition:width .25s linear,left .25s linear;
+  background:repeating-linear-gradient(-45deg,rgba(150,30,30,.95) 0px,rgba(150,30,30,.95) 2px,rgba(90,20,20,.6) 2px,rgba(90,20,20,.6) 5px)}
+.val{
+  position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  text-align:center;color:#f2f6f2;font-size:10px;font-weight:bold;letter-spacing:.5px;
+  text-shadow:0 0 3px #000,0 1px 2px #000,0 0 2px #000;
+  opacity:0;transition:opacity .2s ease;pointer-events:none;z-index:5;
+}
+.val.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="vicon" id="icon"></div>
+  <div class="barwrap">
+    <div class="barbg"><div class="bar" id="tFill"></div><div id="tperm"></div></div>
+    <div class="val" id="tNum">0</div>
+  </div>
+</div>
+<script>
+var MAXT=1000;
+var tFill=document.getElementById('tFill');
+var tperm=document.getElementById('tperm');
+var tNum =document.getElementById('tNum');
+var icon =document.getElementById('icon');
+var root =document.getElementById('root');
+var _visState=false;
+var _preview=false;   // HUD-editor preview
+
+function setIconSev(sev){ sev=Math.max(0,Math.min(1,sev)); icon.style.backgroundColor='hsl('+Math.round(120*(1-sev))+',80%,55%)'; }
+
+// Data push from the Rad Mod DLL: {tissue, permanentTissue}
+window.updateToxic=function(json){
+  try{
+    var d=(typeof json==="string")?JSON.parse(json):json;
+    var t=Math.max(0,Math.min(MAXT,+d.tissue||0));
+    var perm=Math.min(t,Math.max(0,+d.permanentTissue||0));
+    tFill.style.width=(t/MAXT*100)+'%';
+    if(perm>0.5){ tperm.style.left=((t-perm)/MAXT*100).toFixed(1)+'%'; tperm.style.width=(perm/MAXT*100).toFixed(1)+'%'; }
+    else { tperm.style.width='0%'; }
+    setIconSev(t/600);                 // tissue climbs toward 600 = worst -> redder
+    tNum.textContent=Math.round(t);
+    tNum.classList.toggle('show',(1-t/600)<=0.75);
+    var show=t>0;
+    if(show!==_visState){ _visState=show;
+      window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show})); }
+    root.classList.toggle('visible',_visState||_preview);
+  }catch(e){}
+};
+
+// HUD editor preview: force-show a sample toxicity reading while positioning.
+window.setEditorPreview=function(json){
+  _preview=(json==='1'||json===1||json===true);
+  if(_preview){ tFill.style.width='35%'; tperm.style.left='0%'; tperm.style.width='0%'; setIconSev(0.58); tNum.textContent='350'; tNum.classList.add('show'); }
+  root.classList.toggle('visible',_visState||_preview);
+};
+
+// PrismaHUD positioning. setHUDPosition gives fractional {x,y,w,h}; apply as pixels.
+var WIDGET_ID='rad_toxic';
+var DEF={xf:30/1920,yf:882/1080,wf:200/1920,hf:44/1080};   // default: just below the rads widget
+var _posSet=false;
+function applyPos(xf,yf,s){
+  var W=window.innerWidth,H=window.innerHeight;
+  if(!(W>1)||!(H>1))return;                       // hidden / not laid out
+  var r=document.getElementById('root');
+  r.style.left=(xf*W)+'px';r.style.top=(yf*H)+'px';r.style.setProperty('--s',s);  // transform:scale reads --s
+  window.reportPosition(JSON.stringify({id:WIDGET_ID,x:xf,y:yf,s:s}));
+}
+window.setHUDPosition=function(json){
+  _posSet=true;
+  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1));}catch(e){}
+};
+// no-op fallbacks if PrismaHUD hasn't injected these (e.g. PrismaHUD absent)
+window.reportPosition   =window.reportPosition   ||function(){};
+window.reportVisibility =window.reportVisibility ||function(){};
+window.requestUpdate    =window.requestUpdate    ||function(){};
+setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1);},50);
+</script>
+</body>
+</html>

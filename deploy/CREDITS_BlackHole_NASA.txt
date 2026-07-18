@@ -1,0 +1,15 @@
+Storm Dome — Black Hole ("Event Horizon" eye)
+=================================================
+The black hole visualization used on the storm-dome eye is derived from a NASA
+public-work visualization, used under NASA's media guidelines (credit required,
+no implied endorsement):
+
+    Credit: NASA's Goddard Space Flight Center/Jeremy Schnittman
+    Source: NASA Scientific Visualization Studio #13326
+            https://svs.gsfc.nasa.gov/13326
+    Reproduction guidelines: https://www.nasa.gov/multimedia/guidelines/
+
+The image was cleaned (annotation labels inpainted out), alpha-matted, and baked
+to textures/FalloutAnomaly/FODomeBlackHole.dds for use as an emissive
+BSEffectShaderProperty-style card (Meshes/KORsMeshes/Anomaly/CloudArena04.nif,
+spawned by FARO_StormDome04).

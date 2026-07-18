@@ -1,0 +1,24 @@
+{
+  "zones": {
+    "GlowingSeaRadiationZone": {
+      "radiationPerSecond": 5.0,
+      "maxRadPerSecond": 50.0,
+      "description": "Glowing Sea — lethal without sealed armor"
+    },
+    "FarHarborRadiationZone": {
+      "radiationPerSecond": 3.0,
+      "maxRadPerSecond": 30.0,
+      "description": "Far Harbor fog"
+    },
+    "WaterRadiationZone": {
+      "radiationPerSecond": 2.0,
+      "maxRadPerSecond": 20.0,
+      "description": "Radioactive water"
+    },
+    "RadstormZone": {
+      "radiationPerSecond": 4.0,
+      "maxRadPerSecond": 40.0,
+      "description": "Active radstorm"
+    }
+  }
+}
