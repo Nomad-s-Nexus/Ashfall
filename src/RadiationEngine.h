@@ -148,7 +148,7 @@ private:
     // the Pipboy PERKS + STATUS tabs. _eslAvailable is false if the ESL is not
     // installed/active, in which case we fall back to the C++ kTemporary penalties.
     static constexpr int kStageCount = 10;       // stages 100..1000
-    // Sane END/STR penalties per stage index (0=Minor .. 9=Ghoulification stage label). These
+    // Sane END/STR penalties per stage index (0=Minor .. 9=Systemic Failure stage label). These
     // intentionally REPLACE the huge thresholds.json endPenalty/strPenalty values (5..100), which
     // floored SPECIAL to 1 every tick and corrupted the base when gear was equipped/unequipped.
     // Kept in lockstep with gen_esl.py's STAGES table (the Pip-Boy perk labels). Applied with a

@@ -122,7 +122,7 @@
       "radAwayEffectiveness": 0.10
     },
     "1000": {
-      "name": "Ghoulification",
+      "name": "Systemic Failure",
       "rangeMin": 1000,
       "rangeMax": 999999,
       "description": "Complete systemic failure - death near",

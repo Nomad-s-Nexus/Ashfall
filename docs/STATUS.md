@@ -13,12 +13,12 @@ advertised. **DECISION** = waiting on the author. **CLEANUP** = internal only.
 
 ## BLOCKER — advertised but not delivered
 
-### 1. Ghoulification capstone does not exist
-`README.md` lists it as a headline feature and `thresholds.json` still names stage 9
-"Ghoulification", but the player-transformation code was removed and nothing replaced it. A player
-reaching stage 9 gets a banner promising a transformation that never occurs.
-Either restore the feature or remove it from `README.md` + the stage label.
-Refs: `src/RadEngine_Internal.h:127`, `deploy/F4SE/Plugins/FalloutAnomaly/thresholds.json:125`
+### ~~1. Ghoulification capstone does not exist~~ — RESOLVED 2026-07-19
+Author's call: drop the feature rather than restore it. The `README.md` bullet (and its reference to
+a non-existent `RadOverhaul_GhoulRace.esp`) is removed, and the top stage is renamed
+**"Systemic Failure"** in both `data/thresholds.json` and the deployed copy — matching that stage's
+own existing description, "Complete systemic failure - death near". Nothing in code keyed on the
+string, so this is label-only; stage count, ranges and penalties are unchanged.
 
 ### 2. Storm dome renders black
 The marquee storm visual. Earlier `SkyrimCloudLUT.dds` diagnosis was retracted. Three untested

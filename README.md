@@ -13,9 +13,6 @@ Author: NomadsReach
   and is NOT cleared by RadAway. **Permanent (scarred) tissue** floors how far tissue can
   heal; only chelation or a doctor clears it.
 - **10-stage severity** (100 to 1000) drives SPECIAL penalties (END/STR) and Pip-Boy stage perks.
-- **Ghoulification capstone.** When scarred tissue passes the threshold the player becomes a
-  ghoul: rad-immune, rads heal you, storms stop harming you, at the cost of CHA -3 / END -2.
-  Optional `RadOverhaul_GhoulRace.esp` adds the playable ghoul appearance.
 - **STALKER-style storms.** Ash Fallout and Rad Firestorm (lethal, shelter-or-die) plus Toxic
   Sulfur Storm and Acid Rain (ambient hazards), with WARNING / ACTIVE / AFTERMATH phases,
   siren + crowcall audio, and shelter detection (powered shelter or roof overhead).
