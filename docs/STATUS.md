@@ -20,10 +20,22 @@ a non-existent `RadOverhaul_GhoulRace.esp`) is removed, and the top stage is ren
 own existing description, "Complete systemic failure - death near". Nothing in code keyed on the
 string, so this is label-only; stage count, ranges and penalties are unchanged.
 
-### 2. Storm dome renders black
-The marquee storm visual. Earlier `SkyrimCloudLUT.dds` diagnosis was retracted. Three untested
-candidates remain: a loose sky-mod DDS override, the CommonwealthDusty imagespace crushing the
-emissive, and backface culling. Refs: `CHANGELOG.md:6`
+### 2. Storm dome renders black — FIXES SHIPPED, awaiting visual confirmation
+Not "root cause unknown" as this file previously said. Fixes landed after the 07-15 changelog entry
+and were recorded in `docs/Prisma/CHANGELOG.md` + commit messages rather than here, which is why
+this doc went stale:
+- **Arena light restored** (`fe6e2aacf`). An earlier pass removed it as pointless; in fact the cloud
+  layers ship with own-emit OFF and effect-lighting ON, so with no light they render as a dark blob.
+  Placed at the NIF's `TopLightNode` height, aimed down, radius 20000.
+- **Dome animation force-started** (`fe6e2aacf`). A natively-placed ACTI ref leaves the clouds'
+  shader float stuck at its initial value; every layer's controller sequence is now activated once
+  its 3D attaches.
+- **Black-hole apex card** (`147ed6689`, 07-17). NASA Goddard/Schnittman texture, card switched from
+  `BSLightingShaderProperty` to an emissive shader.
+
+Remaining: this is a visual judgement only the author can make in-game. Confirm the dome reads
+correctly, then close this item. Note the 07-15 changelog entry in this folder is stale and still
+describes the bug as open.
 
 ### 3. New Gen support is unverified
 `README.md` advertises "(OG and New Gen)". The `PlayerCharacter::Update` vtable index the entire
