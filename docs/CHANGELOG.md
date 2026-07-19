@@ -1,6 +1,34 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-07-19: black storm dome FIXED (confirmed in-game); storm siren logging + debug lead
+
+**Black dome [FIXED — confirmed in-game 2026-07-19].** Closes the Issue 1 left open by pt13 below.
+Three changes, landed across `fe6e2aacf` and `147ed6689`:
+- **Arena light restored.** pt12 removed it as "pointless" after concluding the dome was fogged out
+  rather than unlit. That was half right: the fog fix was real, but the cloud layers ship with
+  own-emit OFF and effect-lighting ON, so with no light they still render as a dark blob. The light
+  is back at the NIF's `TopLightNode` height, aimed straight down, radius 20000.
+- **Dome animation force-started.** A natively-placed ACTI ref leaves the clouds' shader float stuck
+  at its initial value; each layer's controller sequence is now activated once its 3D attaches
+  (async, so polled; one-shot per dome).
+- **Black-hole apex card.** NASA Goddard / Schnittman texture (SVS #13326, credited in `NOTICE.md`),
+  card switched from `BSLightingShaderProperty` to an emissive shader.
+
+None of the three candidate causes pt13 listed (loose sky-mod DDS override, CommonwealthDusty
+imagespace, backface culling) turned out to be it.
+
+**Storm siren.** `PlayStormCue` now logs on success, not only on failure — the siren was reported
+silent for weeks, but the log could not tell "never fired" from "fired fine". It had never been
+*reached*: every logged storm was cut short before the 180 s silent Approach lead elapsed (longest
+uninterrupted run 105 s). Debug-forced storms now use a 10 s lead so testing does not take ~4.5 min;
+natural storms keep `DomeLeadMinutes`. `DebugForceStorm`'s log line printed `full warning (75 s)`
+while silently running the 180 s lead first, and now reports lead + warning + total.
+
+**Docs.** New `STATUS.md` is the single authoritative list of unfinished work; superseded planning
+docs moved to `archive/`. Ghoulification removed from `README.md` and the top stage relabelled
+"Systemic Failure" (the feature's code was deleted earlier but was still advertised).
+
 ## 2026-07-15 (pt13): staged storm onset + dome ObjectBounds; SkyrimCloudLUT diagnosis CORRECTED
 
 **LUT diagnosis corrected (Issue 1 still open).** pt12 blamed the black dome on a "missing"
