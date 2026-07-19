@@ -46,8 +46,13 @@ void RadiationEngine::BeginStorm(int typeIndex)
     // warning for a lead window (DomeLeadMinutes, INI-configurable, default 3 min) with NO siren, NO
     // alert, and NO weather change. Only when that lead elapses does EnterWarningPhase() fire the alarm
     // and begin the dust-sky roll-in + the rest of the storm. This is the APPROACH phase.
+    // A debug-forced storm may shorten the silent lead (_forcedLeadTicks); consume it here so the
+    // NEXT natural storm is back to the configured DomeLeadMinutes.
+    const int leadTicks = (_forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
+    _forcedLeadTicks = -1;
+    _activeLeadTicks = leadTicks;
     logger->warn("========== STORM APPROACHING: {} ({}) — dome-only lead {} s ==========",
-        st.name, st.lethal ? "LETHAL" : "ambient", _domeLeadTicks / 4);
+        st.name, st.lethal ? "LETHAL" : "ambient", leadTicks / 4);
     _sirenDelayTicks = 0;
     _dustBuildupActive = false;   // no weather build-up during the silent lead
     _debugWeatherHold  = false;   // a real storm takes over from any debug-held weather
@@ -56,8 +61,8 @@ void RadiationEngine::BeginStorm(int typeIndex)
     if (!IsPlayerSheltered())
         SpawnStormDome();
 
-    EnterStormPhase(StormPhase::Approach, _domeLeadTicks);
-    logger->info("[StormSeq] t=0 APPROACH begin: dome up, silent. Alarm in {} s.", _domeLeadTicks / 4);
+    EnterStormPhase(StormPhase::Approach, leadTicks);
+    logger->info("[StormSeq] t=0 APPROACH begin: dome up, silent. Alarm in {} s.", leadTicks / 4);
 }
 
 
@@ -1092,7 +1097,7 @@ void RadiationEngine::UpdateStorm()
 
         if (--_stormTicksLeft <= 0)
         {
-            logger->info("[StormSeq] APPROACH complete ({} s elapsed) -> WARNING.", _domeLeadTicks / 4);
+            logger->info("[StormSeq] APPROACH complete ({} s elapsed) -> WARNING.", _activeLeadTicks / 4);
             EnterWarningPhase();
         }
         break;

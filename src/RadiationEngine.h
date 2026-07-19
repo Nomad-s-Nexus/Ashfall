@@ -255,6 +255,10 @@ private:
     float           _stormMaxRealMin   = 90.0f;     // [Storm] MaxMinutes
     double          _vanillaRadstormGapSec = 60.0 * 60.0;  // [Storm] VanillaRadstormGapMinutes
     int             _domeLeadTicks     = 3 * 60 * 4; // [Storm] DomeLeadMinutes — silent dome-only lead before the alarm (default 3 min)
+    // Debug-only lead override, consumed by the next BeginStorm. -1 = use _domeLeadTicks. A forced
+    // storm shortens ONLY the silent lead; warningTicks and everything after stay at real timings.
+    int             _forcedLeadTicks   = -1;
+    int             _activeLeadTicks   = 0;         // lead the in-flight storm actually used (for logging)
     // Post-load storm-FX stop: OnPostLoad runs BEFORE the lazy EnsureEslLoaded, so its
     // TriggerStormFX(false)/ClearStormIMAD calls no-op on the session's FIRST load (quest/IMADs
     // still null) — a save made mid-storm would resume the persisted Papyrus rumble loop forever.

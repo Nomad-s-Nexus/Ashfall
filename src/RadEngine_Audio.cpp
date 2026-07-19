@@ -21,6 +21,7 @@ void RadiationEngine::PlayStormCue()
     {
         _radstormCueHandle.SetStaticAttenuation(kRadstormCueAttenuation);
         _radstormCueHandle.FadeInPlay(kRadstormCueFadeMs);
+        Log()->info("[StormCue] Siren started ('{}').", kStormSoundPath);
     }
     else
     {

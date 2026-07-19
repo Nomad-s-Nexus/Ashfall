@@ -11,6 +11,10 @@ using namespace RadInternal;
 // DEBUG controls (hotkeys + PrismaUI debug menu).
 // ---------------------------------------------------------------------------
 
+// Silent dome-only lead used by DEBUG-forced storms only (10 s at 4 Hz). Real gameplay storms keep
+// the full [Storm] DomeLeadMinutes. Long enough to see the dome come up alone before the siren.
+constexpr int kDebugLeadTicks = 10 * 4;
+
 void RadiationEngine::DebugForceStorm(int typeIndex)
 {
     Log()->warn("[DIAG] DebugForceStorm entry typeIndex={}.", typeIndex);
@@ -29,13 +33,20 @@ void RadiationEngine::DebugForceStorm(int typeIndex)
     _activeStormType = -1;
     _forcedStormType   = typeIndex;
     _forceStormNow     = true;              // next UpdateStorm Idle tick begins it
+    // Debug storms cut the silent dome-only lead to kDebugLeadTicks. The full DomeLeadMinutes lead
+    // is correct for real gameplay but made every test a ~4.5 min wait (lead + warning), which is
+    // why the siren at the end of the lead went unobserved for weeks. Warning/Active/Aftermath below
+    // still run at real timings — only the lead is shortened.
+    _forcedLeadTicks   = kDebugLeadTicks;
     // A debug-forced storm now runs the REAL timings — the full warning, so the onset actually plays
     // out the way it does in-game (dome fades in overhead -> siren goes up -> the storm hits) instead
     // of a compressed 10 s window that made the sequence impossible to judge. It used to force a short
     // warning purely so it was quick to test; that made the debug storm a poor stand-in for the thing
     // it was meant to be testing.
-    Log()->warn("[DEBUG] Force storm '{}' — full warning ({} s), real onset sequence.",
-        kStormTypes[typeIndex].name, kStormTypes[typeIndex].warningTicks / 4);
+    Log()->warn("[DEBUG] Force storm '{}' — lead {} s (debug-shortened) + warning {} s = {} s to impact.",
+        kStormTypes[typeIndex].name, kDebugLeadTicks / 4,
+        kStormTypes[typeIndex].warningTicks / 4,
+        (kDebugLeadTicks + kStormTypes[typeIndex].warningTicks) / 4);
 }
 
 
