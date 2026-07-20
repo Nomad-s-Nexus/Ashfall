@@ -135,6 +135,13 @@ void RadiationEngine::EnterStormPhase(StormPhase phase, int durationTicks)
 {
     _stormPhase     = phase;
     _stormTicksLeft = durationTicks;
+    // Leaving Active ends the shake. The native shake decays on its own once we stop re-triggering
+    // it, so disarming the counters is the whole teardown.
+    if (phase != StormPhase::Active)
+    {
+        _shakeBurstStep  = -1;
+        _shakeRumbleTick = -1;
+    }
 }
 
 
@@ -343,6 +350,59 @@ void RadiationEngine::SpawnStormDome()
     _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
     Log()->info("[StormFX] Native storm dome spawned: {}/4 layers at z+{:.0f}, arena light {}, lens flare {}.",
         placed, kStormDomeZOffset, lit ? "on" : "off", flare ? "on" : "off");
+}
+
+
+// Native camera shake, replacing the RadStormFX Papyrus shake that never fired. See the
+// kShakeCameraID block in RadEngine_Internal.h for the address/signature provenance.
+//
+// WARNING: this runs on the 4Hz Update hook's WORKER thread. The probe in Hooks.cpp settled that
+// there is no main-thread path available here — the update hook, the F4SE AddTask callback and the
+// message handler are three DIFFERENT threads every session, so AddTask does not marshal to main.
+// The 3D/exterior guard below is load-bearing: the native walks spWorldRoot into the camera node's
+// world transform and will null-deref if the worldspace is not up. Do not call it unguarded.
+void RadiationEngine::NativeShakeCamera(float strength, float duration)
+{
+    if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would land elsewhere
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    if (!player || !player->Get3D()) return;
+    auto* cell = player->parentCell;
+    if (!cell || cell->IsInterior()) return;
+
+    if (strength > 1.0f) strength = 1.0f;       // native does not clamp; the Papyrus binding did
+    if (strength <= 0.0f) return;               // native no-ops at <= 0 anyway
+
+    const RE::NiPoint3 pos = player->data.location;
+    REL::Relocation<void (*)(float, const RE::NiPoint3&, float, float)> shakeCamera{ REL::ID(kShakeCameraID) };
+    shakeCamera(strength, pos, duration, kShakeDistanceMult);
+}
+
+
+// Per-tick shake driver for an ACTIVE lethal storm: a decaying burst on the hit, then a low
+// sustained rumble. Mirrors RadStormFX._StartShake/_kRumbleTimer, which never actually ran.
+void RadiationEngine::UpdateStormShake()
+{
+    if (_shakeBurstStep < 0 && _shakeRumbleTick < 0) return;
+    if (IsPlayerSheltered()) return;            // sheltered = no screen FX, same rule as the dome
+
+    if (_shakeBurstStep >= 0)
+    {
+        const float t = static_cast<float>(kStormShakeBurstSteps - _shakeBurstStep) /
+                        static_cast<float>(kStormShakeBurstSteps);
+        NativeShakeCamera(kStormShakeBurstStrength * t, kStormShakeBurstDuration);
+        if (++_shakeBurstStep >= kStormShakeBurstSteps)
+        {
+            _shakeBurstStep  = -1;
+            _shakeRumbleTick = 0;               // hand over to the sustained rumble
+        }
+        return;
+    }
+
+    if (--_shakeRumbleTick <= 0)
+    {
+        _shakeRumbleTick = kStormShakeRumbleTicks;
+        NativeShakeCamera(kStormShakeRumbleStrength, kStormShakeRumbleDuration);
+    }
 }
 
 
@@ -1206,6 +1266,13 @@ void RadiationEngine::UpdateStorm()
     case StormPhase::Active:
     {
         const StormType& st = kStormTypes[_activeStormType];
+
+        // Camera shake for lethal storms, driven natively per tick. Papyrus used to own this via
+        // quest stages 10/11, which never fired (SetStage always false). Armed on the first Active
+        // tick; UpdateStormShake self-gates on shelter and tears down in EnterStormPhase(Idle).
+        if (st.lethal && _shakeBurstStep < 0 && _shakeRumbleTick < 0)
+            _shakeBurstStep = 0;
+        UpdateStormShake();
 
         // Firestorm roll-in: hold off the fog/fire/IMAD + exposure for a few seconds after the
         // nuke so the blast clearly precedes the atmosphere. When the timer elapses, roll it in.

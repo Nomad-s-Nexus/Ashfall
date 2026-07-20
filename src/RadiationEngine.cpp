@@ -302,22 +302,13 @@ void RadiationEngine::Update()
         // (inRadWeather is computed up top with the shelter-eval flags — the roof raycast must be
         // fresh for any FLST rad weather now that choking depends on it.)
 
-        // Fade-back half of the blink: armed by PlayMaskFade, fired a couple of ticks later so the
-        // screen holds on black briefly before returning (mirrors a Papyrus FadeOutGame + Wait).
-        if (_maskFadeBackTicks > 0 && --_maskFadeBackTicks == 0)
-            CallFadeOutGame(false, _maskFadeBackDur);
-
-        // Worn-state transition -> quick "putting on / taking off the mask" screen fade. This follows
-        // the REAL worn state only, NOT the debug override: the override's mask:on must preview the
-        // overlay WITHOUT a fade-to-black, which soft-locked while the debug menu was focused (the
-        // fade-back can't complete). _maskWasOn starts at -1 after each load so an already-worn mask
-        // syncs silently (no fade on load).
+        // Worn-state transition -> mask foley. Follows the REAL worn state only, NOT the debug
+        // override. _maskWasOn starts at -1 after each load so an already-worn mask syncs silently.
         const int maskNow = realMasked ? 1 : 0;
         if (_maskWasOn == -1)
             _maskWasOn = maskNow;
         else if (maskNow != _maskWasOn)
         {
-            PlayMaskFade(realMasked);
             // Draw / withdraw foley riding the same transition (auto-equip included).
             {
                 const bool female = IsPlayerFemale();
@@ -1222,7 +1213,6 @@ void RadiationEngine::OnPostLoad()
     // Re-sync the gas-mask fade tracker so an already-worn mask on load syncs silently (no blink),
     // and cancel any pending fade-back from the previous session.
     _maskWasOn = -1;
-    _maskFadeBackTicks = 0;
 
     // Choking trackers are session-local: reset so a different save doesn't inherit the previous
     // one's grace/hysteresis state (e.g. skipping the 2s grace on its first exposure).

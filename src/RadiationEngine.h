@@ -374,10 +374,6 @@ private:
     // Put-on / take-off screen fade (pure engine, no Prisma, no quest). Tracks the worn-state
     // transition and arms a tick countdown for the fade-back half of the blink.
     int   _maskWasOn        = -1;       // -1 = just loaded (sync silently), 0 = off, 1 = on
-    int   _maskFadeBackTicks = 0;       // >0: 4Hz ticks remaining until the fade-back fires
-    float _maskFadeBackDur  = 0.45f;    // duration of the pending fade-back
-    void  PlayMaskFade(bool putOn);     // fade to black now + arm the fade-back
-    void  CallFadeOutGame(bool fadingOut, float duration);  // Game.FadeOutGame via the script VM
     // Upward roof-fan raycast (sky occlusion) to detect overhead cover, incl. player-built roofs.
     // Throttled by Update (not per tick); result cached in _playerEnclosed, used by IsPlayerSheltered().
     bool ComputeEnclosedByStructure() const;
@@ -422,6 +418,12 @@ private:
     void SpawnStormDome();                          // place the dome layers overhead (exterior only)
     void ClearStormDome();                          // disable + release the dome layers
     void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
+    // Native camera shake (replaces the RadStormFX Papyrus shake, which never fired — SetStage
+    // returned false every time). -1 = inactive for both counters.
+    int  _shakeBurstStep  = -1;                     // >=0: decaying burst step in progress
+    int  _shakeRumbleTick = -1;                     // >=0: ticks until the next sustained rumble
+    void NativeShakeCamera(float strength, float duration);
+    void UpdateStormShake();                        // per-tick burst/rumble driver
 
     // Continuous camera dust for the Dust Storm. The weather referenceEffect
     // (FXCameraAttachExplosionDustVE) produced no visible motes in practice, so we re-apply the dust

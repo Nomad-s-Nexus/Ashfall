@@ -1,5 +1,43 @@
 # Issues Fixed - Storm System
 
+## 2026-07-19 — storm camera shake moved off the dead Papyrus quest to a native call
+
+- **Symptom:** lethal-storm camera shake never happened. Tracked as "storm FX dead on pre-existing
+  saves" and blamed on the quest being dormant.
+- **That diagnosis was wrong, twice over.** The log settles it: **35** `SetStage` calls, **every one**
+  `result=false`, and the "quest was dormant -> enabled natively" branch has fired **zero** times, so
+  the enabled bit was always already set. `EnsureQuestRunning`'s `InitSearchTables()` call is also a
+  no-op here: the `[StormFX/StageDiag]` before/after dumps are byte-identical (`stages.size=5`,
+  table entries at [0][2][3][4][6]), i.e. the stage table was already built. The quest was never
+  dormant and its table was never missing — `SetStage` fails for another reason entirely. It is not
+  "dead on OLD saves"; the Papyrus shake has never run on ANY save.
+- **Fix:** stop depending on the quest. The dome already moved to native C++; the shake now follows.
+  `NativeShakeCamera` calls the engine's own `ShakeCamera` directly, driven per-tick by
+  `UpdateStormShake` (decaying 0.75 burst on the hit, then a 0.12 sustained rumble) to reproduce
+  `RadStormFX._StartShake` / `_kRumbleTimer`.
+- **Address:** Address Library id **758209 -> RVA 0x82DBE0** on 1.10.163, verified against
+  `version-1-10-163-0.bin` and cross-checked against an independent IDA export. Used via `REL::ID`,
+  not a raw offset. Guarded to OG — NG/AE would resolve elsewhere.
+- **Signature, verified by decompiling the Papyrus binding at 0x13C1ED0** (do not guess these):
+  `void ShakeCamera(float mult, const NiPoint3& pos, float duration, float distanceMult)`
+  - `pos` for a `None` source is the **player's position**, not a zero vector — that is what puts the
+    camera inside the falloff radius at full strength.
+  - `distanceMult` **must be 1.0f**. The native special-cases 1.0 as "no distance scaling"; `0.0f`
+    zeroes both falloff radii, so `dist < outer + inner` can never pass (`dist` is a `sqrtf`, never
+    negative) and the shake **silently never plays**. It does not crash — it just does nothing.
+  - `mult` is clamped to [0,1] by the Papyrus binding but **not** by the native, so callers must clamp.
+  - `duration <= 0` is not a no-op; the native substitutes a default duration.
+- **THREADING — the probe result that was outstanding for four sessions.** `[THREADPROBE]` in the log
+  shows three DIFFERENT thread ids every session (e.g. main=27104, update-hook=25548,
+  addtask-cb=24768). **`F4SE::AddTask` does NOT marshal to the main thread in this runtime.** There is
+  no main-thread path from the 4Hz hook. `NativeShakeCamera` therefore runs on the worker thread and
+  is guarded on `Get3D()` + exterior cell, because the native walks `spWorldRoot` into the camera
+  node's world transform and null-derefs if the worldspace is not up. Do not remove that guard. This
+  also means the firestorm-nuke work cannot rely on AddTask either.
+- **NOT yet confirmed in-game.** Built and deployed; needs a forced lethal storm (Ash Fallout or
+  Firestorm) to verify the shake is visible and stops cleanly.
+
+
 Fallen World Rad Overhaul (FalloutAnomalyRadiation F4SE plugin). Log of bugs found, fixed,
 built, and deployed during the storm-system hardening sessions.
 

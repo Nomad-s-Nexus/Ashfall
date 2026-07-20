@@ -1,6 +1,6 @@
 # Fallout Anomaly - Radiation Overhaul
 
-A self-contained radiation overhaul for Fallout 4 (OG and New Gen): F4SE DLL +
+A self-contained radiation overhaul for Fallout 4 (OG / 1.10.163): F4SE DLL +
 `RadiationOverhaul.esp` + optional PrismaUI HUD. References only `Fallout4.esm`
 (plus `DLCCoast` / `DLCNukaWorld` for merged overrides). No other plugin deps.
 

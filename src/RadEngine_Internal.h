@@ -497,6 +497,27 @@ namespace RadInternal
     // KORs' — the stripped plugin has no placed refs and no script places it, so there was never an
     // original offset to copy.
     constexpr float kStormDomeZOffset     = 0.0f;
+    // -----------------------------------------------------------------------
+    // Native camera shake. Replaces the RadStormFX Papyrus shake, which never ran once: SetStage
+    // returned false on all 35 logged attempts, so stages 10/11/12/20 never fired. Address Library
+    // id 758209 -> RVA 0x82DBE0 on 1.10.163 (verified against version-1-10-163-0.bin and an
+    // independent IDA export). Signature confirmed by decompiling the Papyrus binding at 0x13C1ED0:
+    //     void ShakeCamera(float mult, const NiPoint3& pos, float duration, float distanceMult)
+    // distanceMult MUST be 1.0f. The native treats 1.0 as "no distance scaling"; 0.0f instead zeroes
+    // both falloff radii, the `dist < outer + inner` test can then never pass (dist is a sqrtf, never
+    // negative), and the shake silently never plays. Position is the PLAYER's — that is what the
+    // binding passes for a None source, and it puts the camera inside the falloff at full strength.
+    // Strength is NOT clamped by the native (only by the Papyrus binding), so keep these <= 1.0.
+    constexpr std::uint64_t kShakeCameraID       = 758209;
+    constexpr float kShakeDistanceMult           = 1.0f;
+    // Match the old RadStormFX values so the feel is unchanged: a decaying burst on the storm hit,
+    // then a low sustained rumble for as long as the lethal storm is active.
+    constexpr float kStormShakeBurstStrength     = 0.75f;  // psc BurstStrength
+    constexpr int   kStormShakeBurstSteps        = 5;
+    constexpr float kStormShakeBurstDuration     = 0.4f;
+    constexpr float kStormShakeRumbleStrength    = 0.12f;  // psc RumbleStrength
+    constexpr float kStormShakeRumbleDuration    = 0.7f;   // psc RumbleInterval + 0.1
+    constexpr int   kStormShakeRumbleTicks       = 2;      // 0.5 s at 4 Hz; overlaps the 0.7 s duration
     // Arena lights for the effect-LIT cloud shapes. KORs' script does PlaceAtNode on two nodes in the dome
     // NIF; we mirror BOTH at their authored local heights. The glowing-vortex look IS this lighting: the
     // clouds are lit brightest at the eye and fall off outward. (Do NOT bake the clouds self-emissive to

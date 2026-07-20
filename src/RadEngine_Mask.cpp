@@ -74,7 +74,8 @@ void RadiationEngine::SetActorMaskEquipped(RE::Actor* actor, RE::TESObjectARMO* 
     if (!mask || !actor) return;
     // NATIVE equip (no Papyrus). This is reached from the 4Hz Update hook (auto-equip on rad-weather
     // entry, NPC masking), which runs on a worker thread — and dispatching Papyrus from there CTDs
-    // (see CallFadeOutGame). ActorEquipManager is the engine's own equip path, the same one AI actor
+    // (this is why the old screen-fade was removed). ActorEquipManager is the engine's own equip path,
+    // the same one AI actor
     // updates use, so it is safe to call on that thread. Silent (playSounds=false): the mask draw/
     // withdraw foley is played separately off the worn-state transition.
     auto* eqMgr = RE::ActorEquipManager::GetSingleton();
@@ -317,38 +318,3 @@ void RadiationEngine::RepairMask(bool silent)
 }
 
 
-// Call the Papyrus native Game.FadeOutGame from C++ via the script VM (no Prisma, no quest, no
-// attached script). fadingOut=true fades TO black, false fades back; black fade; no pre-delay.
-void RadiationEngine::CallFadeOutGame(bool /*fadingOut*/, float /*duration*/)
-{
-    // DISABLED — the Papyrus `Game.FadeOutGame` screen fade crashed on every mask put-on
-    // (crash-2026-07-06-21-28-51 and -22-08-14: AV in VirtualMachine::DispatchStaticCall, rax=0).
-    // The 4Hz Update hook runs on a JobListManager/BSJobs worker thread, and in this runtime the
-    // F4SE task queue ALSO drains on a worker (Main::UpdateNonRenderSafeAITasks under BSJobs::
-    // JobThread) — so even deferring via AddTask still dispatched Papyrus off the main thread and
-    // crashed identically. Dispatching Papyrus from this path is simply unsafe here.
-    //
-    // The fade is cosmetic (a put-on/off blink); the gas-mask goggle OVERLAY still appears via
-    // RadHud::PushMask with no fade. If the blink is wanted back, do it in the PrismaUI view (a JS
-    // black-flash div in radhud), NOT through the script VM. No-op for now.
-}
-
-
-// Quick screen blink for putting the mask on / taking it off — a lightweight stand-in for a 3D
-// equip animation. Fades to black now and arms the fade-back a couple of 4Hz ticks later, so the
-// screen holds on black briefly then eases back as the goggle overlay settles in.
-void RadiationEngine::PlayMaskFade(bool putOn)
-{
-    if (putOn)
-    {
-        CallFadeOutGame(true, 0.18f);   // fast to black
-        _maskFadeBackTicks = 2;         // ~0.5 s hold at 4 Hz
-        _maskFadeBackDur   = 0.45f;     // then ease back
-    }
-    else
-    {
-        CallFadeOutGame(true, 0.14f);   // shorter blink coming off
-        _maskFadeBackTicks = 1;         // ~0.25 s hold
-        _maskFadeBackDur   = 0.35f;
-    }
-}

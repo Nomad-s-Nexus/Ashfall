@@ -36,20 +36,27 @@ went stale and briefly listed it as an open blocker:
 Nothing remaining. The 07-15 `CHANGELOG.md` entry in this folder describing the bug as open is
 superseded by the 2026-07-19 entry at the top of that file.
 
-### 3. New Gen support is unverified
-`README.md` advertises "(OG and New Gen)". The `PlayerCharacter::Update` vtable index the entire
-4 Hz engine hangs off was never verified on NG — wrong index means silent no-op or crash. Either
-verify it or drop the NG claim from `README.md`. Refs: `CODE_REVIEW_2026-07-03.md:49`
+### ~~3. New Gen support is unverified~~ — RESOLVED 2026-07-19 (claim dropped)
+Author's call: narrow the claim rather than ship an untested one. `README.md` now says
+"OG / 1.10.163". The `PlayerCharacter::Update` vtable index is still unverified on NG, and the mod
+now carries at least one OG-only raw address (the native `ShakeCamera`, guarded by
+`REX::FModule::IsRuntimeOG()`), so NG support would be a real porting task, not a claim to restore.
 
-### 4. Storm screen FX dead on pre-existing saves
-`EnsureQuestRunning` is a no-op, so the storm-FX quest never starts on any save predating it. This
-is broader than the tracked nuke/shake issue (bd `f4se_og-dpd`): *no* stage-driven storm FX fires.
-New games only. Refs: `src/RadiationEngine.cpp:721-724`
+### ~~4. Storm screen FX dead on pre-existing saves~~ — REWRITTEN NATIVE 2026-07-19, needs in-game test
+The premise was wrong: it was never an old-saves problem. `SetStage` failed on **all 35** logged
+attempts, and the "dormant quest" branch never fired once, so the Papyrus shake had never run on ANY
+save. `InitSearchTables()` is a no-op here too (before/after stage-table dumps are identical).
+Fixed by dropping the quest dependency: the shake is now a native `ShakeCamera` call driven per-tick,
+matching the old Papyrus burst/rumble feel. Full write-up incl. verified address, signature and the
+threading result in `ISSUES_FIXED.md`. **Still owed: an in-game test** — force a lethal storm and
+confirm the shake appears and stops cleanly.
 
-### 5. Gas-mask put-on / take-off fade is a stub
-`CallFadeOutGame` is an empty body (Papyrus VM dispatch off the worker thread CTD'd). Everything
-downstream is dead code, and the documented replacement (a JS black-flash div) was never built.
-Refs: `src/RadEngine_Mask.cpp:322`, callers `src/RadiationEngine.cpp:307,320`
+The firestorm **nuke** (bd `f4se_og-dpd`) is still open and still stage-driven; it needs the same
+treatment. Note the threading finding below applies to it.
+
+### ~~5. Gas-mask put-on / take-off fade is a stub~~ — RESOLVED 2026-07-19
+Author's call: no longer wanted. Removed the stub, `PlayMaskFade`, both call sites, the tick-driven
+fade-back and the two members. The goggle overlay is unaffected.
 
 ---
 
