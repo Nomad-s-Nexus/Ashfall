@@ -1,5 +1,40 @@
 # Issues Fixed - Storm System
 
+## 2026-07-19 — firestorm nuke fired natively (it was being PLACED, never DETONATED)
+
+- **Symptom:** the firestorm's distant nuke has never once appeared. Audio-only firestorm.
+- **Two separate causes, both now dead:**
+  1. The native attempt used `CreateReferenceAtLocation`, which creates a *reference* but never runs
+     the engine's detonation logic — the log read `spawned=true immediate3D=false` with nothing
+     on screen. A hazard or static DOES render when merely placed (which is why the fire ring works),
+     and that inconsistency is what sold the wrong diagnosis.
+  2. The fallback routed through Papyrus stage 11 on the belief that `PlaceAtMe` detonates properly
+     and the quest had been repaired. `SetStage` returned false on **all 35** logged attempts, so
+     stage 11 never executed either. See the camera-shake entry below for why the quest is dead.
+- **Fix:** `SpawnDistantNuke` now calls `TESDataHandler::CreateExplosionAtLocation`, the call that
+  actually detonates. Cell is passed **null** deliberately: given a worldspace the engine resolves the
+  cell from the position and returns a null handle when it is not loaded, instead of faulting. That
+  built-in gate is why this is the safe entry point rather than `Explosion::SpawnExplosion`.
+- **Address:** Address Library id **1105815 -> RVA 0x114FE0** on 1.10.163, verified against
+  `version-1-10-163-0.bin` and control-checked by confirming id 500304 -> 0x1140B0 matches
+  CommonLibF4's own `CreateReferenceAtLocation` id. CommonLibF4 has **no** binding for this (it has
+  the `Explosion` class but no spawner), so a raw id is unavoidable. OG-guarded; no NG id resolved.
+- **Signature** (register allocation read off the disassembly — Ghidra folds the hidden return buffer
+  into `param_1`, so its parameter list is WRONG and must not be copied):
+  `ObjectRefHandle CreateExplosionAtLocation(TESDataHandler*, TESBoundObject* base,
+  const NiPoint3& pos, const NiPoint3& rot, TESObjectCELL* cell, TESWorldSpace* world)`
+- **Why calling it off the worker thread is acceptable here — this is conditional, do not generalise.**
+  `Explosion::Initialize` calls `CreateReferenceAtLocation` with no lock, and off-thread reference
+  creation is the real hazard. But it only takes that branch when the EXPL's `PlacedObject` is
+  non-null. `FARO_EmissionStrikeAlpha` (0x885) has **PlacedObject = Null** (verified in the record,
+  along with Damage 0 / Force 0 / SpawnProjectile Null — it is purely cinematic), so the branch is
+  never taken. **If a PlacedObject is ever added to that record, this call must move to a real
+  main-thread hook first.** Guarded on OG runtime + `Get3D()` + non-null worldspace regardless.
+- **NOT yet confirmed in-game.** Needs a forced Rad Firestorm outdoors: expect a distant mushroom
+  cloud plus `[Storm/Nuke] ... detonated=true`. A `detonated=false` line means the engine rejected the
+  target cell as unloaded — that is the gate working, not a crash.
+
+
 ## 2026-07-19 — storm camera shake moved off the dead Papyrus quest to a native call
 
 - **Symptom:** lethal-storm camera shake never happened. Tracked as "storm FX dead on pre-existing

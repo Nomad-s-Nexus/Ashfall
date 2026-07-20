@@ -263,13 +263,21 @@ void RadiationEngine::SpawnFireRing()
 }
 
 
+// One distant, purely cinematic firestorm detonation. Runs on the 4Hz hook's WORKER thread (there is
+// no main-thread path here — see NativeShakeCamera). That is tolerable ONLY because the EXPL record
+// FARO_EmissionStrikeAlpha (0x885) has PlacedObject = Null: Explosion::Initialize only calls
+// CreateReferenceAtLocation when that field is set, and reference creation off-thread is the actual
+// hazard (see the KB's no-scripted-ref-from-worker-hook entry). If a PlacedObject is ever added to
+// that record, this call has to move to a real main-thread hook first.
 void RadiationEngine::SpawnDistantNuke()
 {
+    if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would resolve elsewhere
     if (!_nukeExplosionForm || IsPlayerSheltered()) return;
 
     auto* dh = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player || !player->cachedWorldspace) return;
+    if (!player->Get3D()) return;               // worldspace must actually be up
 
     static std::mt19937 rng{ std::random_device{}() };
     constexpr float kPi = 3.14159265f;
@@ -283,19 +291,25 @@ void RadiationEngine::SpawnDistantNuke()
     const float yaw = player->data.angle.z + yawJitter(rng) * (kPi / 180.0f);
     const float distance = distanceDist(rng);
     const RE::NiPoint3 base = player->GetPosition();
-    RE::NEW_REFR_DATA data;
-    data.object = static_cast<RE::TESBoundObject*>(_nukeExplosionForm);
-    data.location = { base.x + distance * std::sin(yaw),
-                      base.y + distance * std::cos(yaw),
-                      base.z + 1500.0f };  // matches NAC's nuclear-fallout MFX z-offset
-    data.direction = { 0.0f, 0.0f, 0.0f };
-    data.interior = nullptr;
-    data.world = player->cachedWorldspace;
+    const RE::NiPoint3 pos{ base.x + distance * std::sin(yaw),
+                            base.y + distance * std::cos(yaw),
+                            base.z + 1500.0f };   // matches NAC's nuclear-fallout MFX z-offset
+    const RE::NiPoint3 rot{ 0.0f, 0.0f, 0.0f };   // explosions are radial; rotation is irrelevant
 
-    auto handle = dh->CreateReferenceAtLocation(data);
-    const bool has3D = [&]() { auto ptr = handle.get(); return ptr && ptr->Get3D(); }();
-    Log()->info("[Storm/Nuke] single distant firestorm strike spawned={} distance={:.0f} z=+1500 immediate3D={}.",
-        static_cast<bool>(handle), distance, has3D);
+    // DETONATE (not place). See kCreateExplosionAtLocationID for address/signature provenance.
+    // Cell is passed null on purpose: with a worldspace supplied the engine resolves the cell from
+    // the position and returns a null handle if it is not loaded, instead of faulting.
+    using CreateExplosion_t = RE::ObjectRefHandle (*)(RE::TESDataHandler*, RE::TESBoundObject*,
+        const RE::NiPoint3&, const RE::NiPoint3&, RE::TESObjectCELL*, RE::TESWorldSpace*);
+    REL::Relocation<CreateExplosion_t> createExplosion{ REL::ID(kCreateExplosionAtLocationID) };
+    auto handle = createExplosion(dh, static_cast<RE::TESBoundObject*>(_nukeExplosionForm),
+        pos, rot, nullptr, player->cachedWorldspace);
+
+    Log()->info("[Storm/Nuke] distant firestorm strike detonated={} distance={:.0f} z=+1500.",
+        static_cast<bool>(handle), distance);
+    if (!handle)
+        Log()->warn("[Storm/Nuke] null handle — target cell not loaded at that position (engine gate), "
+                    "or the EXPL form failed its type check. No detonation this storm.");
 }
 
 // Spawn the rotating cloud dome overhead. NATIVE (CreateReferenceAtLocation — the same call the fire
@@ -847,29 +861,26 @@ void RadiationEngine::TriggerStormFX(bool on)
     if (_activeStormType >= 0 && _activeStormType < kStormTypeTableSize)
     {
         const StormType& st = kStormTypes[_activeStormType];
-        // FIRESTORM -> stage 11 (Papyrus _SpawnNuke + shake).
-        //
-        // This used to call the native SpawnDistantNuke() and force stage 10 instead. That never
-        // worked: SpawnDistantNuke places an EXPL via CreateReferenceAtLocation, which creates a
-        // *reference* but never runs the engine's DETONATION logic — the log said `spawned=true` while
-        // `immediate3D=false` and nothing ever appeared on screen. A hazard/static renders that way
-        // (which is why the fire ring works), but an explosion has to be FIRED. Papyrus PlaceAtMe on an
-        // EXPL detonates it properly, which is exactly what _SpawnNuke does — so the nuke goes back
-        // through the quest now that the quest itself works (InitSearchTables).
-        //
-        // Stage 11 does not spawn the dome, but that is fine: the dome is already up, faded in at
-        // BeginStorm, and _domeUp guards against a re-spawn.
+        // FIRESTORM nuke — now NATIVE. It used to route through Papyrus stage 11, on the theory that
+        // PlaceAtMe detonates an EXPL properly and the quest had been repaired by InitSearchTables.
+        // Neither half held: SetStage returned false on all 35 logged attempts, so stage 11 never ran
+        // and the nuke never fired by either route. It is fired directly here instead, via
+        // CreateExplosionAtLocation (the call that actually detonates rather than places).
         if (st.themeId == 1 && !_stormNukeFired)
         {
             _stormNukeFired = true;
-            stage = 11;
-            desc = "firestorm: nuke + shake (dome already up from the warning)";
+            SpawnDistantNuke();
+            desc = "firestorm: native nuke + native shake (dome already up from the warning)";
         }
         else if (st.lethal)
-            { stage = 10; desc = "lethal: shake + dome"; }
+            { desc = "lethal: native shake + dome"; }
     }
-    bool ok = _stormFXQuest->SetStage(static_cast<std::uint16_t>(stage));
-    Log()->info("[StormFX] SetStage({}) result={} ({}).", stage, ok, desc);
+    // The stage call is retained ONLY so a user-supplied RadStormFX script can still react if the
+    // quest is ever repaired. Every FX it used to drive (dome, shake, nuke) is native now, so a
+    // false return here is expected and harmless — it is not a failure path.
+    const bool ok = _stormFXQuest->SetStage(static_cast<std::uint16_t>(stage));
+    Log()->debug("[StormFX] SetStage({}) result={} ({}) — informational; FX are native.",
+        stage, ok, desc);
 }
 
 

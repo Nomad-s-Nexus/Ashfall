@@ -71,7 +71,9 @@ Fixed and evidence-backed, but `[StormCue] Siren started` has not yet been obser
 Test: force a storm (debug lead is now 10 s) and check the log. Refs: `ISSUES_FIXED.md`
 
 ### 8. Firestorm missile flyover not implemented
-Only the static distant explosion exists; `Projectile::Launch` was explicitly left out of scope.
+The distant detonation itself now works (native `CreateExplosionAtLocation`, 2026-07-19 — see
+`ISSUES_FIXED.md`). What is still missing is only the *missile arcing overhead* before it;
+`Projectile::Launch` remains out of scope. Cosmetic addition, not a broken feature.
 Refs: `src/RadiationEngine.cpp:736-737`
 
 ### 9. Gas-mask filter ignores time-jumps
