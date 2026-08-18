@@ -121,9 +121,11 @@ void RadiationEngine::UpdateStagePerk(int stageIndex)
 
 void RadiationEngine::ApplyRestTissueHeal(float gameHoursElapsed, float currentRads)
 {
-    // Bulk-apply the reducible-tissue regression for time spent sleeping/waiting/fast-travelling
-    // (the per-tick path can't — the hook was paused). Gated on low rads (matches the awake rule);
-    // never accumulates on rest; HealTissue clamps to the permanent-scar floor.
+    // Bulk-apply the reducible-tissue regression for time spent sleeping/waiting/fast-travelling.
+    // Only the live Update() time-jump path is authoritative. OnPostLoad resets _prevGameDays to -1
+    // before its legacy load-to-load elapsed-time check, so reject that call here: comparing two
+    // different save timestamps does NOT prove the player rested and could grant duplicate/free healing.
+    if (_prevGameDays < 0.0f) return;
     if (!_tissueGlobal || gameHoursElapsed <= 0.0f) return;
     if (currentRads >= kTissueHealBelow) return;
     if (_tissueDamage <= _permanentTissueDamage) return;
@@ -172,6 +174,93 @@ void RadiationEngine::HealPermanentTissue(float amount, const char* source)
 
 void RadiationEngine::CheckActiveCures(float currentRads, float currentHP, bool deltaValid)
 {
+    // The 4 Hz hook pauses through sleep/wait/fast-travel. Keep a pre-jump snapshot here because this
+    // function is called every normal tick; when Update flags deltaValid=false, the snapshot tells us
+    // whether the mask was actually worn and exposed immediately before time jumped. This avoids using
+    // the destination state (which can differ after fast travel) and keeps time-jump drain consistent
+    // with the normal rule: filters drain only while worn and not sheltered/PA/protected.
+    {
+        static bool  s_filterJumpInit = false;
+        static float s_prevFilterGameDays = 0.0f;
+        static bool  s_prevFilterMasked = false;
+        static bool  s_prevFilterExposed = false;
+
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        const float nowDays = GameDays();
+        const bool maskedNow = player && IsWearingGasMask();
+        const bool exposedNow = player && !IsPlayerSheltered() && !IsPlayerInPoweredShelter() &&
+                                !IsPlayerInPowerArmor();
+
+        // A load/new-game resets the cure baselines to -1. Re-seed the time-jump snapshot too so a
+        // different save's game clock or mask state can never be mistaken for elapsed gameplay.
+        const bool reseed = !s_filterJumpInit || _prevRads < 0.0f || _prevHP < 0.0f || nowDays <= 0.0f;
+        if (!reseed && !deltaValid && nowDays > s_prevFilterGameDays &&
+            _filterItem && s_prevFilterMasked && s_prevFilterExposed)
+        {
+            const float gameHours = (nowDays - s_prevFilterGameDays) * 24.0f;
+            float timeScale = 0.0f;
+            if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale)
+                timeScale = cal->timeScale->GetValue();
+
+            if (gameHours > 0.0f && timeScale > 0.0f && _filterDurationSec > 0)
+            {
+                // FO4 timescale is game-seconds / real-second. Convert the skipped game-hours back to
+                // equivalent real seconds, then apply the same percentage-per-real-second drain used by
+                // the live 4 Hz path. Custom timescales therefore stay correct.
+                const float realSeconds = gameHours * 3600.0f / timeScale;
+                const float drainPct = realSeconds * (100.0f / static_cast<float>(_filterDurationSec));
+                if (drainPct > 0.0f)
+                {
+                    const float before = _filterCharge;
+                    int replacementsUsed = 0;
+
+                    if (drainPct < _filterCharge)
+                    {
+                        _filterCharge -= drainPct;
+                    }
+                    else
+                    {
+                        // The current filter was exhausted during the skipped interval. If automatic
+                        // replacement is enabled, consume enough spare filters to simulate the same
+                        // continuous behavior the live tick path would have produced. Otherwise stop at 0.
+                        const float remainingAfterCurrent = drainPct - _filterCharge;
+                        _filterCharge = 0.0f;
+
+                        if (_filterAutoReplace && player)
+                        {
+                            const int spares = FilterItemCount();
+                            const int needed = static_cast<int>(std::floor(remainingAfterCurrent / 100.0f)) + 1;
+                            replacementsUsed = std::min(spares, std::max(0, needed));
+                            if (replacementsUsed > 0)
+                            {
+                                RE::TESObjectREFR::RemoveItemData data(_filterItem, replacementsUsed);
+                                player->RemoveItem(data);
+                                _filterCharge = std::clamp(
+                                    static_cast<float>(replacementsUsed) * 100.0f - remainingAfterCurrent,
+                                    0.0f, 100.0f);
+                            }
+                        }
+                    }
+
+                    _filterLowWarned = 0;  // re-evaluate low/depleted messaging on the next live tick
+                    Log()->info(
+                        "[Filter/TimeJump] {:.1f} game-hours @ timescale {:.1f} = {:.1f}s real; "
+                        "charge {:.1f}% -> {:.1f}% (auto replacements {}).",
+                        gameHours, timeScale, realSeconds, before, _filterCharge, replacementsUsed);
+                }
+            }
+            else if (gameHours > 0.0f && timeScale <= 0.0f)
+            {
+                Log()->warn("[Filter/TimeJump] timescale unavailable/non-positive; skipped filter drain.");
+            }
+        }
+
+        s_filterJumpInit = true;
+        s_prevFilterGameDays = nowDays;
+        s_prevFilterMasked = maskedNow;
+        s_prevFilterExposed = exposedNow;
+    }
+
     // PERMANENT (scarred) tissue: cured ONLY by the chelation compound, detected RELIABLY by a drop
     // in the player's inventory count of that item — NOT by stat deltas. The old delta heuristics
     // false-fired (a big RadAway + stimpak in one tick looked like a "doctor visit" and wiped all
