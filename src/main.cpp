@@ -7,7 +7,6 @@
 #include <RE/C/ControlMap.h>
 #include <thread>
 #include <atomic>
-#include <sstream>
 // Windows AFTER the RE/F4SE headers (REX/W32 hard-errors otherwise). For the Documents log path.
 #include <ShlObj.h>
 #include <KnownFolders.h>
@@ -211,12 +210,6 @@ namespace
         switch (a_msg->type)
         {
         case F4SE::MessagingInterface::kGameDataReady:
-        {
-            // TEMP THREAD PROBE (remove after diagnosis): message handlers run on the MAIN thread — this
-            // is the authoritative main-thread ID to compare the UPDATE-HOOK / ADDTASK-CB probes against.
-            std::ostringstream _tp; _tp << std::this_thread::get_id();
-            logger->warn("[THREADPROBE] MSG-HANDLER (authoritative MAIN) thread={}", _tp.str());
-        }
             logger->info("========== GAME DATA READY EVENT ==========");
             logger->info("Game Version: {}", GameVersionString(g_gameVersion));
             logger->info("Initializing Radiation Engine...");
@@ -293,9 +286,10 @@ namespace
 }
 
 // ---------------------------------------------------------------------------
-// Modern plugin declaration (F4SE NG 1.10.980+ reads this data export).
-// Legacy F4SEPlugin_Query below is retained for OG (1.10.162/163) F4SE, which
-// does not read F4SEPlugin_Version. Both paths converge on F4SEPlugin_Load.
+// Modern plugin declaration is retained because modern F4SE loaders inspect this
+// export before F4SEPlugin_Load. Runtime support is still deliberately OG-only;
+// F4SEPlugin_Load fails closed on NG before any hooks or messaging callbacks are installed.
+// Legacy F4SEPlugin_Query is retained for OG F4SE.
 // ---------------------------------------------------------------------------
 F4SE_PLUGIN_VERSION = []() noexcept {
     F4SE::PluginVersionData data{};
@@ -303,12 +297,12 @@ F4SE_PLUGIN_VERSION = []() noexcept {
     data.PluginName("Fallout Anomaly - Radiation Overhaul");
     data.AuthorName("NomadsReach");
     data.UsesSigScanning(false);
-    data.UsesAddressLibrary(true);    // AE (1.11.137+)
-    data.UsesAddressLibraryNG(true);  // NG (1.10.980 / 1.10.984)
+    data.UsesAddressLibrary(true);
+    data.UsesAddressLibraryNG(true);
     data.HasNoStructUse(false);
-    data.IsLayoutDependent(true);     // AE
-    data.IsLayoutDependentNG(true);   // NG
-    data.CompatibleVersions({});      // empty: rely on Address Library independence
+    data.IsLayoutDependent(true);
+    data.IsLayoutDependentNG(true);
+    data.CompatibleVersions({});
     return data;
 }();
 
@@ -330,18 +324,11 @@ F4SEPlugin_Query(const F4SE::QueryInterface* a_f4se, F4SE::PluginInfo* a_info)
             return false;
         }
 
-        const auto ver = skse->RuntimeVersion();
-
-        // Support both OG (1.10.162+) and New Gen (1.10.980+)
-        if (ver < F4SE::RUNTIME_1_10_162)
-        {
-            return false;
-        }
-
-        // Detect game version for logging
+        // This build is OG-only. The PlayerCharacter::Update vtable slot and raw
+        // native relocations have not been validated for NG, so reject it rather
+        // than letting an unsupported runtime install the hook.
         g_gameVersion = DetectGameVersion(skse);
-
-        return true;
+        return g_gameVersion == GameVersion::OG;
 }
 
 extern "C" __declspec(dllexport) bool F4SEAPI
@@ -349,14 +336,23 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 {
         F4SE::Init(a_f4se);
 
-        // On NG, F4SEPlugin_Query is not called — detect version here so it is
-        // always populated regardless of which load scheme F4SE used.
+        // On NG, F4SEPlugin_Query is not called — detect version here so the same
+        // OG-only guard applies regardless of which loader path F4SE used.
         if (g_gameVersion == GameVersion::Unknown)
         {
             g_gameVersion = DetectGameVersion(a_f4se);
         }
 
         InitializeLogger();
+
+        if (g_gameVersion != GameVersion::OG)
+        {
+            logger->critical(
+                "Unsupported Fallout 4 runtime: {}. This build is OG-only (tested on 1.10.163); "
+                "refusing to install hooks on an unverified runtime.",
+                GameVersionString(g_gameVersion));
+            return false;
+        }
 
         logger->info("F4SEPlugin_Load called");
         logger->info("Initializing plugin infrastructure...");

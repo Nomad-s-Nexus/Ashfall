@@ -1,5 +1,5 @@
 {
-  "_comment": "Rebalanced 2026-06-06. SPECIAL penalties kept small (max SPECIAL is 10). Health drain only ramps at high rad and is per-4Hz-tick percent of max HP (effective %/sec = value x4). Loader reads: name, endPenalty, strPenalty, limbDamagePercent, healthDamagePercent, fastTravelDisabled, radAwayEffectiveness.",
+  "_comment": "Only each stage's name is consumed by the current DLL. endPenalty/strPenalty, limbDamagePercent, healthDamagePercent, fastTravelDisabled, and radAwayEffectiveness are retained as legacy design/reference data and do NOT tune runtime behavior. Runtime SPECIAL penalties are defined in RadiationEngine::kStagePenalties; other mechanics are implemented elsewhere.",
   "stages": {
     "0": {
       "name": "Healthy",
@@ -135,9 +135,7 @@
     }
   },
   "balanceNotes": {
-    "specialPenalties": "Small on purpose - max SPECIAL is 10. END drives max HP, so even -7 END is significant.",
-    "healthDrain": "healthDamagePercent is percent of MAX HP per 4Hz tick. Effective drain/sec = value x 4. 0.30 = ~1.2%/sec.",
-    "limbDamage": "limbDamagePercent is per-tick % chance to apply 1 HP chip damage. Mostly flavor.",
-    "tuning": "Edit these values and restart the game to retune. No rebuild needed."
+    "legacyFields": "All fields except stage name are retained for design/history only in the current build. Editing them does not change runtime behavior.",
+    "runtimeTuning": "Runtime SPECIAL penalties are compiled in RadiationEngine::kStagePenalties. Filter, condition, choking, ambient audio, and storm frequency use FalloutAnomalyRadiation.ini."
   }
 }

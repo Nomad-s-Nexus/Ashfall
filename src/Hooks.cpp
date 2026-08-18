@@ -3,8 +3,6 @@
 #include "RadiationEngine.h"
 
 #include <RE/P/PlayerCharacter.h>
-#include <thread>
-#include <sstream>
 
 namespace Hooks
 {
@@ -43,24 +41,6 @@ namespace Hooks
             if (!a_this || a_this->GetFormID() != 0x14)
             {
                 return;
-            }
-
-            // TEMP THREAD PROBE (remove after diagnosis): settle main-vs-worker for the firestorm-nuke
-            // Explosion spawn. Logs the thread the 4Hz hook runs on AND the thread an F4SE AddTask
-            // callback drains on; compared against the message-handler (authoritative main) thread.
-            static bool s_threadProbed = false;
-            if (!s_threadProbed)
-            {
-                s_threadProbed = true;
-                std::ostringstream o; o << std::this_thread::get_id();
-                if (auto lg = spdlog::get("FalloutAnomaly"))
-                    lg->warn("[THREADPROBE] UPDATE-HOOK thread={}", o.str());
-                if (auto* task = F4SE::GetTaskInterface())
-                    task->AddTask([]() {
-                        std::ostringstream o2; o2 << std::this_thread::get_id();
-                        if (auto lg = spdlog::get("FalloutAnomaly"))
-                            lg->warn("[THREADPROBE] ADDTASK-CB thread={}", o2.str());
-                    });
             }
 
             // Poll hotkeys EVERY frame (not throttled) so a quick Shift+F8 tap or HUD-toggle press

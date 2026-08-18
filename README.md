@@ -11,55 +11,64 @@ Author: NomadsReach
 - **Twofold radiation.** Particulate rads (vanilla Rads AV, cleared by RadAway) plus a
   persistent **tissue damage** pool that survives saves, builds from sustained exposure,
   and is NOT cleared by RadAway. **Permanent (scarred) tissue** floors how far tissue can
-  heal; only chelation or a doctor clears it.
+  heal; the Radiation Chelation Compound clears permanent scarring.
 - **10-stage severity** (100 to 1000) drives SPECIAL penalties (END/STR) and Pip-Boy stage perks.
 - **STALKER-style storms.** Ash Fallout and Rad Firestorm (lethal, shelter-or-die) plus Toxic
-  Sulfur Storm and Acid Rain (ambient hazards), with WARNING / ACTIVE / AFTERMATH phases,
-  siren + crowcall audio, and shelter detection (powered shelter or roof overhead).
-- **Cures.** RadAway (partial), sleep/wait (time-based heal), doctor visits (clears permanent),
-  and a craftable **Radiation Chelation Compound** that clears all permanent tissue.
-- **PrismaUI HUD** (optional, degrades to no-op without the framework): configurable tactical
-  vitals bars + corner notifications for storms.
-- **Sister plugin `RadOverhaul_GearPatch.esp`** buffs the hazmat suit's rad resistance.
+  Sulfur Storm, Acid Rain, and Dust Storm, with APPROACH / WARNING / ACTIVE / AFTERMATH phases,
+  siren audio, shelter detection, storm atmosphere, and native storm FX.
+- **Cures.** RadAway partially heals reducible tissue; sleep/wait/fast-travel can regress reducible
+  tissue over elapsed game time; the craftable **Radiation Chelation Compound** clears permanent
+  scarring.
+- **PrismaUI HUD** (optional, degrades to no-op without the framework): gas-mask visor, storm
+  banners, debug controls, and positionable toxicity/filter widgets through PrismaHUD_F4 when present.
+- **Companion patches.** `RadOverhaul_GearPatch.esp` buffs the hazmat suit's radiation resistance;
+  `RadOverhaulSurPatch.esp` is also included in the deployment package.
 
-See [docs/PROGRESS.md](docs/PROGRESS.md) for the full implemented-systems breakdown and the
+See [docs/PROGRESS.md](docs/PROGRESS.md) for the implemented-systems breakdown and the
 DLL-to-ESP FormID contract.
 
 ## Layout
 
 ```
-Rad Mod/
-├── src/              C++ plugin source (edit here)
-├── xmake.lua         build script -> build/release/FalloutAnomalyRadiation.dll
-├── data/             runtime json the DLL loads
-├── deploy/           deployment package (esp/esl, F4SE.zip, HUD, sound)
-├── icons/ sound/ sound_xwm/  HUD + audio assets
-├── docs/             documentation (see below)
-└── tooling/          record/ESP editing (not part of the DLL build)
-    ├── plugins/      the ESP variants
-    ├── esl_src/ esl_build/   Spriggit source + built output
-    ├── tools/        gen_esl.py, merge_overrides.py, GearPatch generator
-    └── Research/     reference corpus
+Rad-Overhaul-Fallout-4/
+├── src/              C++ F4SE plugin source
+├── data/             runtime configuration loaded by the DLL
+├── deploy/           game-ready package
+│   ├── F4SE/         plugin config/runtime files
+│   ├── PrismaUI_F4/  HUD views and assets
+│   ├── Scripts/      deployed Papyrus sources/compiled scripts
+│   ├── Sound/        runtime audio
+│   ├── Meshes/ materials/ textures/  runtime visual assets
+│   ├── RadiationOverhaul.esp
+│   ├── RadOverhaul_GearPatch.esp
+│   └── RadOverhaulSurPatch.esp
+├── docs/             status, changelog, build notes, and historical investigations
+├── NOTICE.md         third-party notices/credits
+└── xmake.lua         DLL build definition
 ```
 
 ## Build the DLL
 
 ```powershell
-cd "E:\F4SE OG\Projects\Rad Mod"
+cd path\to\Rad-Overhaul-Fallout-4
 xmake
 # output: build\release\FalloutAnomalyRadiation.dll
 ```
 
-Close Fallout 4 before redeploying the DLL (a loaded DLL is file-locked).
+Close Fallout 4 before redeploying the DLL because a loaded DLL is file-locked.
+
+`xmake.lua` can auto-copy a successful build to a live Fallen World mod directory when
+`XSE_FO4_MODS_PATH` is set. Its hardcoded development-path fallback is local convenience only.
 
 ## Build the ESP
 
-See [docs/ESP_BUILD_PIPELINE.md](docs/ESP_BUILD_PIPELINE.md) for the full Spriggit pipeline.
-Tooling lives in `tooling/tools/` (`gen_esl.py`, `merge_overrides.py`, `GearPatch/`).
+See [docs/ESP_BUILD_PIPELINE.md](docs/ESP_BUILD_PIPELINE.md) for the current ESP/Spriggit workflow.
+The historical `tooling/` tree referenced by older notes is not part of the current repository root.
 
 ## Docs
 
+- [docs/STATUS.md](docs/STATUS.md) - release status and known work (verify against current source; some historical entries may be stale)
 - [docs/PROGRESS.md](docs/PROGRESS.md) - implemented systems, pending ideas, FormID contract
-- [docs/ESP_BUILD_PIPELINE.md](docs/ESP_BUILD_PIPELINE.md) - Spriggit build/deploy pipeline
+- [docs/ESP_BUILD_PIPELINE.md](docs/ESP_BUILD_PIPELINE.md) - ESP/Spriggit build pipeline
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated change history
 - [docs/ISSUES_FIXED.md](docs/ISSUES_FIXED.md) - storm-system bug root-cause log
