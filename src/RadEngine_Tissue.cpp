@@ -192,18 +192,75 @@ void RadiationEngine::CheckActiveCures(float currentRads, float currentHP, bool 
         }
     }
 
+    // RadAway's vanilla effect is gradual, so an inventory drop and the meaningful rad delta are not
+    // guaranteed to land on the same 4 Hz tick. Gate the existing delta-based tissue-heal amount behind
+    // a short consumption window instead of treating every unrelated large rad drop as RadAway.
+    // This preserves the current balance (12% of the rads actually removed) while making the trigger
+    // item-specific. Static state is deliberately re-seeded whenever the per-load rad baseline is reset,
+    // so loading a save with a different inventory count cannot look like a consumption event.
+    static RE::TESBoundObject* s_radAwayItem = nullptr;
+    static bool                s_radAwayFormChecked = false;
+    static std::uint32_t       s_prevRadAwayCount = 0;
+    static bool                s_radAwayCountInit = false;
+    static int                 s_radAwayWindowTicks = 0;
+    constexpr int              kRadAwayWindowTicks = 80;  // ~20 s at the 4 Hz engine cadence
+
+    if (!s_radAwayFormChecked)
+    {
+        s_radAwayFormChecked = true;
+        if (auto* dh = RE::TESDataHandler::GetSingleton())
+        {
+            RE::TESForm* f = dh->LookupForm(0x023742, "Fallout4.esm");
+            if (f && f->GetFormType() == RE::ENUM_FORM_ID::kALCH)
+                s_radAwayItem = static_cast<RE::TESBoundObject*>(f);
+            else
+                Log()->warn("[RadAway] Fallout4.esm 0x023742 did not resolve to ALCH; tissue heal disabled.");
+        }
+    }
+
+    if (s_radAwayItem)
+    {
+        if (auto* player = RE::PlayerCharacter::GetSingleton())
+        {
+            const std::uint32_t count = player->GetInventoryObjectCount(s_radAwayItem);
+            if (!s_radAwayCountInit || _prevRads < 0.0f)
+            {
+                s_prevRadAwayCount = count;
+                s_radAwayCountInit = true;
+                s_radAwayWindowTicks = 0;
+            }
+            else
+            {
+                if (count < s_prevRadAwayCount)
+                {
+                    s_radAwayWindowTicks = kRadAwayWindowTicks;
+                    Log()->debug("[RadAway] consumption detected; tissue-heal window armed for ~20 s.");
+                }
+                s_prevRadAwayCount = count;
+            }
+        }
+    }
+
     // The rest is delta-based and must be skipped across a time jump and on the first tick
-    // (-1 sentinels = no previous tick recorded yet).
-    if (!deltaValid) return;
+    // (-1 sentinels = no previous tick recorded yet). A time jump also cancels the RadAway window so
+    // a pre-sleep dose cannot bless an unrelated post-travel rad drop.
+    if (!deltaValid)
+    {
+        s_radAwayWindowTicks = 0;
+        return;
+    }
     if (_prevRads < 0.0f || _prevHP < 0.0f) return;
 
     const float radDrop = _prevRads - currentRads;
     const float hpGain  = currentHP - _prevHP;
 
-    // RadAway: a moderate per-tick rads drop heals REGULAR (reducible) tissue only — low stakes
-    // (it re-accrues), so a delta heuristic is acceptable here. Floors at the permanent level.
-    if (radDrop > 15.0f && hpGain < 20.0f)
-        HealTissue(radDrop * 0.12f, "radaway");
+    if (s_radAwayWindowTicks > 0)
+    {
+        // Keep the existing tissue-heal amount, but only while a real RadAway consumption is recent.
+        if (radDrop > 15.0f && hpGain < 20.0f)
+            HealTissue(radDrop * 0.12f, "radaway");
+        --s_radAwayWindowTicks;
+    }
 }
 
 
