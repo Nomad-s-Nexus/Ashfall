@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "Hooks.h"
 
 using namespace RadInternal;
 
@@ -67,17 +68,12 @@ RE::TESObjectARMO* RadiationEngine::FindInventoryMask() const
 }
 
 
-// Silent equip/unequip of a mask on an actor via the script VM (Actor.EquipItem / UnequipItem).
-// Silent so it carries no "equipped X" message; the player's put-on fade is driven separately.
+// Silent native equip/unequip of a mask on an actor. These calls are made from the verified game-main
+// thread: the 4 Hz radiation tick is marshaled there by Hooks, and any hit-event path that reaches
+// engine state is likewise dispatched there. Silent so the player's put-on fade/foley stays separate.
 void RadiationEngine::SetActorMaskEquipped(RE::Actor* actor, RE::TESObjectARMO* mask, bool equip)
 {
     if (!mask || !actor) return;
-    // NATIVE equip (no Papyrus). This is reached from the 4Hz Update hook (auto-equip on rad-weather
-    // entry, NPC masking), which runs on a worker thread — and dispatching Papyrus from there CTDs
-    // (this is why the old screen-fade was removed). ActorEquipManager is the engine's own equip path,
-    // the same one AI actor
-    // updates use, so it is safe to call on that thread. Silent (playSounds=false): the mask draw/
-    // withdraw foley is played separately off the worn-state transition.
     auto* eqMgr = RE::ActorEquipManager::GetSingleton();
     if (!eqMgr) return;
     RE::BGSObjectInstance instance(static_cast<RE::TESForm*>(mask), nullptr);
@@ -101,8 +97,8 @@ void RadiationEngine::SetMaskEquipped(RE::TESObjectARMO* mask, bool equip)
 // Mask up (or unmask) nearby NPCs for a rad weather. Scans the high-process actor list and, for each
 // eligible NPC, equips the first gas mask it OWNS (mask-agnostic, mouth slot). Ghouls (rad-immune) and
 // power-armor NPCs are skipped. Only NPCs we equipped are unmasked on the way out (tracked by formID),
-// so an NPC that was already wearing a mask is left alone. Main-thread only (4Hz Update hook), so the
-// ProcessLists iteration + VM equip calls are safe.
+// so an NPC that was already wearing a mask is left alone. Main-thread only: ProcessLists iteration,
+// inventory reads, worn-biped reads, and native equip calls all stay on the verified dispatcher path.
 void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 {
     int n = 0;
@@ -111,8 +107,7 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
     {
         // Unmask by the TRACKED set, not the current high-process list: an NPC we masked who
         // unloaded mid-storm (or wandered off) would otherwise keep the auto-equipped mask
-        // permanently. GetFormByID resolves the ACHR whether or not the actor is still loaded;
-        // the VM equip call is safe on unloaded actors.
+        // permanently. GetFormByID resolves the ACHR whether or not the actor is still loaded.
         for (const std::uint32_t id : _autoMaskedNpcs)
         {
             RE::TESForm* form = RE::TESForm::GetFormByID(id);
@@ -278,9 +273,18 @@ void RadiationEngine::ReplaceFilter(bool silent)
 }
 
 
-// Player struck -> the worn mask loses durability. Called by the hit sink (main thread).
+// Player struck -> the worn mask loses durability. TESHitEvent delivery is not treated as a thread-
+// affinity guarantee: if this arrives off the verified game-main thread, marshal it before reading
+// the player's biped state or mutating mask-condition state shared with the 4 Hz update.
 void RadiationEngine::OnPlayerHit()
 {
+    if (!Hooks::IsGameMainThread())
+    {
+        if (!Hooks::QueueMainThreadTask([]() { RadiationEngine::GetSingleton().OnPlayerHit(); }))
+            Log()->error("[Condition] Dropped player-hit mask damage because main-thread dispatch was unavailable.");
+        return;
+    }
+
     if (!_conditionEnabled) return;
     if (_maskCondition <= 0.0f) return;       // already broken
     if (!IsWearingGasMask()) return;          // only a worn mask takes damage

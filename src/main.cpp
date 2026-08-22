@@ -117,6 +117,7 @@ namespace
     }
 
     // --- F4SE co-save callbacks: persist the storm play-clock + schedule across save/load ---
+    // These only serialize the DLL's plain state and do not call game-engine mutation APIs.
     void SaveCallback(const F4SE::SerializationInterface* a_intfc)
     {
         RadiationEngine::GetSingleton().SaveState(a_intfc);
@@ -133,38 +134,54 @@ namespace
     }
 
     std::atomic<bool> g_radWaiting{ false };
+    std::atomic<std::uint64_t> g_radWaitGeneration{ 0 };
 
-    void WaitThenCreateRadHud()
+    bool IsCurrentRadHudWait(std::uint64_t generation)
+    {
+        return g_radWaiting.load(std::memory_order_acquire) &&
+               g_radWaitGeneration.load(std::memory_order_acquire) == generation;
+    }
+
+    void WaitThenCreateRadHud(std::uint64_t generation)
     {
         auto free = std::make_shared<std::atomic<bool>>(false);
         bool wasFree = false;
         auto freeSince = std::chrono::steady_clock::now();
 
-        // Hard cap so the detached thread can never linger indefinitely (e.g. the player quits to
-        // desktop from a loading screen). It cannot fully close the teardown race — F4SE has no
-        // shutdown message to join against — but a bounded lifetime keeps the window tiny.
+        // Hard cap so the detached thread can never linger indefinitely. The generation token also
+        // invalidates every queued probe/CreateView from an older load as soon as kPreLoadGame fires,
+        // so a fast reload cannot revive an old detached waiter when the new load starts its own one.
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::minutes(10);
 
-        while (g_radWaiting.load()) {
+        while (IsCurrentRadHudWait(generation)) {
             if (std::chrono::steady_clock::now() >= deadline) {
-                g_radWaiting = false;
+                if (g_radWaitGeneration.load(std::memory_order_acquire) == generation)
+                    g_radWaiting.store(false, std::memory_order_release);
                 if (logger) logger->warn("FalloutAnomaly: radhud wait thread timed out (10 min) — giving up this load.");
                 break;
             }
-            if (auto* task = F4SE::GetTaskInterface()) {
-                task->AddTask([free]() {
+
+            // Runtime probing proved F4SE AddTask is not a game-main-thread marshal on this setup.
+            // Reset pessimistically before queuing: if the dispatcher is backlogged, a stale TRUE from
+            // the previous probe must not keep advancing the 5-second world-ready hold timer.
+            free->store(false, std::memory_order_release);
+            if (!Hooks::QueueMainThreadTask([free, generation]() {
+                    if (g_radWaitGeneration.load(std::memory_order_acquire) != generation)
+                        return;
                     auto* ui = RE::UI::GetSingleton();
                     auto* cm = RE::ControlMap::GetSingleton();
                     auto* pc = RE::PlayerCharacter::GetSingleton();
                     const bool ctrl = ui && ui->menuMode == 0 && cm && !cm->ignoreKeyboardMouse && pc && pc->parentCell;
-                    free->store(ctrl);
-                });
+                    free->store(ctrl, std::memory_order_release);
+                }))
+            {
+                if (logger) logger->error("FalloutAnomaly: failed to queue radhud world-ready probe on game-main thread.");
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            if (!g_radWaiting.load()) break;
+            if (!IsCurrentRadHudWait(generation)) break;
 
-            if (free->load()) {
+            if (free->load(std::memory_order_acquire)) {
                 if (!wasFree) {
                     wasFree = true;
                     freeSince = std::chrono::steady_clock::now();
@@ -172,10 +189,15 @@ namespace
                     const auto held = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - freeSince).count();
                     if (held >= 5000) { // wait 5 seconds after loading screen
                         if (logger) logger->info("FalloutAnomaly: player is in world, creating radhud view");
-                        if (auto* task = F4SE::GetTaskInterface()) {
-                            task->AddTask([]() { RadHud::GetSingleton().CreateView(); });
+                        if (!Hooks::QueueMainThreadTask([generation]() {
+                                if (g_radWaitGeneration.load(std::memory_order_acquire) == generation)
+                                    RadHud::GetSingleton().CreateView();
+                            }))
+                        {
+                            if (logger) logger->error("FalloutAnomaly: failed to queue radhud CreateView on game-main thread.");
                         }
-                        g_radWaiting = false;
+                        if (g_radWaitGeneration.load(std::memory_order_acquire) == generation)
+                            g_radWaiting.store(false, std::memory_order_release);
                         break;
                     }
                 }
@@ -185,15 +207,15 @@ namespace
         }
     }
 
-    // Spawn the world-ready wait thread if one is not already pending. CreateView() (called by the
-    // thread once the player is in-world) is idempotent - it only builds a view when none is valid -
-    // so a brief overlap across a fast reload is harmless.
+    // Spawn one waiter per load generation. kPreLoadGame invalidates the generation before the next
+    // post-load/new-game event can start another waiter, so detached threads cannot cross load boundaries.
     void StartRadHudWaitIfIdle()
     {
-        if (!g_radWaiting.load())
+        bool expected = false;
+        if (g_radWaiting.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
         {
-            g_radWaiting = true;
-            std::thread(WaitThenCreateRadHud).detach();
+            const auto generation = g_radWaitGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            std::thread(WaitThenCreateRadHud, generation).detach();
         }
     }
 
@@ -205,58 +227,82 @@ namespace
             return;
         }
 
-        logger->debug("[MessageHandler] Processing message type: {}", static_cast<int>(a_msg->type));
+        // The F4SE message callback is not the game main thread on this runtime. It may coordinate
+        // state, but any game-engine access below is queued through Hooks::QueueMainThreadTask.
+        logger->debug("[MessageHandler] Processing message type: {} on thread {}",
+            static_cast<int>(a_msg->type), ::GetCurrentThreadId());
 
         switch (a_msg->type)
         {
         case F4SE::MessagingInterface::kGameDataReady:
             logger->info("========== GAME DATA READY EVENT ==========");
             logger->info("Game Version: {}", GameVersionString(g_gameVersion));
-            logger->info("Initializing Radiation Engine...");
 
-            try
+            // Establish the verified handoff first. If that cannot be installed, fail closed: do not
+            // initialize engine-facing systems or install the worker producer hook.
+            if (!Hooks::InstallMainThreadDispatcher())
             {
-                if (RadiationEngine::GetSingleton().Initialize())
-                {
-                    logger->info("✓ Radiation Engine initialized successfully");
-                    logger->debug("  - Core mechanics loaded");
-                    logger->debug("  - Configuration parsed");
-                    logger->debug("  - State tracker created");
-
-                    logger->info("Installing update hooks...");
-                    Hooks::Install();
-                    logger->info("✓ Hooks installed successfully");
-                    logger->debug("  - PlayerCharacter_Update hook: ACTIVE");
-                    logger->debug("  - Update frequency: 4Hz (every 250ms)");
-
-                    // Acquire the optional PrismaUI HUD API (no-op if not installed).
-                    RadHud::GetSingleton().RequestAPI();
-                }
-                else
-                {
-                    logger->error("✗ FAILED to initialize Radiation Engine");
-                    logger->error("  - Check JSON configuration files");
-                    logger->error("  - Verify data folder exists");
-                    logger->error("  - See detailed logs above");
-                }
+                logger->critical("Failed to establish Fallout 4 main-thread dispatcher; radiation engine will remain inactive.");
+                break;
             }
-            catch (const std::exception& ex)
+
+            if (!Hooks::QueueMainThreadTask([]() {
+                    logger->info("Initializing Radiation Engine on verified game-main thread...");
+                    try
+                    {
+                        if (RadiationEngine::GetSingleton().Initialize())
+                        {
+                            logger->info("✓ Radiation Engine initialized successfully");
+                            logger->debug("  - Core mechanics loaded");
+                            logger->debug("  - Configuration parsed");
+                            logger->debug("  - State tracker created");
+
+                            if (Hooks::InstallUpdateHook())
+                            {
+                                logger->info("✓ PlayerCharacter update producer installed");
+                                logger->debug("  - Per-frame input and 4Hz engine ticks are marshaled to game-main thread");
+                            }
+                            else
+                            {
+                                logger->critical("✗ Update producer hook failed; radiation engine will not tick.");
+                            }
+
+                            // Acquire the optional PrismaUI HUD API from the same verified engine thread.
+                            RadHud::GetSingleton().RequestAPI();
+                        }
+                        else
+                        {
+                            logger->error("✗ FAILED to initialize Radiation Engine");
+                            logger->error("  - Check JSON configuration files");
+                            logger->error("  - Verify data folder exists");
+                            logger->error("  - See detailed logs above");
+                        }
+                    }
+                    catch (const std::exception& ex)
+                    {
+                        logger->error("✗ EXCEPTION during main-thread initialization: {}", ex.what());
+                    }
+                    logger->info("===========================================");
+                }))
             {
-                logger->error("✗ EXCEPTION during initialization: {}", ex.what());
+                logger->critical("Could not queue Radiation Engine initialization on game-main thread.");
             }
-            logger->info("===========================================");
             break;
 
         case F4SE::MessagingInterface::kPostLoadGame:
             logger->info("========== POST LOAD GAME EVENT ==========");
-            RadiationEngine::GetSingleton().OnPostLoad();   // sleep heal before reset
-            RadiationEngine::GetSingleton().ResetAppliedPenalties();
-            StartRadHudWaitIfIdle();
-            logger->info("Game save loaded. Radiation Engine ACTIVE.");
-            logger->debug("  - Player radiation: 0 (reset)");
-            logger->debug("  - Current stage: Safe (0-99 rad)");
-            logger->debug("  - Update loop: RUNNING");
-            logger->info("=========================================");
+            if (!Hooks::QueueMainThreadTask([]() {
+                    auto& engine = RadiationEngine::GetSingleton();
+                    engine.OnPostLoad();
+                    engine.ResetAppliedPenalties();
+                    StartRadHudWaitIfIdle();
+                    logger->info("Game save loaded. Radiation Engine ACTIVE.");
+                    logger->debug("  - Load-state engine mutation completed on game-main thread");
+                    logger->info("=========================================");
+                }))
+            {
+                logger->critical("Failed to queue post-load radiation reset on game-main thread.");
+            }
             break;
 
         case F4SE::MessagingInterface::kPostPostLoad:
@@ -265,16 +311,25 @@ namespace
 
         case F4SE::MessagingInterface::kNewGame:
             logger->info("New game started");
-            RadiationEngine::GetSingleton().OnPostLoad();   // resets prev tracking
-            RadiationEngine::GetSingleton().OnNewGame();    // arm clear-weather-on-first-exterior
-            RadiationEngine::GetSingleton().ResetAppliedPenalties();
-            StartRadHudWaitIfIdle();
-            logger->debug("  - Radiation state reset");
-            logger->debug("  - Update loop: RUNNING");
+            if (!Hooks::QueueMainThreadTask([]() {
+                    auto& engine = RadiationEngine::GetSingleton();
+                    engine.OnPostLoad();   // reset per-load tracking
+                    engine.OnNewGame();    // arm clear-weather-on-first-exterior
+                    engine.ResetAppliedPenalties();
+                    StartRadHudWaitIfIdle();
+                    logger->debug("  - New-game radiation state reset on game-main thread");
+                    logger->debug("  - Update loop: RUNNING");
+                }))
+            {
+                logger->critical("Failed to queue new-game radiation reset on game-main thread.");
+            }
             break;
 
         case F4SE::MessagingInterface::kPreLoadGame:
-            g_radWaiting = false;
+            // Invalidate the current detached waiter and every already-queued probe/CreateView from it
+            // before the next load can start a fresh generation.
+            g_radWaiting.store(false, std::memory_order_release);
+            g_radWaitGeneration.fetch_add(1, std::memory_order_acq_rel);
             logger->info("Game loading...");
             break;
 
