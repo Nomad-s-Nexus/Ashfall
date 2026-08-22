@@ -44,6 +44,13 @@ target("FalloutAnomalyRadiation")
     -- Define common macros
     add_defines("COMMONLIB_RUNTIMECOUNT=3")
 
+    -- Win32 APIs used directly by the DLL plus the standard CommonLibF4 link set.
+    -- Keep these explicit so clang-cl/lld-link cross-builds do not depend on MSVC
+    -- header pragma side effects or transitive links from another target.
+    if is_plat("windows") then
+        add_syslinks("bcrypt", "version", "User32", "Ole32", "OleAut32", "crypt32", "Shell32")
+    end
+
     -- Set output directory
     set_targetdir("build/release")
 

@@ -1,0 +1,102 @@
+name: Rad Overhaul build
+
+on:
+  pull_request:
+    paths:
+      - "Rad-Overhaul-Fallout-4/**"
+      - ".github/workflows/rad-overhaul-build.yml"
+  push:
+    branches:
+      - ci/rad-overhaul-build-validation
+    paths:
+      - "Rad-Overhaul-Fallout-4/**"
+      - ".github/workflows/rad-overhaul-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: rad-overhaul-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows cross-build (clang-cl/xwin)
+    runs-on: [self-hosted, Linux, X64, largepluginmods]
+    env:
+      XWIN_ROOT: ${{ vars.XWIN_ROOT || '/opt/xwin' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout CommonLibF4 dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
+          commonLib="$root/CommonLibF4"
+          rm -rf "$commonLib"
+          git clone --depth 1 --recurse-submodules https://github.com/Dear-Modding-FO4/CommonLibF4.git "$commonLib"
+          echo "COMMONLIBF4_PATH=$commonLib" >> "$GITHUB_ENV"
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "3.0.4"
+
+      - name: Verify xwin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for tool in clang-cl lld-link llvm-ar llvm-rc llvm-dlltool xmake; do
+            command -v "$tool"
+          done
+          for required in \
+            "$XWIN_ROOT/crt/include" \
+            "$XWIN_ROOT/sdk/include/ucrt" \
+            "$XWIN_ROOT/sdk/lib/um/x86_64"; do
+            test -d "$required" || { echo "missing xwin path: $required" >&2; exit 1; }
+          done
+
+      - name: Prepare case-correct xwin import libs
+        shell: bash
+        run: |
+          set -euo pipefail
+          shim="$GITHUB_WORKSPACE/.xwin-libshim"
+          rm -rf "$shim"
+          mkdir -p "$shim"
+          for name in bcrypt version User32 Ole32 OleAut32 crypt32 Shell32; do
+            src="$(find "$XWIN_ROOT/sdk/lib/um/x86_64" -iname "${name}.lib" | head -1)"
+            [ -n "$src" ] || { echo "no staged ${name}.lib found under $XWIN_ROOT" >&2; exit 1; }
+            ln -sf "$src" "$shim/${name}.lib"
+          done
+          echo "XWIN_LIBSHIM=$shim" >> "$GITHUB_ENV"
+
+      - name: Configure (clang-cl / xwin)
+        working-directory: Rad-Overhaul-Fallout-4
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build build-clang .xmake
+          xmake f -F xmake-xwin.lua -p windows -a x64 -m release --builddir=build-clang -y
+
+      - name: Build
+        working-directory: Rad-Overhaul-Fallout-4
+        shell: bash
+        run: xmake build -F xmake-xwin.lua -vD -y
+
+      - name: Report build status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ job.status }}" = "success" ]; then state=success; else state=failure; fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$state" \
+            -f context="RadOverhaul/xmake" \
+            -f description="Windows xmake cross-build (clang-cl/xwin) $state"
