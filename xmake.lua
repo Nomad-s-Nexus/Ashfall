@@ -8,9 +8,10 @@ local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../commonlib_NonVR"
 -- Fail loud if the checkout is not commonlib_NonVR. RE-Work/ is a directory unique to our fork (absent
 -- from Dear-Modding/upstream CommonLibF4), so this stops an unrelated CommonLib silently becoming
 -- authoritative — including a stray ../../CommonLibF4 left over from an older layout.
-assert(os.isdir(path.join(commonlib_path, "RE-Work")),
-    "CommonLib authority check FAILED: '" .. commonlib_path .. "' is not a commonlib_NonVR checkout " ..
-    "(RE-Work/ marker missing). Set COMMONLIBF4_PATH to a PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR clone.")
+if not os.isdir(path.join(commonlib_path, "RE-Work")) then
+    raise("CommonLib authority check FAILED: '" .. commonlib_path .. "' is not a commonlib_NonVR checkout " ..
+        "(RE-Work/ marker missing). Set COMMONLIBF4_PATH to a PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR clone.")
+end
 includes(commonlib_path)
 
 -- Set project
