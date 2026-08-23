@@ -1,0 +1,458 @@
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] FALLOUT ANOMALY - RADIATION OVERHAUL
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] Plugin Version: 1.0
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] Build Date: Aug 24 2026
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] ===========================================
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] F4SEPlugin_Load called
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] Initializing plugin infrastructure...
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [debug]   - Game Version: Original Game (1.10.x)
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [debug]   - Logger: Initialized
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [debug]   - Spdlog Level: DEBUG
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [debug]   - Messaging Interface: OK
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] ✓ Message listener registered successfully
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [debug]   - Will receive: kGameDataReady, kPostLoadGame, kPostPostLoad, kNewGame, kPreLoadGame
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] ✓ Serialization registered — storm clock persists across saves.
+[2026-08-23 18:17:26.978] [FalloutAnomaly] [info] ✓ Plugin loaded successfully. Awaiting game events...
+[2026-08-23 18:17:28.245] [FalloutAnomaly] [debug] [MessageHandler] Processing message type: 0 on thread 384
+[2026-08-23 18:17:28.245] [FalloutAnomaly] [debug] Unhandled message type: 0
+[2026-08-23 18:17:28.246] [FalloutAnomaly] [debug] [MessageHandler] Processing message type: 1 on thread 384
+[2026-08-23 18:17:28.246] [FalloutAnomaly] [info] Post-post load event received
+[2026-08-23 18:18:03.769] [FalloutAnomaly] [debug] [MessageHandler] Processing message type: 10 on thread 640
+[2026-08-23 18:18:03.769] [FalloutAnomaly] [info] ========== GAME DATA READY EVENT ==========
+[2026-08-23 18:18:03.769] [FalloutAnomaly] [info] Game Version: Original Game (1.10.x)
+[2026-08-23 18:18:03.770] [FalloutAnomaly] [info] [MainDispatch] Installed on Fallout 4 game-main thread 384 (current setup thread 640).
+[2026-08-23 18:18:03.775] [FalloutAnomaly] [info] Initializing Radiation Engine on verified game-main thread...
+[2026-08-23 18:18:03.775] [FalloutAnomaly] [info] ========== RADIATION ENGINE INITIALIZATION ==========
+[2026-08-23 18:18:03.775] [FalloutAnomaly] [debug] [1] Getting RadiationConfig singleton...
+[2026-08-23 18:18:03.775] [FalloutAnomaly] [debug]   ✓ RadiationConfig singleton retrieved
+[2026-08-23 18:18:03.775] [FalloutAnomaly] [debug] [2] Loading configuration from: Data/F4SE/Plugins/FalloutAnomaly
+[2026-08-23 18:18:03.775] [FalloutAnomaly] [debug]   ✓ Config directory exists
+[2026-08-23 18:18:03.776] [FalloutAnomaly] [info] Loaded 11 radiation stages from config.
+[2026-08-23 18:18:03.776] [FalloutAnomaly] [info]   ✓ Configuration loaded successfully
+[2026-08-23 18:18:03.776] [FalloutAnomaly] [debug]     - Radiation stage thresholds loaded (thresholds.json)
+[2026-08-23 18:18:03.779] [FalloutAnomaly] [info] [Filter] duration=300s, replaceKey=0x0, autoReplace=false, choke=8.0/s | [Condition] enabled=true, dmg/hit=6.0, repairKey=0x0, autoRepair=false | [Choking] enabled=true, hp/s=1.5, failedMaskFactor=0.50, sounds=true | [Ambient] enabled=true, atten=1650 stormAtten=450 | [Storm] enabled=true, gap=35-90 real min, vanillaRadstormGap=60 min
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] [Condition] Player-hit sink registered (mask takes damage when struck).
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] ✓ RadiationEngine initialized successfully
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] ====================================================
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] ✓ Radiation Engine initialized successfully
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   - Core mechanics loaded
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   - Configuration parsed
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   - State tracker created
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] [Hook] Installing PlayerCharacter::Update producer hook...
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] [Hook] Producer hook installed successfully.
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   Original function address: 0x6FFFF6F8D070
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   Producer cadence: per-frame input + ~4 Hz engine tick
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   Engine execution thread: verified game-main thread 384
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] ✓ PlayerCharacter update producer installed
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [debug]   - Per-frame input and 4Hz engine ticks are marshaled to game-main thread
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] [HUD] PrismaUI_F4 API acquired — radiation HUD enabled.
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] [HUD] PrismaHUD_F4 API acquired — toxicity widget will be positionable in the HUD editor.
+[2026-08-23 18:18:03.780] [FalloutAnomaly] [info] ===========================================
+[2026-08-23 18:18:09.420] [FalloutAnomaly] [debug] [MessageHandler] Processing message type: 9 on thread 640
+[2026-08-23 18:18:09.420] [FalloutAnomaly] [debug] Unhandled message type: 9
+[2026-08-23 18:18:09.421] [FalloutAnomaly] [debug] [MessageHandler] Processing message type: 2 on thread 580
+[2026-08-23 18:18:09.421] [FalloutAnomaly] [info] Game loading...
+[2026-08-23 18:18:09.532] [FalloutAnomaly] [info] [Revert] Storm clock reset (new game / pre-load).
+[2026-08-23 18:18:17.141] [FalloutAnomaly] [info] [Load] Storm clock restored (play=149s, next=5068s, scheduled=true).
+[2026-08-23 18:18:17.141] [FalloutAnomaly] [info] [Load] Gas-mask filter restored (charge 100%, condition 100%).
+[2026-08-23 18:18:17.245] [FalloutAnomaly] [debug] [MessageHandler] Processing message type: 3 on thread 580
+[2026-08-23 18:18:17.245] [FalloutAnomaly] [info] ========== POST LOAD GAME EVENT ==========
+[2026-08-23 18:18:17.246] [FalloutAnomaly] [info] Game save loaded. Radiation Engine ACTIVE.
+[2026-08-23 18:18:17.246] [FalloutAnomaly] [debug]   - Load-state engine mutation completed on game-main thread
+[2026-08-23 18:18:17.246] [FalloutAnomaly] [info] =========================================
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] ========== ESL RESOLUTION (RadiationOverhaul.esp) ==========
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL] TESDataHandler @ 0x1458D0B00
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] 'RadiationOverhaul.esp' present as FULL plugin, mod index 0x9A (intended — loads last, wins conflicts).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[0] raw 0x000820 -> runtime 0x9A000820 "Radiation Sickness (Minor)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[1] raw 0x000821 -> runtime 0x9A000821 "Radiation Sickness (Acute)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[2] raw 0x000822 -> runtime 0x9A000822 "Radiation Sickness (Advanced)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[3] raw 0x000823 -> runtime 0x9A000823 "Radiation Sickness (Critical)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[4] raw 0x000824 -> runtime 0x9A000824 "Radiation Sickness (Severe)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[5] raw 0x000825 -> runtime 0x9A000825 "Radiation Sickness (Extreme)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[6] raw 0x000826 -> runtime 0x9A000826 "Radiation Sickness (Grave)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[7] raw 0x000827 -> runtime 0x9A000827 "Radiation Sickness (Terminal)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[8] raw 0x000828 -> runtime 0x9A000828 "Radiation Sickness (Fatal)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [debug] [ESL]   perk[9] raw 0x000829 -> runtime 0x9A000829 "Radiation Sickness (Ghoulification)"
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Rad-weather FormList (0x802): resolved (auto-mask-equip enabled)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Gas-mask filter (0x803): resolved (filter system enabled)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Gas-mask repair kit (0x804): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Tissue-damage global (0x850) resolved; loaded 0.0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Permanent-tissue global (0x851) resolved; loaded 0.0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm FX quest (0x871): resolved (camera shake via Papyrus stage 10/20)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] ---- dump #1 (BEFORE InitSearchTables) ----
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] quest=0x71456200 flags=0x8019 stages.size=5 stages.data=0x14d51be20 table.ptr=0x178351d20 size=8 mask=0x7 avail=3 lastFree=6
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[0]=0x1715353d0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[1]=0x171535340
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[2]=0x171535310
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[3]=0x171535fa0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[4]=0x1715352e0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[0] next=65535 index=0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[2] next=65535 index=1
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[3] next=65535 index=2
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[4] next=6 index=3
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[6] next=65535 index=4
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] Quest 0x871: InitSearchTables() called — stage table (re)built so SetStage can resolve stages 10/11/12/20.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] ---- dump #2 (AFTER InitSearchTables) ----
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] quest=0x71456200 flags=0x8019 stages.size=5 stages.data=0x14d51be20 table.ptr=0x178351d20 size=8 mask=0x7 avail=3 lastFree=6
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[0]=0x1715353d0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[1]=0x171535340
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[2]=0x171535310
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[3]=0x171535fa0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] stages[4]=0x1715352e0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[0] next=65535 index=0
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[2] next=65535 index=1
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[3] next=65535 index=2
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[4] next=6 index=3
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX/StageDiag] table[6] next=65535 index=4
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] Storm dome ENABLED (RadStormFX.EnableCloudDome=true) — KORs CloudArena layers will spawn with the storm.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Fire hazard (DN121FireHazard 0x1A7C6A): resolved (firestorm ring spawn enabled)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Firestorm distant-strike form (0x885): resolved.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm dome layers (FARO_StormDome01..04): 4/4 resolved; arena light resolved, lens flare resolved.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm weather 'Ash Fallout' (0x840): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFog] 'Ash Fallout' was near=500 far=2000 pow=0.30 hRange=0 hiDens=0.00 -> near=1200 far=4000 pow=0.60 hRange=2000 hiDens=0.30
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] 'Ash Fallout' aurora was 'Sky\RadStormSkyEffect.nif' -> cleared (cleaner sky, matches dust).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Ash Fallout' TransDelta 25 -> 24 (uniform, tunable sky roll-in speed).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Ash Fallout' wind authored: speed=200 turbulence=180 (was dead calm).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Ash Fallout' camera-VE thresholds authored (begin=40 end=100).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm weather 'Rad Firestorm' (0x841): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFog] 'Rad Firestorm' was near=600 far=2500 pow=0.25 hRange=0 hiDens=0.00 -> near=1200 far=4500 pow=0.60 hRange=2000 hiDens=0.25
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] 'Rad Firestorm' aurora was 'Sky\RadStormSkyEffect.nif' -> cleared (cleaner sky, matches dust).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Rad Firestorm' TransDelta 25 -> 24 (uniform, tunable sky roll-in speed).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Rad Firestorm' wind authored: speed=200 turbulence=175 (was dead calm).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Rad Firestorm' camera-VE thresholds authored (begin=40 end=100).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm weather 'Toxic Sulfur Storm' (0x842): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFog] 'Toxic Sulfur Storm' was near=300 far=1200 pow=0.20 hRange=0 hiDens=0.00 -> near=1000 far=3200 pow=0.55 hRange=2000 hiDens=0.20
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] 'Toxic Sulfur Storm' aurora was 'Sky\RadStormSkyEffect.nif' -> cleared (cleaner sky, matches dust).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Toxic Sulfur Storm' TransDelta 25 -> 24 (uniform, tunable sky roll-in speed).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Toxic Sulfur Storm' wind authored: speed=150 turbulence=140 (was dead calm).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Toxic Sulfur Storm' camera-VE thresholds authored (begin=40 end=100).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm weather 'Acid Rain' (0x843): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFog] 'Acid Rain' was near=500 far=2500 pow=0.45 hRange=15000 hiDens=0.98 -> near=1400 far=6000 pow=0.65 hRange=2000 hiDens=0.45
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Acid Rain' TransDelta 25 -> 24 (uniform, tunable sky roll-in speed).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Acid Rain' wind authored: speed=135 turbulence=130 (was dead calm).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Acid Rain' camera-VE thresholds authored (begin=40 end=100).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm weather 'Dust Storm' (0x844): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFog] 'Dust Storm' was near=700 far=2600 pow=0.55 hRange=0 hiDens=0.00 -> near=150 far=5000 pow=0.30 hRange=3000 hiDens=0.90
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] Dust Storm camera-dust VisualEffect attached (FXCameraAttachExplosionDustVE).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] Dust wall-arrival burst art: resolved.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] Dust Storm imagespaces repointed to CommonwealthDusty brown grades: 8/8.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFX] 'Dust Storm' aurora was 'Sky\RadStormSkyEffect.nif' -> cleared (cleaner sky, matches dust).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Dust Storm' ThunderFreq was 0 (engine div-by-zero in Sky::UpdateSound) -> set 100.
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Dust Storm' TransDelta 25 -> 24 (uniform, tunable sky roll-in speed).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Dust Storm' wind authored: speed=220 turbulence=200 (was dead calm).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [StormFix] 'Dust Storm' camera-VE thresholds authored (begin=40 end=100).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Commonwealth clear weather (0x0002B52A): resolved (new-game clear-weather safety)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Dust-storm weathers (GMW + vanilla): 1 resolved (suppressed at new-game startup).
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm system gate global (0x852): resolved (storms enabled)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Force-storm debug global (0x853): resolved ('set RadOverhaul_ForceStorm to 1-5')
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm IMAD 'Ash Fallout' (0x880): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm IMAD 'Rad Firestorm' (0x881): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm IMAD 'Toxic Sulfur Storm' (0x882): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm IMAD 'Acid Rain' (0x883): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Storm IMAD 'Dust Storm' (0x884): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Feral ghoul leveled list (LCharFeralGhoul 0x0758AE): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Glowing One leveled list (LCharFeralGhoulGlowingOne 0x0D39EE): resolved
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] ActorTypeGhoul keyword (0x013794): resolved (ghoul NPCs healed, not harmed, by storms)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] ArmorTypePower keyword (0x4D8A1): resolved (full PA suit fully blocks rads)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] Chelation compound (0x860): resolved (permanent-tissue cure)
+[2026-08-23 18:18:24.529] [FalloutAnomaly] [info] [ESL] WorkshopNPC faction (0x000337F3): resolved (settlers spared from storm peak)
+[2026-08-23 18:18:24.530] [FalloutAnomaly] [info] [ESL] SUCCESS: 10/10 stage perks resolved. Pipboy PERKS/STATUS path ACTIVE.
+[2026-08-23 18:18:24.530] [FalloutAnomaly] [info] ==========================================
+[2026-08-23 18:18:24.530] [FalloutAnomaly] [info] [Radstorm] Shelter->exposed transition — radstorm grace armed (240 ticks).
+[2026-08-23 18:18:29.766] [FalloutAnomaly] [info] FalloutAnomaly: player is in world, creating radhud view
+[2026-08-23 18:18:29.780] [FalloutAnomaly] [info] [HUD] Blocking-menu sink registered (pause menu + message boxes close the debug menu).
+[2026-08-23 18:18:29.783] [FalloutAnomaly] [info] [HUD] Radiation overlay view created (handle 27).
+[2026-08-23 18:18:29.785] [FalloutAnomaly] [info] [HUD] Toxicity widget view created (handle 28).
+[2026-08-23 18:18:29.789] [FalloutAnomaly] [info] [HUD] Filter widget view created (handle 29).
+[2026-08-23 18:18:29.849] [FalloutAnomaly] [warning] [RadHud] ToggleDebugMenu: PrismaUI view unavailable.
+[2026-08-23 18:18:30.454] [FalloutAnomaly] [info] [HUD] Debug menu opened.
+[2026-08-23 18:18:32.809] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:18:33.861] [FalloutAnomaly] [debug] [Hook] Produced 36 4 Hz engine ticks; execution is marshaled to game-main thread 384.
+[2026-08-23 18:18:34.204] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1209AF'
+[2026-08-23 18:18:34.379] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1209AF'
+[2026-08-23 18:18:34.379] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1209AF applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:35.057] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1CC186'
+[2026-08-23 18:18:35.151] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1CC186'
+[2026-08-23 18:18:35.151] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1CC186 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:35.579] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1F61A1'
+[2026-08-23 18:18:35.689] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1F61A1'
+[2026-08-23 18:18:35.689] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1F61A1 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:36.129] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1E5E60'
+[2026-08-23 18:18:36.222] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1E5E60'
+[2026-08-23 18:18:36.222] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1E5E60 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:36.824] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|12A18E'
+[2026-08-23 18:18:36.993] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|12A18E'
+[2026-08-23 18:18:36.993] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x12A18E applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:37.545] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1C3473'
+[2026-08-23 18:18:37.777] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1C3473'
+[2026-08-23 18:18:37.777] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1C3473 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:38.138] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1E5E60'
+[2026-08-23 18:18:38.300] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1E5E60'
+[2026-08-23 18:18:38.300] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1E5E60 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:39.245] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1E5E60'
+[2026-08-23 18:18:39.323] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1E5E60'
+[2026-08-23 18:18:39.323] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1E5E60 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:39.842] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|1F61A1'
+[2026-08-23 18:18:39.849] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|1F61A1'
+[2026-08-23 18:18:39.849] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x1F61A1 applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:41.140] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:18:42.004] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|02B52A'
+[2026-08-23 18:18:42.174] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|02B52A'
+[2026-08-23 18:18:42.174] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x02B52A applied INSTANTLY (veto hold ON).
+[2026-08-23 18:18:44.886] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'mask:on'
+[2026-08-23 18:18:45.010] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'mask:on'
+[2026-08-23 18:18:46.336] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'mask:off'
+[2026-08-23 18:18:46.587] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'mask:off'
+[2026-08-23 18:18:49.442] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:18:53.184] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:0'
+[2026-08-23 18:18:53.393] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:0'
+[2026-08-23 18:18:53.393] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=0 (count=5).
+[2026-08-23 18:18:53.393] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:18:53.393] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:18:53.393] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:18:53.395] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:18:54.400] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:18:55.444] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:18:56.468] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:18:56.755] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:clear'
+[2026-08-23 18:18:56.987] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:clear'
+[2026-08-23 18:18:57.739] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:18:58.194] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:clear'
+[2026-08-23 18:18:58.246] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:clear'
+[2026-08-23 18:18:59.072] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:1'
+[2026-08-23 18:18:59.301] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:1'
+[2026-08-23 18:18:59.301] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=1 (count=5).
+[2026-08-23 18:18:59.301] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:18:59.301] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:18:59.301] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:18:59.301] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:18:59.983] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:2'
+[2026-08-23 18:19:00.074] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:2'
+[2026-08-23 18:19:00.074] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=2 (count=5).
+[2026-08-23 18:19:00.074] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:19:00.074] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:19:00.074] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:19:00.322] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:01.091] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:3'
+[2026-08-23 18:19:01.096] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:3'
+[2026-08-23 18:19:01.096] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=3 (count=5).
+[2026-08-23 18:19:01.096] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:19:01.096] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:19:01.096] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:19:01.357] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:01.882] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:4'
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:4'
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=4 (count=5).
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [warning] [DIAG]   Dust preview armed (engine-native smooth transition, from 0x9A000843).
+[2026-08-23 18:19:01.889] [FalloutAnomaly] [info] [RollDiag] pct=0.00 lastWeather=set (engine-native transition)
+[2026-08-23 18:19:02.412] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:02.673] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:clear'
+[2026-08-23 18:19:02.678] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:clear'
+[2026-08-23 18:19:03.363] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:clear'
+[2026-08-23 18:19:03.458] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:clear'
+[2026-08-23 18:19:03.709] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:clear'
+[2026-08-23 18:19:03.717] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:clear'
+[2026-08-23 18:19:03.973] [FalloutAnomaly] [debug] [Hook] Produced 152 4 Hz engine ticks; execution is marshaled to game-main thread 384.
+[2026-08-23 18:19:04.096] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:clear'
+[2026-08-23 18:19:04.242] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:clear'
+[2026-08-23 18:19:06.069] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|02B52A'
+[2026-08-23 18:19:06.095] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|02B52A'
+[2026-08-23 18:19:06.095] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x02B52A applied INSTANTLY (veto hold ON).
+[2026-08-23 18:19:06.095] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:08.480] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'storm:0'
+[2026-08-23 18:19:08.668] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'storm:0'
+[2026-08-23 18:19:08.668] [FalloutAnomaly] [warning] [DIAG] DebugForceStorm entry typeIndex=0.
+[2026-08-23 18:19:08.668] [FalloutAnomaly] [warning] [DEBUG] Force storm 'Ash Fallout' — lead 10 s (debug-shortened) + warning 90 s = 100 s to impact.
+[2026-08-23 18:19:08.668] [FalloutAnomaly] [warning] ========== STORM APPROACHING: Ash Fallout (LETHAL) — dome-only lead 10 s ==========
+[2026-08-23 18:19:08.670] [FalloutAnomaly] [info] [StormFX] Native storm dome spawned: 4/4 layers at z+0, arena light on, lens flare on.
+[2026-08-23 18:19:08.670] [FalloutAnomaly] [info] [StormSeq] t=0 APPROACH begin: dome up, silent. Alarm in 10 s.
+[2026-08-23 18:19:08.933] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [info] [StormFX] Dome animation activated on 1 layer(s).
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] player pos=(-79171,90421,7828) cell=0x16BB6D2D0
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] [0] base=0x9A000805 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-79171,90421,7828) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] [1] base=0x9A000806 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-79171,90421,7828) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] [2] base=0x9A000807 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-79171,90421,7828) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] [3] base=0x9A000808 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-79171,90421,7828) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] [4] base=0x9A000889 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-79171,90421,17828) dz=10000 deleted=no disabled=no
+[2026-08-23 18:19:08.935] [FalloutAnomaly] [warning] [DomeDump] [5] base=0x9A00088A 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-79171,90421,15628) dz=7800 deleted=no disabled=no
+[2026-08-23 18:19:09.957] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:11.051] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:12.192] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:13.244] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:14.294] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:14.544] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:15.315] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:16.252] [FalloutAnomaly] [info] [HUD] Debug menu closed.
+[2026-08-23 18:19:16.360] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:16.747] [FalloutAnomaly] [info] [HUD] Debug menu opened.
+[2026-08-23 18:19:17.171] [FalloutAnomaly] [info] [HUD] Debug menu closed.
+[2026-08-23 18:19:17.413] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:17.551] [FalloutAnomaly] [info] [HUD] Debug menu opened.
+[2026-08-23 18:19:18.438] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:19.218] [FalloutAnomaly] [info] [StormSeq] APPROACH complete (10 s elapsed) -> WARNING.
+[2026-08-23 18:19:19.219] [FalloutAnomaly] [info] [StormCue] Siren started ('Sound\FalloutAnomaly\ambient\psi_storm_siren.xwm').
+[2026-08-23 18:19:19.219] [FalloutAnomaly] [info] [StormSeq] WARNING begin: alarm + alert fired.
+[2026-08-23 18:19:19.483] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:19.963] [FalloutAnomaly] [info] [HUD] Debug menu closed.
+[2026-08-23 18:19:20.549] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:21.613] [FalloutAnomaly] [debug] [Shelter] roof-fan 1/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:22.646] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:22.912] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:23.690] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:24.727] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:25.786] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:26.820] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:27.518] [FalloutAnomaly] [info] [HUD] Debug menu opened.
+[2026-08-23 18:19:27.840] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:28.865] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:29.887] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:29.929] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'endstorm'
+[2026-08-23 18:19:30.151] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'endstorm'
+[2026-08-23 18:19:30.151] [FalloutAnomaly] [info] [StormFX] Storm dome cleared (6 layers).
+[2026-08-23 18:19:30.154] [FalloutAnomaly] [info] [Storm] Next storm in ~52 real min of play (at 3333s, now 212s).
+[2026-08-23 18:19:30.154] [FalloutAnomaly] [info] [DEBUG] Storm force-ended; weather released, phase reset to Idle.
+[2026-08-23 18:19:31.180] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:34.030] [FalloutAnomaly] [debug] [Hook] Produced 267 4 Hz engine ticks; execution is marshaled to game-main thread 384.
+[2026-08-23 18:19:36.624] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:4'
+[2026-08-23 18:19:36.830] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:4'
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=4 (count=5).
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [warning] [DIAG]   Dust preview armed (engine-native smooth transition, from 0x02B52A).
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:36.831] [FalloutAnomaly] [info] [RollDiag] pct=0.00 lastWeather=set (engine-native transition)
+[2026-08-23 18:19:37.861] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:38.894] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:38.894] [FalloutAnomaly] [info] [RollDiag] pct=0.03 lastWeather=set (engine-native transition)
+[2026-08-23 18:19:39.393] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:39.907] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:40.927] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:40.927] [FalloutAnomaly] [info] [RollDiag] pct=0.07 lastWeather=set (engine-native transition)
+[2026-08-23 18:19:41.978] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:43.055] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:43.055] [FalloutAnomaly] [info] [RollDiag] pct=0.10 lastWeather=set (engine-native transition)
+[2026-08-23 18:19:44.100] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:45.146] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:45.146] [FalloutAnomaly] [info] [RollDiag] pct=0.14 lastWeather=set (engine-native transition)
+[2026-08-23 18:19:46.091] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'storm:1'
+[2026-08-23 18:19:46.160] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'storm:1'
+[2026-08-23 18:19:46.160] [FalloutAnomaly] [warning] [DIAG] DebugForceStorm entry typeIndex=1.
+[2026-08-23 18:19:46.160] [FalloutAnomaly] [warning] [DEBUG] Force storm 'Rad Firestorm' — lead 10 s (debug-shortened) + warning 90 s = 100 s to impact.
+[2026-08-23 18:19:46.160] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:46.160] [FalloutAnomaly] [warning] ========== STORM APPROACHING: Rad Firestorm (LETHAL) — dome-only lead 10 s ==========
+[2026-08-23 18:19:46.161] [FalloutAnomaly] [info] [StormFX] Native storm dome spawned: 4/4 layers at z+0, arena light on, lens flare on.
+[2026-08-23 18:19:46.161] [FalloutAnomaly] [info] [StormSeq] t=0 APPROACH begin: dome up, silent. Alarm in 10 s.
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [info] [StormFX] Dome animation activated on 1 layer(s).
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] player pos=(-80047,89736,7815) cell=0x16BB6EA30
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] [0] base=0x9A000805 3D=YES cell=0x16BB6EA30 sameCellAsPlayer=yes pos=(-80047,89736,7815) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] [1] base=0x9A000806 3D=YES cell=0x16BB6EA30 sameCellAsPlayer=yes pos=(-80047,89736,7815) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] [2] base=0x9A000807 3D=YES cell=0x16BB6EA30 sameCellAsPlayer=yes pos=(-80047,89736,7815) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] [3] base=0x9A000808 3D=YES cell=0x16BB6EA30 sameCellAsPlayer=yes pos=(-80047,89736,7815) dz=0 deleted=no disabled=no
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] [4] base=0x9A000889 3D=YES cell=0x16BB6EA30 sameCellAsPlayer=yes pos=(-80047,89736,17815) dz=10000 deleted=no disabled=no
+[2026-08-23 18:19:46.426] [FalloutAnomaly] [warning] [DomeDump] [5] base=0x9A00088A 3D=YES cell=0x16BB6EA30 sameCellAsPlayer=yes pos=(-80047,89736,15615) dz=7800 deleted=no disabled=no
+[2026-08-23 18:19:47.219] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:47.738] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:48.258] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:49.242] [FalloutAnomaly] [info] [HUD] Debug menu closed.
+[2026-08-23 18:19:49.291] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:50.370] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:51.396] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:52.422] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:53.474] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:54.499] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:55.543] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:56.063] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:19:56.585] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:56.585] [FalloutAnomaly] [info] [StormSeq] APPROACH complete (10 s elapsed) -> WARNING.
+[2026-08-23 18:19:56.585] [FalloutAnomaly] [info] [StormCue] Siren started ('Sound\FalloutAnomaly\ambient\psi_storm_siren.xwm').
+[2026-08-23 18:19:56.585] [FalloutAnomaly] [info] [StormSeq] WARNING begin: alarm + alert fired.
+[2026-08-23 18:19:57.626] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:58.657] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:19:59.669] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:00.792] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:01.832] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:07.174] [FalloutAnomaly] [debug] [Hook] Produced 378 4 Hz engine ticks; execution is marshaled to game-main thread 384.
+[2026-08-23 18:20:07.174] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:08.206] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:08.725] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:20:09.251] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:10.301] [FalloutAnomaly] [debug] [Shelter] roof-fan 1/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:11.335] [FalloutAnomaly] [info] [HUD] Debug menu opened.
+[2026-08-23 18:20:11.335] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:12.439] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:13.448] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'endstorm'
+[2026-08-23 18:20:13.454] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'endstorm'
+[2026-08-23 18:20:13.454] [FalloutAnomaly] [info] [StormFX] Storm dome cleared (6 layers).
+[2026-08-23 18:20:13.454] [FalloutAnomaly] [info] [Storm] Next storm in ~44 real min of play (at 2874s, now 249s).
+[2026-08-23 18:20:13.454] [FalloutAnomaly] [info] [DEBUG] Storm force-ended; weather released, phase reset to Idle.
+[2026-08-23 18:20:14.619] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'endstorm'
+[2026-08-23 18:20:14.773] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'endstorm'
+[2026-08-23 18:20:14.773] [FalloutAnomaly] [info] [Storm] Next storm in ~40 real min of play (at 2660s, now 250s).
+[2026-08-23 18:20:14.774] [FalloutAnomaly] [info] [DEBUG] Storm force-ended; weather released, phase reset to Idle.
+[2026-08-23 18:20:14.963] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'endstorm'
+[2026-08-23 18:20:15.025] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'endstorm'
+[2026-08-23 18:20:15.025] [FalloutAnomaly] [info] [Storm] Next storm in ~50 real min of play (at 3250s, now 251s).
+[2026-08-23 18:20:15.025] [FalloutAnomaly] [info] [DEBUG] Storm force-ended; weather released, phase reset to Idle.
+[2026-08-23 18:20:16.073] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'forceweather:Fallout4.esm|02B52A'
+[2026-08-23 18:20:16.320] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'forceweather:Fallout4.esm|02B52A'
+[2026-08-23 18:20:16.320] [FalloutAnomaly] [warning] [DIAG] forceweather: Fallout4.esm 0x02B52A applied INSTANTLY (veto hold ON).
+[2026-08-23 18:20:17.105] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:20:20.067] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'storm:1'
+[2026-08-23 18:20:20.235] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'storm:1'
+[2026-08-23 18:20:20.235] [FalloutAnomaly] [warning] [DIAG] DebugForceStorm entry typeIndex=1.
+[2026-08-23 18:20:20.235] [FalloutAnomaly] [warning] [DEBUG] Force storm 'Rad Firestorm' — lead 10 s (debug-shortened) + warning 90 s = 100 s to impact.
+[2026-08-23 18:20:20.235] [FalloutAnomaly] [warning] ========== STORM APPROACHING: Rad Firestorm (LETHAL) — dome-only lead 10 s ==========
+[2026-08-23 18:20:20.236] [FalloutAnomaly] [info] [StormFX] Native storm dome spawned: 4/4 layers at z+0, arena light on, lens flare on.
+[2026-08-23 18:20:20.236] [FalloutAnomaly] [info] [StormSeq] t=0 APPROACH begin: dome up, silent. Alarm in 10 s.
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [info] [StormFX] Dome animation activated on 1 layer(s).
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] player pos=(-78831,91085,7824) cell=0x16BB6D2D0
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] [0] base=0x9A000805 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-78831,91085,7824) dz=0 deleted=no disabled=no
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] [1] base=0x9A000806 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-78831,91085,7824) dz=0 deleted=no disabled=no
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] [2] base=0x9A000807 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-78831,91085,7824) dz=0 deleted=no disabled=no
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] [3] base=0x9A000808 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-78831,91085,7824) dz=0 deleted=no disabled=no
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] [4] base=0x9A000889 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-78831,91085,17824) dz=10000 deleted=no disabled=no
+[2026-08-23 18:20:20.500] [FalloutAnomaly] [warning] [DomeDump] [5] base=0x9A00088A 3D=YES cell=0x16BB6D2D0 sameCellAsPlayer=yes pos=(-78831,91085,15624) dz=7800 deleted=no disabled=no
+[2026-08-23 18:20:21.553] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:22.237] [FalloutAnomaly] [info] [HUD] Debug menu closed.
+[2026-08-23 18:20:22.594] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:23.645] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:24.692] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:25.473] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:20:25.727] [FalloutAnomaly] [debug] [Shelter] roof-fan 2/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:26.782] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:27.850] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:28.882] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:29.904] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:30.607] [FalloutAnomaly] [info] [HUD] Debug menu opened.
+[2026-08-23 18:20:30.781] [FalloutAnomaly] [info] [StormSeq] APPROACH complete (10 s elapsed) -> WARNING.
+[2026-08-23 18:20:30.781] [FalloutAnomaly] [info] [StormCue] Siren started ('Sound\FalloutAnomaly\ambient\psi_storm_siren.xwm').
+[2026-08-23 18:20:30.781] [FalloutAnomaly] [info] [StormSeq] WARNING begin: alarm + alert fired.
+[2026-08-23 18:20:30.933] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:31.982] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:33.036] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:33.842] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:20:34.102] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:34.494] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'weather:1'
+[2026-08-23 18:20:34.619] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'weather:1'
+[2026-08-23 18:20:34.619] [FalloutAnomaly] [warning] [DIAG] DebugPreviewWeather idx=1 (count=5).
+[2026-08-23 18:20:34.619] [FalloutAnomaly] [warning] [DIAG]   weather=ok sky=ok.
+[2026-08-23 18:20:34.619] [FalloutAnomaly] [warning] [DIAG]   BeginSmoothWeather...
+[2026-08-23 18:20:34.619] [FalloutAnomaly] [warning] [DIAG]   transition armed.
+[2026-08-23 18:20:35.151] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:36.163] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:37.183] [FalloutAnomaly] [debug] [Hook] Produced 493 4 Hz engine ticks; execution is marshaled to game-main thread 384.
+[2026-08-23 18:20:37.190] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:37.858] [FalloutAnomaly] [warning] [DIAG] HandleDebugCommand recv (JS thread): 'fixstats'
+[2026-08-23 18:20:37.963] [FalloutAnomaly] [warning] [DIAG] DispatchDebugCommand (main thread): 'fixstats'
+[2026-08-23 18:20:37.963] [FalloutAnomaly] [info] [FixStats] Our radiation penalty was already clear; re-application suspended at stage index -1.
+[2026-08-23 18:20:38.219] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:39.236] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:40.287] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:41.311] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:42.109] [FalloutAnomaly] [debug] [Status] particulate=0.0 tissue=0.0 effective=0.0 stage=0 mode=ESL-perks perkIdx=-1
+[2026-08-23 18:20:42.365] [FalloutAnomaly] [debug] [Shelter] roof-fan 0/5 (up=false, need up + 3 total) -> covered=false
+[2026-08-23 18:20:42.555] [FalloutAnomaly] [info] [HUD] Debug menu closed.
