@@ -312,9 +312,10 @@ void RadiationEngine::SpawnDistantNuke()
 }
 
 // Spawn the rotating cloud dome overhead. NATIVE (CreateReferenceAtLocation — the same call the fire
-// ring uses and which works off the 4Hz worker-thread hook), NOT the RadStormFX Papyrus quest, whose
-// SetStage()/OnStageSet never fired reliably from that thread. Exterior only — a dome mesh would clip
-// through a roof indoors; UpdateStormFXVisibility re-spawns it if the player steps back outside.
+// ring uses), NOT the RadStormFX Papyrus quest, whose SetStage()/OnStageSet never fired reliably. The
+// whole engine tick (this included) is marshaled to the verified game-main thread by Hooks.cpp's
+// dispatcher. Exterior only — a dome mesh would clip through a roof indoors; UpdateStormFXVisibility
+// re-spawns it if the player steps back outside.
 void RadiationEngine::SpawnStormDome()
 {
     if (_stormDomeUp || IsPlayerSheltered()) return;
@@ -345,27 +346,37 @@ void RadiationEngine::SpawnStormDome()
             ++placed;
         }
     }
+    _stormDomeUp = placed > 0;
+    _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
+
     // Arena lights: the cloud shapes are effect-LIT, so these lights ARE the glowing-vortex look (bright at
     // the eye, falling off outward). Mirror KORs' PlaceAtNode exactly: ArenaLight01 at TopLightNode and
     // ArenaLight02 (lens flare) at LensFlareNode, both UNROTATED (the nodes carry translation only).
     // Tracked in _stormDomeRefs so ClearStormDome tears them down with the dome.
-    auto placeLight = [&](RE::TESBoundObject* obj, float nodeZ) -> bool {
-        if (!obj) return false;
-        RE::NEW_REFR_DATA ld;
-        ld.object    = obj;
-        ld.location  = { base.x, base.y, base.z + kStormDomeZOffset + nodeZ };
-        ld.direction = { 0.0f, 0.0f, 0.0f };
-        ld.interior  = nullptr;
-        ld.world     = player->cachedWorldspace;
-        auto lh = dh->CreateReferenceAtLocation(ld);
-        if (!static_cast<bool>(lh)) return false;
-        _stormDomeRefs.push_back(lh);
-        return true;
-    };
-    const bool lit   = placeLight(_stormDomeLight, kStormDomeLightNodeZ);
-    const bool flare = placeLight(_stormDomeFlare, kStormDomeLensFlareZ);
-    _stormDomeUp = placed > 0;
-    _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
+    //
+    // Gate the lights on a successful dome (placed > 0): they only illuminate the cloud shapes, so lights
+    // without a dome are pointless — and, critically, if the dome ACTIs never resolve, _stormDomeUp stays
+    // false and an exposed player re-enters SpawnStormDome every tick. Placing the lights here regardless
+    // would then create them and (via the ClearStormDome above) destroy them every tick — retry churn.
+    bool lit = false, flare = false;
+    if (placed > 0)
+    {
+        auto placeLight = [&](RE::TESBoundObject* obj, float nodeZ) -> bool {
+            if (!obj) return false;
+            RE::NEW_REFR_DATA ld;
+            ld.object    = obj;
+            ld.location  = { base.x, base.y, base.z + kStormDomeZOffset + nodeZ };
+            ld.direction = { 0.0f, 0.0f, 0.0f };
+            ld.interior  = nullptr;
+            ld.world     = player->cachedWorldspace;
+            auto lh = dh->CreateReferenceAtLocation(ld);
+            if (!static_cast<bool>(lh)) return false;
+            _stormDomeRefs.push_back(lh);
+            return true;
+        };
+        lit   = placeLight(_stormDomeLight, kStormDomeLightNodeZ);
+        flare = placeLight(_stormDomeFlare, kStormDomeLensFlareZ);
+    }
     Log()->info("[StormFX] Native storm dome spawned: {}/4 layers at z+{:.0f}, arena light {}, lens flare {}.",
         placed, kStormDomeZOffset, lit ? "on" : "off", flare ? "on" : "off");
 }
@@ -714,8 +725,8 @@ void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)
     // auto-fires on a NEW GAME), so the bit is clear, so every SetStage(10/11/12/20) silently failed —
     // the dome / camera shake / firestorm nuke never ran (log: "SetStage(11) result=false").
     //
-    // Set the enabled bit NATIVELY. This is a plain memory write (safe off the worker-thread Update
-    // hook) — NOT Papyrus Quest.Start(), which is a latent native that CTDs when dispatched from here.
+    // Set the enabled bit NATIVELY. This is a plain memory write (safe on the main-thread Update tick)
+    // — NOT Papyrus Quest.Start(), which is a latent native that CTDs when dispatched from here.
     if ((quest->data.flags & 1) == 0)
     {
         quest->data.flags |= 1;
@@ -773,8 +784,8 @@ void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)
         // the plugin (hang on load, no crash log). Not worth it for one boolean.
         //
         // This is a script PROPERTY read/write on the bound script object under attachedScriptsLock —
-        // a locked data access, NOT a VM dispatch, so it is safe off the worker-thread Update hook
-        // (only DispatchMethodCall/latent natives are unsafe here).
+        // a locked data access, NOT a VM dispatch, so it is safe on the main-thread Update tick
+        // (only DispatchMethodCall/latent natives would be unsafe here).
         if (auto* gameVM = RE::GameVM::GetSingleton())
         {
             if (auto* vm = gameVM->GetVM().get())

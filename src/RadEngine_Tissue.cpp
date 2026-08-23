@@ -488,8 +488,8 @@ void RadiationEngine::ApplyTissueEffects()
 }
 
 
-// Cough -> nausea -> vomiting, layered by tissue severity. Native only (sounds + notify + HP), so this
-// is safe off the worker-thread Update hook — no Papyrus.
+// Cough -> nausea -> vomiting, layered by tissue severity. Native only (sounds + notify + HP) and no
+// Papyrus, so it is safe on the main-thread Update tick (the tick is marshaled there by Hooks.cpp).
 void RadiationEngine::UpdateTissueSymptoms(float t)
 {
     if (t < kSymCoughFrom)
