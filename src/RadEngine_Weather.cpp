@@ -214,8 +214,8 @@ void RadiationEngine::UpdateDustFogRoll()
         }
 
         // WALL ARRIVAL: fire a short heavy camera-dust gust over the steady dust VE (exterior only).
-        // ApplyArtObject is a native temp-effect spawn (same class as the storm's ghoul spawns that
-        // already run off this worker-thread hook), attach-to-camera + inherit-rotation, self-expires
+        // ApplyArtObject is a native temp-effect spawn (same class as the storm's ghoul spawns already
+        // placed on the main-thread tick), attach-to-camera + inherit-rotation, self-expires
         // after kDustBurstSec so it reverts to the steady FXCameraAttachExplosionDustVE on its own.
         if (_dustBurstArt && !IsPlayerSheltered())
         {

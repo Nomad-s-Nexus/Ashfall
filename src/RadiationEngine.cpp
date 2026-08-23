@@ -748,12 +748,15 @@ void RadiationEngine::EnsureEslLoaded()
             _stormDomeForms[k] = (f && f->GetFormType() == RE::ENUM_FORM_ID::kACTI) ? f : nullptr;
             if (_stormDomeForms[k]) ++resolved;
         }
-        // Arena lights for the effect-lit cloud shapes (scriptless LIGH -> safe off the worker hook).
-        // BOTH are what KORs' script places via PlaceAtNode; together they make the glowing vortex.
-        RE::TESForm* lf = dh->LookupForm(0x025334, "KORsAnomaly Stripped.esp");   // ArenaLight01
+        // Arena lights for the effect-lit cloud shapes (scriptless LIGH). These were historically resolved
+        // from "KORsAnomaly Stripped.esp" (ArenaLight01 0x025334, ArenaLight02 0x02626D), which made KORs a
+        // hidden runtime requirement. The two LIGH records (plus their GodRays/LensFlare sub-records) are now
+        // owned by RadiationOverhaul.esp itself — copied in with permission — so KORs is no longer required.
+        // BOTH lights together make the glowing vortex (broad illumination + bright lens-flare eye).
+        RE::TESForm* lf = dh->LookupForm(0x889, kEslName);   // FARO_StormDomeLight (was KORs ArenaLight01)
         _stormDomeLight = (lf && lf->GetFormType() == RE::ENUM_FORM_ID::kLIGH)
             ? static_cast<RE::TESBoundObject*>(lf) : nullptr;
-        RE::TESForm* ff = dh->LookupForm(0x02626D, "KORsAnomaly Stripped.esp");   // ArenaLight02 (lens flare)
+        RE::TESForm* ff = dh->LookupForm(0x88A, kEslName);   // FARO_StormDomeFlare (was KORs ArenaLight02, lens flare)
         _stormDomeFlare = (ff && ff->GetFormType() == RE::ENUM_FORM_ID::kLIGH)
             ? static_cast<RE::TESBoundObject*>(ff) : nullptr;
         logger->info("[ESL] Storm dome layers (FARO_StormDome01..04): {}/4 resolved; arena light {}, lens flare {}.",
@@ -1289,6 +1292,8 @@ void RadiationEngine::OnPostLoad()
     if (_ambientBedHandle.IsValid()) _ambientBedHandle.FadeOutAndRelease(500);  // and the general bed
     _curStormBed = nullptr; _curAmbientBed = nullptr;  // re-derived from weather after load
     _stormPhase        = StormPhase::Idle;
+    _shakeBurstStep    = -1;   // disarm shake (direct reset bypasses EnterStormPhase teardown); a save made
+    _shakeRumbleTick   = -1;   // mid-lethal-storm otherwise leaves these armed and the NEXT storm rumbles
     _stormTicksLeft    = 0;
     _activeStormType   = -1;
     _forcedStormType   = -1;

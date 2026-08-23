@@ -27,9 +27,14 @@ namespace Hooks
     // Win32 queue is pumped. We post a private registered message to wake it and drain our C++ task queue.
     // This deliberately does NOT use F4SE AddTask: runtime probes showed AddTask callbacks execute on a
     // third thread on this setup and therefore are not a main-thread marshal.
-    static DWORD s_gameMainThreadId = 0;
-    static HHOOK s_mainThreadMsgHook = nullptr;
-    static UINT  s_mainThreadWakeMessage = 0;
+    // Atomic: written on the F4SE-messaging thread in InstallMainThreadDispatcher and read from the
+    // worker-thread producer path (IsGameMainThread, QueueMainThreadTask's availability gate) and the
+    // detached RadHud waiter. The availability gate is itself one of these reads, so a plain-int race
+    // here would be a race on the safety check. seq_cst gives the gate a happens-before on the install
+    // stores (hook is published last, so a reader that sees it also sees threadId/wakeMessage).
+    static std::atomic<DWORD> s_gameMainThreadId{ 0 };
+    static std::atomic<HHOOK> s_mainThreadMsgHook{ nullptr };
+    static std::atomic<UINT>  s_mainThreadWakeMessage{ 0 };
     static std::mutex s_mainTaskMutex;
     static std::deque<std::function<void()>> s_mainTasks;
 
@@ -62,7 +67,7 @@ namespace Hooks
         {
             if (auto logger = spdlog::get("FalloutAnomaly"))
                 logger->critical("[MainDispatch] wake hook ran on thread {} but game main thread is {}; refusing queued engine work.",
-                    ::GetCurrentThreadId(), s_gameMainThreadId);
+                    ::GetCurrentThreadId(), s_gameMainThreadId.load());
             return;
         }
 
@@ -143,7 +148,7 @@ namespace Hooks
         if (!s_mainThreadMsgHook)
         {
             if (logger) logger->critical("[MainDispatch] SetWindowsHookEx(WH_GETMESSAGE) failed for thread {} (GetLastError={}).",
-                s_gameMainThreadId, ::GetLastError());
+                s_gameMainThreadId.load(), ::GetLastError());
             s_gameMainThreadId = 0;
             s_mainThreadWakeMessage = 0;
             return false;
@@ -151,7 +156,7 @@ namespace Hooks
 
         if (logger)
             logger->info("[MainDispatch] Installed on Fallout 4 game-main thread {} (current setup thread {}).",
-                s_gameMainThreadId, ::GetCurrentThreadId());
+                s_gameMainThreadId.load(), ::GetCurrentThreadId());
         return true;
     }
 
@@ -203,7 +208,10 @@ namespace Hooks
         if (!s_inputTaskQueued.compare_exchange_strong(expected, true))
             return;
 
-        if (!QueueMainThreadTask([]() {
+        bool queued = false;
+        try
+        {
+            queued = QueueMainThreadTask([]() {
                 try
                 {
                     RadiationEngine::GetSingleton().PollInput();
@@ -214,10 +222,17 @@ namespace Hooks
                     throw;
                 }
                 s_inputTaskQueued.store(false);
-            }))
-        {
-            s_inputTaskQueued.store(false);
+            });
         }
+        catch (...)
+        {
+            // QueueMainThreadTask can throw while enqueuing (e.g. bad_alloc growing the deque) before the
+            // task body's reset ever runs. Clear the flag here or this producer is stranded forever.
+            s_inputTaskQueued.store(false);
+            throw;
+        }
+        if (!queued)
+            s_inputTaskQueued.store(false);
     }
 
     static void QueueEngineUpdate()
@@ -226,7 +241,10 @@ namespace Hooks
         if (!s_updateTaskQueued.compare_exchange_strong(expected, true))
             return;
 
-        if (!QueueMainThreadTask([]() {
+        bool queued = false;
+        try
+        {
+            queued = QueueMainThreadTask([]() {
                 try
                 {
                     RadiationEngine::GetSingleton().Update();
@@ -237,10 +255,17 @@ namespace Hooks
                     throw;
                 }
                 s_updateTaskQueued.store(false);
-            }))
-        {
-            s_updateTaskQueued.store(false);
+            });
         }
+        catch (...)
+        {
+            // See QueueInputPoll: a throw out of QueueMainThreadTask itself must not strand the flag,
+            // or 4 Hz engine ticks stop permanently.
+            s_updateTaskQueued.store(false);
+            throw;
+        }
+        if (!queued)
+            s_updateTaskQueued.store(false);
     }
 
     // Worker-thread hook: call the original and produce main-thread work only.
@@ -281,7 +306,7 @@ namespace Hooks
                 {
                     if (auto logger = spdlog::get("FalloutAnomaly"))
                         logger->debug("[Hook] Produced {} 4 Hz engine ticks; execution is marshaled to game-main thread {}.",
-                            s_updateTickCount, s_gameMainThreadId);
+                            s_updateTickCount, s_gameMainThreadId.load());
                     s_lastLogTime = now;
                 }
             }
@@ -339,7 +364,7 @@ namespace Hooks
                 logger->info("[Hook] Producer hook installed successfully.");
                 logger->debug("  Original function address: 0x{:X}", original_Update.address());
                 logger->debug("  Producer cadence: per-frame input + ~4 Hz engine tick");
-                logger->debug("  Engine execution thread: verified game-main thread {}", s_gameMainThreadId);
+                logger->debug("  Engine execution thread: verified game-main thread {}", s_gameMainThreadId.load());
             }
             return true;
         }

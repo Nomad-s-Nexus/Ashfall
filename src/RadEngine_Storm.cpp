@@ -263,12 +263,11 @@ void RadiationEngine::SpawnFireRing()
 }
 
 
-// One distant, purely cinematic firestorm detonation. Runs on the 4Hz hook's WORKER thread (there is
-// no main-thread path here — see NativeShakeCamera). That is tolerable ONLY because the EXPL record
-// FARO_EmissionStrikeAlpha (0x885) has PlacedObject = Null: Explosion::Initialize only calls
-// CreateReferenceAtLocation when that field is set, and reference creation off-thread is the actual
-// hazard (see the KB's no-scripted-ref-from-worker-hook entry). If a PlacedObject is ever added to
-// that record, this call has to move to a real main-thread hook first.
+// One distant, purely cinematic firestorm detonation. The 4 Hz engine tick (RadiationEngine::Update and
+// everything it calls, this included) is marshaled to the verified Fallout 4 game-main thread by
+// Hooks.cpp's dispatcher — this does NOT run on the worker Update hook. The EXPL record
+// FARO_EmissionStrikeAlpha (0x885) still keeps PlacedObject = Null by design: it detonates without
+// spawning a placed reference, which is exactly what a pure horizon visual wants.
 void RadiationEngine::SpawnDistantNuke()
 {
     if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would resolve elsewhere
@@ -313,15 +312,21 @@ void RadiationEngine::SpawnDistantNuke()
 }
 
 // Spawn the rotating cloud dome overhead. NATIVE (CreateReferenceAtLocation — the same call the fire
-// ring uses and which works off the 4Hz worker-thread hook), NOT the RadStormFX Papyrus quest, whose
-// SetStage()/OnStageSet never fired reliably from that thread. Exterior only — a dome mesh would clip
-// through a roof indoors; UpdateStormFXVisibility re-spawns it if the player steps back outside.
+// ring uses), NOT the RadStormFX Papyrus quest, whose SetStage()/OnStageSet never fired reliably. The
+// whole engine tick (this included) is marshaled to the verified game-main thread by Hooks.cpp's
+// dispatcher. Exterior only — a dome mesh would clip through a roof indoors; UpdateStormFXVisibility
+// re-spawns it if the player steps back outside.
 void RadiationEngine::SpawnStormDome()
 {
     if (_stormDomeUp || IsPlayerSheltered()) return;
     auto* dh     = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player || !player->cachedWorldspace) return;
+
+    // Clear any leftover refs first, mirroring SpawnFireRing. _stormDomeUp only latches on placed dome
+    // ACTI layers (below); if those fail to resolve but the arena lights do, _stormDomeUp stays false
+    // and every re-exposure would otherwise append another light pair, leaking the previous ones.
+    ClearStormDome();
 
     const RE::NiPoint3 base = player->GetPosition();
     int placed = 0;
@@ -341,27 +346,37 @@ void RadiationEngine::SpawnStormDome()
             ++placed;
         }
     }
+    _stormDomeUp = placed > 0;
+    _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
+
     // Arena lights: the cloud shapes are effect-LIT, so these lights ARE the glowing-vortex look (bright at
     // the eye, falling off outward). Mirror KORs' PlaceAtNode exactly: ArenaLight01 at TopLightNode and
     // ArenaLight02 (lens flare) at LensFlareNode, both UNROTATED (the nodes carry translation only).
     // Tracked in _stormDomeRefs so ClearStormDome tears them down with the dome.
-    auto placeLight = [&](RE::TESBoundObject* obj, float nodeZ) -> bool {
-        if (!obj) return false;
-        RE::NEW_REFR_DATA ld;
-        ld.object    = obj;
-        ld.location  = { base.x, base.y, base.z + kStormDomeZOffset + nodeZ };
-        ld.direction = { 0.0f, 0.0f, 0.0f };
-        ld.interior  = nullptr;
-        ld.world     = player->cachedWorldspace;
-        auto lh = dh->CreateReferenceAtLocation(ld);
-        if (!static_cast<bool>(lh)) return false;
-        _stormDomeRefs.push_back(lh);
-        return true;
-    };
-    const bool lit   = placeLight(_stormDomeLight, kStormDomeLightNodeZ);
-    const bool flare = placeLight(_stormDomeFlare, kStormDomeLensFlareZ);
-    _stormDomeUp = placed > 0;
-    _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
+    //
+    // Gate the lights on a successful dome (placed > 0): they only illuminate the cloud shapes, so lights
+    // without a dome are pointless — and, critically, if the dome ACTIs never resolve, _stormDomeUp stays
+    // false and an exposed player re-enters SpawnStormDome every tick. Placing the lights here regardless
+    // would then create them and (via the ClearStormDome above) destroy them every tick — retry churn.
+    bool lit = false, flare = false;
+    if (placed > 0)
+    {
+        auto placeLight = [&](RE::TESBoundObject* obj, float nodeZ) -> bool {
+            if (!obj) return false;
+            RE::NEW_REFR_DATA ld;
+            ld.object    = obj;
+            ld.location  = { base.x, base.y, base.z + kStormDomeZOffset + nodeZ };
+            ld.direction = { 0.0f, 0.0f, 0.0f };
+            ld.interior  = nullptr;
+            ld.world     = player->cachedWorldspace;
+            auto lh = dh->CreateReferenceAtLocation(ld);
+            if (!static_cast<bool>(lh)) return false;
+            _stormDomeRefs.push_back(lh);
+            return true;
+        };
+        lit   = placeLight(_stormDomeLight, kStormDomeLightNodeZ);
+        flare = placeLight(_stormDomeFlare, kStormDomeLensFlareZ);
+    }
     Log()->info("[StormFX] Native storm dome spawned: {}/4 layers at z+{:.0f}, arena light {}, lens flare {}.",
         placed, kStormDomeZOffset, lit ? "on" : "off", flare ? "on" : "off");
 }
@@ -370,11 +385,12 @@ void RadiationEngine::SpawnStormDome()
 // Native camera shake, replacing the RadStormFX Papyrus shake that never fired. See the
 // kShakeCameraID block in RadEngine_Internal.h for the address/signature provenance.
 //
-// WARNING: this runs on the 4Hz Update hook's WORKER thread. The probe in Hooks.cpp settled that
-// there is no main-thread path available here — the update hook, the F4SE AddTask callback and the
-// message handler are three DIFFERENT threads every session, so AddTask does not marshal to main.
-// The 3D/exterior guard below is load-bearing: the native walks spWorldRoot into the camera node's
-// world transform and will null-deref if the worldspace is not up. Do not call it unguarded.
+// This runs on the verified Fallout 4 game-main thread: the 4 Hz engine tick is marshaled there by
+// Hooks.cpp's dispatcher (runtime probing proved F4SE AddTask is NOT a main-thread marshal on this
+// setup — the update hook, the AddTask callback and the message handler are three different threads —
+// which is why the dispatcher exists). The 3D/exterior guard below is still load-bearing: the native
+// walks spWorldRoot into the camera node's world transform and will null-deref if the worldspace is
+// not up. Do not call it unguarded.
 void RadiationEngine::NativeShakeCamera(float strength, float duration)
 {
     if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would land elsewhere
@@ -709,8 +725,8 @@ void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)
     // auto-fires on a NEW GAME), so the bit is clear, so every SetStage(10/11/12/20) silently failed —
     // the dome / camera shake / firestorm nuke never ran (log: "SetStage(11) result=false").
     //
-    // Set the enabled bit NATIVELY. This is a plain memory write (safe off the worker-thread Update
-    // hook) — NOT Papyrus Quest.Start(), which is a latent native that CTDs when dispatched from here.
+    // Set the enabled bit NATIVELY. This is a plain memory write (safe on the main-thread Update tick)
+    // — NOT Papyrus Quest.Start(), which is a latent native that CTDs when dispatched from here.
     if ((quest->data.flags & 1) == 0)
     {
         quest->data.flags |= 1;
@@ -768,8 +784,8 @@ void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)
         // the plugin (hang on load, no crash log). Not worth it for one boolean.
         //
         // This is a script PROPERTY read/write on the bound script object under attachedScriptsLock —
-        // a locked data access, NOT a VM dispatch, so it is safe off the worker-thread Update hook
-        // (only DispatchMethodCall/latent natives are unsafe here).
+        // a locked data access, NOT a VM dispatch, so it is safe on the main-thread Update tick
+        // (only DispatchMethodCall/latent natives would be unsafe here).
         if (auto* gameVM = RE::GameVM::GetSingleton())
         {
             if (auto* vm = gameVM->GetVM().get())
