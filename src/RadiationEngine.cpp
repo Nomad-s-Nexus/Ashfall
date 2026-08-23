@@ -573,6 +573,12 @@ namespace
     constexpr std::uint32_t kStormClockVersion = 1;
     constexpr std::uint32_t kFilterRecord      = 'FILT';  // co-save: gas-mask filter charge + condition
     constexpr std::uint32_t kFilterVersion     = 2;       // v2 adds mask condition after charge
+
+    // Storm-clock record payload: three doubles (play, next, lastRadstorm) + one uint8 (scheduled).
+    constexpr std::uint32_t kStormClockLen = sizeof(double) * 3 + sizeof(std::uint8_t);
+    // Sanity ceiling for the play-clock fields (~11.5 real DAYS of accumulated in-game play at 4 Hz).
+    // Anything beyond this is treated as a corrupt/garbage record, not a legitimate deep save.
+    constexpr double kMaxSaneClockSeconds = 1.0e6;
 }
 
 
@@ -1133,12 +1139,32 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
 {
     auto logger = Log();
     std::uint32_t type = 0, version = 0, length = 0;
+
+    // Storm-clock candidates. The CURRENT build writes exactly one SCLK record per save (SaveState) and
+    // registers serialization once, so a save written by this build carries a single record. Legacy
+    // co-saves can carry a stale EXTRA SCLK record whose inflated play-clock pushes the next storm far
+    // into the future (storms then never fire). We collect ALL valid records and commit ONE
+    // deterministically: the smallest valid _playSeconds. Rationale — the play-clock is monotonic within
+    // a save's lineage, so a record bled from a longer/older session shows up as an anomalously large
+    // clock; keeping the smallest is the value consistent with this save AND fails SAFE (a storm may fire
+    // slightly early) whereas keeping the inflated one breaks storms outright. The next save rewrites a
+    // single clean record, so legacy saves self-heal. This is an explicit cause-based policy, not blind
+    // first/last-wins.
+    bool   haveClock = false;
+    double bestPlay = 0.0, bestNext = 0.0, bestLast = 0.0;
+    bool   bestSched = false;
+    int    clockSeen = 0, clockRejected = 0;
+
     while (a_intfc->GetNextRecordInfo(type, version, length))
     {
         if (type == kFilterRecord)
         {
             a_intfc->ReadRecordData(_filterCharge);
             if (version >= 2) a_intfc->ReadRecordData(_maskCondition);   // v1 saves carry only the charge
+            if (!std::isfinite(_filterCharge) || _filterCharge < 0.0f || _filterCharge > 100.0f)
+                _filterCharge = 100.0f;
+            if (!std::isfinite(_maskCondition) || _maskCondition < 0.0f || _maskCondition > 100.0f)
+                _maskCondition = 100.0f;
             logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%).",
                 _filterCharge, _maskCondition);
             continue;
@@ -1148,21 +1174,73 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
             logger->warn("[Load] Unknown co-save record 0x{:08X} (len {}) — skipping.", type, length);
             continue;
         }
+        ++clockSeen;
         if (version != kStormClockVersion)
         {
-            logger->warn("[Load] Storm-clock record v{} != v{} — ignoring (clock starts fresh).",
-                version, kStormClockVersion);
+            ++clockRejected;
+            logger->warn("[Load] Storm-clock record #{} v{} != v{} — ignoring.", clockSeen, version, kStormClockVersion);
+            continue;   // F4SE re-syncs to the next record on the following GetNextRecordInfo.
+        }
+        if (length != kStormClockLen)
+        {
+            ++clockRejected;
+            logger->warn("[Load] Storm-clock record #{} bad length {} (expected {}) — ignoring.",
+                clockSeen, length, kStormClockLen);
             continue;
         }
-        std::uint8_t scheduled = 0;
-        a_intfc->ReadRecordData(_playSeconds);
-        a_intfc->ReadRecordData(_nextStormPlaySec);
-        a_intfc->ReadRecordData(_lastRadstormSec);
-        a_intfc->ReadRecordData(scheduled);
-        _stormScheduled = (scheduled != 0);
-        logger->info("[Load] Storm clock restored (play={:.0f}s, next={:.0f}s, scheduled={}).",
-            _playSeconds, _nextStormPlaySec, _stormScheduled);
+        double p = 0.0, n = 0.0, l = 0.0;
+        std::uint8_t s = 0;
+        a_intfc->ReadRecordData(p);
+        a_intfc->ReadRecordData(n);
+        a_intfc->ReadRecordData(l);
+        a_intfc->ReadRecordData(s);
+
+        // Defensive validation: finite, non-negative, within a sane ceiling, valid flag. NOTE we do NOT
+        // require next >= play — an overdue storm legitimately has next < play (it should fire now).
+        const bool valid = std::isfinite(p) && std::isfinite(n) && std::isfinite(l) &&
+                           p >= 0.0 && p <= kMaxSaneClockSeconds &&
+                           n >= 0.0 && n <= kMaxSaneClockSeconds &&
+                           (s == 0 || s == 1);
+        if (!valid)
+        {
+            ++clockRejected;
+            logger->warn("[Load] Storm-clock record #{} failed validation (play={}, next={}, sched={}) — ignoring.",
+                clockSeen, p, n, static_cast<int>(s));
+            continue;
+        }
+
+        if (!haveClock || p < bestPlay)
+        {
+            if (haveClock)
+                logger->warn("[Load] Duplicate storm-clock record #{} (play={:.0f}s, next={:.0f}s) supersedes earlier "
+                             "(play={:.0f}s) — keeping the smaller play-clock. Re-save will collapse to one.",
+                             clockSeen, p, n, bestPlay);
+            bestPlay = p; bestNext = n; bestLast = l; bestSched = (s != 0);
+            haveClock = true;
+        }
+        else
+        {
+            logger->warn("[Load] Ignoring stale duplicate storm-clock record #{} (play={:.0f}s, next={:.0f}s); "
+                         "kept play={:.0f}s.", clockSeen, p, n, bestPlay);
+        }
     }
+
+    if (haveClock)
+    {
+        _playSeconds      = bestPlay;
+        _nextStormPlaySec = bestNext;
+        _lastRadstormSec  = bestLast;
+        _stormScheduled   = bestSched;
+        logger->info("[Load] Storm clock restored (play={:.0f}s, next={:.0f}s, scheduled={}){}.",
+            bestPlay, bestNext, bestSched, clockSeen > 1 ? " [deduped]" : "");
+    }
+    else if (clockSeen > 0)
+    {
+        // Records existed but none survived validation — leave RevertState's fresh defaults in place.
+        logger->warn("[Load] {} storm-clock record(s) present but none valid ({} rejected) — scheduling fresh.",
+            clockSeen, clockRejected);
+    }
+    // No SCLK record at all: RevertState's fresh defaults (run before this callback) stand.
 }
 
 

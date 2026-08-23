@@ -291,16 +291,29 @@ namespace
 
         case F4SE::MessagingInterface::kPostLoadGame:
             logger->info("========== POST LOAD GAME EVENT ==========");
-            if (!Hooks::QueueMainThreadTask([]() {
+            // Post-load stall diagnostics: these pinpoint exactly where the path stops if the queued
+            // task never completes (queued? entered? which sub-step?). One-shot per load — not spam.
+            logger->info("[PostLoad] kPostLoadGame received on thread {}; queuing post-load task.",
+                ::GetCurrentThreadId());
+            if (Hooks::QueueMainThreadTask([]() {
+                    logger->info("[PostLoad] task entered on game-main thread {}.", ::GetCurrentThreadId());
                     auto& engine = RadiationEngine::GetSingleton();
                     RadHud::GetSingleton().ResetDebugMenuForSession();
+                    logger->info("[PostLoad] OnPostLoad begin.");
                     engine.OnPostLoad();
+                    logger->info("[PostLoad] OnPostLoad end; ResetAppliedPenalties begin.");
                     engine.ResetAppliedPenalties();
+                    logger->info("[PostLoad] ResetAppliedPenalties end; StartRadHudWaitIfIdle begin.");
                     StartRadHudWaitIfIdle();
+                    logger->info("[PostLoad] StartRadHudWaitIfIdle end; post-load task complete.");
                     logger->info("Game save loaded. Radiation Engine ACTIVE.");
-                    logger->debug("  - Load-state engine mutation completed on game-main thread");
+                    logger->info("  - Load-state engine mutation completed on game-main thread");
                     logger->info("=========================================");
                 }))
+            {
+                logger->info("[PostLoad] post-load task queued (wake posted to the game-main thread).");
+            }
+            else
             {
                 logger->critical("Failed to queue post-load radiation reset on game-main thread.");
             }
@@ -391,7 +404,11 @@ F4SEPlugin_Query(const F4SE::QueryInterface* a_f4se, F4SE::PluginInfo* a_info)
 extern "C" __declspec(dllexport) bool F4SEAPI
 F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 {
-        F4SE::Init(a_f4se);
+        // Disable CommonLib's default F4SE plugin logger. InitInfo defaults to log=true, which opens a second
+        // log named after the plugin ("Fallout Anomaly - Radiation Overhaul.log") holding only the
+        // version banner — a confusing duplicate of our real, detailed FalloutAnomaly.log (set up in
+        // InitializeLogger below). One DLL, one authoritative log.
+        F4SE::Init(a_f4se, { .log = false });
 
         // On NG, F4SEPlugin_Query is not called — detect version here so the same
         // OG-only guard applies regardless of which loader path F4SE used.
