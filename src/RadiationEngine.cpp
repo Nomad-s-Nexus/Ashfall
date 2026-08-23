@@ -19,8 +19,9 @@ namespace
         RE::BSEventNotifyControl ProcessEvent(const RE::TESHitEvent& a_event,
                                               RE::BSTEventSource<RE::TESHitEvent>*) override
         {
-            // target = who got hit; 0x14 = the player. Only the player's mask takes damage here.
-            if (a_event.target && a_event.target->GetFormID() == 0x14)
+            // target = who got hit. Only the player's mask takes damage here — IsPlayerRef() (via
+            // commonlib_NonVR) is the authoritative check, no raw 0x14 FormID literal.
+            if (a_event.target && a_event.target->IsPlayerRef())
                 RadiationEngine::GetSingleton().OnPlayerHit();
             return RE::BSEventNotifyControl::kContinue;
         }

@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
 #include <RE/N/NiAVObject.h>
@@ -295,13 +296,11 @@ void RadiationEngine::SpawnDistantNuke()
                             base.z + 1500.0f };   // matches NAC's nuclear-fallout MFX z-offset
     const RE::NiPoint3 rot{ 0.0f, 0.0f, 0.0f };   // explosions are radial; rotation is irrelevant
 
-    // DETONATE (not place). See kCreateExplosionAtLocationID for address/signature provenance.
-    // Cell is passed null on purpose: with a worldspace supplied the engine resolves the cell from
-    // the position and returns a null handle if it is not loaded, instead of faulting.
-    using CreateExplosion_t = RE::ObjectRefHandle (*)(RE::TESDataHandler*, RE::TESBoundObject*,
-        const RE::NiPoint3&, const RE::NiPoint3&, RE::TESObjectCELL*, RE::TESWorldSpace*);
-    REL::Relocation<CreateExplosion_t> createExplosion{ REL::ID(kCreateExplosionAtLocationID) };
-    auto handle = createExplosion(dh, static_cast<RE::TESBoundObject*>(_nukeExplosionForm),
+    // DETONATE (not place) via the authoritative commonlib_NonVR wrapper. Cell is passed null on
+    // purpose: with a worldspace supplied the engine resolves the cell from the position and returns a
+    // null handle if it is not loaded, instead of faulting.
+    auto handle = dh->CreateExplosionAtLocation(
+        static_cast<RE::TESBoundObject*>(_nukeExplosionForm),
         pos, rot, nullptr, player->cachedWorldspace);
 
     Log()->info("[Storm/Nuke] distant firestorm strike detonated={} distance={:.0f} z=+1500.",
@@ -382,8 +381,8 @@ void RadiationEngine::SpawnStormDome()
 }
 
 
-// Native camera shake, replacing the RadStormFX Papyrus shake that never fired. See the
-// kShakeCameraID block in RadEngine_Internal.h for the address/signature provenance.
+// Native camera shake, replacing the RadStormFX Papyrus shake that never fired. Uses the authoritative
+// RE::ShakeCamera wrapper from commonlib_NonVR (see RE-Work/docs/rad-overhaul-natives-2026-08.md).
 //
 // This runs on the verified Fallout 4 game-main thread: the 4 Hz engine tick is marshaled there by
 // Hooks.cpp's dispatcher (runtime probing proved F4SE AddTask is NOT a main-thread marshal on this
@@ -403,8 +402,8 @@ void RadiationEngine::NativeShakeCamera(float strength, float duration)
     if (strength <= 0.0f) return;               // native no-ops at <= 0 anyway
 
     const RE::NiPoint3 pos = player->data.location;
-    REL::Relocation<void (*)(float, const RE::NiPoint3&, float, float)> shakeCamera{ REL::ID(kShakeCameraID) };
-    shakeCamera(strength, pos, duration, kShakeDistanceMult);
+    // Authoritative commonlib_NonVR wrapper; distanceMult defaults to 1.0 ("no distance scaling").
+    RE::ShakeCamera(strength, pos, duration);
 }
 
 
@@ -727,51 +726,23 @@ void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)
     //
     // Set the enabled bit NATIVELY. This is a plain memory write (safe on the main-thread Update tick)
     // — NOT Papyrus Quest.Start(), which is a latent native that CTDs when dispatched from here.
-    if ((quest->data.flags & 1) == 0)
+    if ((quest->data.flags & static_cast<std::uint16_t>(RE::QuestFlag::kEnabled)) == 0)
     {
-        quest->data.flags |= 1;
+        quest->data.flags |= static_cast<std::uint16_t>(RE::QuestFlag::kEnabled);
         Log()->info("[StormFX] Quest 0x{:03X} was dormant (ESL-on-existing-save) -> enabled natively.",
             quest->GetFormID() & 0xFFF);
     }
 
-    // ...but the enabled bit alone was NOT enough: SetStage kept returning false with the bit already
-    // set. Re-reading the SetStage decompile (RVA 0x5D71E0), past that bit check it looks the stage up
-    // in the quest's runtime STAGE TABLE — a scatter map at TESQuest+0x130 (probed via +0x138/+0x144):
-    //
-    //     if ((quest+0xF4 & 1) != 0) {                      // enabled  -> we set this
-    //         entry = stageTable[ mask & stage ];           // <-- FAILS HERE
-    //         if ((entry & 0xFFFF0000) != 0xFFFF0000) { ... set the stage, notify ... }
-    //     }
-    //     return false;
-    //
-    // That table is built by TESQuest::InitSearchTables(). A quest whose ESL was added to an EXISTING
-    // save never gets properly started, so the engine never builds it: the `stages` array is populated
-    // from the record (0/10/11/12/20 all present), but the scatter map is empty, every lookup misses,
-    // and SetStage silently returns false. That is why the firestorm nuke AND the camera shake have
-    // never once fired.
-    //
-    // Build the tables ourselves. Native, void, no args — no Papyrus, no latent call, safe off this
-    // hook. Latched: it only needs doing once per session.
+    // NOTE: an older build here also rebuilt the quest's SetStage lookup table via a raw OG-only module
+    // offset for TESQuest::InitSearchTables (0x5E07D0). That has been REMOVED. SetStage is no longer used
+    // to drive any FX — the dome, camera shake, and firestorm nuke are all native now, and TriggerStormFX
+    // treats SetStage's result as informational only — so rebuilding its scatter table served no purpose
+    // (and, per the earlier logs, SetStage returned false even with the rebuild). No private RVA remains.
     static bool questTablesInit = false;   // session latch (EnsureQuestRunning is a static member)
     if (!questTablesInit)
     {
         questTablesInit = true;
-        if (REX::FModule::IsRuntimeOG())
-        {
-            // OG 1.10.163 RVA. Not in CommonLibF4's IDs.h, and no Address Library id to hand, so this is
-            // a raw module offset — hence the runtime guard: on NG/AE it would point at a different
-            // function entirely.
-            REL::Relocation<void (*)(RE::TESQuest*)> initSearchTables{ REL::Offset(0x5E07D0) };
-            initSearchTables(quest);
-            Log()->info("[StormFX] Quest 0x{:03X}: InitSearchTables() called — stage table (re)built so "
-                        "SetStage can resolve stages 10/11/12/20.", quest->GetFormID() & 0xFFF);
-        }
-        else
-        {
-            Log()->warn("[StormFX] Quest stage-table rebuild skipped: non-OG runtime (the 0x5E07D0 offset "
-                        "is 1.10.163-only). Storm shake/nuke stages may not fire.");
-        }
-        DumpQuestStageTable(quest);   // re-dump AFTER the rebuild so the log shows it populated
+        DumpQuestStageTable(quest);   // diagnostic dump of the stage table as the engine built it
 
         // STORM DOME: the RadStormFX script ships with `Bool Property EnableCloudDome = false`, so
         // _SpawnDome() has always bailed out immediately ("cloud dome disabled (using weather fog
