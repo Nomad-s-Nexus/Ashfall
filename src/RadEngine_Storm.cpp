@@ -263,12 +263,11 @@ void RadiationEngine::SpawnFireRing()
 }
 
 
-// One distant, purely cinematic firestorm detonation. Runs on the 4Hz hook's WORKER thread (there is
-// no main-thread path here — see NativeShakeCamera). That is tolerable ONLY because the EXPL record
-// FARO_EmissionStrikeAlpha (0x885) has PlacedObject = Null: Explosion::Initialize only calls
-// CreateReferenceAtLocation when that field is set, and reference creation off-thread is the actual
-// hazard (see the KB's no-scripted-ref-from-worker-hook entry). If a PlacedObject is ever added to
-// that record, this call has to move to a real main-thread hook first.
+// One distant, purely cinematic firestorm detonation. The 4 Hz engine tick (RadiationEngine::Update and
+// everything it calls, this included) is marshaled to the verified Fallout 4 game-main thread by
+// Hooks.cpp's dispatcher — this does NOT run on the worker Update hook. The EXPL record
+// FARO_EmissionStrikeAlpha (0x885) still keeps PlacedObject = Null by design: it detonates without
+// spawning a placed reference, which is exactly what a pure horizon visual wants.
 void RadiationEngine::SpawnDistantNuke()
 {
     if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would resolve elsewhere
@@ -323,6 +322,11 @@ void RadiationEngine::SpawnStormDome()
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player || !player->cachedWorldspace) return;
 
+    // Clear any leftover refs first, mirroring SpawnFireRing. _stormDomeUp only latches on placed dome
+    // ACTI layers (below); if those fail to resolve but the arena lights do, _stormDomeUp stays false
+    // and every re-exposure would otherwise append another light pair, leaking the previous ones.
+    ClearStormDome();
+
     const RE::NiPoint3 base = player->GetPosition();
     int placed = 0;
     for (int k = 0; k < 4; ++k)
@@ -370,11 +374,12 @@ void RadiationEngine::SpawnStormDome()
 // Native camera shake, replacing the RadStormFX Papyrus shake that never fired. See the
 // kShakeCameraID block in RadEngine_Internal.h for the address/signature provenance.
 //
-// WARNING: this runs on the 4Hz Update hook's WORKER thread. The probe in Hooks.cpp settled that
-// there is no main-thread path available here — the update hook, the F4SE AddTask callback and the
-// message handler are three DIFFERENT threads every session, so AddTask does not marshal to main.
-// The 3D/exterior guard below is load-bearing: the native walks spWorldRoot into the camera node's
-// world transform and will null-deref if the worldspace is not up. Do not call it unguarded.
+// This runs on the verified Fallout 4 game-main thread: the 4 Hz engine tick is marshaled there by
+// Hooks.cpp's dispatcher (runtime probing proved F4SE AddTask is NOT a main-thread marshal on this
+// setup — the update hook, the AddTask callback and the message handler are three different threads —
+// which is why the dispatcher exists). The 3D/exterior guard below is still load-bearing: the native
+// walks spWorldRoot into the camera node's world transform and will null-deref if the worldspace is
+// not up. Do not call it unguarded.
 void RadiationEngine::NativeShakeCamera(float strength, float duration)
 {
     if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would land elsewhere

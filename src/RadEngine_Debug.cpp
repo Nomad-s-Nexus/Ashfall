@@ -30,6 +30,10 @@ void RadiationEngine::DebugForceStorm(int typeIndex)
     _stormNukeFired = false;
     ReleaseStormWeather();                  // drop any in-progress storm's forced sky
     _stormPhase      = StormPhase::Idle;
+    // Direct phase reset bypasses EnterStormPhase, so disarm the shake counters here too — otherwise a
+    // storm force-started mid-shake leaves them armed and the next Active phase drives phantom rumble.
+    _shakeBurstStep  = -1;
+    _shakeRumbleTick = -1;
     _activeStormType = -1;
     _forcedStormType   = typeIndex;
     _forceStormNow     = true;              // next UpdateStorm Idle tick begins it
@@ -59,6 +63,8 @@ void RadiationEngine::DebugEndStorm()
     ClearStormDome();       // despawn the native cloud dome
     ForceClearAndSilence(); // silence all storm audio + force Commonwealth clear sky
     _stormPhase       = StormPhase::Idle;
+    _shakeBurstStep   = -1;   // disarm shake (direct reset bypasses EnterStormPhase teardown)
+    _shakeRumbleTick  = -1;
     _activeStormType  = -1;
     _stormTicksLeft   = 0;
     _stormRollInTicks = 0;     // cancel any pending firestorm roll-in

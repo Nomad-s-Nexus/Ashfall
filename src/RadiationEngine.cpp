@@ -1289,6 +1289,8 @@ void RadiationEngine::OnPostLoad()
     if (_ambientBedHandle.IsValid()) _ambientBedHandle.FadeOutAndRelease(500);  // and the general bed
     _curStormBed = nullptr; _curAmbientBed = nullptr;  // re-derived from weather after load
     _stormPhase        = StormPhase::Idle;
+    _shakeBurstStep    = -1;   // disarm shake (direct reset bypasses EnterStormPhase teardown); a save made
+    _shakeRumbleTick   = -1;   // mid-lethal-storm otherwise leaves these armed and the NEXT storm rumbles
     _stormTicksLeft    = 0;
     _activeStormType   = -1;
     _forcedStormType   = -1;
