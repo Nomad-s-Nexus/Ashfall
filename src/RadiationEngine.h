@@ -407,9 +407,9 @@ private:
     // the fire ring is — TESDataHandler::CreateReferenceAtLocation, which DOES work off that thread.
     // The rotating cloud animation is baked into the NIFs, so a placed ref just plays it.
     RE::TESForm* _stormDomeForms[4] = {};          // FARO_StormDome01..04 (scriptless ACTI copies)
-    RE::TESBoundObject* _stormDomeLight = nullptr; // KORs ArenaLight01 (TopLightNode) — the cloud shapes are
+    RE::TESBoundObject* _stormDomeLight = nullptr; // FARO_StormDomeLight (TopLightNode) — the cloud shapes are
                                                    // effect-LIT, so this light IS the glowing-vortex look.
-    RE::TESBoundObject* _stormDomeFlare = nullptr; // KORs ArenaLight02 (LensFlareNode) — the bright eye/glare
+    RE::TESBoundObject* _stormDomeFlare = nullptr; // FARO_StormDomeFlare (LensFlareNode) — the bright eye/glare
     std::vector<RE::ObjectRefHandle> _stormDomeRefs;
     bool _stormDomeUp = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
