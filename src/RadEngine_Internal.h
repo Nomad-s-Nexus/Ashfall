@@ -300,6 +300,12 @@ namespace RadInternal
     constexpr int      kNukeRollInTicks      = 12 * 4; // firestorm: nuke detonates, then ~12 s later
                                                        // the fog/fire/IMAD + dome + exposure roll in
                                                        // (the shockwave sweeping in from the horizon)
+    // Firestorm nuke: SpawnDistantNuke can fail transiently (player 3D/worldspace not up, target cell
+    // not yet streamed, engine returns a null handle). Count actual native submissions separately from
+    // the absolute Active-phase wait so shelter cannot spend the attempt budget and no invalid state can
+    // hold the atmosphere forever. Both limits are ~10 s at 4 Hz.
+    constexpr int      kFirestormNukeMaxAttempts = 40;
+    constexpr int      kFirestormNukeMaxWaitTicks = 40;
     // VK_F8 — Left Shift + F8 opens the debug menu. NOT F9 (the game's Quick Load — a passive
     // GetAsyncKeyState poll can't consume it, so Shift+F9 also quick-loaded), NOT F11 (used by the
     // user's chat overlay), and NOT F10 (Windows reserves it and GetAsyncKeyState reads it unreliably).
@@ -511,6 +517,10 @@ namespace RadInternal
     constexpr float kStormShakeRumbleStrength    = 0.12f;  // psc RumbleStrength
     constexpr float kStormShakeRumbleDuration    = 0.7f;   // psc RumbleInterval + 0.1
     constexpr int   kStormShakeRumbleTicks       = 2;      // 0.5 s at 4 Hz; overlaps the 0.7 s duration
+    // A burst step only advances once the native shake actually submits. If the player's 3D/cell is
+    // transiently invalid (streaming), retry the step up to this many ticks, then abandon the burst and
+    // hand over to the sustained rumble (which self-retries safely) so the burst can't spin forever.
+    constexpr int   kStormShakeBurstMaxRetries   = 20;     // ~5 s at 4 Hz
     // Arena lights for the effect-LIT cloud shapes. KORs' script does PlaceAtNode on two nodes in the dome
     // NIF; we mirror BOTH at their authored local heights. The glowing-vortex look IS this lighting: the
     // clouds are lit brightest at the eye and fall off outward. (Do NOT bake the clouds self-emissive to

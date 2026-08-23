@@ -237,7 +237,12 @@ private:
     bool            _stormPeakFired = false;        // guards the one-time peak burst per storm
     int             _stormRollInTicks = 0;          // firestorm: ticks until fog/fire/IMAD roll in after the nuke
     bool            _stormFXVisible = false;        // dome/IMAD currently shown (exterior-only; toggled by shelter)
-    bool            _stormNukeFired = false;        // firestorm nuke detonated once this storm (no re-fire on re-show)
+    bool            _stormNukeFired = false;        // firestorm nuke SUCCESSFULLY detonated once this storm (latched on success only)
+    bool            _firestormAwaitingNuke = false; // firestorm Active: holding the atmosphere roll-in until the nuke resolves
+    int             _nukeAttempts = 0;              // actual firestorm-nuke native submissions this storm
+    int             _nukeWaitTicks = 0;             // absolute Active-phase nuke wait, including shelter/invalid states
+    int             _shakeBurstRetries = 0;         // bounded retries for a burst step whose native shake couldn't submit (invalid 3D/cell)
+    bool            _debugSkipToActive = false;     // debug fast-forward: collapse Approach/Warning to reach Active quickly (testing)
     RE::BSSoundHandle _stormSoundHandle{};          // storm ambient (per-type looping bed) — faded out at storm end
     RE::BSSoundHandle _radstormCueHandle{};         // vanilla-radstorm soft warning cue — tracked so End Storm/Clear can stop it
     RE::BSSoundHandle _ambientBedHandle{};          // general exterior ambient bed (background, no storm)
@@ -397,7 +402,7 @@ private:
     RE::BGSHazard* _fireHazardForm = nullptr;       // DN121FireHazard (0x1A7C6A, Fallout4.esm)
     RE::BGSExplosion* _nukeExplosionForm = nullptr;  // FARO_EmissionStrikeAlpha (0x885)
     std::vector<RE::ObjectRefHandle> _fireRefs;    // live handles so we can disable on cleanup
-    void SpawnDistantNuke();                        // one distant firestorm strike; no projectile launch
+    bool SpawnDistantNuke();                        // one distant firestorm strike; true = detonated (false = transient failure)
     void SpawnFireRing();                           // place a ring of fire hazards around player
     void ClearFireRefs();                           // disable + release all live fire refs
 
@@ -423,7 +428,7 @@ private:
     // returned false every time). -1 = inactive for both counters.
     int  _shakeBurstStep  = -1;                     // >=0: decaying burst step in progress
     int  _shakeRumbleTick = -1;                     // >=0: ticks until the next sustained rumble
-    void NativeShakeCamera(float strength, float duration);
+    bool NativeShakeCamera(float strength, float duration);  // true = shake actually submitted (false = invalid 3D/cell/runtime)
     void UpdateStormShake();                        // per-tick burst/rumble driver
 
     // Continuous camera dust for the Dust Storm. The weather referenceEffect
