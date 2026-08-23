@@ -1,8 +1,10 @@
 # Fallout Anomaly - Radiation Overhaul
 
-A self-contained radiation overhaul for Fallout 4 (OG / 1.10.163): F4SE DLL +
-`RadiationOverhaul.esp` + optional PrismaUI HUD. References only `Fallout4.esm`
-(plus `DLCCoast` / `DLCNukaWorld` for merged overrides). No other plugin deps.
+A radiation overhaul for Fallout 4 (OG / 1.10.163): F4SE DLL +
+`RadiationOverhaul.esp` + optional PrismaUI HUD. The core ESP references `Fallout4.esm`
+(plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The native storm-dome lighting
+currently still resolves two LIGH forms from `KORsAnomaly Stripped.esp`; making those records
+fully self-contained is tracked in issue #19.
 
 Author: NomadsReach
 
@@ -67,7 +69,7 @@ The historical `tooling/` tree referenced by older notes is not part of the curr
 
 ## Docs
 
-- [docs/STATUS.md](docs/STATUS.md) - release status and known work (verify against current source; some historical entries may be stale)
+- [docs/STATUS.md](docs/STATUS.md) - current release status, verification gates, and known work
 - [docs/PROGRESS.md](docs/PROGRESS.md) - implemented systems, pending ideas, FormID contract
 - [docs/ESP_BUILD_PIPELINE.md](docs/ESP_BUILD_PIPELINE.md) - ESP/Spriggit build pipeline
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated change history

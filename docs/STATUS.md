@@ -1,133 +1,116 @@
-# Rad Mod — Release Status
+# Rad Mod - Release Status
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-08-18
 
-Single authoritative list of what is NOT finished. Anything not listed here is considered done.
-Historical detail lives in `CHANGELOG.md` and `ISSUES_FIXED.md`; superseded planning docs are in
-`archive/`.
+Single authoritative list of what is not finished. Historical detail lives in `CHANGELOG.md` and
+`ISSUES_FIXED.md`; deferred GMW work lives in `GASMASK_ROADMAP.md`.
 
-Legend: **BLOCKER** = advertised to players but missing/broken. **OPEN** = incomplete, not
-advertised. **DECISION** = waiting on the author. **CLEANUP** = internal only.
-
----
-
-## BLOCKER — advertised but not delivered
-
-### ~~1. Ghoulification capstone does not exist~~ — RESOLVED 2026-07-19
-Author's call: drop the feature rather than restore it. The `README.md` bullet (and its reference to
-a non-existent `RadOverhaul_GhoulRace.esp`) is removed, and the top stage is renamed
-**"Systemic Failure"** in both `data/thresholds.json` and the deployed copy — matching that stage's
-own existing description, "Complete systemic failure - death near". Nothing in code keyed on the
-string, so this is label-only; stage count, ranges and penalties are unchanged.
-
-### ~~2. Storm dome renders black~~ — RESOLVED, confirmed in-game 2026-07-19
-Author confirmed the dome renders correctly. Fixes landed after the 07-15 changelog entry and were
-recorded in `docs/Prisma/CHANGELOG.md` + commit messages rather than here, which is why this doc
-went stale and briefly listed it as an open blocker:
-- **Arena light restored** (`fe6e2aacf`). An earlier pass removed it as pointless; in fact the cloud
-  layers ship with own-emit OFF and effect-lighting ON, so with no light they render as a dark blob.
-  Placed at the NIF's `TopLightNode` height, aimed down, radius 20000.
-- **Dome animation force-started** (`fe6e2aacf`). A natively-placed ACTI ref leaves the clouds'
-  shader float stuck at its initial value; every layer's controller sequence is now activated once
-  its 3D attaches.
-- **Black-hole apex card** (`147ed6689`, 07-17). NASA Goddard/Schnittman texture, card switched from
-  `BSLightingShaderProperty` to an emissive shader.
-
-Nothing remaining. The 07-15 `CHANGELOG.md` entry in this folder describing the bug as open is
-superseded by the 2026-07-19 entry at the top of that file.
-
-### ~~3. New Gen support is unverified~~ — RESOLVED 2026-07-19 (claim dropped)
-Author's call: narrow the claim rather than ship an untested one. `README.md` now says
-"OG / 1.10.163". The `PlayerCharacter::Update` vtable index is still unverified on NG, and the mod
-now carries at least one OG-only raw address (the native `ShakeCamera`, guarded by
-`REX::FModule::IsRuntimeOG()`), so NG support would be a real porting task, not a claim to restore.
-
-### ~~4. Storm screen FX dead on pre-existing saves~~ — REWRITTEN NATIVE 2026-07-19, needs in-game test
-The premise was wrong: it was never an old-saves problem. `SetStage` failed on **all 35** logged
-attempts, and the "dormant quest" branch never fired once, so the Papyrus shake had never run on ANY
-save. `InitSearchTables()` is a no-op here too (before/after stage-table dumps are identical).
-Fixed by dropping the quest dependency: the shake is now a native `ShakeCamera` call driven per-tick,
-matching the old Papyrus burst/rumble feel. Full write-up incl. verified address, signature and the
-threading result in `ISSUES_FIXED.md`. **Still owed: an in-game test** — force a lethal storm and
-confirm the shake appears and stops cleanly.
-
-The firestorm **nuke** (bd `f4se_og-dpd`) is still open and still stage-driven; it needs the same
-treatment. Note the threading finding below applies to it.
-
-### ~~5. Gas-mask put-on / take-off fade is a stub~~ — RESOLVED 2026-07-19
-Author's call: no longer wanted. Removed the stub, `PlayMaskFade`, both call sites, the tick-driven
-fade-back and the two members. The goggle overlay is unaffected.
+Legend: **VERIFY** = implementation exists but still needs live Fallout 4 confirmation.
+**OPEN** = active engineering issue. **DEFERRED** = intentionally outside the current release scope.
+**CLEANUP** = internal maintenance only.
 
 ---
 
-## OPEN — incomplete, not advertised
+## BLOCKER
 
-### 6. Dust storms have no airborne dust
-Fog only. Needs a clean-room weather-particle BGEM+DDS plus a camera-dust `VisualEffect`. FormIDs
-`0x845`/`0x846` are reserved but empty. Refs: `CHANGELOG.md:937,1159`, `PROGRESS.md:118-121`
-
-### 7. Storm siren never confirmed to fire in-game
-Fixed and evidence-backed, but `[StormCue] Siren started` has not yet been observed in a live log.
-Test: force a storm (debug lead is now 10 s) and check the log. Refs: `ISSUES_FIXED.md`
-
-### 8. Firestorm missile flyover not implemented
-The distant detonation itself now works (native `CreateExplosionAtLocation`, 2026-07-19 — see
-`ISSUES_FIXED.md`). What is still missing is only the *missile arcing overhead* before it;
-`Projectile::Launch` remains out of scope. Cosmetic addition, not a broken feature.
-Refs: `src/RadiationEngine.cpp:736-737`
-
-### 9. Gas-mask filter ignores time-jumps
-Sleeping or fast-travelling does not drain the filter, so the filter economy can be skipped by
-waiting. Refs: `NEEDS_INPUT.md`
-
-### 10. Roadmap features not started
-NPC flee-to-shelter AI, post-storm loot loop, Pillars II-IV (diseases, gear durability, nuclear
-blasts), Geiger tied to pre-resistance rads, siren fade-out. Refs: `PROGRESS.md:81-86`
-
-### 11. GMW gas-mask feature port
-7 items across three proposed tiers, decision pending. Refs: `GASMASK_ROADMAP.md:24-45`,
-`GMW_GAP_ANALYSIS.md`, bd `f4se_og-9xs`
+No known advertised feature is currently missing from source. The remaining release gates are
+verification and the engineering issues below.
 
 ---
 
-## DECISION — waiting on the author
+## VERIFY - implementation complete, live confirmation still required
 
-### 12. RadAway tissue-heal false-fires
-Any rad drop over ~15 in one tick reads as a doctor visit and can wipe permanent scarring (RadAway
-plus a stimpak in the same tick will do it). Fix is known — switch to inventory-count-delta
-detection, the method chelation already uses. Design/feel call, not a bug.
-Refs: `NEEDS_INPUT.md`, `src/RadEngine_Tissue.cpp:177`
+### 1. Native lethal-storm camera shake - GitHub #8
 
-### 13. Fix-Stats vs permanent scar penalty
-Fix-Stats currently suspends the permanent-scar END penalty indefinitely. Author's stated intent is
-that it should NOT — not yet implemented. Refs: bd `f4se_og-9kp`
+The dead Papyrus `SetStage` route was replaced by native `ShakeCamera`. `UpdateStormShake()` drives
+an initial burst plus sustained rumble and tears the counters down when the storm leaves Active.
+The path is OG-only and guarded because the 4 Hz engine hook is a worker thread.
 
-### 14. Weather transition can snap once
-A storm starting mid-transition resets blend pct and cosmetically jumps. Documented as an accepted
-trade-off — listed so shipping it stays a conscious choice. Refs: `src/RadEngine_Weather.cpp:145-151`
+Test Ash Fallout and Rad Firestorm in-game. Confirm the shake starts in Active, sustains, stops
+cleanly, and does not CTD around interiors/cell transitions.
+
+### 2. Native firestorm distant nuke - GitHub #9
+
+The old placement/stage route was replaced with the native `CreateExplosionAtLocation` detonation
+path. `_stormNukeFired` limits it to one strike per firestorm.
+
+Test repeated Rad Firestorms outdoors. Confirm exactly one horizon-scale mushroom-cloud strike per
+storm, no duplicates, no CTD around cell transitions, and a successful
+`[Storm/Nuke] distant firestorm strike detonated=true` log line.
+
+### 3. Storm siren live confirmation
+
+Siren instrumentation and the debug-shortened storm lead are implemented. A release test should
+still observe `[StormCue] Siren started` in a live log and confirm the cue stops/fades normally.
 
 ---
 
-## CLEANUP — internal only
+## OPEN - active engineering
 
-15. **Three config files ship but are never read** — `data/items.json`, `data/perks.json`,
-    `data/zones.json` are populated but only `thresholds.json` loads. Not in `deploy/`, so they
-    mislead contributors, not players. Refs: `src/RadiationConfig.cpp:10-15`
-16. **`thresholds.json` carries dead tuning fields** — `endPenalty`/`strPenalty` and old
-    limb/health/fast-travel/radaway fields are ignored; real penalties are hardcoded in
-    `kStagePenalties`. Modders editing them see no effect. Refs: `src/RadiationConfig.h:3-8`
-17. **Debug thread probe still in the shipping hook** — marked "TEMP, remove after diagnosis",
-    fires two warn-level lines every session. Refs: `src/Hooks.cpp:48-64`
-18. **Release package contains build junk** — `deploy/F4SE.zip`, a `CloudArena04.nif.20260717.bak`,
-    plus `fallout-4-image-3.jpg` and the `GasMask/` / `GasMaskOverlays/` PSD trees at repo root.
-19. **README describes files that do not exist** — a `tooling/` directory and an optional
-    `RadOverhaul_GhoulRace.esp`; it also omits `RadOverhaulSurPatch.esp`, which *is* shipped.
-20. **Orphaned ESP record** — IMAD `0x830` (old radiation tint) is never resolved or triggered;
-    replaced by the HTML overlay. Refs: `src/RadEngine_Tissue.cpp:58`
-21. **ESP build pipeline partly unverified** — mechanics not re-verified end-to-end, the `spriggit`
-    CLI wrapper is broken for this tree (bypass documented), step-3 source path unconfirmed, and the
-    FormID map omits `0x802-0x804`, `0x844`, `0x880-0x884`. Refs: `ESP_BUILD_PIPELINE.md`
-22. **Dead Papyrus path has real bugs if revived** — beyond bd `f4se_og-whl`: `_StartShake`'s
-    rumble-loop `StartTimer` is unreachable, two empty `If/EndIf` bodies, and `DebugNotify` defaults
-    to `true` (would spam on-screen debug text at players).
-    Refs: `deploy/Scripts/Source/User/RadStormFX.psc`
+### 4. Storm dome has a hidden KORs light dependency - GitHub #19
+
+The core ESP/README previously claimed no other plugin dependency, but the native dome path still
+resolves `ArenaLight01` (`0x025334`) and `ArenaLight02` (`0x02626D`) from
+`KORsAnomaly Stripped.esp`. The preferred fix is to add equivalent scriptless LIGH records to
+`RadiationOverhaul.esp`, resolve them locally, and verify the complete dome visual with KORs absent.
+
+### 5. Worker-thread engine-call audit - GitHub #20
+
+Runtime probing established that the 4 Hz `PlayerCharacter::Update` hook is a worker thread and
+F4SE `AddTask` is not a reliable main-thread marshal in this runtime. Some current comments and
+call classifications still assume main-thread execution. Audit every engine-facing operation,
+document proven-safe/guarded worker calls, and establish a verified dispatcher for anything that
+actually requires game-main execution.
+
+### 6. Larger roadmap systems
+
+Not current release blockers: NPC shelter-seeking AI, post-storm loot loop, later radiation pillars
+(disease/gear durability/nuclear-blast expansion), and a Geiger path tied to pre-resistance exposure.
+Open focused issues only when an item is selected for implementation.
+
+---
+
+## RESOLVED / CLOSED 2026-08-18
+
+- **Dust storm airborne particles (#10):** `UpdateDustMotes()` continuously re-applies a
+  camera-attached heavy-dust ArtObject during exposed Dust Storm Warning/Active phases. Nuka-World
+  art is used when available with a vanilla fallback.
+- **Filter drain across sleep/wait/fast-travel (#12):** merged PR #16. Time jumps now drain filters
+  using the pre-jump mask/exposure state and live `timescale`; AutoReplace can consume multiple
+  spares. The same PR also blocks duplicate/free tissue healing when loading later saves.
+- **RadAway false tissue-heal trigger (#13):** merged PR #18. Reducible-tissue healing now requires
+  an actual RadAway inventory decrement and a short consumption window.
+- **Fix Stats vs permanent scar END (#14):** scar END is added after the stage-penalty suspension,
+  so Fix Stats cannot clear permanent scarring.
+- **Firestorm missile flyover (#11):** closed as not planned. The actual distant detonation exists;
+  the remaining flyover was cosmetic and the investigated projectile-launch path carried CTD risk.
+- **GMW umbrella (#15):** closed as not planned for the current release. Remaining parity ideas stay
+  in `GASMASK_ROADMAP.md` and should become focused feature issues if selected.
+- **Release hardening (PR #17):** unsupported runtimes fail closed, stale thread probes were removed,
+  README/layout documentation was refreshed, and legacy threshold fields are clearly marked as
+  non-runtime tuning.
+
+---
+
+## DEFERRED / ACCEPTED
+
+- **GMW parity work:** breathing/sprint loops, crack overlays/audio, visor splatter/wipe, protection
+  tiers, weapon-scaled mask damage, expanded filter economy, and lower-priority extras remain
+  deliberately deferred.
+- **Weather transition snap:** a storm beginning during an existing transition can cosmetically
+  reset the blend once. This remains an accepted trade-off unless it becomes visibly disruptive.
+- **New Gen:** not supported. The current plugin is intentionally OG / Fallout 4 1.10.163 only.
+
+---
+
+## CLEANUP - internal only
+
+1. `data/items.json`, `data/perks.json`, and `data/zones.json` are source-tree design leftovers and
+   are not consumed by the runtime loader.
+2. `thresholds.json` still contains legacy non-runtime tuning fields. Their comments now state this
+   explicitly, so removal is optional cleanup rather than a correctness fix.
+3. IMAD `0x830` is an orphaned old radiation-tint record; the HTML HUD overlay replaced it.
+4. The ESP/Spriggit build pipeline still needs an end-to-end verification pass and FormID-map audit.
+5. The legacy `RadStormFX.psc/.pex` path is no longer authoritative. Its old Papyrus shake logic has
+   real defects if revived; keep native storm FX authoritative unless the script is deliberately
+   repaired and recompiled.
