@@ -121,6 +121,7 @@ namespace RadInternal
     constexpr uint32_t     kRadWeatherListID     = 0x802;  // FLST of weathers that count as "rad weather"
     constexpr uint32_t     kGasMaskFilterID      = 0x803;  // MISC consumable: RadOverhaul_GasMaskFilter
     constexpr uint32_t     kGasMaskRepairKitID   = 0x804;  // MISC consumable: RadOverhaul_GasMaskRepairKit
+    constexpr uint32_t     kGasMaskKeywordID     = 0x809;  // KYWD FARO_GasMask; required with the mouth slot
     constexpr int          kNpcMaskRescanTicks   = 20;     // ~5 s at 4 Hz: re-scan to mask NPCs that loaded mid-storm
     constexpr uint32_t     kTissueGlobalID       = 0x850;
     constexpr uint32_t     kPermTissueGlobalID   = 0x851;  // permanent (scarred) tissue

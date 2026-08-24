@@ -671,6 +671,17 @@ void RadiationEngine::EnsureEslLoaded()
             _filterItem ? "resolved (filter system enabled)" : "NOT found (filter system disabled)");
     }
 
+    // A mask must carry this keyword as well as filling the mouth slot. Without it, mask protection
+    // and auto-equip fail closed instead of treating bandanas or cosmetic mouth armor as respirators.
+    {
+        RE::TESForm* f = dh->LookupForm(kGasMaskKeywordID, kEslName);
+        _gasMaskKeyword = (f && f->GetFormType() == RE::ENUM_FORM_ID::kKYWD)
+            ? static_cast<RE::BGSKeyword*>(f) : nullptr;
+        logger->info("[ESL] Gas-mask keyword (0x{:03X}): {}", kGasMaskKeywordID,
+            _gasMaskKeyword ? "resolved (keyword-plus-mouth-slot protection enabled)"
+                            : "NOT found (mask protection and auto-equip disabled)");
+    }
+
     // Resolve the gas-mask repair kit consumable (optional). Repairs the mask's condition.
     {
         RE::TESForm* f = dh->LookupForm(kGasMaskRepairKitID, kEslName);

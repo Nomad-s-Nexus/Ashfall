@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "RadCorrectnessPolicy.h"
 #include "Hooks.h"
 
 using namespace RadInternal;
@@ -8,10 +9,17 @@ using namespace RadInternal;
 // RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
 
-// Gas-mask detection for the first-person mask SCREEN OVERLAY (drawn by the PrismaUI HUD). A worn
-// gas mask / respirator fills the MOUTH biped slot (19) — distinct from sunglasses (eyes only) or a
-// hat — so a single worn-armor scan for that slot reliably flags "the player is breathing through a
-// mask". Reuses the same biped scan as IsPlayerInPowerArmor. Const: only reads worn gear.
+bool RadiationEngine::IsRecognizedGasMask(const RE::TESObjectARMO* armor) const
+{
+    return armor && RadCorrectnessPolicy::IsGasMask(
+        armor->FillsBipedSlot(static_cast<std::int32_t>(RE::BIPED_OBJECT::kMouth)),
+        _gasMaskKeyword && armor->HasKeyword(_gasMaskKeyword));
+}
+
+
+// Gas-mask detection for the first-person mask screen overlay (drawn by the PrismaUI HUD). A worn
+// armor is protective only when it fills the mouth slot and carries FARO_GasMask. Const: only reads
+// worn gear.
 RE::TESObjectARMO* RadiationEngine::GetActorWornMask(RE::Actor* actor) const
 {
     if (!actor || !actor->biped) return nullptr;
@@ -22,7 +30,7 @@ RE::TESObjectARMO* RadiationEngine::GetActorWornMask(RE::Actor* actor) const
         RE::TESForm* form = biped.object[i].parent.object;
         if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kARMO) continue;
         auto* armo = static_cast<RE::TESObjectARMO*>(form);
-        if (armo->FillsBipedSlot(static_cast<std::int32_t>(RE::BIPED_OBJECT::kMouth)))
+        if (IsRecognizedGasMask(armo))
             return armo;
     }
     return nullptr;
@@ -38,8 +46,8 @@ RE::TESObjectARMO* RadiationEngine::GetWornMask() const
 bool RadiationEngine::IsWearingGasMask() const { return GetWornMask() != nullptr; }
 
 
-// First owned gas mask (a mouth-slot armor) in an actor's inventory, worn or not — used to auto-don a
-// mask in rad weather. Mask-agnostic: matches any armor filling the mouth slot, no FormID list.
+// First owned recognized gas mask in an actor's inventory, worn or not — used to auto-don a mask in
+// rad weather. A candidate must carry FARO_GasMask and fill the mouth slot.
 RE::TESObjectARMO* RadiationEngine::FindActorInventoryMask(RE::Actor* actor) const
 {
     if (!actor) return nullptr;
@@ -48,11 +56,11 @@ RE::TESObjectARMO* RadiationEngine::FindActorInventoryMask(RE::Actor* actor) con
 
     RE::TESObjectARMO* found = nullptr;
     inv->ForEachStack(
-        [](RE::BGSInventoryItem& a_item) -> bool {
+        [this](RE::BGSInventoryItem& a_item) -> bool {
             auto* obj = a_item.object;
             if (!obj || obj->GetFormType() != RE::ENUM_FORM_ID::kARMO) return false;
             auto* armo = static_cast<RE::TESObjectARMO*>(obj);
-            return armo->FillsBipedSlot(static_cast<std::int32_t>(RE::BIPED_OBJECT::kMouth));
+            return IsRecognizedGasMask(armo);
         },
         [&found](RE::BGSInventoryItem& a_item, RE::BGSInventoryItem::Stack&) -> bool {
             found = static_cast<RE::TESObjectARMO*>(a_item.object);
@@ -320,5 +328,3 @@ void RadiationEngine::RepairMask(bool silent)
     if (!silent) Notify("[Mask] Mask repaired.", false);
     Log()->info("[Condition] mask repaired (kits left {}).", RepairKitCount());
 }
-
-

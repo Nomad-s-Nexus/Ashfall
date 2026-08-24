@@ -310,17 +310,19 @@ private:
     bool IsPlayerInPowerArmor() const;
     bool IsActorInPowerArmor(RE::Actor* actor) const;   // PA scan: requires a FULL suit — helmet + 6 distinct ArmorTypePower pieces
     RE::BGSKeyword* _armorTypePowerKeyword = nullptr;   // Fallout4.esm 0x4D8A1 — marks PA armor pieces
-    // Gas-mask detection: the worn mask in an actor's MOUTH biped slot (null = none). The generic form
-    // works for the player OR any NPC; the no-arg form is the player.
+    // Gas-mask detection requires the FARO_GasMask keyword and the MOUTH biped slot. The generic
+    // form works for the player OR any NPC; the no-arg form is the player.
+    bool IsRecognizedGasMask(const RE::TESObjectARMO* armor) const;
     RE::TESObjectARMO* GetActorWornMask(RE::Actor* actor) const;
     RE::TESObjectARMO* GetWornMask() const;
     bool IsWearingGasMask() const;
+    RE::BGSKeyword* _gasMaskKeyword = nullptr;  // RadiationOverhaul.esp 0x809 — FARO_GasMask
     int  _maskOverride = -1;            // debug: -1 auto (worn detection), 0 force off, 1 force on
 
     // Auto-equip a gas mask while a rad weather is active (data-driven by the RadWeatherList FormList).
     // Equips on entering rad weather, removes (only what it auto-equipped) on leaving. Applies to the
     // player AND nearby NPCs. Generic helpers take an Actor*; the player wrappers delegate to them.
-    RE::TESObjectARMO* FindActorInventoryMask(RE::Actor* actor) const;  // first owned mouth-slot mask
+    RE::TESObjectARMO* FindActorInventoryMask(RE::Actor* actor) const;  // first owned recognized gas mask
     RE::TESObjectARMO* FindInventoryMask() const;                       // player
     void SetActorMaskEquipped(RE::Actor* actor, RE::TESObjectARMO* mask, bool equip);  // silent, via VM
     void SetMaskEquipped(RE::TESObjectARMO* mask, bool equip);          // player
