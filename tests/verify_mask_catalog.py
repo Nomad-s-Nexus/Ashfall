@@ -9,17 +9,21 @@ from pathlib import Path
 
 RECORD_HEADER_SIZE = 24
 COMPRESSED = 0x00040000
+EXPECTED_MASTERS = ("DLCCoast.esm", "DLCNukaWorld.esm", "Fallout4.esm")
+FALLOUT4 = "Fallout4.esm"
+SELF = "RadiationOverhaul.esp"
 EXPECTED_MASKS = {
-    0x000CEAC4,  # Armor_HazmatSuit
-    0x0018B214,  # Armor_HazmatSuitDamaged
-    0x00042565,  # Armor_FlightHelmet
-    0x0004322C,  # Armor_FlightHelmetRed
-    0x000D4166,  # Armor_FlightHelmetBrown
-    0x001184C1,  # Armor_Gasmask
-    0x000787D8,  # Armor_Raider_Gasmask
-    0x0007239E,  # Armor_Raider_GreenHoodGasmask
+    (FALLOUT4, 0x000CEAC4),  # Armor_HazmatSuit
+    (FALLOUT4, 0x0018B214),  # Armor_HazmatSuitDamaged
+    (FALLOUT4, 0x00042565),  # Armor_FlightHelmet
+    (FALLOUT4, 0x0004322C),  # Armor_FlightHelmetRed
+    (FALLOUT4, 0x000D4166),  # Armor_FlightHelmetBrown
+    (FALLOUT4, 0x001184C1),  # Armor_Gasmask
+    (FALLOUT4, 0x000787D8),  # Armor_Raider_Gasmask
+    (FALLOUT4, 0x0007239E),  # Armor_Raider_GreenHoodGasmask
 }
-SURGICAL_MASK = 0x000787DA  # Clothes_Raider_SurgicalMask
+SURGICAL_MASK = (FALLOUT4, 0x000787DA)  # Clothes_Raider_SurgicalMask
+GAS_MASK_KEYWORD = (SELF, 0x00000809)
 MOUTH_SLOT = 1 << 19
 
 
@@ -49,6 +53,30 @@ def records(data, start, end):
             raise ValueError("invalid record bounds")
         yield kind, u32(data, offset + 8), u32(data, offset + 12), data[offset + RECORD_HEADER_SIZE : record_end]
         offset = record_end
+
+
+def master_names(data):
+    if data[:4] != b"TES4":
+        raise ValueError("plugin does not start with a TES4 header")
+    header_size = u32(data, 4)
+    header_end = RECORD_HEADER_SIZE + header_size
+    if header_end > len(data):
+        raise ValueError("invalid TES4 header bounds")
+    return tuple(
+        value.rstrip(b"\x00").decode("ascii")
+        for name, value in subrecords(data[RECORD_HEADER_SIZE:header_end], 0)
+        if name == b"MAST"
+    )
+
+
+def form_key(form_id, masters):
+    master_index = form_id >> 24
+    local_id = form_id & 0x00FFFFFF
+    if master_index < len(masters):
+        return masters[master_index], local_id
+    if master_index == len(masters):
+        return SELF, local_id
+    raise ValueError(f"FormID {form_id:08X} has invalid master index {master_index}")
 
 
 def subrecords(payload, flags):
@@ -107,21 +135,30 @@ def fills_mouth(payload, flags):
 
 def main(plugin_path):
     data = Path(plugin_path).read_bytes()
+    masters = master_names(data)
+    if masters != EXPECTED_MASTERS:
+        raise SystemExit(
+            f"master order changed: expected={EXPECTED_MASTERS!r}, actual={masters!r}"
+        )
     all_records = list(records(data, 0, len(data)))
-    keyword_form_ids = [
-        form_id for kind, flags, form_id, payload in all_records
-        if kind == b"KYWD" and editor_id(payload, flags) == "FARO_GasMask"
+    keyword_form_keys = [
+        form_key(form_id, masters)
+        for kind, flags, form_id, payload in all_records
+        if kind == b"KYWD"
+        and editor_id(payload, flags) == "FARO_GasMask"
+        and form_key(form_id, masters) == GAS_MASK_KEYWORD
     ]
-    if len(keyword_form_ids) != 1:
-        raise SystemExit(f"expected exactly one FARO_GasMask keyword, found {keyword_form_ids!r}")
+    if keyword_form_keys != [GAS_MASK_KEYWORD]:
+        raise SystemExit(f"expected exactly one FARO_GasMask keyword, found {keyword_form_keys!r}")
 
     tagged = set()
     missing_mouth_slot = []
     for kind, flags, form_id, payload in all_records:
-        if kind == b"ARMO" and keyword_form_ids[0] in keyword_ids(payload, flags):
-            tagged.add(form_id)
+        keyword_form_keys = {form_key(keyword_id, masters) for keyword_id in keyword_ids(payload, flags)}
+        if kind == b"ARMO" and GAS_MASK_KEYWORD in keyword_form_keys:
+            tagged.add(form_key(form_id, masters))
             if not fills_mouth(payload, flags):
-                missing_mouth_slot.append(form_id)
+                missing_mouth_slot.append(form_key(form_id, masters))
 
     if tagged != EXPECTED_MASKS:
         missing = sorted(EXPECTED_MASKS - tagged)
@@ -132,7 +169,10 @@ def main(plugin_path):
     if missing_mouth_slot:
         raise SystemExit(f"FARO_GasMask catalog has non-mouth armor: {missing_mouth_slot!r}")
 
-    print("FARO_GasMask catalog verified:", ", ".join(f"{form_id:08X}" for form_id in sorted(tagged)))
+    print(
+        "FARO_GasMask catalog verified:",
+        ", ".join(f"{local_id:08X}:{master}" for master, local_id in sorted(tagged)),
+    )
 
 
 if __name__ == "__main__":
