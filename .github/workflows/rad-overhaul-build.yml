@@ -62,6 +62,16 @@ jobs:
         with:
           xmake-version: "3.0.4"
 
+      - name: Run correctness policy tests
+        working-directory: Rad-Overhaul-Fallout-4
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build-policy
+          xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
+          xmake build rad_correctness_policy_tests
+          ./build/tests/rad_correctness_policy_tests
+
       - name: Verify xwin toolchain
         shell: bash
         run: |
