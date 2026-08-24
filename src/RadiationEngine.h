@@ -418,13 +418,20 @@ private:
     RE::TESBoundObject* _stormDomeLight = nullptr; // FARO_StormDomeLight (TopLightNode) — the cloud shapes are
                                                    // effect-LIT, so this light IS the glowing-vortex look.
     RE::TESBoundObject* _stormDomeFlare = nullptr; // FARO_StormDomeFlare (LensFlareNode) — the bright eye/glare
-    std::vector<RE::ObjectRefHandle> _stormDomeRefs;
+    struct StormDomeLayer
+    {
+        RE::ObjectRefHandle handle;
+        float zOffset;
+    };
+    std::vector<StormDomeLayer> _stormDomeRefs;
+    int _stormDomeFollowTick = 0;
     bool _stormDomeUp = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads
     void SpawnStormDome();                          // place the dome layers overhead (exterior only)
     void ClearStormDome();                          // disable + release the dome layers
+    void UpdateStormDomePosition();                 // follow the exposed player at 1 Hz
     void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
     // Native camera shake (replaces the RadStormFX Papyrus shake, which never fired — SetStage
     // returned false every time). -1 = inactive for both counters.

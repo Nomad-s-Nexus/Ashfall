@@ -18,6 +18,11 @@ namespace RadCorrectnessPolicy
         return { player.x, player.y, player.z + zOffset };
     }
 
+    constexpr bool ShouldFollowDomeOnTick(int ticksSinceLastMove)
+    {
+        return ticksSinceLastMove >= 4;
+    }
+
     constexpr bool IsGasMask(bool fillsMouth, bool hasKeyword)
     {
         return fillsMouth && hasKeyword;

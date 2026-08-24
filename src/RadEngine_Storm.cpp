@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "RadCorrectnessPolicy.h"
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -351,6 +352,7 @@ void RadiationEngine::SpawnStormDome()
     // ACTI layers (below); if those fail to resolve but the arena lights do, _stormDomeUp stays false
     // and every re-exposure would otherwise append another light pair, leaking the previous ones.
     ClearStormDome();
+    _stormDomeFollowTick = 0;
 
     const RE::NiPoint3 base = player->GetPosition();
     int placed = 0;
@@ -366,7 +368,7 @@ void RadiationEngine::SpawnStormDome()
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
         {
-            _stormDomeRefs.push_back(handle);
+            _stormDomeRefs.push_back({ handle, kStormDomeZOffset });
             ++placed;
         }
     }
@@ -395,7 +397,7 @@ void RadiationEngine::SpawnStormDome()
             ld.world     = player->cachedWorldspace;
             auto lh = dh->CreateReferenceAtLocation(ld);
             if (!static_cast<bool>(lh)) return false;
-            _stormDomeRefs.push_back(lh);
+            _stormDomeRefs.push_back({ lh, kStormDomeZOffset + nodeZ });
             return true;
         };
         lit   = placeLight(_stormDomeLight, kStormDomeLightNodeZ);
@@ -486,9 +488,9 @@ void RadiationEngine::UpdateDomeAnimation()
 {
     if (!_stormDomeUp || _stormDomeAnimStarted || _stormDomeRefs.empty()) return;
     int animated = 0, pending = 0;
-    for (auto& handle : _stormDomeRefs)
+    for (auto& layer : _stormDomeRefs)
     {
-        auto ptr = handle.get();
+        auto ptr = layer.handle.get();
         auto* ref = ptr.get();
         if (!ref) continue;
         auto* obj3d = ref->Get3D();
@@ -519,9 +521,9 @@ void RadiationEngine::UpdateDomeAnimation()
         Log()->warn("[DomeDump] player pos=({:.0f},{:.0f},{:.0f}) cell=0x{:X}",
             ppos.x, ppos.y, ppos.z, reinterpret_cast<std::uintptr_t>(pcell));
         int i = 0;
-        for (auto& h : _stormDomeRefs)
+        for (auto& layer : _stormDomeRefs)
         {
-            auto ptr = h.get(); auto* r = ptr.get();
+            auto ptr = layer.handle.get(); auto* r = ptr.get();
             if (!r) { Log()->warn("[DomeDump] [{}] handle DEAD", i++); continue; }
             const auto p = r->GetPosition();
             auto* c3d = r->Get3D();
@@ -539,11 +541,12 @@ void RadiationEngine::UpdateDomeAnimation()
 
 void RadiationEngine::ClearStormDome()
 {
+    _stormDomeFollowTick = 0;
     if (_stormDomeRefs.empty()) { _stormDomeUp = false; return; }
     int cleared = 0;
-    for (auto& handle : _stormDomeRefs)
+    for (auto& layer : _stormDomeRefs)
     {
-        auto ptr = handle.get();
+        auto ptr = layer.handle.get();
         if (auto* ref = ptr.get())
         {
             ref->Disable();
@@ -555,6 +558,29 @@ void RadiationEngine::ClearStormDome()
     _stormDomeUp = false;
     _stormDomeAnimStarted = false;
     Log()->info("[StormFX] Storm dome cleared ({} layers).", cleared);
+}
+
+void RadiationEngine::UpdateStormDomePosition()
+{
+    if (!_stormDomeUp || IsPlayerSheltered()) return;
+
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    if (!player) return;
+
+    if (!RadCorrectnessPolicy::ShouldFollowDomeOnTick(++_stormDomeFollowTick)) return;
+    _stormDomeFollowTick = 0;
+
+    const auto playerPosition = player->GetPosition();
+    for (auto& layer : _stormDomeRefs)
+    {
+        auto ptr = layer.handle.get();
+        auto* ref = ptr.get();
+        if (!ref || ref->IsDeleted() || ref->IsDisabled()) continue;
+
+        const auto position = RadCorrectnessPolicy::DomePosition(
+            { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
+        ref->SetPosition({ position.x, position.y, position.z });
+    }
 }
 
 // Continuous camera dust for the Dust Storm. The weather referenceEffect (FXCameraAttachExplosionDustVE)
@@ -1062,6 +1088,7 @@ void RadiationEngine::MakeNearbyNPCsFlee()
 void RadiationEngine::UpdateStorm()
 {
     auto logger = Log();
+    UpdateStormDomePosition();
 
     // New-game safety: the first time the player is outdoors after a new game, force the
     // Commonwealth clear weather so a vault exit / alt-start never opens straight into a rad storm
