@@ -121,11 +121,12 @@ Interfaces:
 - Consumes RadCorrectnessPolicy::DomePosition.
 - Produces RadiationEngine::UpdateStormDomePosition().
 
-- [ ] Step 1: Add an offset regression case and verify RED.
+- [ ] Step 1: Add a follow-cadence regression case and verify RED.
 
-    Require(DomePosition({-50.0f, 25.0f, 100.0f}, 6400.0f) == Position{-50.0f, 25.0f, 6500.0f});
+    Require(!ShouldFollowDomeOnTick(3));
+    Require(ShouldFollowDomeOnTick(4));
 
-Run xmake build rad_correctness_policy_tests and ./build/tests/rad_correctness_policy_tests. Expected: failure until arbitrary vertical offsets are represented.
+Run xmake build rad_correctness_policy_tests and ./build/tests/rad_correctness_policy_tests. Expected: compilation fails because ShouldFollowDomeOnTick is not defined.
 
 - [ ] Step 2: Preserve layer offsets.
 
@@ -133,7 +134,7 @@ Replace the raw dome-handle vector with StormDomeLayer containing RE::ObjectRefH
 
 - [ ] Step 3: Update at one hertz.
 
-Add _stormDomeFollowTick and UpdateStormDomePosition(). Every fourth engine tick while active and exposed, set each live reference's position to DomePosition(playerPosition, zOffset). Skip expired handles and never move cleared or sheltered domes.
+Add ShouldFollowDomeOnTick(int ticksSinceLastMove) to RadCorrectnessPolicy, then add _stormDomeFollowTick and UpdateStormDomePosition(). Every fourth engine tick while active and exposed, set each live reference's position to DomePosition(playerPosition, zOffset). Skip expired handles and never move cleared or sheltered domes.
 
 - [ ] Step 4: Verify and commit.
 
@@ -229,4 +230,3 @@ Document source, build, and plugin evidence separately from pending Windows OG c
 
     git add docs/CHANGELOG.md docs/STATUS.md
     git commit -m "docs(rad): record correctness verification"
-
