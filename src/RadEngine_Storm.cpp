@@ -355,6 +355,8 @@ void RadiationEngine::SpawnStormDome()
     _stormDomeFollowTick = 0;
 
     const RE::NiPoint3 base = player->GetPosition();
+    auto* const playerCell = player->GetParentCell();
+    auto* const playerWorld = player->cachedWorldspace;
     int placed = 0;
     for (int k = 0; k < 4; ++k)
     {
@@ -364,7 +366,7 @@ void RadiationEngine::SpawnStormDome()
         data.location  = { base.x, base.y, base.z + kStormDomeZOffset };
         data.direction = { 0.0f, 0.0f, 0.0f };
         data.interior  = nullptr;
-        data.world     = player->cachedWorldspace;
+        data.world     = playerWorld;
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
         {
@@ -373,6 +375,11 @@ void RadiationEngine::SpawnStormDome()
         }
     }
     _stormDomeUp = placed > 0;
+    if (_stormDomeUp)
+    {
+        _stormDomeCell = playerCell;
+        _stormDomeWorld = playerWorld;
+    }
     _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
 
     // Arena lights: the cloud shapes are effect-LIT, so these lights ARE the glowing-vortex look (bright at
@@ -394,7 +401,7 @@ void RadiationEngine::SpawnStormDome()
             ld.location  = { base.x, base.y, base.z + kStormDomeZOffset + nodeZ };
             ld.direction = { 0.0f, 0.0f, 0.0f };
             ld.interior  = nullptr;
-            ld.world     = player->cachedWorldspace;
+            ld.world     = playerWorld;
             auto lh = dh->CreateReferenceAtLocation(ld);
             if (!static_cast<bool>(lh)) return false;
             _stormDomeRefs.push_back({ lh, kStormDomeZOffset + nodeZ });
@@ -542,6 +549,8 @@ void RadiationEngine::UpdateDomeAnimation()
 void RadiationEngine::ClearStormDome()
 {
     _stormDomeFollowTick = 0;
+    _stormDomeCell = nullptr;
+    _stormDomeWorld = nullptr;
     if (_stormDomeRefs.empty()) { _stormDomeUp = false; return; }
     int cleared = 0;
     for (auto& layer : _stormDomeRefs)
@@ -566,6 +575,17 @@ void RadiationEngine::UpdateStormDomePosition()
 
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
+
+    const bool sameCell = player->GetParentCell() == _stormDomeCell;
+    const bool sameWorld = player->cachedWorldspace == _stormDomeWorld;
+    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld))
+    {
+        Log()->info("[StormFX] Dome owner changed (cellSame={}, worldSame={}); recreating references.",
+            sameCell, sameWorld);
+        ClearStormDome();
+        SpawnStormDome();
+        return;
+    }
 
     if (!RadCorrectnessPolicy::ShouldFollowDomeOnTick(++_stormDomeFollowTick)) return;
     _stormDomeFollowTick = 0;

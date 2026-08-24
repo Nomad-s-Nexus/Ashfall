@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "Hooks.h"
 
 using namespace RadInternal;
 
@@ -286,8 +287,16 @@ void RadiationEngine::CheckActiveCures(float currentRads, float currentHP, bool 
 
 void RadiationEngine::NotifyVerifiedCureUse(RadCorrectnessPolicy::CureSignal signal)
 {
-    // This is called on the game main thread by the future source-identifying adapter. Do not infer
-    // item use from count changes here: those changes also represent dropping, selling and transfers.
+    // A source-identifying adapter may run on a worker thread. Refuse direct state mutation there:
+    // engine work is valid only on the dispatcher-owned game main thread.
+    if (!Hooks::IsGameMainThread())
+    {
+        Log()->error("[TissueCure] Ignoring verified cure signal off the game main thread.");
+        return;
+    }
+
+    // Do not infer item use from count changes here: those changes also represent dropping, selling
+    // and transfers.
     if (RadCorrectnessPolicy::CuresPermanentTissue(signal))
     {
         HealPermanentTissue(_permanentTissueDamage, "chelation");

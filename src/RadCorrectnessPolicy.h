@@ -23,6 +23,11 @@ namespace RadCorrectnessPolicy
         return ticksSinceLastMove >= 4;
     }
 
+    constexpr bool ShouldRecreateDomeForOwner(bool domeUp, bool sameCell, bool sameWorld)
+    {
+        return domeUp && (!sameCell || !sameWorld);
+    }
+
     constexpr bool IsGasMask(bool fillsMouth, bool hasKeyword)
     {
         return fillsMouth && hasKeyword;

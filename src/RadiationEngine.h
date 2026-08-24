@@ -26,11 +26,13 @@ namespace RE {
     class BGSPerk;
     class TESImageSpaceModifier;
     class TESGlobal;
+    class TESObjectCELL;
     class TESObjectREFR;
     class TESObjectARMO;
     class TESBoundObject;
     class TESWeather;
     class TESQuest;
+    class TESWorldSpace;
     class BGSListForm;
 }
 
@@ -432,6 +434,8 @@ private:
         float zOffset;
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
+    RE::TESObjectCELL* _stormDomeCell = nullptr;
+    RE::TESWorldSpace* _stormDomeWorld = nullptr;
     int _stormDomeFollowTick = 0;
     bool _stormDomeUp = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
