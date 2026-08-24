@@ -20,6 +20,7 @@ EXPECTED_MASKS = {
     0x0007239E,  # Armor_Raider_GreenHoodGasmask
 }
 SURGICAL_MASK = 0x000787DA  # Clothes_Raider_SurgicalMask
+MOUTH_SLOT = 1 << 19
 
 
 def u16(data, offset):
@@ -95,6 +96,15 @@ def editor_id(payload, flags):
     return ""
 
 
+def fills_mouth(payload, flags):
+    for name, value in subrecords(payload, flags):
+        if name == b"BOD2":
+            if len(value) < 4:
+                raise ValueError("invalid BOD2 payload")
+            return bool(u32(value, 0) & MOUTH_SLOT)
+    return False
+
+
 def main(plugin_path):
     data = Path(plugin_path).read_bytes()
     all_records = list(records(data, 0, len(data)))
@@ -106,9 +116,12 @@ def main(plugin_path):
         raise SystemExit(f"expected exactly one FARO_GasMask keyword, found {keyword_form_ids!r}")
 
     tagged = set()
+    missing_mouth_slot = []
     for kind, flags, form_id, payload in all_records:
         if kind == b"ARMO" and keyword_form_ids[0] in keyword_ids(payload, flags):
             tagged.add(form_id)
+            if not fills_mouth(payload, flags):
+                missing_mouth_slot.append(form_id)
 
     if tagged != EXPECTED_MASKS:
         missing = sorted(EXPECTED_MASKS - tagged)
@@ -116,6 +129,8 @@ def main(plugin_path):
         raise SystemExit(f"FARO_GasMask catalog mismatch: missing={missing!r}, unexpected={unexpected!r}")
     if SURGICAL_MASK in tagged:
         raise SystemExit("FARO_GasMask must not be applied to Clothes_Raider_SurgicalMask")
+    if missing_mouth_slot:
+        raise SystemExit(f"FARO_GasMask catalog has non-mouth armor: {missing_mouth_slot!r}")
 
     print("FARO_GasMask catalog verified:", ", ".join(f"{form_id:08X}" for form_id in sorted(tagged)))
 
