@@ -2,6 +2,7 @@
 #include "RadiationEngine.h"
 #include "Hooks.h"
 #include "RadHud.h"
+#include "RadCorrectnessPolicy.h"
 #include <RE/U/UI.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/C/ControlMap.h>
@@ -135,6 +136,7 @@ namespace
 
     std::atomic<bool> g_radWaiting{ false };
     std::atomic<std::uint64_t> g_radWaitGeneration{ 0 };
+    std::atomic<std::uint64_t> g_radLoadGeneration{ 0 };
 
     bool IsCurrentRadHudWait(std::uint64_t generation)
     {
@@ -290,12 +292,21 @@ namespace
             break;
 
         case F4SE::MessagingInterface::kPostLoadGame:
+        {
             logger->info("========== POST LOAD GAME EVENT ==========");
+            const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
             // Post-load stall diagnostics: these pinpoint exactly where the path stops if the queued
             // task never completes (queued? entered? which sub-step?). One-shot per load — not spam.
             logger->info("[PostLoad] kPostLoadGame received on thread {}; queuing post-load task.",
                 ::GetCurrentThreadId());
-            if (Hooks::QueueMainThreadTask([]() {
+            if (Hooks::QueueMainThreadTask([loadGeneration]() {
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration,
+                            g_radLoadGeneration.load(std::memory_order_acquire)))
+                    {
+                        logger->debug("[PostLoad] ignoring stale task for load generation {}.", loadGeneration);
+                        return;
+                    }
                     logger->info("[PostLoad] task entered on game-main thread {}.", ::GetCurrentThreadId());
                     auto& engine = RadiationEngine::GetSingleton();
                     RadHud::GetSingleton().ResetDebugMenuForSession();
@@ -318,14 +329,24 @@ namespace
                 logger->critical("Failed to queue post-load radiation reset on game-main thread.");
             }
             break;
+        }
 
         case F4SE::MessagingInterface::kPostPostLoad:
             logger->info("Post-post load event received");
             break;
 
         case F4SE::MessagingInterface::kNewGame:
+        {
             logger->info("New game started");
-            if (!Hooks::QueueMainThreadTask([]() {
+            const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            if (!Hooks::QueueMainThreadTask([loadGeneration]() {
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration,
+                            g_radLoadGeneration.load(std::memory_order_acquire)))
+                    {
+                        logger->debug("[NewGame] ignoring stale task for load generation {}.", loadGeneration);
+                        return;
+                    }
                     auto& engine = RadiationEngine::GetSingleton();
                     RadHud::GetSingleton().ResetDebugMenuForSession();
                     engine.OnPostLoad();   // reset per-load tracking
@@ -339,8 +360,10 @@ namespace
                 logger->critical("Failed to queue new-game radiation reset on game-main thread.");
             }
             break;
+        }
 
         case F4SE::MessagingInterface::kPreLoadGame:
+            g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel);
             // Invalidate the current detached waiter and every already-queued probe/CreateView from it
             // before the next load can start a fresh generation.
             g_radWaiting.store(false, std::memory_order_release);
