@@ -44,7 +44,7 @@ jobs:
           # SHA deliberately, or repoint at commonlib_NonVR main once that commit is merged there.
           # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
           # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          COMMONLIB_SHA="027179464c5ae399d231a568d3bb4bb4c36ba822"
+          COMMONLIB_SHA="feat/rad-overhaul-natives-og"   # branch tip during bring-up; re-pin to an immutable SHA once green
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too

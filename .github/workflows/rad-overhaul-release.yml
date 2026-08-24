@@ -59,7 +59,7 @@ jobs:
           # Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to an immutable SHA for
           # reproducible releases (the commit adding the Rad natives). Bump deliberately. Auth via the
           # COMMONLIB_READ_TOKEN repo secret; Actions masks it in logs.
-          COMMONLIB_SHA="027179464c5ae399d231a568d3bb4bb4c36ba822"
+          COMMONLIB_SHA="feat/rad-overhaul-natives-og"   # branch tip during bring-up; re-pin to an immutable SHA once green
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
