@@ -4,15 +4,17 @@ set_xmakever("3.0.0")
 -- CommonLib authority: PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR is the ONLY supported RE source.
 -- CI/release clone it and set COMMONLIBF4_PATH; the local-dev default below must also be a
 -- commonlib_NonVR checkout. Do NOT point this at Dear-Modding-FO4/CommonLibF4 or any other CommonLib.
-local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../commonlib_NonVR"
--- Fail loud if the checkout is not commonlib_NonVR. RE-Work/ is a directory unique to our fork (absent
--- from Dear-Modding/upstream CommonLibF4), so this stops an unrelated CommonLib silently becoming
--- authoritative — including a stray ../../CommonLibF4 left over from an older layout.
-if not os.isdir(path.join(commonlib_path, "RE-Work")) then
-    raise("CommonLib authority check FAILED: '" .. commonlib_path .. "' is not a commonlib_NonVR checkout " ..
-        "(RE-Work/ marker missing). Set COMMONLIBF4_PATH to a PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR clone.")
+if is_plat("windows") then
+    local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../commonlib_NonVR"
+    -- Fail loud if the checkout is not commonlib_NonVR. RE-Work/ is a directory unique to our fork (absent
+    -- from Dear-Modding/upstream CommonLibF4), so this stops an unrelated CommonLib silently becoming
+    -- authoritative — including a stray ../../CommonLibF4 left over from an older layout.
+    if not os.isdir(path.join(commonlib_path, "RE-Work")) then
+        raise("CommonLib authority check FAILED: '" .. commonlib_path .. "' is not a commonlib_NonVR checkout " ..
+            "(RE-Work/ marker missing). Set COMMONLIBF4_PATH to a PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR clone.")
+    end
+    includes(commonlib_path)
 end
-includes(commonlib_path)
 
 -- Set project
 set_project("FalloutAnomalyRadiation")
@@ -23,11 +25,14 @@ set_languages("c++23")
 set_warnings("allextra")
 set_encodings("utf-8")
 
+-- These packages are needed only by the Windows plugin build. Keep the standalone
+-- policy test target independent on other hosts.
+if is_plat("windows") then
+    add_requires("spdlog v1.16.0", "fmt", "nlohmann_json")
+end
+
 -- Add rules
 add_rules("mode.release")
-
--- Require dependencies
-add_requires("spdlog v1.16.0", "fmt", "nlohmann_json")
 
 -- Define target
 target("FalloutAnomalyRadiation")
@@ -36,10 +41,14 @@ target("FalloutAnomalyRadiation")
     set_filename("FalloutAnomalyRadiation.dll")
 
     -- Add dependencies
-    add_deps("commonlibf4")
+    if is_plat("windows") then
+        add_deps("commonlibf4")
+    end
 
     -- Add packages
-    add_packages("spdlog", "fmt", "nlohmann_json")
+    if is_plat("windows") then
+        add_packages("spdlog", "fmt", "nlohmann_json")
+    end
 
     -- Source files
     add_files("src/**.cpp")
@@ -84,3 +93,9 @@ target("FalloutAnomalyRadiation")
             end
         end
     end)
+
+target("rad_correctness_policy_tests")
+    set_kind("binary")
+    add_files("tests/correctness_policy_tests.cpp")
+    add_includedirs("src")
+    set_targetdir("build/tests")
