@@ -579,7 +579,8 @@ void RadiationEngine::UpdateStormDomePosition()
 
         const auto position = RadCorrectnessPolicy::DomePosition(
             { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
-        ref->SetPosition({ position.x, position.y, position.z });
+        ref->data.location = { position.x, position.y, position.z };
+        ref->Update3DPosition(true);
     }
 }
 
