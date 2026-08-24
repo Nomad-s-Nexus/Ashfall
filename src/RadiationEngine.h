@@ -437,6 +437,7 @@ private:
     RE::TESObjectCELL* _stormDomeCell = nullptr;
     RE::TESWorldSpace* _stormDomeWorld = nullptr;
     int _stormDomeFollowTick = 0;
+    int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so

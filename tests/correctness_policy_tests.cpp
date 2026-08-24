@@ -22,6 +22,11 @@ int main()
     Require(!ShouldRecreateDomeForOwner(true, true, true));
     Require(ShouldRecreateDomeForOwner(true, false, true));
     Require(ShouldRecreateDomeForOwner(true, true, false));
+    Require(!ShouldRetryDomeSpawn(false, true, false, 4));
+    Require(!ShouldRetryDomeSpawn(true, false, false, 4));
+    Require(!ShouldRetryDomeSpawn(true, true, true, 4));
+    Require(!ShouldRetryDomeSpawn(true, true, false, 3));
+    Require(ShouldRetryDomeSpawn(true, true, false, 4));
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
     Require(!CuresPermanentTissue(CureSignal::kNone));
@@ -32,6 +37,9 @@ int main()
     Require(!ArmsRadAwayHealing(CureSignal::kInventoryMovement));
     Require(!ArmsRadAwayHealing(CureSignal::kVerifiedChelationUse));
     Require(ArmsRadAwayHealing(CureSignal::kVerifiedRadAwayUse));
+    Require(ShouldStartHudWait(false, 42, 42));
+    Require(!ShouldStartHudWait(true, 42, 42));
+    Require(!ShouldStartHudWait(false, 42, 43));
     Require(IsCurrentLoadGeneration(42, 42));
     Require(!IsCurrentLoadGeneration(42, 43));
 }

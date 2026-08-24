@@ -135,13 +135,13 @@ namespace
     }
 
     std::atomic<bool> g_radWaiting{ false };
-    std::atomic<std::uint64_t> g_radWaitGeneration{ 0 };
     std::atomic<std::uint64_t> g_radLoadGeneration{ 0 };
 
     bool IsCurrentRadHudWait(std::uint64_t generation)
     {
         return g_radWaiting.load(std::memory_order_acquire) &&
-               g_radWaitGeneration.load(std::memory_order_acquire) == generation;
+               RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                   generation, g_radLoadGeneration.load(std::memory_order_acquire));
     }
 
     void WaitThenCreateRadHud(std::uint64_t generation)
@@ -157,7 +157,8 @@ namespace
 
         while (IsCurrentRadHudWait(generation)) {
             if (std::chrono::steady_clock::now() >= deadline) {
-                if (g_radWaitGeneration.load(std::memory_order_acquire) == generation)
+                if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                        generation, g_radLoadGeneration.load(std::memory_order_acquire)))
                     g_radWaiting.store(false, std::memory_order_release);
                 if (logger) logger->warn("FalloutAnomaly: radhud wait thread timed out (10 min) — giving up this load.");
                 break;
@@ -168,7 +169,8 @@ namespace
             // the previous probe must not keep advancing the 5-second world-ready hold timer.
             free->store(false, std::memory_order_release);
             if (!Hooks::QueueMainThreadTask([free, generation]() {
-                    if (g_radWaitGeneration.load(std::memory_order_acquire) != generation)
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            generation, g_radLoadGeneration.load(std::memory_order_acquire)))
                         return;
                     auto* ui = RE::UI::GetSingleton();
                     auto* cm = RE::ControlMap::GetSingleton();
@@ -192,13 +194,15 @@ namespace
                     if (held >= 5000) { // wait 5 seconds after loading screen
                         if (logger) logger->info("FalloutAnomaly: player is in world, creating radhud view");
                         if (!Hooks::QueueMainThreadTask([generation]() {
-                                if (g_radWaitGeneration.load(std::memory_order_acquire) == generation)
+                                if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                                        generation, g_radLoadGeneration.load(std::memory_order_acquire)))
                                     RadHud::GetSingleton().CreateView();
                             }))
                         {
                             if (logger) logger->error("FalloutAnomaly: failed to queue radhud CreateView on game-main thread.");
                         }
-                        if (g_radWaitGeneration.load(std::memory_order_acquire) == generation)
+                        if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                                generation, g_radLoadGeneration.load(std::memory_order_acquire)))
                             g_radWaiting.store(false, std::memory_order_release);
                         break;
                     }
@@ -209,15 +213,24 @@ namespace
         }
     }
 
-    // Spawn one waiter per load generation. kPreLoadGame invalidates the generation before the next
-    // post-load/new-game event can start another waiter, so detached threads cannot cross load boundaries.
-    void StartRadHudWaitIfIdle()
+    // The HUD waiter uses the same load generation as post-load/new-game engine work. kPreLoadGame
+    // invalidates the waiter and every queued HUD closure with the same barrier.
+    void StartRadHudWaitIfIdle(std::uint64_t loadGeneration)
     {
+        if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire)))
+            return;
+
         bool expected = false;
         if (g_radWaiting.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
         {
-            const auto generation = g_radWaitGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
-            std::thread(WaitThenCreateRadHud, generation).detach();
+            if (!RadCorrectnessPolicy::ShouldStartHudWait(
+                    false, loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire)))
+            {
+                g_radWaiting.store(false, std::memory_order_release);
+                return;
+            }
+            std::thread(WaitThenCreateRadHud, loadGeneration).detach();
         }
     }
 
@@ -309,13 +322,21 @@ namespace
                     }
                     logger->info("[PostLoad] task entered on game-main thread {}.", ::GetCurrentThreadId());
                     auto& engine = RadiationEngine::GetSingleton();
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     RadHud::GetSingleton().ResetDebugMenuForSession();
                     logger->info("[PostLoad] OnPostLoad begin.");
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnPostLoad();
                     logger->info("[PostLoad] OnPostLoad end; ResetAppliedPenalties begin.");
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.ResetAppliedPenalties();
                     logger->info("[PostLoad] ResetAppliedPenalties end; StartRadHudWaitIfIdle begin.");
-                    StartRadHudWaitIfIdle();
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    StartRadHudWaitIfIdle(loadGeneration);
                     logger->info("[PostLoad] StartRadHudWaitIfIdle end; post-load task complete.");
                     logger->info("Game save loaded. Radiation Engine ACTIVE.");
                     logger->info("  - Load-state engine mutation completed on game-main thread");
@@ -348,11 +369,21 @@ namespace
                         return;
                     }
                     auto& engine = RadiationEngine::GetSingleton();
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     RadHud::GetSingleton().ResetDebugMenuForSession();
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnPostLoad();   // reset per-load tracking
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnNewGame();    // arm clear-weather-on-first-exterior
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.ResetAppliedPenalties();
-                    StartRadHudWaitIfIdle();
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    StartRadHudWaitIfIdle(loadGeneration);
                     logger->debug("  - New-game radiation state reset on game-main thread");
                     logger->debug("  - Update loop: RUNNING");
                 }))
@@ -367,7 +398,6 @@ namespace
             // Invalidate the current detached waiter and every already-queued probe/CreateView from it
             // before the next load can start a fresh generation.
             g_radWaiting.store(false, std::memory_order_release);
-            g_radWaitGeneration.fetch_add(1, std::memory_order_acq_rel);
             logger->info("Game loading...");
             break;
 

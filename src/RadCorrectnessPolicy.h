@@ -28,6 +28,11 @@ namespace RadCorrectnessPolicy
         return domeUp && (!sameCell || !sameWorld);
     }
 
+    constexpr bool ShouldRetryDomeSpawn(bool domePhase, bool exposed, bool domeUp, int retryTicks)
+    {
+        return domePhase && exposed && !domeUp && retryTicks >= 4;
+    }
+
     constexpr bool IsGasMask(bool fillsMouth, bool hasKeyword)
     {
         return fillsMouth && hasKeyword;
@@ -54,5 +59,10 @@ namespace RadCorrectnessPolicy
     constexpr bool IsCurrentLoadGeneration(std::uint64_t expected, std::uint64_t actual)
     {
         return expected == actual;
+    }
+
+    constexpr bool ShouldStartHudWait(bool alreadyWaiting, std::uint64_t expectedLoad, std::uint64_t actualLoad)
+    {
+        return !alreadyWaiting && IsCurrentLoadGeneration(expectedLoad, actualLoad);
     }
 }

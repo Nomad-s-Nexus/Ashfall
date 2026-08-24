@@ -549,6 +549,7 @@ void RadiationEngine::UpdateDomeAnimation()
 void RadiationEngine::ClearStormDome()
 {
     _stormDomeFollowTick = 0;
+    _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
     _stormDomeWorld = nullptr;
     if (_stormDomeRefs.empty()) { _stormDomeUp = false; return; }
@@ -571,10 +572,33 @@ void RadiationEngine::ClearStormDome()
 
 void RadiationEngine::UpdateStormDomePosition()
 {
-    if (!_stormDomeUp || IsPlayerSheltered()) return;
+    const bool domePhase = _stormPhase == StormPhase::Approach ||
+        _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
+    const bool exposed = !IsPlayerSheltered();
+    if (!domePhase || !exposed)
+    {
+        _stormDomeRespawnRetryTicks = 0;
+        return;
+    }
 
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
+
+    // A transition can briefly leave the worldspace unresolved, or a target cell can reject all
+    // placements. Keep retrying at the normal 1 Hz cadence through every dome-bearing phase instead
+    // of leaving the storm permanently dome-less after one failed recreation.
+    if (!_stormDomeUp)
+    {
+        if (RadCorrectnessPolicy::ShouldRetryDomeSpawn(
+                domePhase, exposed, false, ++_stormDomeRespawnRetryTicks))
+        {
+            _stormDomeRespawnRetryTicks = 0;
+            Log()->info("[StormFX] Retrying pending dome spawn after transition failure.");
+            SpawnStormDome();
+        }
+        return;
+    }
+    _stormDomeRespawnRetryTicks = 0;
 
     const bool sameCell = player->GetParentCell() == _stormDomeCell;
     const bool sameWorld = player->cachedWorldspace == _stormDomeWorld;
@@ -1237,8 +1261,7 @@ void RadiationEngine::UpdateStorm()
         // sheltered) but fire NOTHING else — no siren, no alert, no weather. When the lead elapses, the
         // storm commits: EnterWarningPhase() fires the alarm and starts the dust-sky roll-in.
         const bool exposed = !IsPlayerSheltered();
-        if (exposed && !_stormDomeUp)      SpawnStormDome();
-        else if (!exposed && _stormDomeUp) ClearStormDome();
+        if (!exposed && _stormDomeUp) ClearStormDome();
 
         if (--_stormTicksLeft <= 0)
         {
