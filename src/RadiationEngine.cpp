@@ -1143,7 +1143,7 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     std::uint32_t type = 0, version = 0, length = 0;
 
     // SaveState writes one SCLK record. Older co-saves can carry duplicates, but their ordering does not
-    // prove which clock is current. Only one valid record, or repeated byte-identical records, may restore
+    // prove which clock is current. Only one valid record, or repeated field-identical records, may restore
     // state. Conflicting valid records fail safe and schedule a fresh storm rather than arbitrarily moving
     // the monotonic play clock backward or postponing storms by an unbounded amount.
     std::vector<RadiationSerialization::StormClockState> clockCandidates;

@@ -40,6 +40,10 @@ namespace RadiationSerialization
 	[[nodiscard]] inline StormClockCandidateDisposition ClassifyStormClockCandidates(
 		std::span<const StormClockState> a_candidates)
 	{
+		if (a_candidates.empty()) {
+			return StormClockCandidateDisposition::kAmbiguous;
+		}
+
 		for (const auto& candidate : a_candidates) {
 			if (candidate.playSeconds != a_candidates.front().playSeconds ||
 				candidate.nextStormPlaySeconds != a_candidates.front().nextStormPlaySeconds ||
