@@ -1219,7 +1219,7 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
         _lastRadstormSec  = clock.lastRadstormSeconds;
         _stormScheduled   = clock.scheduled;
         logger->info("[Load] Storm clock restored (play={:.0f}s, next={:.0f}s, scheduled={}){}.",
-            _playSeconds, _nextStormPlaySec, _stormScheduled, clockSeen > 1 ? " [identical duplicates]" : "");
+            _playSeconds, _nextStormPlaySec, _stormScheduled, clockCandidates.size() > 1 ? " [identical duplicates]" : "");
     }
     else if (!clockCandidates.empty())
     {
