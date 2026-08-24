@@ -275,9 +275,9 @@ namespace Hooks
 
         try
         {
-            // Only react to the player. Use FormID identity rather than pointer equality because
-            // PlayerCharacter's multiple inheritance can produce different adjusted pointers.
-            if (!a_this || a_this->GetFormID() != 0x14)
+            // Only react to the player. IsPlayerRef() (TESObjectREFR, via commonlib_NonVR) is the
+            // authoritative identity check — no raw 0x14 FormID literal.
+            if (!a_this || !a_this->IsPlayerRef())
                 return;
 
             // Preserve per-frame key responsiveness without touching engine state on this worker.
@@ -342,8 +342,11 @@ namespace Hooks
         if (logger) logger->info("[Hook] Installing PlayerCharacter::Update producer hook...");
         try
         {
+            // PlayerCharacter::Update overrides Actor::Update at the same vtable slot. The slot index is
+            // owned by the authority (commonlib_NonVR RE::VTABLE_INDEX::Actor::Update) — no local 0x0CF.
             static REL::Relocation<std::uintptr_t> PlayerCharacter_vtable(RE::VTABLE::PlayerCharacter[0]);
-            original_Update = PlayerCharacter_vtable.write_vfunc(0x0CF, &PlayerCharacter_Update_Hook);
+            original_Update = PlayerCharacter_vtable.write_vfunc(
+                RE::VTABLE_INDEX::Actor::Update, &PlayerCharacter_Update_Hook);
 
             if (original_Update.address() == 0)
             {

@@ -1,9 +1,17 @@
 -- Set minimum xmake version
 set_xmakever("3.0.0")
 
--- Include CommonLibF4 from workspace root (project flattened up one level 2026-06-22:
--- was ../../../CommonLibF4 when nested in Rad Mod/Rad Mod/, now ../../CommonLibF4)
-local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../CommonLibF4"
+-- CommonLib authority: PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR is the ONLY supported RE source.
+-- CI/release clone it and set COMMONLIBF4_PATH; the local-dev default below must also be a
+-- commonlib_NonVR checkout. Do NOT point this at Dear-Modding-FO4/CommonLibF4 or any other CommonLib.
+local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../commonlib_NonVR"
+-- Fail loud if the checkout is not commonlib_NonVR. RE-Work/ is a directory unique to our fork (absent
+-- from Dear-Modding/upstream CommonLibF4), so this stops an unrelated CommonLib silently becoming
+-- authoritative — including a stray ../../CommonLibF4 left over from an older layout.
+if not os.isdir(path.join(commonlib_path, "RE-Work")) then
+    raise("CommonLib authority check FAILED: '" .. commonlib_path .. "' is not a commonlib_NonVR checkout " ..
+        "(RE-Work/ marker missing). Set COMMONLIBF4_PATH to a PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR clone.")
+end
 includes(commonlib_path)
 
 -- Set project
@@ -41,8 +49,9 @@ target("FalloutAnomalyRadiation")
     -- Precompiled header
     set_pcxxheader("src/pch.h")
 
-    -- Define common macros
-    add_defines("COMMONLIB_RUNTIMECOUNT=3")
+    -- COMMONLIB_RUNTIMECOUNT is intentionally NOT defined here: commonlib_NonVR exports it as a public
+    -- define via add_deps("commonlibf4"), so the runtime count has a single authoritative owner and
+    -- cannot drift from the CommonLib it is compiled against.
 
     -- Win32 APIs used directly by the DLL plus the standard CommonLibF4 link set.
     -- Keep these explicit so clang-cl/lld-link cross-builds do not depend on MSVC

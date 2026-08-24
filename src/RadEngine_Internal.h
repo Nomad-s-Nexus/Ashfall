@@ -498,34 +498,11 @@ namespace RadInternal
     // original offset to copy.
     constexpr float kStormDomeZOffset     = 0.0f;
     // -----------------------------------------------------------------------
-    // Native camera shake. Replaces the RadStormFX Papyrus shake, which never ran once: SetStage
-    // returned false on all 35 logged attempts, so stages 10/11/12/20 never fired. Address Library
-    // id 758209 -> RVA 0x82DBE0 on 1.10.163 (verified against version-1-10-163-0.bin and an
-    // independent IDA export). Signature confirmed by decompiling the Papyrus binding at 0x13C1ED0:
-    //     void ShakeCamera(float mult, const NiPoint3& pos, float duration, float distanceMult)
-    // distanceMult MUST be 1.0f. The native treats 1.0 as "no distance scaling"; 0.0f instead zeroes
-    // both falloff radii, the `dist < outer + inner` test can then never pass (dist is a sqrtf, never
-    // negative), and the shake silently never plays. Position is the PLAYER's — that is what the
-    // binding passes for a None source, and it puts the camera inside the falloff at full strength.
-    // Strength is NOT clamped by the native (only by the Papyrus binding), so keep these <= 1.0.
-    // TESDataHandler::CreateExplosionAtLocation — the call that actually DETONATES an EXPL. The old
-    // SpawnDistantNuke used CreateReferenceAtLocation, which only ever created a *reference*: the log
-    // read `spawned=true immediate3D=false` and nothing appeared, because an explosion has to be
-    // fired, not placed. (A hazard/static DOES render when merely placed, which is why the fire ring
-    // always worked and misled the earlier diagnosis.)
-    // Address Library id 1105815 -> RVA 0x114FE0 on 1.10.163, verified against
-    // version-1-10-163-0.bin; control-checked by confirming id 500304 -> 0x1140B0, which matches
-    // CommonLibF4's own CreateReferenceAtLocation id. OG-only — no NG id resolved.
-    // Signature (register allocation read off the disassembly; Ghidra folds the hidden return buffer
-    // into param_1, so do NOT trust its parameter list):
-    //     ObjectRefHandle CreateExplosionAtLocation(TESDataHandler* this, TESBoundObject* base,
-    //         const NiPoint3& pos, const NiPoint3& rot, TESObjectCELL* cell, TESWorldSpace* world)
-    // Pass the WORLDSPACE and leave cell null: it derives the cell from the position and, crucially,
-    // returns a null handle instead of crashing when that cell is not loaded. That built-in gate is
-    // why this is the safe entry point rather than Explosion::SpawnExplosion.
-    constexpr std::uint64_t kCreateExplosionAtLocationID = 1105815;
-    constexpr std::uint64_t kShakeCameraID       = 758209;
-    constexpr float kShakeDistanceMult           = 1.0f;
+    // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
+    //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)
+    //   TESDataHandler::CreateExplosionAtLocation(base, pos, rot, cell, world)  (RE/T/TESDataHandler.h)
+    // Both are OG-verified only (NG id unresolved -> traps on non-OG); Rad is OG-only so that is safe.
+    // Full provenance is recorded in commonlib_NonVR RE-Work/docs/rad-overhaul-natives-2026-08.md.
     // Match the old RadStormFX values so the feel is unchanged: a decaying burst on the storm hit,
     // then a low sustained rumble for as long as the lethal storm is active.
     constexpr float kStormShakeBurstStrength     = 0.75f;  // psc BurstStrength

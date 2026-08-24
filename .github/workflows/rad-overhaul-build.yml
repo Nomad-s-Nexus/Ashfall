@@ -32,14 +32,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout CommonLibF4 dependency
+      - name: Checkout commonlib_NonVR (RE authority)
         shell: bash
+        env:
+          COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
         run: |
           set -euo pipefail
+          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
+          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to the commit that adds the
+          # Rad natives (CreateExplosionAtLocation / ShakeCamera / VTABLE_INDEX::Actor::Update). Bump this
+          # SHA deliberately, or repoint at commonlib_NonVR main once that commit is merged there.
+          # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
+          # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
+          COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"   # commonlib_NonVR main: merged guarded OG-only Rad natives (+ MagicTarget fix)
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
-          commonLib="$root/CommonLibF4"
-          rm -rf "$commonLib"
-          git clone --depth 1 --recurse-submodules https://github.com/Dear-Modding-FO4/CommonLibF4.git "$commonLib"
+          commonLib="$root/commonlib_NonVR"
+          rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
+          git init -q "$commonLib"
+          git -C "$commonLib" remote add origin "https://x-access-token:${COMMONLIB_READ_TOKEN}@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
+          git -C "$commonLib" fetch -q --depth 1 origin "$COMMONLIB_SHA"
+          git -C "$commonLib" checkout -q FETCH_HEAD
+          git -C "$commonLib" submodule update --init --recursive --depth 1
+          # Fail loud if this is somehow not commonlib_NonVR (RE-Work/ is unique to our fork).
+          test -d "$commonLib/RE-Work" || { echo "ERROR: RE-Work marker missing — checkout is not commonlib_NonVR" >&2; exit 1; }
           echo "COMMONLIBF4_PATH=$commonLib" >> "$GITHUB_ENV"
 
       - name: Setup xmake
