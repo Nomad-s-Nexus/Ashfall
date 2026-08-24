@@ -113,6 +113,14 @@ jobs:
         shell: bash
         run: xmake build -F xmake-xwin.lua -vD -y
 
+      - name: Upload Windows DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: FalloutAnomalyRadiation-windows-x64
+          path: Rad-Overhaul-Fallout-4/build/release/FalloutAnomalyRadiation.dll
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Report build status
         if: always()
         shell: bash

@@ -72,7 +72,7 @@ target("FalloutAnomalyRadiation")
     -- Set output directory
     set_targetdir("build/release")
 
-    -- Auto-deploy the built DLL to the live modlist so testing never runs a stale copy.
+    -- Auto-deploy the built DLL to the active live modlist so testing never runs a stale copy.
     -- Honours XSE_FO4_MODS_PATH if set; otherwise falls back to the known live modlist path.
     -- Uses trycp + isdir so a missing folder or a file-locked DLL (game running) never fails the build.
     after_build(function (target)
@@ -80,9 +80,9 @@ target("FalloutAnomalyRadiation")
         local dests = {}
         local mods = os.getenv("XSE_FO4_MODS_PATH")
         if mods then
-            table.insert(dests, path.join(mods, "Fallen World Rad Overhaul", "F4SE", "Plugins"))
+            table.insert(dests, path.join(mods, "RadiationOverhaul", "F4SE", "Plugins"))
         end
-        table.insert(dests, "E:/Modlists/Fallen World Alpha 2/mods/Fallen World Rad Overhaul/F4SE/Plugins")
+        table.insert(dests, "E:/Modlists/Fallen World Alpha 2/mods/RadiationOverhaul/F4SE/Plugins")
         for _, d in ipairs(dests) do
             if os.isdir(d) then
                 if os.trycp(dll, path.join(d, "FalloutAnomalyRadiation.dll")) then
