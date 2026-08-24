@@ -293,6 +293,7 @@ namespace
             logger->info("========== POST LOAD GAME EVENT ==========");
             if (!Hooks::QueueMainThreadTask([]() {
                     auto& engine = RadiationEngine::GetSingleton();
+                    RadHud::GetSingleton().ResetDebugMenuForSession();
                     engine.OnPostLoad();
                     engine.ResetAppliedPenalties();
                     StartRadHudWaitIfIdle();
@@ -313,6 +314,7 @@ namespace
             logger->info("New game started");
             if (!Hooks::QueueMainThreadTask([]() {
                     auto& engine = RadiationEngine::GetSingleton();
+                    RadHud::GetSingleton().ResetDebugMenuForSession();
                     engine.OnPostLoad();   // reset per-load tracking
                     engine.OnNewGame();    // arm clear-weather-on-first-exterior
                     engine.ResetAppliedPenalties();

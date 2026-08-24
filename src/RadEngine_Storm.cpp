@@ -295,7 +295,7 @@ void RadiationEngine::SpawnFireRing()
 // single nuke.
 bool RadiationEngine::SpawnDistantNuke()
 {
-    if (!REX::FModule::IsRuntimeOG()) return false;   // raw OG address; NG/AE would resolve elsewhere
+    if (!REX::FModule::IsRuntimeOG()) return false;   // authority wrapper is currently OG-only; fail closed elsewhere
     if (!_nukeExplosionForm || IsPlayerSheltered()) return false;
 
     auto* dh = RE::TESDataHandler::GetSingleton();
@@ -420,7 +420,7 @@ void RadiationEngine::SpawnStormDome()
 // false as "this shake step happened", or the decaying burst would silently skip steps during a load.
 bool RadiationEngine::NativeShakeCamera(float strength, float duration)
 {
-    if (!REX::FModule::IsRuntimeOG()) return false;   // raw OG address; NG/AE would land elsewhere
+    if (!REX::FModule::IsRuntimeOG()) return false;   // authority wrapper is currently OG-only; fail closed elsewhere
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player || !player->Get3D()) return false;    // 3D not up yet (streaming) — transient
     auto* cell = player->parentCell;

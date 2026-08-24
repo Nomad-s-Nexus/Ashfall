@@ -164,11 +164,6 @@ void RadHud::CreateView()
     // overlay hidden, so the cached state must not suppress the first push after a load.
     _maskPushed = -1;
 
-    // The (re)created view starts closed; drop any debug-menu state carried across the load so a
-    // toggle pressed before the load can't auto-open the menu once the new view finishes loading.
-    _debugOpen = false;
-    _debugTogglePending = false;
-
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
     // Register the blocking-menu sink once so the pause menu / message boxes close the debug menu
@@ -327,6 +322,13 @@ void RadHud::PushStorm(int phase, int theme, float intensity, bool sheltered, bo
         "{\"phase\":%d,\"theme\":%d,\"intensity\":%.3f,\"sheltered\":%s,\"lethal\":%s}",
         phase, theme, intensity, sheltered ? "true" : "false", lethal ? "true" : "false");
     api->InteropCall(_view, "stormPhase", json);
+}
+
+void RadHud::ResetDebugMenuForSession()
+{
+    _debugOpen = false;
+    _debugTogglePending = false;
+    _debugDesiredOpen = false;
 }
 
 void RadHud::ToggleDebugMenu()

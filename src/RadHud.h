@@ -47,6 +47,7 @@ public:
     // Debug menu (separate focusable PrismaUI view, toggled with Shift+F8).
     void ToggleDebugMenu();
     void SetDebugMenu(bool open);
+    void ResetDebugMenuForSession();
 
     // Apply a debug-menu toggle that arrived before the view finished loading its DOM. Called every
     // frame from PollInput (verified game-main thread). No-op unless a toggle is pending AND the view
@@ -87,9 +88,8 @@ private:
     // Debug menu is baked into the single HUD view; focus toggles on open/close.
     bool _debugOpen = false;
 
-    // Deferred debug-menu toggle: a Shift+F8 pressed while the view exists but its DOM is still loading
-    // is not discarded — the desired final state is stashed here and applied by PumpDeferredDebug once
-    // _domReady flips true. Touched only on the game-main thread (ToggleDebugMenu / PumpDeferredDebug),
+    // Deferred debug-menu toggle: a Shift+F8 pressed before the view exists or while its DOM loads is
+    // retained until PumpDeferredDebug can apply the desired state. Touched only on the game-main thread,
     // so no atomic is needed; the cross-thread readiness signal (_domReady) is already atomic.
     bool _debugTogglePending = false;   // a toggle is waiting for the view to become DOM-ready
     bool _debugDesiredOpen   = false;   // the state to apply once ready (last press wins)
