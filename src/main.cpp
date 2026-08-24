@@ -359,7 +359,8 @@ namespace
         case F4SE::MessagingInterface::kNewGame:
         {
             logger->info("New game started");
-            const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            const auto loadGeneration = RadCorrectnessPolicy::BeginNewGameLoad(
+                g_radLoadGeneration, g_radWaiting);
             if (!Hooks::QueueMainThreadTask([loadGeneration]() {
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration,

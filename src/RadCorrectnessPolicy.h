@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 namespace RadCorrectnessPolicy
@@ -64,5 +65,16 @@ namespace RadCorrectnessPolicy
     constexpr bool ShouldStartHudWait(bool alreadyWaiting, std::uint64_t expectedLoad, std::uint64_t actualLoad)
     {
         return !alreadyWaiting && IsCurrentLoadGeneration(expectedLoad, actualLoad);
+    }
+
+    inline std::uint64_t BeginNewGameLoad(
+        std::atomic<std::uint64_t>& loadGeneration,
+        std::atomic<bool>& hudWaiting)
+    {
+        // Invalidate queued old-generation work before releasing its waiter latch. Otherwise a stale
+        // waiter can leave the new game unable to claim the single HUD-wait slot.
+        const auto nextGeneration = loadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+        hudWaiting.store(false, std::memory_order_release);
+        return nextGeneration;
     }
 }

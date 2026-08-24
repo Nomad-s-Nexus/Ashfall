@@ -1,5 +1,6 @@
 #include "RadCorrectnessPolicy.h"
 
+#include <atomic>
 #include <cstdlib>
 
 namespace
@@ -42,4 +43,9 @@ int main()
     Require(!ShouldStartHudWait(false, 42, 43));
     Require(IsCurrentLoadGeneration(42, 42));
     Require(!IsCurrentLoadGeneration(42, 43));
+
+    std::atomic<std::uint64_t> newGameGeneration{ 41 };
+    std::atomic<bool> newGameHudWaiting{ true };
+    Require(BeginNewGameLoad(newGameGeneration, newGameHudWaiting) == 42);
+    Require(!newGameHudWaiting.load());
 }
