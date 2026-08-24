@@ -190,8 +190,8 @@ private:
     float UpdateTissueDamage(float particulateRads);  // returns effective severity
 
     // Permanent tissue damage: the portion of tissue scarring that cannot be cleared
-    // by RadAway or sleep. The chelation item effect is disabled fail-closed until a
-    // source-identifying item-use adapter is verified; doctor treatment is a separate path.
+    // by RadAway or sleep. Item-based cures are disabled fail-closed until a source-identifying
+    // item-use adapter is verified; no doctor-treatment path is currently implemented.
     // HealTissue() floors at this value. Only HealPermanentTissue() reduces it.
     RE::TESGlobal* _permanentTissueGlobal = nullptr;
     float _permanentTissueDamage = 0.0f;
@@ -528,8 +528,8 @@ private:
     // ---- CHRONIC TISSUE DAMAGE — real consequences -------------------------------------------
     // Tissue used to have NO effect of its own: it only inflated "effective severity" (rads + tissue),
     // which is mathematically identical to just carrying more rads. And PERMANENT scarring did
-    // literally nothing at all — accumulated, saved, shown on the HUD, cured by chelation, zero
-    // gameplay consequence. These give both an identity.
+    // literally nothing at all — accumulated, saved, shown on the HUD, and intended for a future
+    // verified chelation adapter, with zero gameplay consequence. These give both an identity.
     //
     // Because _tissueDamage can never heal BELOW _permanentTissueDamage, every penalty that scales
     // with tissue automatically FLOORS at the scar level — scarring is exactly "the damage you can

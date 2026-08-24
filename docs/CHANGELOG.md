@@ -423,8 +423,10 @@ multiple-definition error).
 tissue`), which is mathematically identical to just carrying more rads — so tissue had no identity of
 its own, and its only teeth were the small stage END/STR penalties it nudged you into. Worse,
 **PERMANENT scarring did literally nothing**: it accumulated, saved to a global, displayed on the HUD,
-and was cured by chelation, yet carried **zero** gameplay consequence (it was only a floor on tissue
-healing). That's why chelation felt pointless and tissue felt weightless.
+and, at the time, was described as cured by chelation, yet carried **zero** gameplay consequence (it was
+only a floor on tissue healing). That historical cure claim is no longer active: item cures now fail
+closed pending a verified source-identifying adapter. That's why chelation felt pointless and tissue felt
+weightless.
 
 **Layer 1 — chronic wasting** (always on, scales with `t = tissue / 1000`). Applied as floor-guarded,
 tracked `kTemporary` AV modifiers (new `ApplyTrackedAV`, same contract as `ApplyClampedSpecial`: clamped
@@ -440,9 +442,10 @@ radiation absorbs further damage faster, so letting tissue run away genuinely co
 being linear.
 
 **Permanent scarring finally bites.** Full scarring costs up to **4 ENDURANCE = lost MAX HP** that you
-cannot heal, rest off, or RadAway away — only the chelation compound (or a doctor) restores it. This is
-what makes hunting the cure worth it. Folded into the existing floor-guarded END penalty (rather than a
-second modifier) so the two can never combine to floor the stat.
+cannot heal, rest off, or RadAway away. This 2026-07-13 entry originally planned chelation and doctor
+restoration, but neither path is active now: no verified doctor or item cure adapter exists. Folded into
+the existing floor-guarded END penalty (rather than a second modifier) so the two can never combine to
+floor the stat.
 
 Note that because tissue can never heal below the permanent scar, **every** wasting penalty above
 automatically floors at the scar level too — scarring is exactly "the damage you can never heal", with

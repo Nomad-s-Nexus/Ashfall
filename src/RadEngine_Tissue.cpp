@@ -328,9 +328,9 @@ float RadiationEngine::UpdateTissueDamage(float particulateRads)
     if (_tissueDamage > kTissueMax)             _tissueDamage = kTissueMax;
 
     // Permanent scarring: chronic exposure above threshold slowly scars tissue. The rate scales
-    // with how high tissue is, so heavy sustained exposure scars much faster. Chelation is
-    // disabled fail-closed until a source-identifying item-use adapter is verified; doctor
-    // treatment is a separate path.
+    // with how high tissue is, so heavy sustained exposure scars much faster. Item cures are
+    // disabled fail-closed until a source-identifying item-use adapter is verified; no
+    // doctor-treatment path is currently implemented.
     if (_permanentTissueGlobal && _tissueDamage > kPermAccrualThresh)
     {
         _permanentTissueDamage += kPermAccrualRate * (_tissueDamage / kPermAccrualThresh);
@@ -358,10 +358,10 @@ void RadiationEngine::ApplyStatModification(int stageIndex)
     int wantEnd = (stageIndex >= 0 && stageIndex < kStageCount) ? kStagePenalties[stageIndex].end : 0;
     int wantStr = (stageIndex >= 0 && stageIndex < kStageCount) ? kStagePenalties[stageIndex].str : 0;
 
-    // PERMANENT SCARRING's own consequence: lost ENDURANCE = lost MAX HP you cannot heal, rest off or
-    // RadAway away. Only the chelation compound (or a doctor) gives it back — which is what finally
-    // makes the cure worth hunting. Scarring previously had ZERO gameplay effect. Computed separately
-    // from the stage penalty because Fix Stats must NOT suspend it (see below).
+    // PERMANENT SCARRING's own consequence: lost ENDURANCE = lost MAX HP you cannot heal, rest off, or
+    // RadAway away. It remains until a verified cure adapter is implemented; no doctor-treatment path
+    // exists. Scarring previously had ZERO gameplay effect. Computed separately from the stage penalty
+    // because Fix Stats must NOT suspend it (see below).
     int scarEnd = 0;
     if (_permanentTissueDamage > 0.0f)
     {
@@ -373,7 +373,8 @@ void RadiationEngine::ApplyStatModification(int stageIndex)
     // don't re-apply the STAGE-BASED radiation penalty (want -> 0). Any stage change clears the
     // suspension and resumes normal behavior: recovering a stage means they healed; climbing a stage
     // means they chose not to cure. The permanent SCAR penalty is deliberately NOT suspended — it is the
-    // un-healable consequence that makes the chelation cure worth hunting, and Fix Stats is not a cure.
+    // un-healable consequence that a future verified chelation adapter can address, and Fix Stats is
+    // not a cure.
     if (_specialSuspendStage >= 0)
     {
         if (stageIndex == _specialSuspendStage)

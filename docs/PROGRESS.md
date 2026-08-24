@@ -37,12 +37,14 @@ are never reused against old saves. The 10th severity stage keeps its "Ghoulific
 system (`SpawnStormGhouls`) is a separate enemy-NPC feature and is unaffected.
 
 ### Cures
+- **No verified doctor or item cure adapter exists.** The old rad-count and HP-delta inference was
+  removed because dropping, selling, or transferring an item could falsely trigger a cure.
 - **RadAway** — its item-triggered tissue heal is disabled fail-closed pending a verified
   source-identifying item-use adapter. It still clears vanilla particulate rads.
 - **Sleep/wait** — heals tissue on load based on elapsed game-time (via GameDaysPassed).
-- **Doctor** — detected by big rads drop + HP gain: clears permanent + 50% tissue.
 - **Radiation Chelation Compound** (ingestible 0x860, Medicine-flagged) — the item and recipe
-  exist, but its tissue effect is disabled fail-closed pending the same verified adapter.
+  exist, but its tissue effect is disabled fail-closed pending the same verified adapter. There is
+  no active doctor-treatment path.
   - **Craftable at the Chemistry Station** under the Healing/Medicine tab (COBJ 0x861).
   - Also obtainable from a physician (high value, 3500).
 

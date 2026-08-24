@@ -84,8 +84,8 @@ ImmersiveRadiation, whisperRadiationStays, etc. — see `merge_overrides.py:SOUR
 | 10 Perks | `0x820`–`0x829` | one per stage; each carries its ability via `PerkAbilityEffect` (shows in PERKS + STATUS tabs) |
 | IMAD | `0x830` | green "radiation sickness" screen tint (re-keyed copy of vanilla `RadImod`) |
 | Global `RadOverhaul_TissueDamage` | `0x850` | persistent particulate/tissue pool (survives saves) |
-| Global `RadOverhaul_PermTissueDmg` | `0x851` | scarred tissue — only chelation/doctor clears |
-| Ingestible `RadOverhaul_ChelationCompound` | `0x860` | clears permanent tissue; DLL detects via mag-999 instant rads drop |
+| Global `RadOverhaul_PermTissueDmg` | `0x851` | scarred tissue; no doctor or item cure path is active |
+| Ingestible `RadOverhaul_ChelationCompound` | `0x860` | planned permanent-tissue cure item; no verified DLL item-use adapter exists |
 | Spell override `GlowingSeaPlayerRadiationRadStorm` | `23EC91:Fallout4.esm` | retuned Glowing Sea radstorm magnitude (8.0) |
 | GMST override `fRadsDamageFactor` | `0769CD:Fallout4.esm` | master radiation multiplier 0.60 (≈ +300% vs vanilla 0.15) |
 | Ingestible override `RadAway` | `023742:Fallout4.esm` | guaranteed-working cure (wins load-order nerfs) |

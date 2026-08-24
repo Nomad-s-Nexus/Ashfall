@@ -706,7 +706,8 @@ void RadiationEngine::EnsureEslLoaded()
         }
     }
 
-    // Permanent (scarred) tissue global — requires chelation or doctor to cure.
+    // Permanent (scarred) tissue global — no doctor or item cure path is active until a verified
+    // source-identifying adapter is implemented.
     {
         RE::TESForm* gForm = dh->LookupForm(kPermTissueGlobalID, kEslName);
         _permanentTissueGlobal = (gForm && gForm->GetFormType() == RE::ENUM_FORM_ID::kGLOB)

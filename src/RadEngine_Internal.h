@@ -165,8 +165,9 @@ namespace RadInternal
     constexpr float kTissueSpiral    = 1.50f;
 
     // Permanent scarring gets its OWN penalty (it previously did nothing whatsoever): lost ENDURANCE,
-    // i.e. lost MAX HP you cannot heal, rest off, or RadAway away — only chelation restores it. This
-    // is folded into the existing floor-guarded END penalty so the two can never floor the stat.
+    // i.e. lost MAX HP you cannot heal, rest off, or RadAway away. It remains until a verified item
+    // cure adapter is implemented; no doctor-treatment path is active. This is folded into the
+    // existing floor-guarded END penalty so the two can never floor the stat.
     constexpr int   kScarEndMax      = 4;       // max END lost to full permanent scarring
 
     // Layer 2 — visceral symptoms, layered by severity (t thresholds).
