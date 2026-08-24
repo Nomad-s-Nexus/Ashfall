@@ -238,15 +238,13 @@ void RadiationEngine::Update()
             particulateRads = _prevRads;
         }
 
-        // Detect RadAway / doctor treatment from the per-tick rads+HP delta — but SKIP the check
-        // across a large game-time jump (sleep, wait, fast-travel): the 4Hz hook pauses during
-        // those, so the first tick back would see a huge rads drop + HP gain and FALSELY fire the
-        // doctor/chelation cure, wiping permanent tissue. Re-seed the baseline on a jump instead.
+        // Keep a verified RadAway healing window bounded across a large game-time jump
+        // (sleep, wait, fast-travel). The 4Hz hook pauses during those, so the first tick back
+        // must not apply a stale pre-jump use to an unrelated rads drop.
         const float nowDays         = GameDays();
         const float gameDaysElapsed = (_prevGameDays >= 0.0f) ? (nowDays - _prevGameDays) : 0.0f;
         const bool  timeJumped      = (_prevGameDays >= 0.0f) && (gameDaysElapsed > kCureGapDays);
         _prevGameDays = nowDays;
-        // Chelation (inventory-based) runs every tick; the RadAway delta heal is skipped on a jump.
         CheckActiveCures(particulateRads, currentHP, /*deltaValid=*/!timeJumped);
         _prevRads = particulateRads;
         _prevHP   = currentHP;
@@ -1074,19 +1072,6 @@ void RadiationEngine::EnsureEslLoaded()
             _armorTypePowerKeyword ? "resolved (full PA suit fully blocks rads)" : "NOT found");
     }
 
-    // Chelation compound (our ALCH item) — consuming it is the reliable cure for permanent tissue.
-    {
-        RE::TESForm* f = dh->LookupForm(0x860, kEslName);
-        // Type-check before the cast (matches every other lookup here): chelation is our ALCH item,
-        // and ALCH -> TESBoundObject is single-inheritance so the cast is valid once confirmed. This
-        // guards GetInventoryObjectCount(_chelationItem) in CheckActiveCures against a mis-typed form
-        // (e.g. an ESL regen that changed 0x860) rather than handing it a bad pointer.
-        _chelationItem = (f && f->GetFormType() == RE::ENUM_FORM_ID::kALCH)
-            ? static_cast<RE::TESBoundObject*>(f) : nullptr;
-        logger->info("[ESL] Chelation compound (0x860): {}",
-            _chelationItem ? "resolved (permanent-tissue cure)" : "NOT found");
-    }
-
     // WorkshopNPC faction — settlers; spared from the lethal-storm peak burst.
     {
         RE::TESForm* f = dh->LookupForm(0x000337F3, "Fallout4.esm");
@@ -1290,15 +1275,15 @@ void RadiationEngine::OnPostLoad()
     if (_permanentTissueGlobal)
         _permanentTissueDamage = _permanentTissueGlobal->GetValue();
 
-    // Reset cure-detection baselines so the first tick after a load never sees a cross-save
-    // rads/HP delta or inventory-count change and false-fires a cure (wiping permanent tissue).
+    // Reset the delta baseline and any verified RadAway window so a cross-save rads/HP change
+    // cannot receive a stale cure signal.
     // -1 sentinel: also skips the sheltered rad-gain refund on that first tick, which otherwise
     // read the entire saved rad pool as "gain since last tick" and erased it whenever the player
     // loaded in power armor / a powered shelter / sheltered rad weather.
     _prevRads = -1.0f;
     _prevHP   = -1.0f;
     _prevGameDays = -1.0f;
-    _chelationCountInit = false;
+    _radAwayWindowTicks = 0;
 
     // Re-sync the gas-mask fade tracker so an already-worn mask on load syncs silently (no blink),
     // and cancel any pending fade-back from the previous session.

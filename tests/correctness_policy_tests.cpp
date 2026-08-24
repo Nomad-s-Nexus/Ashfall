@@ -20,9 +20,13 @@ int main()
     Require(ShouldFollowDomeOnTick(4));
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
+    Require(!CuresPermanentTissue(CureSignal::kNone));
     Require(!CuresPermanentTissue(CureSignal::kInventoryMovement));
     Require(CuresPermanentTissue(CureSignal::kVerifiedChelationUse));
+    Require(!CuresPermanentTissue(CureSignal::kVerifiedRadAwayUse));
+    Require(!ArmsRadAwayHealing(CureSignal::kNone));
     Require(!ArmsRadAwayHealing(CureSignal::kInventoryMovement));
+    Require(!ArmsRadAwayHealing(CureSignal::kVerifiedChelationUse));
     Require(ArmsRadAwayHealing(CureSignal::kVerifiedRadAwayUse));
     Require(!IsCurrentLoadGeneration(42, 43));
 }

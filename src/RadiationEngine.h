@@ -10,6 +10,8 @@
 #include <RE/B/BSSoundHandle.h>
 #include <RE/N/NiPoint3.h>
 
+#include "RadCorrectnessPolicy.h"
+
 class RadiationConfig;
 namespace F4SE { class SerializationInterface; }
 namespace RE {
@@ -76,6 +78,7 @@ public:
         // saved rad pool as fresh gain (which silently erased rads when loading in PA/shelter).
         _prevRads = -1.0f;
         _prevHP   = -1.0f;
+        _radAwayWindowTicks = 0;
     }
 
     // Called on kPostLoadGame / kNewGame: measures elapsed game time for sleep
@@ -114,6 +117,10 @@ public:
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();
+
+    // Called only by a future source-identifying item-use adapter on the game main thread. Inventory
+    // movement is deliberately not a cure signal because it also covers dropping, selling and transfer.
+    void NotifyVerifiedCureUse(RadCorrectnessPolicy::CureSignal signal);
 
 private:
     RadiationEngine() = default;
@@ -189,11 +196,11 @@ private:
     float _permanentTissueDamage = 0.0f;
     void HealPermanentTissue(float amount, const char* source);
 
-    // Per-tick tracking for active-cure detection (RadAway, doctor).
+    // Per-tick tracking for the sheltered rad-gain refund and verified RadAway tissue healing.
     float _prevRads = -1.0f;   // -1 = no previous tick recorded (skip delta logic once)
     float _prevHP   = -1.0f;
     // Game-time at the last tick; -1 = unset. Used to detect sleep/wait/fast-travel jumps so the
-    // cure heuristic doesn't false-fire on the first tick back and wipe permanent tissue.
+    // verified RadAway healing window cannot survive a discontinuity.
     float _prevGameDays = -1.0f;
 
     // Debug-menu hotkey edge detection (Left Shift + F8). Track prev DOWN state ourselves
@@ -485,14 +492,11 @@ private:
     // and the save-load path.
     void ApplyRestTissueHeal(float gameHoursElapsed, float currentRads);
 
-    // Cure detection. Permanent (scarred) tissue is cured RELIABLY by a drop in the player's
-    // inventory count of the chelation compound (not stat deltas — a big RadAway+stimpak used to
-    // look like a "doctor visit" and wipe all scarring). Regular tissue heals from a RadAway-style
-    // rads drop. deltaValid=false skips the delta part across a time jump (sleep/wait/fast-travel).
+    // Keeps the bounded RadAway radiation-delta calculation. The window is armed exclusively by
+    // NotifyVerifiedCureUse after a source-identifying item-use adapter has verified the item.
     void CheckActiveCures(float currentRads, float currentHP, bool deltaValid);
-    RE::TESBoundObject* _chelationItem = nullptr;   // RadiationOverhaul.esp 0x860 (ALCH)
-    std::uint32_t       _prevChelationCount = 0;
-    bool                _chelationCountInit = false;
+    static constexpr int kRadAwayWindowTicks = 80;  // ~20 s at the 4 Hz engine cadence
+    int _radAwayWindowTicks = 0;
 
     // Radstorm warning: play a custom sound once when a radstorm weather rolls in.
     bool _radstormWarned = false;
