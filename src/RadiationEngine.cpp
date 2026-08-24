@@ -1,4 +1,7 @@
 #include "RadEngine_Internal.h"
+#include "SerializationPolicy.h"
+
+#include <vector>
 
 using namespace RadInternal;
 
@@ -576,9 +579,8 @@ namespace
 
     // Storm-clock record payload: three doubles (play, next, lastRadstorm) + one uint8 (scheduled).
     constexpr std::uint32_t kStormClockLen = sizeof(double) * 3 + sizeof(std::uint8_t);
-    // Sanity ceiling for the play-clock fields (~11.5 real DAYS of accumulated in-game play at 4 Hz).
-    // Anything beyond this is treated as a corrupt/garbage record, not a legitimate deep save.
-    constexpr double kMaxSaneClockSeconds = 1.0e6;
+    constexpr std::uint32_t kFilterV1Len = sizeof(float);
+    constexpr std::uint32_t kFilterV2Len = sizeof(float) * 2;
 }
 
 
@@ -1140,31 +1142,36 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     auto logger = Log();
     std::uint32_t type = 0, version = 0, length = 0;
 
-    // Storm-clock candidates. The CURRENT build writes exactly one SCLK record per save (SaveState) and
-    // registers serialization once, so a save written by this build carries a single record. Legacy
-    // co-saves can carry a stale EXTRA SCLK record whose inflated play-clock pushes the next storm far
-    // into the future (storms then never fire). We collect ALL valid records and commit ONE
-    // deterministically: the smallest valid _playSeconds. Rationale — the play-clock is monotonic within
-    // a save's lineage, so a record bled from a longer/older session shows up as an anomalously large
-    // clock; keeping the smallest is the value consistent with this save AND fails SAFE (a storm may fire
-    // slightly early) whereas keeping the inflated one breaks storms outright. The next save rewrites a
-    // single clean record, so legacy saves self-heal. This is an explicit cause-based policy, not blind
-    // first/last-wins.
-    bool   haveClock = false;
-    double bestPlay = 0.0, bestNext = 0.0, bestLast = 0.0;
-    bool   bestSched = false;
+    // SaveState writes one SCLK record. Older co-saves can carry duplicates, but their ordering does not
+    // prove which clock is current. Only one valid record, or repeated byte-identical records, may restore
+    // state. Conflicting valid records fail safe and schedule a fresh storm rather than arbitrarily moving
+    // the monotonic play clock backward or postponing storms by an unbounded amount.
+    std::vector<RadiationSerialization::StormClockState> clockCandidates;
     int    clockSeen = 0, clockRejected = 0;
+
+    const auto readExact = [a_intfc]<class T>(T& a_value) {
+        return a_intfc->ReadRecordData(a_value) == sizeof(T);
+    };
 
     while (a_intfc->GetNextRecordInfo(type, version, length))
     {
         if (type == kFilterRecord)
         {
-            a_intfc->ReadRecordData(_filterCharge);
-            if (version >= 2) a_intfc->ReadRecordData(_maskCondition);   // v1 saves carry only the charge
-            if (!std::isfinite(_filterCharge) || _filterCharge < 0.0f || _filterCharge > 100.0f)
-                _filterCharge = 100.0f;
-            if (!std::isfinite(_maskCondition) || _maskCondition < 0.0f || _maskCondition > 100.0f)
-                _maskCondition = 100.0f;
+            float charge = 100.0f;
+            float condition = 100.0f;
+            const bool isV1 = version == 1 && length == kFilterV1Len;
+            const bool isV2 = version == kFilterVersion && length == kFilterV2Len;
+            const bool read = isV1 ? readExact(charge) :
+                              isV2 ? readExact(charge) && readExact(condition) : false;
+            if (!read || !std::isfinite(charge) || charge < 0.0f || charge > 100.0f ||
+                (isV2 && (!std::isfinite(condition) || condition < 0.0f || condition > 100.0f)))
+            {
+                logger->warn("[Load] Filter record v{} len {} is invalid or truncated — keeping defaults.", version, length);
+                continue;
+            }
+            _filterCharge = charge;
+            if (isV2)
+                _maskCondition = condition;
             logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%).",
                 _filterCharge, _maskCondition);
             continue;
@@ -1190,55 +1197,41 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
         }
         double p = 0.0, n = 0.0, l = 0.0;
         std::uint8_t s = 0;
-        a_intfc->ReadRecordData(p);
-        a_intfc->ReadRecordData(n);
-        a_intfc->ReadRecordData(l);
-        a_intfc->ReadRecordData(s);
-
-        // Defensive validation: finite, non-negative, within a sane ceiling, valid flag. NOTE we do NOT
-        // require next >= play — an overdue storm legitimately has next < play (it should fire now).
-        const bool valid = std::isfinite(p) && std::isfinite(n) && std::isfinite(l) &&
-                           p >= 0.0 && p <= kMaxSaneClockSeconds &&
-                           n >= 0.0 && n <= kMaxSaneClockSeconds &&
-                           (s == 0 || s == 1);
-        if (!valid)
+        const bool read = readExact(p) && readExact(n) && readExact(l) && readExact(s);
+        const RadiationSerialization::StormClockState candidate{ p, n, l, s != 0 };
+        if (!read || (s != 0 && s != 1) || !RadiationSerialization::IsValidStormClock(candidate))
         {
             ++clockRejected;
-            logger->warn("[Load] Storm-clock record #{} failed validation (play={}, next={}, sched={}) — ignoring.",
-                clockSeen, p, n, static_cast<int>(s));
+            logger->warn("[Load] Storm-clock record #{} is invalid or truncated (play={}, next={}, last={}, sched={}) — ignoring.",
+                clockSeen, p, n, l, static_cast<int>(s));
             continue;
         }
-
-        if (!haveClock || p < bestPlay)
-        {
-            if (haveClock)
-                logger->warn("[Load] Duplicate storm-clock record #{} (play={:.0f}s, next={:.0f}s) supersedes earlier "
-                             "(play={:.0f}s) — keeping the smaller play-clock. Re-save will collapse to one.",
-                             clockSeen, p, n, bestPlay);
-            bestPlay = p; bestNext = n; bestLast = l; bestSched = (s != 0);
-            haveClock = true;
-        }
-        else
-        {
-            logger->warn("[Load] Ignoring stale duplicate storm-clock record #{} (play={:.0f}s, next={:.0f}s); "
-                         "kept play={:.0f}s.", clockSeen, p, n, bestPlay);
-        }
+        clockCandidates.push_back(candidate);
     }
 
-    if (haveClock)
+    if (clockCandidates.size() == 1 ||
+        (clockCandidates.size() > 1 && RadiationSerialization::ClassifyStormClockCandidates(clockCandidates) ==
+            RadiationSerialization::StormClockCandidateDisposition::kRestore))
     {
-        _playSeconds      = bestPlay;
-        _nextStormPlaySec = bestNext;
-        _lastRadstormSec  = bestLast;
-        _stormScheduled   = bestSched;
+        const auto& clock = clockCandidates.front();
+        _playSeconds      = clock.playSeconds;
+        _nextStormPlaySec = clock.nextStormPlaySeconds;
+        _lastRadstormSec  = clock.lastRadstormSeconds;
+        _stormScheduled   = clock.scheduled;
         logger->info("[Load] Storm clock restored (play={:.0f}s, next={:.0f}s, scheduled={}){}.",
-            bestPlay, bestNext, bestSched, clockSeen > 1 ? " [deduped]" : "");
+            _playSeconds, _nextStormPlaySec, _stormScheduled, clockSeen > 1 ? " [identical duplicates]" : "");
+    }
+    else if (!clockCandidates.empty())
+    {
+        logger->warn("[Load] {} conflicting valid storm-clock records — refusing to choose a clock; scheduling fresh.",
+            clockCandidates.size());
+        ScheduleNextStorm();
     }
     else if (clockSeen > 0)
     {
-        // Records existed but none survived validation — leave RevertState's fresh defaults in place.
         logger->warn("[Load] {} storm-clock record(s) present but none valid ({} rejected) — scheduling fresh.",
             clockSeen, clockRejected);
+        ScheduleNextStorm();
     }
     // No SCLK record at all: RevertState's fresh defaults (run before this callback) stand.
 }
