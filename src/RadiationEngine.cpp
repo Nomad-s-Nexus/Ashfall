@@ -530,6 +530,10 @@ void RadiationEngine::PollInput()
         RadHud::GetSingleton().ToggleDebugMenu();
     _f8WasDown = dbgKeyDown;
 
+    // Apply a debug-menu toggle that arrived while the HUD view was still loading its DOM (the first
+    // Shift+F8 during view init). No-op once nothing is pending. Runs on the verified main thread.
+    RadHud::GetSingleton().PumpDeferredDebug();
+
     // Gas-mask filter replace keybind (INI [Filter] ReplaceKey; 0 = disabled).
     if (_filterReplaceKey != 0)
     {
@@ -1301,6 +1305,11 @@ void RadiationEngine::OnPostLoad()
     _forceStormNow     = false;
     _stormFXVisible    = false;
     _stormNukeFired    = false;
+    _firestormAwaitingNuke = false;  // drop any mid-firestorm nuke-wait so a load can't strand Active
+    _nukeAttempts      = 0;
+    _nukeWaitTicks     = 0;
+    _shakeBurstRetries = 0;
+    _debugSkipToActive = false;
     _stormRollInTicks  = 0;   // clear any mid-firestorm-roll-in state so a stale value can't force the HUD theme
     _dustBuildupActive = false; // else a save loaded mid-dust-warning leaves this set and the NEXT storm's
     _stormPeakFired    = false; // Warning phase is wrongly suppressed by the inRadWeather build-up gate

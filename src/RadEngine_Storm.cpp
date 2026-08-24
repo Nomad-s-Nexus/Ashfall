@@ -41,6 +41,11 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _stormExposedTicks = 0;
     _stormFXVisible    = false;  // no screen FX until the storm hits (and only if exposed)
     _stormNukeFired    = false;  // re-arm the one-time firestorm nuke for this storm
+    _firestormAwaitingNuke = false;  // set true at Active onset for a firestorm
+    _nukeAttempts      = 0;      // reset actual nuke submissions
+    _nukeWaitTicks     = 0;      // reset the absolute nuke wait
+    _shakeBurstRetries = 0;      // reset the bounded shake-burst retry counter
+    _debugSkipToActive = false;  // clear any leftover debug fast-forward from a prior storm
     const StormType& st = kStormTypes[typeIndex];
 
     // STAGED ONSET (R.'s spec): the dome appears ALONE, silent, first — a "something's coming" visual
@@ -134,14 +139,28 @@ int RadiationEngine::RollStormType() const
 
 void RadiationEngine::EnterStormPhase(StormPhase phase, int durationTicks)
 {
-    _stormPhase     = phase;
+    _stormPhase = phase;
+
+    // Debug fast-forward (skipwarn / skiptoactive): collapse the lead + warning to a single tick each so
+    // a tester reaches Active in ~2 ticks instead of ~100 s, while STILL running every real transition
+    // (this function is the only transition path) and the Active onset. Cleared once Active is reached.
+    if (_debugSkipToActive && (phase == StormPhase::Approach || phase == StormPhase::Warning))
+        durationTicks = 1;
+    if (phase == StormPhase::Active)
+        _debugSkipToActive = false;
+
     _stormTicksLeft = durationTicks;
-    // Leaving Active ends the shake. The native shake decays on its own once we stop re-triggering
-    // it, so disarming the counters is the whole teardown.
+
+    // Leaving Active ends the shake and the firestorm nuke wait. The native shake decays on its own once
+    // we stop re-triggering it, so disarming the counters is the whole teardown.
     if (phase != StormPhase::Active)
     {
-        _shakeBurstStep  = -1;
-        _shakeRumbleTick = -1;
+        _shakeBurstStep    = -1;
+        _shakeRumbleTick   = -1;
+        _shakeBurstRetries = 0;
+        _firestormAwaitingNuke = false;
+        _nukeAttempts      = 0;
+        _nukeWaitTicks     = 0;
     }
 }
 
@@ -269,15 +288,20 @@ void RadiationEngine::SpawnFireRing()
 // Hooks.cpp's dispatcher — this does NOT run on the worker Update hook. The EXPL record
 // FARO_EmissionStrikeAlpha (0x885) still keeps PlacedObject = Null by design: it detonates without
 // spawning a placed reference, which is exactly what a pure horizon visual wants.
-void RadiationEngine::SpawnDistantNuke()
+// Returns true iff the explosion actually detonated (valid handle). false = a TRANSIENT failure the
+// caller should retry within its bounded window: unsupported runtime, player 3D/worldspace not up,
+// sheltered, or the target cell not yet streamed (engine returns a null handle). The one-shot latch
+// (_stormNukeFired) must only be set on a true return, so a streaming stall can't consume the storm's
+// single nuke.
+bool RadiationEngine::SpawnDistantNuke()
 {
-    if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would resolve elsewhere
-    if (!_nukeExplosionForm || IsPlayerSheltered()) return;
+    if (!REX::FModule::IsRuntimeOG()) return false;   // authority wrapper is currently OG-only; fail closed elsewhere
+    if (!_nukeExplosionForm || IsPlayerSheltered()) return false;
 
     auto* dh = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!dh || !player || !player->cachedWorldspace) return;
-    if (!player->Get3D()) return;               // worldspace must actually be up
+    if (!dh || !player || !player->cachedWorldspace) return false;
+    if (!player->Get3D()) return false;               // worldspace must actually be up
 
     static std::mt19937 rng{ std::random_device{}() };
     constexpr float kPi = 3.14159265f;
@@ -307,7 +331,8 @@ void RadiationEngine::SpawnDistantNuke()
         static_cast<bool>(handle), distance);
     if (!handle)
         Log()->warn("[Storm/Nuke] null handle — target cell not loaded at that position (engine gate), "
-                    "or the EXPL form failed its type check. No detonation this storm.");
+                    "or the EXPL form failed its type check. Will retry within the bounded window.");
+    return static_cast<bool>(handle);
 }
 
 // Spawn the rotating cloud dome overhead. NATIVE (CreateReferenceAtLocation — the same call the fire
@@ -390,20 +415,24 @@ void RadiationEngine::SpawnStormDome()
 // which is why the dispatcher exists). The 3D/exterior guard below is still load-bearing: the native
 // walks spWorldRoot into the camera node's world transform and will null-deref if the worldspace is
 // not up. Do not call it unguarded.
-void RadiationEngine::NativeShakeCamera(float strength, float duration)
+// Returns true iff a shake was actually submitted to the engine. false means a TRANSIENT invalid
+// state (player 3D not up, no/interior cell) or an unsupported runtime — the caller must NOT treat a
+// false as "this shake step happened", or the decaying burst would silently skip steps during a load.
+bool RadiationEngine::NativeShakeCamera(float strength, float duration)
 {
-    if (!REX::FModule::IsRuntimeOG()) return;   // raw OG address; NG/AE would land elsewhere
+    if (!REX::FModule::IsRuntimeOG()) return false;   // authority wrapper is currently OG-only; fail closed elsewhere
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player || !player->Get3D()) return;
+    if (!player || !player->Get3D()) return false;    // 3D not up yet (streaming) — transient
     auto* cell = player->parentCell;
-    if (!cell || cell->IsInterior()) return;
+    if (!cell || cell->IsInterior()) return false;    // interior / no cell — no exterior shake
 
     if (strength > 1.0f) strength = 1.0f;       // native does not clamp; the Papyrus binding did
-    if (strength <= 0.0f) return;               // native no-ops at <= 0 anyway
+    if (strength <= 0.0f) return true;          // valid state, nothing to shake — not a failure
 
     const RE::NiPoint3 pos = player->data.location;
     // Authoritative commonlib_NonVR wrapper; distanceMult defaults to 1.0 ("no distance scaling").
     RE::ShakeCamera(strength, pos, duration);
+    return true;
 }
 
 
@@ -418,12 +447,26 @@ void RadiationEngine::UpdateStormShake()
     {
         const float t = static_cast<float>(kStormShakeBurstSteps - _shakeBurstStep) /
                         static_cast<float>(kStormShakeBurstSteps);
-        NativeShakeCamera(kStormShakeBurstStrength * t, kStormShakeBurstDuration);
-        if (++_shakeBurstStep >= kStormShakeBurstSteps)
+        if (NativeShakeCamera(kStormShakeBurstStrength * t, kStormShakeBurstDuration))
         {
-            _shakeBurstStep  = -1;
-            _shakeRumbleTick = 0;               // hand over to the sustained rumble
+            // Submitted — advance the decaying burst.
+            _shakeBurstRetries = 0;
+            if (++_shakeBurstStep >= kStormShakeBurstSteps)
+            {
+                _shakeBurstStep  = -1;
+                _shakeRumbleTick = 0;           // hand over to the sustained rumble
+            }
         }
+        else if (++_shakeBurstRetries >= kStormShakeBurstMaxRetries)
+        {
+            // Player 3D/cell stayed invalid too long (e.g. long streaming stall): don't burn the burst
+            // steps against a state where the native can't run. Abandon the burst and hand over to the
+            // sustained rumble, which self-retries safely once the player is valid again.
+            _shakeBurstRetries = 0;
+            _shakeBurstStep    = -1;
+            _shakeRumbleTick   = 0;
+        }
+        // else: transient failure this tick — keep the same step and retry next tick (bounded above).
         return;
     }
 
@@ -848,17 +891,13 @@ void RadiationEngine::TriggerStormFX(bool on)
     if (_activeStormType >= 0 && _activeStormType < kStormTypeTableSize)
     {
         const StormType& st = kStormTypes[_activeStormType];
-        // FIRESTORM nuke — now NATIVE. It used to route through Papyrus stage 11, on the theory that
-        // PlaceAtMe detonates an EXPL properly and the quest had been repaired by InitSearchTables.
-        // Neither half held: SetStage returned false on all 35 logged attempts, so stage 11 never ran
-        // and the nuke never fired by either route. It is fired directly here instead, via
-        // CreateExplosionAtLocation (the call that actually detonates rather than places).
-        if (st.themeId == 1 && !_stormNukeFired)
-        {
-            _stormNukeFired = true;
-            SpawnDistantNuke();
-            desc = "firestorm: native nuke + native shake (dome already up from the warning)";
-        }
+        // FIRESTORM nuke — now NATIVE, and driven per-tick from the Active handler (not fired here).
+        // It used to be fired inline at this exposure change and latched _stormNukeFired=true *before*
+        // knowing whether it detonated, so a transient streaming failure (cell not loaded yet) silently
+        // consumed the storm's one shot. The Active-phase tick now calls SpawnDistantNuke() with a
+        // bounded retry and only latches _stormNukeFired on a successful detonation.
+        if (st.themeId == 1)
+            desc = "firestorm: native nuke (fired on Active tick, bounded retry) + native shake";
         else if (st.lethal)
             { desc = "lethal: native shake + dome"; }
     }
@@ -1240,19 +1279,23 @@ void RadiationEngine::UpdateStorm()
 
             if (st.themeId == 1)
             {
-                // Firestorm: detonate first, delay the atmosphere roll-in.
-                _stormRollInTicks = kNukeRollInTicks;
+                // Firestorm: HOLD the atmosphere roll-in until the distant nuke actually detonates (or
+                // its bounded retry window expires). The Active tick drives SpawnDistantNuke and starts
+                // the fixed roll-in only once the nuke resolves — so a transient streaming failure can't
+                // let the fog/fire/dome roll in as though the nuke had fired.
+                _firestormAwaitingNuke = true;
+                _stormRollInTicks      = 0;   // not started yet; armed when the nuke resolves
             }
             else
             {
+                _firestormAwaitingNuke = false;
                 // Ash / ambient storms: atmosphere arrives immediately with the peak (exposed only).
                 _stormRollInTicks = 0;
                 if (_stormFXVisible)
                     ApplyStormIMAD(_activeStormType);
             }
-            if (_stormRollInTicks > 0)
-                logger->info("[Storm] {} — nuke detonating; atmosphere roll-in in {} ticks.",
-                    st.name, _stormRollInTicks);
+            if (_firestormAwaitingNuke)
+                logger->info("[Storm] {} — awaiting distant nuke detonation before atmosphere roll-in.", st.name);
 
             // Lethal storms: spawn feral ghouls that emerge from the radiation.
             if (st.lethal)
@@ -1269,8 +1312,50 @@ void RadiationEngine::UpdateStorm()
         // quest stages 10/11, which never fired (SetStage always false). Armed on the first Active
         // tick; UpdateStormShake self-gates on shelter and tears down in EnterStormPhase(Idle).
         if (st.lethal && _shakeBurstStep < 0 && _shakeRumbleTick < 0)
-            _shakeBurstStep = 0;
+        {
+            _shakeBurstStep    = 0;
+            _shakeBurstRetries = 0;   // fresh burst — reset the transient-failure retry counter
+        }
         UpdateStormShake();
+
+        // Firestorm distant nuke: fire it here with a bounded retry, and HOLD the atmosphere roll-in
+        // until it resolves. _stormNukeFired latches only on a successful detonation, so a transient
+        // streaming failure (target cell not yet loaded) cannot consume the storm's one shot. The
+        // Actual submission attempts only advance when SpawnDistantNuke is called. A separate absolute
+        // wait advances every awaiting tick, including shelter, so an invalid state cannot hold Active
+        // forever without claiming that it made native attempts.
+        if (_firestormAwaitingNuke)
+        {
+            ++_nukeWaitTicks;
+            if (!_stormNukeFired && !IsPlayerSheltered() && _nukeAttempts < kFirestormNukeMaxAttempts)
+            {
+                ++_nukeAttempts;
+                _stormNukeFired = SpawnDistantNuke();
+            }
+
+            if (_stormNukeFired || _nukeAttempts >= kFirestormNukeMaxAttempts ||
+                _nukeWaitTicks >= kFirestormNukeMaxWaitTicks)
+            {
+                _firestormAwaitingNuke = false;
+                _stormRollInTicks      = kNukeRollInTicks;   // begin the fixed atmosphere roll-in
+                logger->info("[Storm] {} — firestorm nuke {} after {} actual attempt(s) / {} wait tick(s); atmosphere roll-in begins ({} ticks).",
+                    st.name, _stormNukeFired ? "detonated" : "abandoned (bounded limit hit)",
+                    _nukeAttempts, _nukeWaitTicks, kNukeRollInTicks);
+            }
+            else
+            {
+                // Still awaiting the nuke: hold the atmosphere exactly like the roll-in-hold below —
+                // if the player ducked inside, drop the exterior FX; tick the storm clock; skip exposure.
+                if (_stormFXVisible && IsPlayerSheltered())
+                {
+                    TriggerStormFX(false);
+                    ClearStormDome();
+                    _stormFXVisible = false;
+                }
+                --_stormTicksLeft;
+                break;
+            }
+        }
 
         // Firestorm roll-in: hold off the fog/fire/IMAD + exposure for a few seconds after the
         // nuke so the blast clearly precedes the atmosphere. When the timer elapses, roll it in.

@@ -324,23 +324,70 @@ void RadHud::PushStorm(int phase, int theme, float intensity, bool sheltered, bo
     api->InteropCall(_view, "stormPhase", json);
 }
 
+void RadHud::ResetDebugMenuForSession()
+{
+    _debugOpen = false;
+    _debugTogglePending = false;
+    _debugDesiredOpen = false;
+}
+
 void RadHud::ToggleDebugMenu()
 {
-    // Fallback feedback: if the PrismaUI framework or the debug view isn't available, the menu can't
-    // open and the hotkey would otherwise look dead. Tell the player via the vanilla HUD corner so
-    // Shift+F8 always produces a visible response. (SPECIAL corruption is still auto-repaired on every
-    // load by DispelNegativeSpecials, so the player isn't stranded without the menu.)
-    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
-    if (!api || _view == 0 || !_domReady || !api->IsValid(_view))
+    auto logger = spdlog::get("FalloutAnomaly");
+
+    // Distinguish the three states so a still-initializing view is never mistaken for "not installed":
+    //   1. PrismaUI genuinely absent (_api == nullptr)  -> vanilla-HUD fallback message.
+    //   2. view created + DOM ready                      -> toggle now.
+    //   3. view not created yet, OR created but DOM still loading -> DEFER (do not discard the press).
+
+    // Case 1: framework not present. This is the ONLY case that shows the fallback — the old code also
+    // fired it while _domReady was still false, which is exactly why the first Shift+F8 was "lost".
+    if (!_api)
     {
         RE::SendHUDMessage::ShowHUDMessage(
-            "[Radiation] Debug menu requires the PrismaUI HUD (not loaded). SPECIAL stats are "
+            "[Radiation] Debug menu requires the PrismaUI HUD (not installed). SPECIAL stats are "
             "auto-repaired on each load; use RadAway/sleep to recover.", "", true, true);
-        spdlog::get("FalloutAnomaly")->warn("[RadHud] ToggleDebugMenu: PrismaUI view unavailable.");
+        if (logger) logger->warn("[RadHud] ToggleDebugMenu: PrismaUI framework not present.");
         return;
     }
 
-    SetDebugMenu(!_debugOpen);
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+
+    // Case 2: ready now — apply immediately and clear any stale deferred request.
+    if (_view != 0 && api->IsValid(_view) && _domReady.load())
+    {
+        _debugTogglePending = false;
+        SetDebugMenu(!_debugOpen);
+        return;
+    }
+
+    // Case 3: view still coming up. Stash the desired final state and let PumpDeferredDebug apply it
+    // once the DOM is ready — the press is retained, not dropped. Last press wins (a second press
+    // before the view is ready cancels the first). We do NOT create the view here — CreateView owns
+    // that behind the world/load readiness gate.
+    _debugDesiredOpen   = _debugTogglePending ? !_debugDesiredOpen : !_debugOpen;
+    _debugTogglePending = true;
+    if (logger)
+        logger->info("[RadHud] Debug-menu toggle deferred until view ready (view={}, domReady={}); desired={}.",
+            _view, _domReady.load(), _debugDesiredOpen ? "open" : "closed");
+}
+
+void RadHud::PumpDeferredDebug()
+{
+    // Called every frame from PollInput on the verified game-main thread. Applies a toggle that arrived
+    // before the view finished loading. All state here is main-thread-only; the cross-thread readiness
+    // signal (_domReady) is atomic, so there is no race with the DOM-ready callback.
+    if (!_debugTogglePending) return;
+    if (!_api) { _debugTogglePending = false; return; }   // framework went away — drop the request
+
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (_view == 0 || !api->IsValid(_view) || !_domReady.load())
+        return;                                           // still not ready — keep the request pending
+
+    _debugTogglePending = false;
+    SetDebugMenu(_debugDesiredOpen);
+    if (auto logger = spdlog::get("FalloutAnomaly"))
+        logger->info("[RadHud] Applied deferred debug-menu toggle: {}.", _debugDesiredOpen ? "opened" : "closed");
 }
 
 void RadHud::OnBlockingMenuOpened()

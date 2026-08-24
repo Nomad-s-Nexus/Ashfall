@@ -34,6 +34,11 @@ void RadiationEngine::DebugForceStorm(int typeIndex)
     // storm force-started mid-shake leaves them armed and the next Active phase drives phantom rumble.
     _shakeBurstStep  = -1;
     _shakeRumbleTick = -1;
+    _shakeBurstRetries = 0;
+    _firestormAwaitingNuke = false;
+    _nukeAttempts    = 0;
+    _nukeWaitTicks   = 0;
+    _debugSkipToActive = false;
     _activeStormType = -1;
     _forcedStormType   = typeIndex;
     _forceStormNow     = true;              // next UpdateStorm Idle tick begins it
@@ -65,6 +70,11 @@ void RadiationEngine::DebugEndStorm()
     _stormPhase       = StormPhase::Idle;
     _shakeBurstStep   = -1;   // disarm shake (direct reset bypasses EnterStormPhase teardown)
     _shakeRumbleTick  = -1;
+    _shakeBurstRetries = 0;
+    _firestormAwaitingNuke = false;
+    _nukeAttempts     = 0;
+    _nukeWaitTicks    = 0;
+    _debugSkipToActive = false;
     _activeStormType  = -1;
     _stormTicksLeft   = 0;
     _stormRollInTicks = 0;     // cancel any pending firestorm roll-in
@@ -156,7 +166,24 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
 
     if (a.rfind("storm:", 0) == 0)        DebugForceStorm(static_cast<int>(numAfter("storm:")));
     else if (a == "endstorm")             DebugEndStorm();
-    else if (a == "skipwarn")             { if (_stormPhase == StormPhase::Approach || _stormPhase == StormPhase::Warning) _stormTicksLeft = 1; Notify("[DEBUG] Skipping ahead (lead/warning).", false); }
+    else if (a == "skipwarn" || a == "skiptoactive")
+    {
+        // Fast-forward to the Active phase for testing. The old skipwarn only collapsed the CURRENT
+        // phase to one tick, so from Approach it still made the tester sit through the whole Warning.
+        // Set the fast-forward flag: EnterStormPhase then collapses each remaining Approach/Warning
+        // transition to a single tick, so Active is reached in ~2 ticks — WITHOUT duplicating any
+        // transition logic (every real transition and the Active onset still run).
+        if (_stormPhase == StormPhase::Approach || _stormPhase == StormPhase::Warning)
+        {
+            _debugSkipToActive = true;
+            _stormTicksLeft    = 1;   // end the current phase next tick; the flag collapses the rest
+            Notify("[DEBUG] Fast-forwarding to Active...", false);
+        }
+        else
+        {
+            Notify("[DEBUG] skipwarn/skiptoactive only works during Approach or Warning.", false);
+        }
+    }
     else if (a.rfind("tissue:", 0) == 0)  DebugAddTissue(numAfter("tissue:"), 0.0f);
     else if (a.rfind("perm:", 0) == 0)    DebugAddTissue(numAfter("perm:"), numAfter("perm:"));
     else if (a.rfind("rads:", 0) == 0)    DebugAddRads(numAfter("rads:"));
