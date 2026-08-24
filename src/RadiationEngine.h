@@ -190,7 +190,8 @@ private:
     float UpdateTissueDamage(float particulateRads);  // returns effective severity
 
     // Permanent tissue damage: the portion of tissue scarring that cannot be cleared
-    // by RadAway or sleep. Requires Radiation Chelation Compound or doctor treatment.
+    // by RadAway or sleep. The chelation item effect is disabled fail-closed until a
+    // source-identifying item-use adapter is verified; doctor treatment is a separate path.
     // HealTissue() floors at this value. Only HealPermanentTissue() reduces it.
     RE::TESGlobal* _permanentTissueGlobal = nullptr;
     float _permanentTissueDamage = 0.0f;

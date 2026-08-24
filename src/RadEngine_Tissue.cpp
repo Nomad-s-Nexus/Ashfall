@@ -328,8 +328,9 @@ float RadiationEngine::UpdateTissueDamage(float particulateRads)
     if (_tissueDamage > kTissueMax)             _tissueDamage = kTissueMax;
 
     // Permanent scarring: chronic exposure above threshold slowly scars tissue. The rate scales
-    // with how high tissue is, so heavy sustained exposure scars much faster. Only cleared by
-    // chelation compound or doctor.
+    // with how high tissue is, so heavy sustained exposure scars much faster. Chelation is
+    // disabled fail-closed until a source-identifying item-use adapter is verified; doctor
+    // treatment is a separate path.
     if (_permanentTissueGlobal && _tissueDamage > kPermAccrualThresh)
     {
         _permanentTissueDamage += kPermAccrualRate * (_tissueDamage / kPermAccrualThresh);

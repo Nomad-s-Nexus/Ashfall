@@ -20,7 +20,8 @@ Self-contained: F4SE DLL + `RadiationOverhaul.esp` + PrismaUI HUD. Only `Fallout
 - **Tissue damage** = persistent pool in global `RadOverhaul_TissueDamage` (0x850), survives saves.
   Builds from sustained exposure (>100 rads), heals slowly; NOT cleared by RadAway.
 - **Permanent (scarred) tissue** = global `RadOverhaul_PermTissueDmg` (0x851). Floors how far
-  tissue can heal. Only chelation or a doctor clears it.
+  tissue can heal. The chelation item effect is disabled fail-closed pending a verified
+  source-identifying item-use adapter.
 - 10-stage severity (100→1000) drives SPECIAL penalties (END/STR via C++) + Pip-Boy stage perks.
 - GMST `fRadsDamageFactor` = 0.60 (≈ +300% radiation intake vs vanilla 0.15).
 
@@ -36,10 +37,12 @@ are never reused against old saves. The 10th severity stage keeps its "Ghoulific
 system (`SpawnStormGhouls`) is a separate enemy-NPC feature and is unaffected.
 
 ### Cures
-- **RadAway** — partial tissue heal (floors at permanent). Authored override so it always works.
+- **RadAway** — its item-triggered tissue heal is disabled fail-closed pending a verified
+  source-identifying item-use adapter. It still clears vanilla particulate rads.
 - **Sleep/wait** — heals tissue on load based on elapsed game-time (via GameDaysPassed).
 - **Doctor** — detected by big rads drop + HP gain: clears permanent + 50% tissue.
-- **Radiation Chelation Compound** (ingestible 0x860, Medicine-flagged) — clears ALL permanent tissue.
+- **Radiation Chelation Compound** (ingestible 0x860, Medicine-flagged) — the item and recipe
+  exist, but its tissue effect is disabled fail-closed pending the same verified adapter.
   - **Craftable at the Chemistry Station** under the Healing/Medicine tab (COBJ 0x861).
   - Also obtainable from a physician (high value, 3500).
 

@@ -13,14 +13,15 @@ Author: NomadsReach
 - **Twofold radiation.** Particulate rads (vanilla Rads AV, cleared by RadAway) plus a
   persistent **tissue damage** pool that survives saves, builds from sustained exposure,
   and is NOT cleared by RadAway. **Permanent (scarred) tissue** floors how far tissue can
-  heal; the Radiation Chelation Compound clears permanent scarring.
+  heal. Item-triggered tissue cures are currently disabled fail-closed until a
+  source-identifying item-use adapter is verified.
 - **10-stage severity** (100 to 1000) drives SPECIAL penalties (END/STR) and Pip-Boy stage perks.
 - **STALKER-style storms.** Ash Fallout and Rad Firestorm (lethal, shelter-or-die) plus Toxic
   Sulfur Storm, Acid Rain, and Dust Storm, with APPROACH / WARNING / ACTIVE / AFTERMATH phases,
   siren audio, shelter detection, storm atmosphere, and native storm FX.
-- **Cures.** RadAway partially heals reducible tissue; sleep/wait/fast-travel can regress reducible
-  tissue over elapsed game time; the craftable **Radiation Chelation Compound** clears permanent
-  scarring.
+- **Cures.** Sleep/wait/fast-travel can regress reducible tissue over elapsed game time. RadAway
+  and the craftable **Radiation Chelation Compound** do not currently change tissue damage: their
+  item-triggered effects are disabled fail-closed pending a verified source-identifying item-use adapter.
 - **PrismaUI HUD** (optional, degrades to no-op without the framework): gas-mask visor, storm
   banners, debug controls, and positionable toxicity/filter widgets through PrismaHUD_F4 when present.
 - **Companion patches.** `RadOverhaul_GearPatch.esp` buffs the hazmat suit's radiation resistance;

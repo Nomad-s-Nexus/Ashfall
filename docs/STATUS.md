@@ -78,8 +78,10 @@ Open focused issues only when an item is selected for implementation.
 - **Filter drain across sleep/wait/fast-travel (#12):** merged PR #16. Time jumps now drain filters
   using the pre-jump mask/exposure state and live `timescale`; AutoReplace can consume multiple
   spares. The same PR also blocks duplicate/free tissue healing when loading later saves.
-- **RadAway false tissue-heal trigger (#13):** merged PR #18. Reducible-tissue healing now requires
-  an actual RadAway inventory decrement and a short consumption window.
+- **RadAway false tissue-heal trigger (#13):** the earlier inventory-decrement approach was removed
+  because it could not distinguish use from dropping, selling, or transfer. RadAway and chelation
+  item-triggered tissue cures are now disabled fail-closed pending a verified source-identifying
+  item-use adapter.
 - **Fix Stats vs permanent scar END (#14):** scar END is added after the stage-penalty suspension,
   so Fix Stats cannot clear permanent scarring.
 - **Firestorm missile flyover (#11):** closed as not planned. The actual distant detonation exists;

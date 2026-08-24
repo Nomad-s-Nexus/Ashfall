@@ -143,8 +143,9 @@ namespace RadInternal
     constexpr float kTissueMax         = 1000.0f;
     constexpr float kTissueWeight      = 1.0f;      // how much tissue adds to effective severity
     // Permanent scarring: accumulates slowly while tissue > threshold (chronic exposure).
-    // Only cleared by chelation compound. Starts later and accrues slower now so a rough early game
-    // doesn't permanently scar the player toward ghoulification.
+    // Chelation's item effect is disabled fail-closed pending a verified source-identifying
+    // item-use adapter. Starts later and accrues slower now so a rough early game does not
+    // permanently scar the player toward ghoulification.
     constexpr float kPermAccrualThresh = 200.0f;    // tissue level that starts scarring
     constexpr float kPermAccrualRate   = 0.006f;    // perm tissue accrued per tick above threshold
 
