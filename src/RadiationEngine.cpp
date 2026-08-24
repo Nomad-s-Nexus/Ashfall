@@ -1,4 +1,7 @@
 #include "RadEngine_Internal.h"
+#include "SerializationPolicy.h"
+
+#include <vector>
 
 using namespace RadInternal;
 
@@ -573,6 +576,11 @@ namespace
     constexpr std::uint32_t kStormClockVersion = 1;
     constexpr std::uint32_t kFilterRecord      = 'FILT';  // co-save: gas-mask filter charge + condition
     constexpr std::uint32_t kFilterVersion     = 2;       // v2 adds mask condition after charge
+
+    // Storm-clock record payload: three doubles (play, next, lastRadstorm) + one uint8 (scheduled).
+    constexpr std::uint32_t kStormClockLen = sizeof(double) * 3 + sizeof(std::uint8_t);
+    constexpr std::uint32_t kFilterV1Len = sizeof(float);
+    constexpr std::uint32_t kFilterV2Len = sizeof(float) * 2;
 }
 
 
@@ -1133,12 +1141,37 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
 {
     auto logger = Log();
     std::uint32_t type = 0, version = 0, length = 0;
+
+    // SaveState writes one SCLK record. Older co-saves can carry duplicates, but their ordering does not
+    // prove which clock is current. Only one valid record, or repeated field-identical records, may restore
+    // state. Conflicting valid records fail safe and schedule a fresh storm rather than arbitrarily moving
+    // the monotonic play clock backward or postponing storms by an unbounded amount.
+    std::vector<RadiationSerialization::StormClockState> clockCandidates;
+    int    clockSeen = 0, clockRejected = 0;
+
+    const auto readExact = [a_intfc]<class T>(T& a_value) {
+        return a_intfc->ReadRecordData(a_value) == sizeof(T);
+    };
+
     while (a_intfc->GetNextRecordInfo(type, version, length))
     {
         if (type == kFilterRecord)
         {
-            a_intfc->ReadRecordData(_filterCharge);
-            if (version >= 2) a_intfc->ReadRecordData(_maskCondition);   // v1 saves carry only the charge
+            float charge = 100.0f;
+            float condition = 100.0f;
+            const bool isV1 = version == 1 && length == kFilterV1Len;
+            const bool isV2 = version == kFilterVersion && length == kFilterV2Len;
+            const bool read = isV1 ? readExact(charge) :
+                              isV2 ? readExact(charge) && readExact(condition) : false;
+            if (!read || !std::isfinite(charge) || charge < 0.0f || charge > 100.0f ||
+                (isV2 && (!std::isfinite(condition) || condition < 0.0f || condition > 100.0f)))
+            {
+                logger->warn("[Load] Filter record v{} len {} is invalid or truncated — keeping defaults.", version, length);
+                continue;
+            }
+            _filterCharge = charge;
+            if (isV2)
+                _maskCondition = condition;
             logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%).",
                 _filterCharge, _maskCondition);
             continue;
@@ -1148,21 +1181,59 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
             logger->warn("[Load] Unknown co-save record 0x{:08X} (len {}) — skipping.", type, length);
             continue;
         }
+        ++clockSeen;
         if (version != kStormClockVersion)
         {
-            logger->warn("[Load] Storm-clock record v{} != v{} — ignoring (clock starts fresh).",
-                version, kStormClockVersion);
+            ++clockRejected;
+            logger->warn("[Load] Storm-clock record #{} v{} != v{} — ignoring.", clockSeen, version, kStormClockVersion);
+            continue;   // F4SE re-syncs to the next record on the following GetNextRecordInfo.
+        }
+        if (length != kStormClockLen)
+        {
+            ++clockRejected;
+            logger->warn("[Load] Storm-clock record #{} bad length {} (expected {}) — ignoring.",
+                clockSeen, length, kStormClockLen);
             continue;
         }
-        std::uint8_t scheduled = 0;
-        a_intfc->ReadRecordData(_playSeconds);
-        a_intfc->ReadRecordData(_nextStormPlaySec);
-        a_intfc->ReadRecordData(_lastRadstormSec);
-        a_intfc->ReadRecordData(scheduled);
-        _stormScheduled = (scheduled != 0);
-        logger->info("[Load] Storm clock restored (play={:.0f}s, next={:.0f}s, scheduled={}).",
-            _playSeconds, _nextStormPlaySec, _stormScheduled);
+        double p = 0.0, n = 0.0, l = 0.0;
+        std::uint8_t s = 0;
+        const bool read = readExact(p) && readExact(n) && readExact(l) && readExact(s);
+        const RadiationSerialization::StormClockState candidate{ p, n, l, s != 0 };
+        if (!read || (s != 0 && s != 1) || !RadiationSerialization::IsValidStormClock(candidate))
+        {
+            ++clockRejected;
+            logger->warn("[Load] Storm-clock record #{} is invalid or truncated (play={}, next={}, last={}, sched={}) — ignoring.",
+                clockSeen, p, n, l, static_cast<int>(s));
+            continue;
+        }
+        clockCandidates.push_back(candidate);
     }
+
+    if (clockCandidates.size() == 1 ||
+        (clockCandidates.size() > 1 && RadiationSerialization::ClassifyStormClockCandidates(clockCandidates) ==
+            RadiationSerialization::StormClockCandidateDisposition::kRestore))
+    {
+        const auto& clock = clockCandidates.front();
+        _playSeconds      = clock.playSeconds;
+        _nextStormPlaySec = clock.nextStormPlaySeconds;
+        _lastRadstormSec  = clock.lastRadstormSeconds;
+        _stormScheduled   = clock.scheduled;
+        logger->info("[Load] Storm clock restored (play={:.0f}s, next={:.0f}s, scheduled={}){}.",
+            _playSeconds, _nextStormPlaySec, _stormScheduled, clockCandidates.size() > 1 ? " [identical duplicates]" : "");
+    }
+    else if (!clockCandidates.empty())
+    {
+        logger->warn("[Load] {} conflicting valid storm-clock records — refusing to choose a clock; scheduling fresh.",
+            clockCandidates.size());
+        ScheduleNextStorm();
+    }
+    else if (clockSeen > 0)
+    {
+        logger->warn("[Load] {} storm-clock record(s) present but none valid ({} rejected) — scheduling fresh.",
+            clockSeen, clockRejected);
+        ScheduleNextStorm();
+    }
+    // No SCLK record at all: RevertState's fresh defaults (run before this callback) stand.
 }
 
 
