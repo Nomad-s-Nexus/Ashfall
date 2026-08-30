@@ -120,7 +120,7 @@ jobs:
           name: FalloutAnomalyRadiation-windows-x64
           path: Rad-Overhaul-Fallout-4/build/release/FalloutAnomalyRadiation.dll
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
       - name: Report build status
         if: always()
