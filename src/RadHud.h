@@ -22,8 +22,6 @@ public:
     // kPostLoadGame / kNewGame: (re)create the HUD view.
     void CreateView();
 
-    // Push tissue ("toxicity") to the standalone toxic widget view, which is registered with
-    // PrismaHUD_F4 for positioning. No-op if PrismaUI is absent.
     void PushToxic(float tissue, float permanentTissue);
 
     // First-person gas-mask screen overlay: show/hide the fullscreen mask layer in the HUD view.

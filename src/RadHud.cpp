@@ -4,6 +4,7 @@
 
 // RE headers BEFORE PrismaUI_F4_API.h: the API header pulls in Windows.h, whose macros clobber
 // engine struct layouts (e.g. TESFile) if the RE headers are parsed afterwards.
+#include <RE/A/ActorValue.h>
 #include <RE/B/BSTEvent.h>
 #include <RE/M/MenuOpenCloseEvent.h>
 #include <RE/M/MessageBoxMenu.h>
@@ -145,12 +146,11 @@ void RadHud::RequestAPI()
     else
         logger->info("[HUD] PrismaUI_F4 not present — radiation HUD disabled (optional).");
 
-    // Optional: PrismaHUD_F4 positions the toxicity widget in the unified HUD editor. If absent,
-    // the toxic widget still renders at its default position (no-op fallbacks in its JS).
     _hudApi = PRISMA_HUD_API::RequestPluginAPI();
-    logger->info("[HUD] PrismaHUD_F4 {} — toxicity widget {}.",
+    logger->info("[HUD] PrismaHUD_F4 {} — {}.",
         _hudApi ? "API acquired" : "not present",
-        _hudApi ? "will be positionable in the HUD editor" : "uses its default position");
+        _hudApi ? "toxicity widget will be positionable in the HUD editor"
+                : "standalone health, stamina, and tissue HUD enabled");
 }
 
 void RadHud::CreateView()
@@ -256,9 +256,30 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
     if (!api->IsValid(_toxicView)) return;
     if (!IsPlayerInWorld()) return;
 
-    char json[96];
-    std::snprintf(json, sizeof(json), "{\"tissue\":%.1f,\"permanentTissue\":%.1f}",
-        tissue, permanentTissue);
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* values = RE::ActorValue::GetSingleton();
+    float health = 0.0f, healthMax = 0.0f, ap = 0.0f, apMax = 0.0f;
+    if (!_hudApi && player && values)
+    {
+        if (values->health)
+        {
+            health = player->GetActorValue(*values->health);
+            healthMax = player->GetPermanentActorValue(*values->health);
+            if (healthMax <= 0.0f && health > 0.0f) healthMax = health;
+        }
+        if (values->actionPoints)
+        {
+            ap = player->GetActorValue(*values->actionPoints);
+            apMax = player->GetPermanentActorValue(*values->actionPoints);
+            if (apMax <= 0.0f && ap > 0.0f) apMax = ap;
+        }
+    }
+
+    char json[224];
+    std::snprintf(json, sizeof(json),
+        "{\"tissue\":%.1f,\"permanentTissue\":%.1f,\"fallback\":%s,"
+        "\"health\":%.1f,\"healthMax\":%.1f,\"ap\":%.1f,\"apMax\":%.1f}",
+        tissue, permanentTissue, _hudApi ? "false" : "true", health, healthMax, ap, apMax);
     api->InteropCall(_toxicView, "updateToxic", json);
 }
 

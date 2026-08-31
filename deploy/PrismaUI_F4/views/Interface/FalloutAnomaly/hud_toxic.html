@@ -8,11 +8,16 @@
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none}
 #root{transform-origin:top left;transform:scale(var(--s,1));
   position:fixed;left:0;top:0;width:200px;height:44px;
-  display:flex;align-items:center;gap:7px;
+  display:flex;flex-direction:column;justify-content:center;gap:3px;
   font-family:Consolas,"Courier New",monospace;
   opacity:0;transition:opacity .3s;
 }
 #root.visible{opacity:1}
+#root.fallback{width:260px;height:76px}
+.vital{width:100%;display:flex;align-items:center;gap:7px}
+.fallback-only{display:none}
+#root.fallback .fallback-only{display:flex}
+.label{width:72px;flex:none;color:#d8ded8;font-size:9px;font-weight:bold;letter-spacing:.5px;text-shadow:0 0 3px #000}
 .vicon{
   width:20px;height:18px;flex:none;background-color:#b07a28;
   -webkit-mask-image:url("biohazard.png");mask-image:url("biohazard.png");
@@ -29,6 +34,8 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-
   -webkit-clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
 }
 .bar{height:100%;width:0%;position:relative;transition:width .25s linear;background:#b07a28}
+#hFill{background:#b13b32}
+#apFill{background:#55a65c}
 .bar::after{content:"";position:absolute;left:0;right:0;top:0;height:40%;pointer-events:none;
   background:linear-gradient(to bottom,rgba(255,255,255,.16),rgba(255,255,255,0))}
 /* permanent (scarred) tissue overlay — hatched, sits at the right end of the current tissue */
@@ -46,10 +53,21 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-
 </head>
 <body>
 <div id="root">
-  <div class="vicon" id="icon"></div>
-  <div class="barwrap">
-    <div class="barbg"><div class="bar" id="tFill"></div><div id="tperm"></div></div>
-    <div class="val" id="tNum">0</div>
+  <div class="vital fallback-only">
+    <div class="label">HEALTH</div>
+    <div class="barwrap"><div class="barbg"><div class="bar" id="hFill"></div></div><div class="val show" id="hNum">0</div></div>
+  </div>
+  <div class="vital fallback-only">
+    <div class="label">STAMINA (AP)</div>
+    <div class="barwrap"><div class="barbg"><div class="bar" id="apFill"></div></div><div class="val show" id="apNum">0</div></div>
+  </div>
+  <div class="vital">
+    <div class="label fallback-only">TISSUE</div>
+    <div class="vicon" id="icon"></div>
+    <div class="barwrap">
+      <div class="barbg"><div class="bar" id="tFill"></div><div id="tperm"></div></div>
+      <div class="val" id="tNum">0</div>
+    </div>
   </div>
 </div>
 <script>
@@ -59,15 +77,26 @@ var tperm=document.getElementById('tperm');
 var tNum =document.getElementById('tNum');
 var icon =document.getElementById('icon');
 var root =document.getElementById('root');
+var hFill=document.getElementById('hFill'),hNum=document.getElementById('hNum');
+var apFill=document.getElementById('apFill'),apNum=document.getElementById('apNum');
 var _visState=false;
 var _preview=false;   // HUD-editor preview
 
 function setIconSev(sev){ sev=Math.max(0,Math.min(1,sev)); icon.style.backgroundColor='hsl('+Math.round(120*(1-sev))+',80%,55%)'; }
+function setVital(fill,num,current,max){
+  current=Math.max(0,+current||0);max=Math.max(0,+max||0);
+  fill.style.width=(max>0?Math.min(100,current/max*100):(current>0?100:0))+'%';
+  num.textContent=Math.round(current);
+}
 
 // Data push from the Rad Mod DLL: {tissue, permanentTissue}
 window.updateToxic=function(json){
   try{
     var d=(typeof json==="string")?JSON.parse(json):json;
+    var fallback=!!d.fallback;
+    root.classList.toggle('fallback',fallback);
+    icon.style.display=fallback?'none':'';
+    if(fallback){setVital(hFill,hNum,d.health,d.healthMax);setVital(apFill,apNum,d.ap,d.apMax);}
     var t=Math.max(0,Math.min(MAXT,+d.tissue||0));
     var perm=Math.min(t,Math.max(0,+d.permanentTissue||0));
     tFill.style.width=(t/MAXT*100)+'%';
@@ -75,8 +104,8 @@ window.updateToxic=function(json){
     else { tperm.style.width='0%'; }
     setIconSev(t/600);                 // tissue climbs toward 600 = worst -> redder
     tNum.textContent=Math.round(t);
-    tNum.classList.toggle('show',(1-t/600)<=0.75);
-    var show=t>0;
+    tNum.classList.toggle('show',fallback||(1-t/600)<=0.75);
+    var show=fallback||t>0;
     if(show!==_visState){ _visState=show;
       window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show})); }
     root.classList.toggle('visible',_visState||_preview);

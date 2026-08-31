@@ -68,6 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
+          python3 tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
