@@ -153,7 +153,11 @@ void RadHud::RequestAPI()
     if (_api)
         logger->info("[HUD] PrismaUI_F4 API acquired — radiation HUD enabled.");
     else
+    {
+        _hudApi = nullptr;
         logger->info("[HUD] PrismaUI_F4 not present — radiation HUD disabled (optional).");
+        return;
+    }
 
     _hudApi = PRISMA_HUD_API::RequestPluginAPI();
     logger->info("[HUD] PrismaHUD_F4 {} — {}.",

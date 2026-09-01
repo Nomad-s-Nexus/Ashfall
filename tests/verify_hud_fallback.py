@@ -37,7 +37,6 @@ def check_behavior():
 
     assert toxic_state(False, 0, 0)["visible"] is False
     assert toxic_state(True, 0, 0)["visible"] is True
-    assert toxic_state(False, 0, 0)["visible"] is False
 
     tissue = toxic_state(False, 400, 120)
     assert tissue == {"tissue": 400.0, "permanent": 120.0, "visible": True}
