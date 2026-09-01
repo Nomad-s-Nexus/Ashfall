@@ -12,6 +12,17 @@ def vital_percent(current, maximum):
     return min(100.0, current / maximum * 100.0) if maximum > 0.0 else (100.0 if current > 0.0 else 0.0)
 
 
+def health_segments(current, maximum, rads, rads_max=1000.0):
+    current = max(0.0, float(current))
+    maximum = max(0.0, float(maximum))
+    rads_max = max(1.0, float(rads_max))
+    blocked = max(0.0, min(1.0, float(rads) / rads_max))
+    available = 1.0 - blocked
+    healthy = min(max(0.0, current / maximum), available) if maximum > 0.0 else (available if current > 0.0 else 0.0)
+    missing = max(0.0, available - healthy)
+    return tuple(round(x * 100.0, 5) for x in (healthy, missing, blocked))
+
+
 def toxic_state(fallback, tissue, permanent):
     tissue = min(1000.0, max(0.0, float(tissue)))
     permanent = min(tissue, max(0.0, float(permanent)))
@@ -46,6 +57,11 @@ def check_behavior():
     assert vital_percent(10, -5) == 100.0
     assert vital_percent(360, health_max) == 100.0
 
+    # Vanilla radiation blocks max-health capacity from the right side of the fallback bar.
+    assert health_segments(70, 100, 300) == (70.0, 0.0, 30.0)
+    assert health_segments(50, 100, 300) == (50.0, 20.0, 30.0)
+    assert health_segments(100, 100, 0) == (100.0, 0.0, 0.0)
+
     assert widget_fallback(False, False, False) is True
     assert widget_fallback(True, False, False) is True
     assert widget_fallback(True, True, True) is False
@@ -79,7 +95,7 @@ def check_behavior():
 
 def check_source(html_path, source_path):
     html = Path(html_path).read_text(encoding="utf-8")
-    for marker in ('HEALTH', 'STAMINA (AP)', 'TISSUE', "fallback=!!d.fallback", "var show=fallback||t>0"):
+    for marker in ('HEALTH', 'STAMINA (AP)', 'TISSUE', 'id="hRads"', '#hFill{background:#55a65c}', 'background:#d9822b', 'setHealthVital', 'd.rads,d.radsMax', "fallback=!!d.fallback", "var show=fallback||t>0"):
         if marker not in html:
             raise SystemExit(f"missing HUD fallback contract: {marker}")
 
@@ -101,6 +117,8 @@ def check_source(html_path, source_path):
         'player.GetModifier(RE::ACTOR_VALUE_MODIFIER::kTemporary, value)',
         'healthMax = EffectiveActorValueMax(*player, *values->health);',
         'apMax = EffectiveActorValueMax(*player, *values->actionPoints);',
+        'rads = std::clamp(player->GetActorValue(*values->rads), 0.0f, 1000.0f);',
+        r'\"rads\":%.1f,\"radsMax\":1000.0',
         'std::atomic<PRISMA_UI_API::IVPrismaUI2*> g_apiForCb',
         'std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_hudApiForCb',
         'api->IsValid(_toxicView)',

@@ -306,7 +306,7 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
 
     auto* player = RE::PlayerCharacter::GetSingleton();
     auto* values = RE::ActorValue::GetSingleton();
-    float health = 0.0f, healthMax = 0.0f, ap = 0.0f, apMax = 0.0f;
+    float health = 0.0f, healthMax = 0.0f, rads = 0.0f, ap = 0.0f, apMax = 0.0f;
     const bool fallback = !_toxicWidgetRegistered.load();
     if (fallback && player && values)
     {
@@ -316,6 +316,8 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
             healthMax = EffectiveActorValueMax(*player, *values->health);
             if (healthMax <= 0.0f && health > 0.0f) healthMax = health;
         }
+        if (values->rads)
+            rads = std::clamp(player->GetActorValue(*values->rads), 0.0f, 1000.0f);
         if (values->actionPoints)
         {
             ap = player->GetActorValue(*values->actionPoints);
@@ -324,11 +326,12 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         }
     }
 
-    char json[224];
+    char json[256];
     std::snprintf(json, sizeof(json),
         "{\"tissue\":%.1f,\"permanentTissue\":%.1f,\"fallback\":%s,"
-        "\"health\":%.1f,\"healthMax\":%.1f,\"ap\":%.1f,\"apMax\":%.1f}",
-        tissue, permanentTissue, fallback ? "true" : "false", health, healthMax, ap, apMax);
+        "\"health\":%.1f,\"healthMax\":%.1f,\"rads\":%.1f,\"radsMax\":1000.0,"
+        "\"ap\":%.1f,\"apMax\":%.1f}",
+        tissue, permanentTissue, fallback ? "true" : "false", health, healthMax, rads, ap, apMax);
     api->InteropCall(_toxicView, "updateToxic", json);
 }
 
