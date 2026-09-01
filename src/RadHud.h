@@ -22,8 +22,6 @@ public:
     // kPostLoadGame / kNewGame: (re)create the HUD view.
     void CreateView();
 
-    // Push tissue ("toxicity") to the standalone toxic widget view, which is registered with
-    // PrismaHUD_F4 for positioning. No-op if PrismaUI is absent.
     void PushToxic(float tissue, float permanentTissue);
 
     // First-person gas-mask screen overlay: show/hide the fullscreen mask layer in the HUD view.
@@ -74,6 +72,7 @@ private:
     void* _hudApi = nullptr;    // PRISMA_HUD_API::IVPrismaHUD1* (optional; positions the toxic widget)
     uint64_t _toxicView = 0;    // standalone toxicity widget view registered with PrismaHUD
     std::atomic<bool> _toxicDomReady{ false };
+    std::atomic<bool> _toxicWidgetRegistered{ false };
 
     // Standalone gas-mask FILTER/MASK bar widget view (hud_filter.html), split out of the fullscreen
     // radhud.html overlay so PrismaHUD_F4 can position it in the HUD editor. The visor + fog stay in
