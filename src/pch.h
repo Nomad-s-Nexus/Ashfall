@@ -1,5 +1,13 @@
 #pragma once
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 // Standard library
 #include <algorithm>
 #include <array>
@@ -21,6 +29,10 @@
 
 // CommonLibF4
 #include <F4SE/F4SE.h>
+
+#ifdef MAX_PATH
+#undef MAX_PATH
+#endif
 
 // Third-party
 #include <nlohmann/json.hpp>

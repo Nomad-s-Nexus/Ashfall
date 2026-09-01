@@ -1,12 +1,26 @@
 #include "pch.h"
 #include "Hooks.h"
+#include "PrismaUI_F4_API.h"
 #include "RadiationEngine.h"
+#include "RadHud.h"
 
+#ifdef MAX_PATH
+#undef MAX_PATH
+#endif
+
+#ifdef MEM_RELEASE
+#undef MEM_RELEASE
+#endif
+
+#include <RE/B/BSInputEventUser.h>
+#include <RE/B/ButtonEvent.h>
 #include <RE/M/Main.h>
+#include <RE/M/MenuControls.h>
 #include <RE/P/PlayerCharacter.h>
 
 #include <atomic>
 #include <deque>
+#include <memory>
 #include <mutex>
 
 #ifndef NOMINMAX
@@ -16,25 +30,52 @@
 
 namespace Hooks
 {
+    class RadInputHandler final : public RE::BSInputEventUser
+    {
+    public:
+        static RadInputHandler* GetSingleton() { static RadInputHandler instance; return &instance; }
+        bool ShouldHandleEvent(const RE::InputEvent* e) override
+        {
+            return e && e->eventType == RE::INPUT_EVENT_TYPE::kButton && e->device == RE::INPUT_DEVICE::kKeyboard;
+        }
+        void OnButtonEvent(const RE::ButtonEvent* e) override
+        {
+            if (!e || !e->QJustPressed() || e->GetBSButtonCode() != RE::BS_BUTTON_CODE::kF8 ||
+                (::GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) return;
+            RadHud::GetSingleton().ToggleDebugMenu();
+            const_cast<RE::ButtonEvent*>(e)->handled = RE::InputEvent::HANDLED_RESULT::kStop;
+        }
+    };
+
+    bool InstallInputHandler()
+    {
+        static bool installed = false;
+        if (installed) return true;
+        auto logger = spdlog::get("FalloutAnomaly");
+        auto* controls = RE::MenuControls::GetSingleton();
+        if (!controls) { if (logger) logger->error("[Input] MenuControls unavailable; Shift+F8 disabled."); return false; }
+        controls->RegisterHandler(RadInputHandler::GetSingleton());
+        installed = true;
+        if (logger) logger->info("[Input] Rad debug handler registered with MenuControls (Shift+F8).");
+        return true;
+    }
+
     // PlayerCharacter::Update is a producer only. Runtime probing established that this vfunc executes
     // on a worker thread in this Fallout 4 runtime, so engine-facing radiation work must never run
     // directly from it.
     static REL::Relocation<decltype(&RE::PlayerCharacter::Update)> original_Update;
     static bool s_updateHookInstalled = false;
 
-    // Verified game-main-thread dispatcher. RE::Main owns the game window and records the thread ID that
-    // owns the main loop. A thread-specific WH_GETMESSAGE hook executes in that exact thread whenever its
-    // Win32 queue is pumped. We post a private registered message to wake it and drain our C++ task queue.
+    // Verified game-main-thread dispatcher. PrismaUI V11 is preferred whenever PrismaUI is loaded.
+    // If PrismaUI is installed but its dispatcher is not accepting work yet, callers fail fast and
+    // retry on the next lifecycle event instead of sleeping inside an F4SE message callback. The
+    // Win32 WH_GETMESSAGE path is retained only for configurations where PrismaUI is genuinely absent.
     // This deliberately does NOT use F4SE AddTask: runtime probes showed AddTask callbacks execute on a
     // third thread on this setup and therefore are not a main-thread marshal.
-    // Atomic: written on the F4SE-messaging thread in InstallMainThreadDispatcher and read from the
-    // worker-thread producer path (IsGameMainThread, QueueMainThreadTask's availability gate) and the
-    // detached RadHud waiter. The availability gate is itself one of these reads, so a plain-int race
-    // here would be a race on the safety check. seq_cst gives the gate a happens-before on the install
-    // stores (hook is published last, so a reader that sees it also sees threadId/wakeMessage).
     static std::atomic<DWORD> s_gameMainThreadId{ 0 };
     static std::atomic<HHOOK> s_mainThreadMsgHook{ nullptr };
     static std::atomic<UINT>  s_mainThreadWakeMessage{ 0 };
+    static std::atomic<PRISMA_UI_API::IVPrismaUI11*> s_prismaThreadApi{ nullptr };
     static std::mutex s_mainTaskMutex;
     static std::deque<std::function<void()>> s_mainTasks;
 
@@ -53,6 +94,45 @@ namespace Hooks
     static TickClock::time_point s_lastLogTime;
     static bool s_lastTickInit = false;
     static int s_updateTickCount = 0;
+
+    static PRISMA_UI_API::IVPrismaUI11* GetPrismaThreadAPI()
+    {
+        auto* api = s_prismaThreadApi.load(std::memory_order_acquire);
+        if (api) return api;
+
+        auto* discovered = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI11>();
+        if (!discovered) return nullptr;
+        s_prismaThreadApi.compare_exchange_strong(api, discovered, std::memory_order_acq_rel);
+        return s_prismaThreadApi.load(std::memory_order_acquire);
+    }
+
+    static bool IsPrismaModuleLoaded() noexcept
+    {
+        // F4SE plugins are loaded before kGameDataReady. Detect the provider module even during the
+        // short window before V11 registration finishes so we do not route startup work into the
+        // legacy queue and strand it when PrismaUI becomes ready a moment later.
+        return ::GetModuleHandleW(L"PrismaUI_F4.dll") != nullptr;
+    }
+
+    static void RunPrismaThreadTask(void* userdata) noexcept
+    {
+        std::unique_ptr<std::function<void()>> task(static_cast<std::function<void()>*>(userdata));
+        if (!task || !*task) return;
+        try
+        {
+            (*task)();
+        }
+        catch (const std::exception& ex)
+        {
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->error("[MainDispatch] PrismaUI task threw: {}", ex.what());
+        }
+        catch (...)
+        {
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->error("[MainDispatch] PrismaUI task threw an unknown exception.");
+        }
+    }
 
     bool IsGameMainThread()
     {
@@ -122,8 +202,6 @@ namespace Hooks
     bool InstallMainThreadDispatcher()
     {
         auto logger = spdlog::get("FalloutAnomaly");
-        if (s_mainThreadMsgHook && s_gameMainThreadId != 0)
-            return true;
 
         auto* main = RE::Main::GetSingleton();
         if (!main || main->threadID == 0)
@@ -133,6 +211,29 @@ namespace Hooks
         }
 
         s_gameMainThreadId = static_cast<DWORD>(main->threadID);
+
+        // Never wait here. F4SE dispatches plugin lifecycle work serially enough that sleeping while
+        // waiting for PrismaUI can delay the very provider initialization we need. If PrismaUI is
+        // present, QueueMainThreadTask will use V11 when it starts accepting work and otherwise return
+        // false so the caller can defer safely to PostLoad/NewGame.
+        if (auto* prismaApi = GetPrismaThreadAPI())
+        {
+            (void)prismaApi;
+            if (logger)
+                logger->info("[MainDispatch] PrismaUI V11 dispatcher detected on game-main thread {}; non-blocking dispatch enabled.",
+                    s_gameMainThreadId.load());
+            return true;
+        }
+        if (IsPrismaModuleLoaded())
+        {
+            if (logger)
+                logger->info("[MainDispatch] PrismaUI module detected; V11 dispatcher not ready yet, startup work will be deferred.");
+            return true;
+        }
+
+        if (s_mainThreadMsgHook && s_mainThreadWakeMessage != 0)
+            return true;
+
         s_mainThreadWakeMessage = ::RegisterWindowMessageW(L"FARO_RadOverhaul_MainThreadDispatch_v1");
         if (s_mainThreadWakeMessage == 0)
         {
@@ -141,8 +242,8 @@ namespace Hooks
             return false;
         }
 
-        // Thread belongs to this process, so hMod must be null. WH_GETMESSAGE invokes our hook in the
-        // context of the target thread when it calls GetMessage/PeekMessage.
+        // PrismaUI is genuinely absent. Use the legacy target-thread message queue only in this case;
+        // mixing this queue with a provider that appears moments later can strand already-queued work.
         s_mainThreadMsgHook = ::SetWindowsHookExW(
             WH_GETMESSAGE, &MainThreadGetMessageHook, nullptr, s_gameMainThreadId);
         if (!s_mainThreadMsgHook)
@@ -155,7 +256,7 @@ namespace Hooks
         }
 
         if (logger)
-            logger->info("[MainDispatch] Installed on Fallout 4 game-main thread {} (current setup thread {}).",
+            logger->info("[MainDispatch] PrismaUI absent; installed Win32 fallback on Fallout 4 game-main thread {} (current setup thread {}).",
                 s_gameMainThreadId.load(), ::GetCurrentThreadId());
         return true;
     }
@@ -164,11 +265,40 @@ namespace Hooks
     {
         if (!task) return false;
 
+        if (auto* api = GetPrismaThreadAPI())
+        {
+            auto ownedTask = std::make_unique<std::function<void()>>(task);
+            if (api->DispatchToGameThread(RunPrismaThreadTask, ownedTask.get()))
+            {
+                ownedTask.release();
+                return true;
+            }
+
+            // A provider exists but is not accepting work yet. Do not fall through into the Win32
+            // queue: that is the split-brain path that stranded startup initialization in live logs.
+            if (IsGameMainThread())
+            {
+                try
+                {
+                    task();
+                    return true;
+                }
+                catch (const std::exception& ex)
+                {
+                    if (auto logger = spdlog::get("FalloutAnomaly"))
+                        logger->error("[MainDispatch] inline task threw: {}", ex.what());
+                }
+                catch (...)
+                {
+                    if (auto logger = spdlog::get("FalloutAnomaly"))
+                        logger->error("[MainDispatch] inline task threw an unknown exception.");
+                }
+            }
+            return false;
+        }
+
         if (IsGameMainThread())
         {
-            // Keep inline execution behavior consistent with queued execution: task exceptions are
-            // contained inside the dispatcher boundary rather than unexpectedly escaping only when a
-            // caller happens to already be on the main thread.
             try
             {
                 task();
@@ -186,6 +316,11 @@ namespace Hooks
             }
             return false;
         }
+
+        // PrismaUI is loaded but its V11 API is not registered yet. Fail fast so lifecycle callers can
+        // retry later. Never install/use the legacy queue for this transient provider-startup state.
+        if (IsPrismaModuleLoaded())
+            return false;
 
         if (!s_mainThreadMsgHook || s_gameMainThreadId == 0 || s_mainThreadWakeMessage == 0)
             return false;
@@ -328,11 +463,12 @@ namespace Hooks
             if (logger) logger->critical("[Hook] Refusing update-hook install off the verified game-main thread.");
             return false;
         }
-        if (!s_mainThreadMsgHook)
+        if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())
         {
-            if (logger) logger->critical("[Hook] Refusing update-hook install without main-thread dispatcher.");
+            if (logger) logger->critical("[Hook] Refusing update-hook install without a main-thread dispatcher.");
             return false;
         }
+        InstallInputHandler();
         if (s_updateHookInstalled)
         {
             if (logger) logger->debug("[Hook] PlayerCharacter::Update producer already installed; skipping duplicate install.");

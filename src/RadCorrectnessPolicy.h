@@ -24,9 +24,12 @@ namespace RadCorrectnessPolicy
         return ticksSinceLastMove >= 4;
     }
 
-    constexpr bool ShouldRecreateDomeForOwner(bool domeUp, bool sameCell, bool sameWorld)
+    constexpr bool ShouldRecreateDomeForOwner(bool domeUp, [[maybe_unused]] bool sameCell, bool sameWorld)
     {
-        return domeUp && (!sameCell || !sameWorld);
+        // Exterior parent-cell changes are normal streaming while the player moves through one
+        // worldspace. Recreating every layer on those boundaries causes the visible dome snap/jitter.
+        // Only a real worldspace ownership change requires destructive recreation.
+        return domeUp && !sameWorld;
     }
 
     constexpr bool ShouldRetryDomeSpawn(bool domePhase, bool exposed, bool domeUp, int retryTicks)
@@ -55,6 +58,11 @@ namespace RadCorrectnessPolicy
     constexpr bool ArmsRadAwayHealing(CureSignal signal)
     {
         return signal == CureSignal::kVerifiedRadAwayUse;
+    }
+
+    constexpr bool IsEngineActive(bool coreInitialized, bool updateProducerInstalled)
+    {
+        return coreInitialized && updateProducerInstalled;
     }
 
     constexpr bool IsCurrentLoadGeneration(std::uint64_t expected, std::uint64_t actual)

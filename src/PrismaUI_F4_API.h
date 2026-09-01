@@ -20,7 +20,7 @@ namespace PRISMA_UI_API {
     constexpr const auto PrismaUIPluginName = "PrismaUI_F4";
 
     // Available PrismaUI interface versions
-    enum class InterfaceVersion : uint8_t { V1, V2, V3, V4 };
+    enum class InterfaceVersion : uint8_t { V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12 };
 
     typedef void (*OnDomReadyCallback)(PrismaView view);
     typedef void (*JSCallback)(const char* result);
@@ -153,6 +153,126 @@ namespace PRISMA_UI_API {
         virtual void EnumerateViews(ViewEnumCallback callback, void* userdata) noexcept = 0;
     };
 
+    class IVPrismaUI5 : public IVPrismaUI4 {
+    protected:
+        ~IVPrismaUI5() = default;
+
+    public:
+        virtual void* GetViewSRV(PrismaView view) noexcept = 0;
+        virtual void SetViewOffscreen(PrismaView view, bool offscreen) noexcept = 0;
+        virtual bool BindViewToGeometry(PrismaView view, void* rootObject, const char* geometryName) noexcept = 0;
+        virtual bool BindViewToScreenTexture(PrismaView view, void* rootObject, const char* textureSubstring) noexcept = 0;
+        virtual void UnbindViewFromGeometry(PrismaView view) noexcept = 0;
+    };
+
+    class IVPrismaUI6 : public IVPrismaUI5 {
+    protected:
+        ~IVPrismaUI6() = default;
+
+    public:
+        virtual bool SuppressHUDWidget(const char* className, bool suppress) noexcept = 0;
+        virtual bool SuppressVanillaMenu(const char* menuName, bool suppress) noexcept = 0;
+        virtual bool CloseVanillaMenu(const char* menuName) noexcept = 0;
+    };
+
+    typedef bool (*MenuSuppressPredicate)();
+
+    class IVPrismaUI7 : public IVPrismaUI6 {
+    protected:
+        ~IVPrismaUI7() = default;
+
+    public:
+        virtual void SuppressVanillaMenuIf(const char* menuName, MenuSuppressPredicate predicate) noexcept = 0;
+        virtual void EnableActivateChoiceFilter(bool enable, bool dropDefaultTake) noexcept = 0;
+        virtual void SuppressActivateChoicePerk(uint32_t perkFormID, bool suppress) noexcept = 0;
+    };
+
+    typedef void (*ViewEnumCallbackEx)(PrismaView id, const char* htmlPath, const char* owner, void* userdata);
+
+    enum class ViewHealth : int {
+        kUnknown = -1,
+        kCreating = 0,
+        kDomReady = 1,
+        kLive = 2,
+        kLoadFailed = 3,
+        kDomReadyTimeout = 4,
+        kUnresponsive = 5,
+        kJsError = 6,
+    };
+
+    class IVPrismaUI8 : public IVPrismaUI7 {
+    protected:
+        ~IVPrismaUI8() = default;
+
+    public:
+        virtual void EnumerateViewsEx(ViewEnumCallbackEx callback, void* userdata) noexcept = 0;
+        virtual bool GetActivateChoiceLabel(uint32_t buttonIndex, char* outBuffer, size_t bufferSize) noexcept = 0;
+        virtual bool TriggerActivateChoice(uint32_t buttonIndex) noexcept = 0;
+        virtual ViewHealth GetViewHealth(PrismaView view) noexcept = 0;
+        virtual void SetViewOffscreenSize(PrismaView view, int width, int height) noexcept = 0;
+    };
+
+    class IVPrismaUI9 : public IVPrismaUI8 {
+    protected:
+        ~IVPrismaUI9() = default;
+
+    public:
+        virtual bool IsUsingGamepad() noexcept = 0;
+        virtual int GetControllerStyle() noexcept = 0;
+        virtual void SetControllerStyle(int style) noexcept = 0;
+        virtual void NoteInputDevice(int device) noexcept = 0;
+        virtual bool GetButtonPrompt(const char* userEvent, char* outBuffer, size_t bufferSize) noexcept = 0;
+        virtual bool GetGamepadButtonName(uint32_t bsButtonCode, char* outBuffer, size_t bufferSize) noexcept = 0;
+        virtual void SetViewOwnsEscape(PrismaView view, bool owns) noexcept = 0;
+        virtual void SetViewOffscreenBackground(PrismaView view, uint32_t argb) noexcept = 0;
+    };
+
+    enum class ViewRole : uint32_t { kUnspecified = 0, kWidget = 1, kPanel = 2 };
+
+    struct InputRegion {
+        int32_t x;
+        int32_t y;
+        int32_t width;
+        int32_t height;
+    };
+
+    class IVPrismaUI10 : public IVPrismaUI9 {
+    protected:
+        ~IVPrismaUI10() = default;
+
+    public:
+        virtual void SetViewRole(PrismaView view, ViewRole role) noexcept = 0;
+        virtual ViewRole GetViewRole(PrismaView view) noexcept = 0;
+        virtual PrismaView GetFocusedView() noexcept = 0;
+        virtual bool IsAnyPanelVisible(PrismaView ignoreView) noexcept = 0;
+        virtual bool FocusOverlay(PrismaView view, bool pauseGame = false, bool disableFocusMenu = false) noexcept = 0;
+        virtual bool SetInputRegions(PrismaView view, const InputRegion* regions, uint32_t count) noexcept = 0;
+    };
+
+    using GameThreadTaskCallback = void (*)(void* userdata);
+    using GameThreadUIEventCallback = void (*)(const char* argument, void* userdata);
+
+    class IVPrismaUI11 : public IVPrismaUI10 {
+    protected:
+        ~IVPrismaUI11() = default;
+
+    public:
+        virtual bool DispatchToGameThread(GameThreadTaskCallback callback, void* userdata) noexcept = 0;
+        virtual bool IsGameThread() noexcept = 0;
+        virtual bool BindGameThreadUIEvent(PrismaView view, const char* functionName,
+                                           GameThreadUIEventCallback callback, void* userdata) noexcept = 0;
+    };
+
+    class IVPrismaUI12 : public IVPrismaUI11 {
+    protected:
+        ~IVPrismaUI12() = default;
+
+    public:
+        virtual bool BindControllerAction(PrismaView view, const char* canonicalButton, const char* action) noexcept = 0;
+        virtual bool UnbindControllerAction(PrismaView view, const char* canonicalButton) noexcept = 0;
+        virtual void ClearControllerActions(PrismaView view) noexcept = 0;
+    };
+
     // Maps interface types to InterfaceVersion enum values.
     // compile-time constraint -- only request interface versions that actually exist.
     template <typename T>
@@ -177,6 +297,23 @@ namespace PRISMA_UI_API {
     struct InterfaceVersionMap<IVPrismaUI4> {
         static constexpr InterfaceVersion version = InterfaceVersion::V4;
     };
+
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI5> { static constexpr InterfaceVersion version = InterfaceVersion::V5; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI6> { static constexpr InterfaceVersion version = InterfaceVersion::V6; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI7> { static constexpr InterfaceVersion version = InterfaceVersion::V7; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI8> { static constexpr InterfaceVersion version = InterfaceVersion::V8; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI9> { static constexpr InterfaceVersion version = InterfaceVersion::V9; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI10> { static constexpr InterfaceVersion version = InterfaceVersion::V10; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI11> { static constexpr InterfaceVersion version = InterfaceVersion::V11; };
+    template <>
+    struct InterfaceVersionMap<IVPrismaUI12> { static constexpr InterfaceVersion version = InterfaceVersion::V12; };
 
     typedef void* (*RequestPluginAPIFunc)(InterfaceVersion interfaceVersion);
 

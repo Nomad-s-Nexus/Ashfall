@@ -13,7 +13,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;
   font-family:Consolas,"Courier New",monospace;-webkit-user-select:none;user-select:none}
-#root{transform-origin:top left;transform:scale(var(--s,1));
+#root{transform-origin:top left;transform:rotate(var(--r,0deg)) scale(var(--s,1));
   position:fixed;left:0;top:0;width:240px;height:44px;
   display:flex;align-items:center;gap:9px;
   opacity:0;transition:opacity .4s ease;pointer-events:none;
@@ -123,26 +123,35 @@ window.setEditorPreview=function(json){
   }
 };
 
-// PrismaHUD positioning. setHUDPosition gives fractional {x,y,w,h}; apply as pixels.
 var WIDGET_ID='rad_filter';
 var DEF={xf:22/1920,yf:1014/1080,wf:240/1920,hf:44/1080};   // default: bottom-left (original visor spot)
-var _posSet=false;
-function applyPos(xf,yf,s){
+var _want=null,_lastW=0,_lastH=0;
+function flushPos(){
+  if(!_want)return;
   var W=window.innerWidth,H=window.innerHeight;
-  if(!(W>1)||!(H>1))return;                       // hidden / not laid out
+  if(!(W>1)||!(H>1))return;
+  if(W===_lastW&&H===_lastH)return;
   var r=document.getElementById('root');
-  r.style.left=(xf*W)+'px';r.style.top=(yf*H)+'px';r.style.setProperty('--s',s);  // transform:scale reads --s
-  window.reportPosition(JSON.stringify({id:WIDGET_ID,x:xf,y:yf,s:s}));
+  r.style.left=(_want.xf*W)+'px';r.style.top=(_want.yf*H)+'px';
+  r.style.setProperty('--s',_want.s);r.style.setProperty('--r',(_want.r||0)+'deg');
+  window.reportPosition(JSON.stringify({id:WIDGET_ID,x:_want.xf,y:_want.yf,s:_want.s,r:_want.r||0}));
+  _lastW=W;_lastH=H;
 }
+function applyPos(xf,yf,s,rot){
+  _want={xf:xf,yf:yf,s:s,r:rot||0};
+  _lastW=0;_lastH=0;
+  flushPos();
+}
+try{new ResizeObserver(function(){flushPos();}).observe(document.documentElement);}catch(e){}
+var _posSet=false;
 window.setHUDPosition=function(json){
   _posSet=true;
-  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1));}catch(e){}
+  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0));}catch(e){}
 };
 // no-op fallbacks if PrismaHUD hasn't injected these (e.g. PrismaHUD absent)
 window.reportPosition   =window.reportPosition   ||function(){};
 window.reportVisibility =window.reportVisibility ||function(){};
-window.requestUpdate    =window.requestUpdate    ||function(){};
-setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1);},50);
+setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0);},50);
 </script>
 </body>
 </html>

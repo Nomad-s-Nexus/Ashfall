@@ -1,0 +1,786 @@
+[14:13:32.680] [32168] [I] PrismaUI_F4 v2.1.0.0
+[14:13:32.680] [32168] [D] Trampoline [Default]: 0B / 1024B (00.00%)
+[14:13:32.680] [32168] [D] FHookStore: Init 0 queued hooks
+[14:13:32.680] [32168] [D] FHookStore: Enabled 0 Load hooks
+[14:13:32.680] [32168] [I] [GameThreadDispatcher] captured F4SE plugin-load thread 32168
+[14:13:32.686] [32168] [I] PrismaUI: Papyrus interface registered (PrismaUI script natives)
+[14:13:32.686] [32168] [I] [PrismaUI] Ultralight backend
+[14:13:32.686] [32168] [I] PrismaUI_F4 Framework loaded successfully
+[14:13:42.102] [25368] [I] [PapyrusVM] PrismaUI Papyrus natives registered
+[14:13:57.563] [22748] [I] RequestPluginAPI returned V4 interface
+[14:14:00.222] [22748] [I] RequestPluginAPI returned V11 interface
+[14:14:02.243] [22748] [I] RequestPluginAPI returned V2 interface
+[14:14:02.249] [22748] [I] RequestPluginAPI returned V2 interface
+[14:14:02.249] [22748] [I] RequestPluginAPI returned V4 interface
+[14:14:02.475] [22748] [I] RequestPluginAPI returned V11 interface
+[14:14:02.475] [22748] [I] RequestPluginAPI returned V4 interface
+[14:14:02.475] [22748] [I] [WebInput] low-level keyboard hook installed (Alt+F4 guarantee)
+[14:14:02.475] [22748] [E] [WebInput] SetWindowSubclass failed, GLE=0 -- install rolled back
+[14:14:02.475] [22748] [C] CreateView: refusing callback-bearing view 'Interface/PrismaLocksmith/prompt.html' for 'PrismaLocksmith.dll' because the verified Fallout window-thread dispatcher is not ready
+[14:14:02.479] [22748] [I] [SysInfo] os: Windows 10.0 build 26200
+[14:14:02.480] [22748] [I] [SysInfo] gpu: 'NVIDIA GeForce RTX 4070' vendor=NVIDIA (0x10DE) device=0x2786 vram=12010MB driver=32.0.15.9186 featureLevel=0xB000
+[14:14:02.480] [22748] [I] [SysInfo] window: modeHeuristic=borderless backbuffer=2560x1440 fmt=28 buffers=2 fullscreen=0
+[14:14:02.480] [22748] [I] [SysInfo] frameGen: [none detected]  injectors/overlays: [none detected]
+[14:14:02.480] [22748] [I] [ConflictChecker] CheckPreHooks: scanning for D3D hook conflicts
+[14:14:02.480] [22748] [I] [ConflictChecker] Known-DLL scan OK: no known conflicting modules detected
+[14:14:02.480] [22748] [E] [ConflictChecker] CONFLICT: vtable[8] (Present) already hooked by 'F4SEMenuFramework.dll' at 0x00007FFEDB4FAB00 — rendering may be unstable
+[14:14:02.480] [22748] [E] [ConflictChecker] CONFLICT: vtable[13] (ResizeBuffers) already hooked by 'd3d11.dll' at 0x000000018003F220 — rendering may be unstable
+[14:14:02.480] [22748] [W] [ConflictChecker] No Prisma plugins connected via RequestPluginAPI by kGameDataReady
+[14:14:02.481] [22748] [I] [FREEZE] freeze-diagnostics watchdog started (process-lifetime, diagnostic-only)
+[14:14:02.481] [22748] [I] [ConflictChecker] hook plan: strategy=swapchain-chain Present owner='F4SEMenuFramework.dll' readable=true direct=false chain=true ResizeBuffers owner='d3d11.dll' readable=true direct=false chain=true
+[14:14:02.483] [22748] [I] coverage=active strategy=swapchain-chain shadowSlots=18 generation=1
+[14:14:02.483] [22748] [I] D3D hooks installed: Present strategy=swapchain-chain shadowSlots=18 previous=0x7ffedb4fab00 ResizeBuffers strategy=swapchain-chain
+[14:14:02.483] [22748] [I] [CefBridge] Present-independent recovery watchdog started (500ms poll)
+[14:14:02.483] [22748] [I] [WebInput] low-level keyboard hook installed (Alt+F4 guarantee)
+[14:14:02.483] [22748] [E] [WebInput] SetWindowSubclass failed, GLE=0 -- install rolled back
+[14:14:02.483] [22748] [I] [PrismaUI] Bringing up Ultralight backend on worker thread
+[14:14:02.483] [22748] [I] [PrismaUI] Registered PauseHold + pause-menu sink for the Prisma Dock
+[14:14:02.483] [22748] [I] VanillaUISuppressor: registered menu-open sink for auto-reapply
+[14:14:02.483] [22748] [I] [PrismaUI ControllerGlyphs] controller style = playstation
+[14:14:02.483] [22748] [I] [PrismaUI ControllerGlyphs] input-device tracking installed (menu=true gameplay=true)
+[14:14:02.483] [22748] [I] RequestPluginAPI returned V4 interface
+[14:14:02.483] [22964] [I] [WebRuntime] in-process Ultralight CPU backend acquired
+[14:14:02.483] [22964] [I] [CefBridge] device immediate context matches RendererData::context
+[14:14:02.483] [22964] [I] [CefCompositor] iBackbufferOwnership=0 (Auto)
+[14:14:02.486] [22964] [I] [CefCompositor] initialized (fullscreen-triangle blit)
+[14:14:02.488] [22748] [I] RequestPluginAPI returned V4 interface
+[14:14:02.490] [32168] [I] [D3D] FIRST HookPresent/OnPresent invocation -- swapchain=0x253542fc390
+[14:14:02.490] [32168] [I] [WebInput] low-level keyboard hook installed (Alt+F4 guarantee)
+[14:14:02.490] [32168] [I] [WebInput] WndProc subclass installed on HWND 0xb0f08 (window thread)
+[14:14:02.490] [32168] [I] [GameThreadDispatcher] verified Fallout window/plugin-load thread 32168 on HWND 0xb0f08
+[14:14:02.490] [32168] [I] [CefBridge] WndProc subclass installed independent of Present
+[14:14:02.490] [32168] [I] [CefBridge] OnPresent not drawing: CEF not active yet
+[14:14:02.520] [28272] [I] [WebRuntime] Ultralight runtime loaded from E:\Modlists\Fallen World Alpha 2\Stock Folder\Data\PrismaUI_F4\libs
+[14:14:02.520] [28272] [I] [WebRuntime] [GPU] Ultralight CPU backend (accelerated disabled pending #674)
+[14:14:02.527] [22964] [I] [WebRuntime] web backend startup accepted; awaiting terminal init result
+[14:14:02.527] [28272] [I] [WebRuntime] CreateView 'system/boot.html' -> path 'system/boot.html' -> view 1 (owner='PrismaUI')
+[14:14:02.527] [28272] [I] [WebRuntime] CreateView 'system/dock.html' -> path 'system/dock.html' -> view 2 (owner='PrismaUI')
+[14:14:02.527] [28272] [I] [WebRuntime] web backend active: Ultralight CPU backend ready
+[14:14:02.541] [32168] [I] [CefBridge] OnPresent not drawing: no visible native web view
+[14:14:02.543] [28272] [I] PapyrusBridge [1]: window.prisma injected (owner='PrismaUI')
+[14:14:02.543] [28272] [W] [ModelPreview] model parse/GPU = WORKER POOL; engine file reads always marshalled to render thread
+[14:14:02.543] [28272] [I] [ModelPreview] enabled=true rtSize=512 spin=45deg/s maxLivePreviews=192 soloShape=''
+[14:14:02.594] [32168] [I] VanillaUISuppressor: SuppressVanillaMenuIf('ExamineConfirmMenu') registered
+[14:14:02.594] [32168] [I] RequestPluginAPI returned V12 interface
+[14:14:02.759] [28272] [I] PapyrusBridge [2]: window.prisma injected (owner='PrismaUI')
+[14:14:04.144] [32168] [I] PauseHold: settled at paused=false
+[14:14:04.369] [32168] [I] VanillaUISuppressor: menu opened (first time this session): 'CursorMenu'
+[14:14:04.931] [22748] [I] RequestPluginAPI returned V2 interface
+[14:14:04.952] [22748] [I] [WebRuntime] CreateView 'Interface/PrismaLocksmith/prompt.html' -> path 'Interface/PrismaLocksmith/prompt.html' -> view 3 (owner='PrismaLocksmith.dll')
+[14:14:04.952] [22748] [I] CreateView (verified Ultralight): path='Interface/PrismaLocksmith/prompt.html' -> view [3] owner='PrismaLocksmith.dll'
+[14:14:04.971] [28272] [I] PapyrusBridge [3]: window.prisma injected (owner='PrismaLocksmith.dll')
+[14:14:04.992] [32168] [I] [CefBridge] sizes: backbuffer 2560x1440, client 2560x1440 -> shell viewport 2560x1440 (scale 1.000x1.000)
+[14:14:04.992] [32168] [W] [MeshBinding] screen self-illumination is ON (keeping kPipboyScreen) ([MeshBinding] bScreenSelfIlluminate)
+[14:14:04.993] [32168] [I] [ActorPreviewSpike] enabled=0
+[14:14:04.993] [32168] [I] [ModelPreview][srgb] preview RT encode = HARDWARE (_SRGB RTV) (B8G8R8A8_UNORM_SRGB render-target support=true). Lighting runs in LINEAR; the RT is handed to the compositor as plain _UNORM so its sRGB-encoded bytes pass through unconverted.
+[14:14:05.007] [32168] [W] [ModelPreview] ENV: runtime=OG featureLevel=0xB000 gpu=NVIDIA GeForce RTX 4070 (12010 MB VRAM)
+[14:14:05.007] [32168] [I] [ModelPreview] device creation flags=0x00000020, SINGLETHREADED bit CLEAR as reported through the loaded d3d11 wrapper (ENB proxies it) -- not independently verified
+[14:14:05.007] [32168] [W] [ModelPreview] EFFECTIVE model-load path = WORKER POOL (bWorkerThreads=1, devSingleThreaded=0)
+[14:14:05.007] [32168] [I] [ModelPreview] D3D resources ready (512x512)
+[14:14:05.007] [32168] [I] [ModelPreview][mem] trigger=view-created | process private=6725 MB working=4475 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=1030 MB budget=11242 MB reserved=0 MB headroom=10212 MB
+[14:14:05.007] [32168] [I] [Compositor] FIRST SUCCESSFUL COMPOSITOR COMMIT -- complete UI frame composed offscreen (the present blit decides display; not a display guarantee)
+[14:14:05.007] [32168] [I] [CefBridge] OnPresent reached the compositor (SRV present) -- see [Compositor] for the draw result
+[14:14:05.038] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=1, lease=1)
+[14:14:05.710] [32168] [I] [ModelPreview][mem] trigger=view-burst-complete | process private=6849 MB working=4529 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=1100 MB budget=11242 MB reserved=0 MB headroom=10142 MB
+[14:14:06.041] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=91, committedViews=1, lease=1)
+[14:14:07.057] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=183, committedViews=1, lease=1)
+[14:14:08.070] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=274, committedViews=1, lease=1)
+[14:14:09.074] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=368, committedViews=1, lease=1)
+[14:14:10.087] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=476, committedViews=1, lease=1)
+[14:14:11.104] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=587, committedViews=1, lease=1)
+[14:14:12.111] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=667, committedViews=1, lease=1)
+[14:14:13.126] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=755, committedViews=1, lease=1)
+[14:14:14.148] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=834, committedViews=1, lease=1)
+[14:14:15.160] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=912, committedViews=1, lease=1)
+[14:14:16.173] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=991, committedViews=1, lease=1)
+[14:14:17.176] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1072, committedViews=1, lease=1)
+[14:14:18.198] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1153, committedViews=1, lease=1)
+[14:14:19.207] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1233, committedViews=1, lease=1)
+[14:14:20.231] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1316, committedViews=1, lease=1)
+[14:14:21.239] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1397, committedViews=1, lease=1)
+[14:14:22.258] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1475, committedViews=1, lease=1)
+[14:14:23.260] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1557, committedViews=1, lease=1)
+[14:14:24.277] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1632, committedViews=1, lease=1)
+[14:14:25.285] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1709, committedViews=1, lease=1)
+[14:14:26.289] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1790, committedViews=1, lease=1)
+[14:14:27.296] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1870, committedViews=1, lease=1)
+[14:14:28.302] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1948, committedViews=1, lease=1)
+[14:14:29.306] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2026, committedViews=1, lease=1)
+[14:14:30.296] [4884 ] [I] [LOAD] PreLoadGame epoch=1 -- ModelPreview engine reads suspended
+[14:14:30.300] [4884 ] [I] VanillaUISuppressor: menu opened (first time this session): 'LoadingMenu'
+[14:14:30.300] [4884 ] [I] VanillaUISuppressor: menu opened (first time this session): 'BingleBodyPartsUI'
+[14:14:30.311] [29168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2082, committedViews=1, lease=1)
+[14:14:36.160] [4884 ] [I] [WebRuntime] CreateView 'f4viewer/f4viewer.html' -> path 'f4viewer/f4viewer.html' -> view 4 (owner='F4Viewer.dll')
+[14:14:36.160] [4884 ] [I] CreateView (verified Ultralight): path='f4viewer/f4viewer.html' -> view [4] owner='F4Viewer.dll'
+[14:14:36.160] [4884 ] [D] Translations::DetectGameLanguage: scanning INI files
+[14:14:36.160] [4884 ] [D] Translations::DetectGameLanguage: no sLanguage in C:\ci\home\Documents\My Games\Fallout4\Fallout4Custom.ini
+[14:14:36.160] [4884 ] [D] Translations::DetectGameLanguage: no sLanguage in C:\ci\home\Documents\My Games\Fallout4\Fallout4Prefs.ini
+[14:14:36.160] [4884 ] [D] Translations::DetectGameLanguage: no sLanguage in E:\Modlists\Fallen World Alpha 2\Stock Folder\Fallout4.ini
+[14:14:36.160] [4884 ] [W] Translations::DetectGameLanguage: no language found in any INI, falling back to 'en'
+[14:14:36.160] [4884 ] [D] Translations::ParseTranslationFile: trying 'E:\Modlists\Fallen World Alpha 2\Stock Folder\Data\Interface\Translations\F4Viewer_en.txt'
+[14:14:36.160] [4884 ] [W] Translations::ParseTranslationFile: 'E:\Modlists\Fallen World Alpha 2\Stock Folder\Data\Interface\Translations\F4Viewer_en.txt' not found, no translations loaded
+[14:14:36.160] [4884 ] [W] [V3] RegisterTranslations: no translations loaded for 'F4Viewer' (lang 'en') -- view [4] will render raw $KEYS. Expected Data\Interface\Translations\F4Viewer_en.txt
+[14:14:36.160] [4884 ] [I] RegisterConsoleCallback: View [4] registered JS console capture
+[14:14:36.160] [4884 ] [I] [V4] BindUIEvent: view [4] registered verified window-thread listener 'F4ViewerMessage'
+[14:14:36.161] [4884 ] [I] [LOAD] PostLoadGame epoch=1 -- starting three-second grace
+[14:14:36.161] [4884 ] [I] [WebRuntime] CreateView 'Interface/PulowskiProtocol/shelter.html' -> path 'Interface/PulowskiProtocol/shelter.html' -> view 5 (owner='PulowskiProtocol.dll')
+[14:14:36.161] [4884 ] [I] CreateView (verified Ultralight): path='Interface/PulowskiProtocol/shelter.html' -> view [5] owner='PulowskiProtocol.dll'
+[14:14:36.161] [32168] [I] [WebRuntime] CreateView 'crafting.html' -> path 'crafting.html' -> view 6 (owner='PrismaCrafting.dll')
+[14:14:36.161] [32168] [I] CreateView (verified Ultralight): path='crafting.html' -> view [6] owner='PrismaCrafting.dll'
+[14:14:36.161] [32168] [I] [PrismaUI] SetViewOwnsEscape(view=6, owns=true)
+[14:14:36.161] [32168] [I] SetViewRole: view [6] role=2
+[14:14:36.161] [32168] [I] RegisterConsoleCallback: View [6] registered JS console capture
+[14:14:36.161] [32168] [I] [WebRuntime] CreateView 'workshop.html' -> path 'workshop.html' -> view 7 (owner='PrismaCrafting.dll')
+[14:14:36.161] [32168] [I] CreateView (verified Ultralight): path='workshop.html' -> view [7] owner='PrismaCrafting.dll'
+[14:14:36.161] [32168] [I] [PrismaUI] SetViewOwnsEscape(view=7, owns=true)
+[14:14:36.161] [32168] [I] SetViewRole: view [7] role=2
+[14:14:36.161] [32168] [I] RegisterConsoleCallback: View [7] registered JS console capture
+[14:14:36.161] [4884 ] [I] [WebRuntime] CreateView 'Interface/WastelandHunter/hub.html' -> path 'Interface/WastelandHunter/hub.html' -> view 8 (owner='WastelandHunterUI.dll')
+[14:14:36.161] [4884 ] [I] CreateView (verified Ultralight): path='Interface/WastelandHunter/hub.html' -> view [8] owner='WastelandHunterUI.dll'
+[14:14:36.161] [4884 ] [I] RegisterConsoleCallback: View [8] registered JS console capture
+[14:14:36.161] [4884 ] [I] [WebRuntime] CreateView 'Interface/WastelandHunter/fielddress.html' -> path 'Interface/WastelandHunter/fielddress.html' -> view 9 (owner='WastelandHunterUI.dll')
+[14:14:36.161] [4884 ] [I] CreateView (verified Ultralight): path='Interface/WastelandHunter/fielddress.html' -> view [9] owner='WastelandHunterUI.dll'
+[14:14:36.161] [4884 ] [I] RegisterConsoleCallback: View [9] registered JS console capture
+[14:14:36.161] [4884 ] [I] [WebRuntime] CreateView 'Interface/WastelandHunter/toast.html' -> path 'Interface/WastelandHunter/toast.html' -> view 10 (owner='WastelandHunterUI.dll')
+[14:14:36.161] [4884 ] [I] CreateView (verified Ultralight): path='Interface/WastelandHunter/toast.html' -> view [10] owner='WastelandHunterUI.dll'
+[14:14:36.161] [4884 ] [I] RegisterConsoleCallback: View [10] registered JS console capture
+[14:14:39.162] [33748] [I] [LOAD] grace complete epoch=1 -- ModelPreview engine reads resumed
+[14:14:41.685] [4884 ] [I] VanillaUISuppressor: menu opened (first time this session): 'HUDMenu'
+[14:14:41.789] [32168] [I] [ModelPreview][mem] trigger=view-burst-complete | process private=11893 MB working=5694 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=5358 MB budget=11242 MB reserved=0 MB headroom=5884 MB
+[14:14:41.795] [28272] [I] PapyrusBridge [5]: window.prisma injected (owner='PulowskiProtocol.dll')
+[14:14:41.803] [32168] [I] [V4] BindUIEvent: view [5] registered verified window-thread listener 'installCore'
+[14:14:41.803] [32168] [I] [V4] BindUIEvent: view [5] registered verified window-thread listener 'closeMenu'
+[14:14:41.808] [28272] [I] PapyrusBridge [8]: window.prisma injected (owner='WastelandHunterUI.dll')
+[14:14:41.819] [28272] [I] PapyrusBridge [9]: window.prisma injected (owner='WastelandHunterUI.dll')
+[14:14:41.822] [28272] [I] PapyrusBridge [10]: window.prisma injected (owner='WastelandHunterUI.dll')
+[14:14:41.999] [32168] [I] [ModelPreview][mem] trigger=view-created | process private=11917 MB working=5929 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=5248 MB budget=11242 MB reserved=0 MB headroom=5994 MB
+[14:14:41.999] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=2, lease=1)
+[14:14:42.000] [28272] [W] PapyrusBridge [8]: getGlobal blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.000] [32168] [I] RegisterJSListener: View [8] registering 'wh_close'
+[14:14:42.001] [32168] [I] RegisterJSListener: View [9] registering 'wh_fd_close'
+[14:14:42.002] [28272] [W] PapyrusBridge [8]: getGlobal blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.002] [28272] [W] PapyrusBridge [8]: getGlobal blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.002] [28272] [W] PapyrusBridge [8]: getGlobal blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.002] [28272] [W] PapyrusBridge [8]: getGlobal blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.003] [28272] [W] PapyrusBridge [8]: getProperty blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.003] [28272] [W] PapyrusBridge [8]: getProperty blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.004] [28272] [W] PapyrusBridge [8]: getProperty blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.004] [28272] [W] PapyrusBridge [8]: getProperty blocked: ESP is outside this view's owning plugin (owner='WastelandHunterUI.dll')
+[14:14:42.009] [28272] [I] PapyrusBridge [4]: window.prisma injected (owner='F4Viewer.dll')
+[14:14:42.016] [28272] [I] PapyrusBridge [6]: window.prisma injected (owner='PrismaCrafting.dll')
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'prisma_close'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'notePrompts'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'prisma_refresh'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'requestPage'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'requestWorkbenches'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'startUpgrade'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'requestDesc'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'prisma_craft'
+[14:14:42.169] [32168] [I] RegisterJSListener: View [6] registering 'prisma_cheat'
+[14:14:42.169] [32168] [I] RegisterJSListener: View [6] registering 'saveTheme'
+[14:14:42.169] [32168] [I] RegisterJSListener: View [6] registering 'saveUiScale'
+[14:14:42.169] [32168] [I] [V11] BindGameThreadUIEvent: view [6] registered 'prisma_loaded'
+[14:14:42.170] [32168] [W] SetScrollingPixelSize: not yet implemented for the Ultralight backend -- view [6] pixelSize=100 unaffected
+[14:14:42.176] [28272] [I] PapyrusBridge [7]: window.prisma injected (owner='PrismaCrafting.dll')
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_close'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_build_item'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'requestBuildables'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_scrap'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_scrap_cancel'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_cancel'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_tag'
+[14:14:42.292] [32168] [I] RegisterJSListener: View [7] registering 'prisma_text_focus'
+[14:14:42.292] [32168] [I] RegisterJSListener: View [7] registering 'prisma_panel_rects'
+[14:14:42.292] [32168] [I] RegisterJSListener: View [7] registering 'saveUiScale'
+[14:14:42.292] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'requestWorkshopStats'
+[14:14:42.292] [32168] [I] RegisterJSListener: View [7] registering 'saveTheme'
+[14:14:42.292] [32168] [W] SetScrollingPixelSize: not yet implemented for the Ultralight backend -- view [7] pixelSize=100 unaffected
+[14:14:42.292] [32168] [D] [V4] BindUIEvent fired on verified window thread: view [4] 'F4ViewerMessage' data='{"action":"get_config"}'
+[14:14:42.293] [32168] [D] [V4] BindUIEvent fired on verified window thread: view [4] 'F4ViewerMessage' data='{"action":"get_plugins"}'
+[14:14:42.294] [32168] [D] [V4] BindUIEvent fired on verified window thread: view [4] 'F4ViewerMessage' data='{"action":"get_quickbar"}'
+[14:14:42.294] [32168] [D] [V4] BindUIEvent fired on verified window thread: view [4] 'F4ViewerMessage' data='{"action":"get_equipped"}'
+[14:14:42.294] [32168] [D] [V4] BindUIEvent fired on verified window thread: view [4] 'F4ViewerMessage' data='{"action":"get_items","category":"All","page":0,"pageSize":60}'
+[14:14:42.301] [32168] [D] [V11] window-thread UI event: view [6] 'prisma_loaded' data=''
+[14:14:42.419] [32168] [D] [V4] BindUIEvent fired on verified window thread: view [4] 'F4ViewerMessage' data='{"action":"get_items","category":"All","plugin":"","page":0,"pageSize":60}'
+[14:14:42.542] [7556 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:14:42.542] [7556 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:14:42.542] [7556 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:14:42.542] [7556 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:14:43.003] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=34, committedViews=3, lease=1)
+[14:14:44.007] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=128, committedViews=3, lease=1)
+[14:14:45.014] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=232, committedViews=3, lease=1)
+[14:14:46.015] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=331, committedViews=3, lease=1)
+[14:14:46.173] [29168] [I] [WebRuntime] CreateView 'Interface/FalloutChat/chat.html' -> path 'Interface/FalloutChat/chat.html' -> view 11 (owner='FalloutChat.dll')
+[14:14:46.173] [29168] [I] CreateView (verified Ultralight): path='Interface/FalloutChat/chat.html' -> view [11] owner='FalloutChat.dll'
+[14:14:46.173] [29168] [I] RegisterConsoleCallback: View [11] registered JS console capture
+[14:14:46.189] [32168] [I] [ModelPreview][mem] trigger=view-created | process private=11639 MB working=6001 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=5109 MB budget=11242 MB reserved=0 MB headroom=6133 MB
+[14:14:46.197] [28272] [I] PapyrusBridge [11]: window.prisma injected (owner='FalloutChat.dll')
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SendMessage'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'CloseChat'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'OpenURL'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SetPrivacyAccepted'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SetTutorialSeen'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SaveChatEnabled'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SaveKeepChatVisible'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SaveFontSize'
+[14:14:46.202] [32168] [I] RegisterJSListener: View [11] registering 'SaveOpacity'
+[14:14:46.211] [7556 ] [D] RegisterJSListener fired: View [11] 'SaveFontSize' — data: '14'
+[14:14:46.213] [7556 ] [D] RegisterJSListener fired: View [11] 'SaveOpacity' — data: '60'
+[14:14:46.929] [32168] [I] [ModelPreview][mem] trigger=view-burst-complete | process private=11717 MB working=6017 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=5154 MB budget=11242 MB reserved=0 MB headroom=6088 MB
+[14:14:47.022] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=81, committedViews=4, lease=1)
+[14:14:48.028] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=184, committedViews=4, lease=1)
+[14:14:48.420] [7556 ] [I] VanillaUISuppressor: menu opened (first time this session): 'PauseMenu'
+[14:14:48.421] [7556 ] [I] [WebInput] capture=true swallow=false
+[14:14:48.848] [32168] [I] [WebInput] capture=false swallow=false
+[14:14:49.038] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=18, committedViews=3, lease=1)
+[14:14:49.960] [6160 ] [I] [WebInput] capture=true swallow=false
+[14:14:50.040] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=7, committedViews=4, lease=1)
+[14:14:51.043] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=110, committedViews=4, lease=1)
+[14:14:52.044] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=211, committedViews=4, lease=1)
+[14:14:52.497] [32168] [I] [WebInput] capture=false swallow=false
+[14:14:53.052] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=54, committedViews=3, lease=1)
+[14:14:54.060] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=153, committedViews=3, lease=1)
+[14:14:55.066] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=252, committedViews=3, lease=1)
+[14:14:56.069] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=349, committedViews=3, lease=1)
+[14:14:57.080] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=414, committedViews=3, lease=1)
+[14:14:58.087] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=495, committedViews=3, lease=1)
+[14:14:59.094] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=598, committedViews=3, lease=1)
+[14:15:00.096] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=700, committedViews=3, lease=1)
+[14:15:01.102] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=798, committedViews=3, lease=1)
+[14:15:02.106] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=873, committedViews=3, lease=1)
+[14:15:03.108] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=933, committedViews=3, lease=1)
+[14:15:04.125] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=994, committedViews=3, lease=1)
+[14:15:05.139] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1055, committedViews=3, lease=1)
+[14:15:06.156] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1116, committedViews=3, lease=1)
+[14:15:06.983] [7556 ] [I] VanillaUISuppressor: menu opened (first time this session): 'MessageBoxMenu'
+[14:15:07.157] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1176, committedViews=3, lease=1)
+[14:15:08.172] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1237, committedViews=3, lease=1)
+[14:15:09.173] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1297, committedViews=3, lease=1)
+[14:15:10.175] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1357, committedViews=3, lease=1)
+[14:15:11.191] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1418, committedViews=3, lease=1)
+[14:15:12.207] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1479, committedViews=3, lease=1)
+[14:15:13.222] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1540, committedViews=3, lease=1)
+[14:15:14.223] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1600, committedViews=3, lease=1)
+[14:15:15.240] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1661, committedViews=3, lease=1)
+[14:15:16.257] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1722, committedViews=3, lease=1)
+[14:15:16.941] [32168] [I] [ModelPreview][mem] trigger=timer | process private=11596 MB working=5899 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=5250 MB budget=11242 MB reserved=0 MB headroom=5992 MB
+[14:15:17.273] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1783, committedViews=3, lease=1)
+[14:15:18.290] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1844, committedViews=3, lease=1)
+[14:15:19.307] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1905, committedViews=3, lease=1)
+[14:15:20.323] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1966, committedViews=3, lease=1)
+[14:15:21.340] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2027, committedViews=3, lease=1)
+[14:15:22.356] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2088, committedViews=3, lease=1)
+[14:15:23.374] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2149, committedViews=3, lease=1)
+[14:15:24.389] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2210, committedViews=3, lease=1)
+[14:15:25.407] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2271, committedViews=3, lease=1)
+[14:15:26.423] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2332, committedViews=3, lease=1)
+[14:15:27.423] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2392, committedViews=3, lease=1)
+[14:15:28.439] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2453, committedViews=3, lease=1)
+[14:15:29.457] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2514, committedViews=3, lease=1)
+[14:15:30.472] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2575, committedViews=3, lease=1)
+[14:15:31.490] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2636, committedViews=3, lease=1)
+[14:15:32.506] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2697, committedViews=3, lease=1)
+[14:15:33.508] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2757, committedViews=3, lease=1)
+[14:15:34.524] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2818, committedViews=3, lease=1)
+[14:15:35.540] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2879, committedViews=3, lease=1)
+[14:15:36.556] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=2940, committedViews=3, lease=1)
+[14:15:37.574] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3001, committedViews=3, lease=1)
+[14:15:38.589] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3062, committedViews=3, lease=1)
+[14:15:39.606] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3123, committedViews=3, lease=1)
+[14:15:40.622] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3184, committedViews=3, lease=1)
+[14:15:41.623] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3244, committedViews=3, lease=1)
+[14:15:42.640] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3305, committedViews=3, lease=1)
+[14:15:43.655] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3366, committedViews=3, lease=1)
+[14:15:44.674] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3427, committedViews=3, lease=1)
+[14:15:45.689] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3488, committedViews=3, lease=1)
+[14:15:46.689] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3548, committedViews=3, lease=1)
+[14:15:46.955] [32168] [I] [ModelPreview][mem] trigger=timer | process private=11599 MB working=5902 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=5250 MB budget=11242 MB reserved=0 MB headroom=5992 MB
+[14:15:47.706] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3609, committedViews=3, lease=1)
+[14:15:48.722] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3670, committedViews=3, lease=1)
+[14:15:49.740] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3731, committedViews=3, lease=1)
+[14:15:50.756] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3792, committedViews=3, lease=1)
+[14:15:51.774] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3853, committedViews=3, lease=1)
+[14:15:52.791] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3914, committedViews=3, lease=1)
+[14:15:53.792] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3974, committedViews=3, lease=1)
+[14:15:54.806] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4035, committedViews=3, lease=1)
+[14:15:55.822] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4096, committedViews=3, lease=1)
+[14:15:56.839] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4157, committedViews=3, lease=1)
+[14:15:57.856] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4218, committedViews=3, lease=1)
+[14:15:58.873] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4279, committedViews=3, lease=1)
+[14:15:59.888] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4340, committedViews=3, lease=1)
+[14:16:00.906] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4401, committedViews=3, lease=1)
+[14:16:01.922] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4462, committedViews=3, lease=1)
+[14:16:02.923] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4522, committedViews=3, lease=1)
+[14:16:03.940] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4583, committedViews=3, lease=1)
+[14:16:04.955] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4644, committedViews=3, lease=1)
+[14:16:05.973] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4705, committedViews=3, lease=1)
+[14:16:06.989] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4766, committedViews=3, lease=1)
+[14:16:08.006] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4827, committedViews=3, lease=1)
+[14:16:09.022] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4888, committedViews=3, lease=1)
+[14:16:10.039] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=4949, committedViews=3, lease=1)
+[14:16:11.055] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5010, committedViews=3, lease=1)
+[14:16:12.073] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5071, committedViews=3, lease=1)
+[14:16:13.088] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5132, committedViews=3, lease=1)
+[14:16:14.091] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5192, committedViews=3, lease=1)
+[14:16:15.108] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5253, committedViews=3, lease=1)
+[14:16:16.122] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5314, committedViews=3, lease=1)
+[14:16:16.973] [32168] [I] [ModelPreview][mem] trigger=timer | process private=11603 MB working=5906 MB | modelCache=0 MB (0 entries) | previewEntries=0 liveRT=0/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=4948 MB budget=11242 MB reserved=0 MB headroom=6294 MB
+[14:16:17.140] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5375, committedViews=3, lease=1)
+[14:16:18.155] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5436, committedViews=3, lease=1)
+[14:16:19.173] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5497, committedViews=3, lease=1)
+[14:16:20.173] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5557, committedViews=3, lease=1)
+[14:16:21.188] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5618, committedViews=3, lease=1)
+[14:16:22.206] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5679, committedViews=3, lease=1)
+[14:16:23.206] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5739, committedViews=3, lease=1)
+[14:16:24.221] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5800, committedViews=3, lease=1)
+[14:16:25.222] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5860, committedViews=3, lease=1)
+[14:16:26.239] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5921, committedViews=3, lease=1)
+[14:16:27.255] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=5982, committedViews=3, lease=1)
+[14:16:28.255] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6042, committedViews=3, lease=1)
+[14:16:29.272] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6103, committedViews=3, lease=1)
+[14:16:30.288] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6164, committedViews=3, lease=1)
+[14:16:31.305] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6225, committedViews=3, lease=1)
+[14:16:32.306] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6285, committedViews=3, lease=1)
+[14:16:33.321] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6346, committedViews=3, lease=1)
+[14:16:34.339] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6407, committedViews=3, lease=1)
+[14:16:35.356] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6468, committedViews=3, lease=1)
+[14:16:36.374] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6529, committedViews=3, lease=1)
+[14:16:37.390] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6590, committedViews=3, lease=1)
+[14:16:38.409] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6651, committedViews=3, lease=1)
+[14:16:39.410] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6743, committedViews=3, lease=1)
+[14:16:40.416] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6851, committedViews=3, lease=1)
+[14:16:41.420] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=6951, committedViews=3, lease=1)
+[14:16:42.431] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=71, committedViews=3, lease=1)
+[14:16:43.435] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=36, committedViews=3, lease=1)
+[14:16:43.597] [7556 ] [I] VanillaUISuppressor: menu opened (first time this session): 'WorkshopMenu'
+[14:16:43.624] [32168] [I] VanillaUISuppressor: SuppressVanillaMenu('WorkshopMenu', true)
+[14:16:43.624] [32168] [I] VanillaUISuppressor: SuppressVanillaMenu('PromptMenu', true)
+[14:16:43.624] [32168] [I] VanillaUISuppressor: SuppressVanillaMenu('ButtonBarMenu', true)
+[14:16:43.624] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_place'
+[14:16:43.624] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'refreshPrompts'
+[14:16:43.625] [32168] [I] [V11] BindGameThreadUIEvent: view [7] registered 'prisma_release_focus'
+[14:16:43.750] [23320] [I] [ModelPreview]   shape 'MarkerGlow:0' tris=4 diffuse='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_g.dds' normal='' mat='Materials\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramidGlow.bgem' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(0.0,0.0,25.9)
+[14:16:43.750] [26128] [I] [ModelPreview]   shape 'MarkerGlow:0' tris=4 diffuse='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_g.dds' normal='' mat='Materials\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramidGlow.bgem' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(0.0,0.0,25.9)
+[14:16:43.750] [23320] [I] [ModelPreview]   shape 'MarkerBase:0' tris=22 diffuse='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_d.dds' normal='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_n.dds' mat='Materials\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid.bgsm' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,23.1)
+[14:16:43.750] [23320] [I] [ModelPreview] load 'CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(48.1,48.1,46.3) matSwap=''
+[14:16:43.750] [26128] [I] [ModelPreview]   shape 'MarkerBase:0' tris=22 diffuse='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_d.dds' normal='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_n.dds' mat='Materials\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid.bgsm' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,23.1)
+[14:16:43.750] [31012] [I] [ModelPreview]   shape 'MarkerGlow:0' tris=4 diffuse='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_g.dds' normal='' mat='Materials\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramidGlow.bgem' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(0.0,0.0,25.9)
+[14:16:43.750] [26128] [I] [ModelPreview] load 'CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(48.1,48.1,46.3) matSwap=''
+[14:16:43.750] [31012] [I] [ModelPreview]   shape 'MarkerBase:0' tris=22 diffuse='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_d.dds' normal='textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_n.dds' mat='Materials\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid.bgsm' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,23.1)
+[14:16:43.750] [31012] [I] [ModelPreview] load 'CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(48.1,48.1,46.3) matSwap=''
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(2081,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(1913,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(1746,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(1578,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(1411,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(1243,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(1076,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(908,1172,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(741,1172,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(573,1171,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(2248,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] preview ready: view=7 nif='CreationClub\\_Shared\\VRWorkshop\\SetDressing\\VRWorkshop_EnemySpawner01.nif' rect=(2416,1173,73,73) items=2
+[14:16:43.774] [32168] [I] [ModelPreview] engine texture 'textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_d.dds': niTexture=true
+[14:16:43.774] [32168] [I] [ModelPreview] SRV resolved at BSGraphics::Texture+0x00 (RE-confirmed 1.10.163: Renderer::SetTexture RVA 0xaec4b0 binds *(void**)tex; Renderer::GetScaleformTextureType RVA 0x1d13960 calls ID3D11View::GetResource through it) -- QueryInterface-validated against this binary
+[14:16:43.774] [32168] [I] [ModelPreview][srgb] first diffuse SRV format=72 -> sampler decode=true, shader decode=false
+[14:16:43.775] [32168] [I] [ModelPreview] engine texture 'textures\CreationClub\_Shared\VRWorkshop\SetDressing\AttackMarkerPyramid01_g.dds': niTexture=true
+[14:16:43.799] [23320] [I] [ModelPreview]   shape 'Bell:5' tris=60 diffuse='textures\architecture\shacks\shackplanks01_d.dds' normal='textures\architecture\shacks\shackplanks01_n.dds' mat='Materials\Architecture\Shacks\ShackWoodPlanks01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,99.0)
+[14:16:43.799] [23320] [I] [ModelPreview]   shape 'Bell:3' tris=1022 diffuse='textures\SetDressing\Boats\Barge02_d.dds' normal='textures\SetDressing\Boats\Barge02_n.dds' mat='Materials\SetDressing\Boats\Barge02.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-28.9,-0.2,146.7)
+[14:16:43.799] [23320] [I] [ModelPreview] load 'SetDressing\\Workshop\\WorkshopBell01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(57.9,29.1,198.0) matSwap=''
+[14:16:43.799] [26128] [I] [ModelPreview]   shape 'Bell:5' tris=60 diffuse='textures\architecture\shacks\shackplanks01_d.dds' normal='textures\architecture\shacks\shackplanks01_n.dds' mat='Materials\Architecture\Shacks\ShackWoodPlanks01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,99.0)
+[14:16:43.799] [26128] [I] [ModelPreview]   shape 'Bell:3' tris=1022 diffuse='textures\SetDressing\Boats\Barge02_d.dds' normal='textures\SetDressing\Boats\Barge02_n.dds' mat='Materials\SetDressing\Boats\Barge02.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-28.9,-0.2,146.7)
+[14:16:43.799] [26128] [I] [ModelPreview] load 'SetDressing\\Workshop\\WorkshopBell01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(57.9,29.1,198.0) matSwap=''
+[14:16:43.820] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Workshop\\WorkshopBell01.nif' rect=(406,1169,73,73) items=2
+[14:16:43.820] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Workshop\\WorkshopBell01.nif' rect=(68,1117,187,187) items=2
+[14:16:43.821] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackplanks01_d.dds': niTexture=true
+[14:16:43.822] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Boats\Barge02_d.dds': niTexture=true
+[14:16:43.877] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:43.899] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:43.931] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:43.960] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:43.983] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:44.015] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:44.038] [32168] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:44.516] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:45.335] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:46.145] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:46.961] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:46.990] [32168] [I] [ModelPreview][mem] trigger=timer | process private=11686 MB working=5982 MB | modelCache=0 MB (2 entries) | previewEntries=14 liveRT=14/192 pooledRT=0 evicted=0 (rt 512x512) | textures: engine-owned, requested=0 resolved=0 inFlight=0 cached=0 | vramLocal used=4980 MB budget=11242 MB reserved=0 MB headroom=6262 MB
+[14:16:47.767] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:48.592] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:49.402] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:50.213] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:51.021] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:51.726] [32168] [I] [WebInput] capture=true swallow=true
+[14:16:51.726] [32168] [I] [WebInput] escapeOwned=true
+[14:16:51.726] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=false layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x41b -> 0x419)
+[14:16:51.726] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:16:51.726] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:16:51.726] [32168] [I] [PrismaUI InputMask] applied (layerID=5)
+[14:16:51.726] [32168] [D] FocusMenu::Close requested
+[14:16:51.728] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:51.729] [7556 ] [D] FocusMenu::Close: already closed, skipping
+[14:16:51.738] [32168] [I] [PrismaHealth] view=7 pause=0 capture=1 mask=1 cursor=1 srvPresent=1 hostPaintCbAge=-1ms presentAge=1ms compositeAge=13ms focusAge=13ms composites=726 ctxDropStreak=0 swapchain=0x253542fc390
+[14:16:51.739] [32168] [I] [CefCompositor] cursor.png loaded from 'E:\Modlists\Fallen World Alpha 2\Stock Folder\Data\PrismaUI_F4\misc\cursor.png'
+[14:16:51.831] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:52.047] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=4, lease=0)
+[14:16:52.642] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:52.840] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:53.017] [31012] [I] [ModelPreview]   shape 'Vault_ChairFolding02:10 - L2_Vault_ChairFolding02:10' tris=1386 diffuse='textures\setdressing\vault\vault_chairfolding_02_d.dds' normal='textures\setdressing\vault\vault_chairfolding_01_n.dds' mat='Materials\SetDressing\Vault\Vault_ChairFolding_02.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-0.2,-5.9,29.5)
+[14:16:53.017] [31012] [I] [ModelPreview] load 'SetDressing\\Vault\\Vault_ChairFolding02.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(35.2,40.2,59.7) matSwap=''
+[14:16:53.041] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Vault\\Vault_ChairFolding02.nif' rect=(2416,1173,73,73) items=1
+[14:16:53.041] [32168] [I] [ModelPreview] engine texture 'textures\setdressing\vault\vault_chairfolding_02_d.dds': niTexture=true
+[14:16:53.042] [23320] [I] [ModelPreview]   shape 'EditorMarker120:17' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.3,-2.9,55.7)
+[14:16:53.042] [23320] [I] [ModelPreview]   shape 'DLC02_MetalMeshDoorSm01:0' tris=36 diffuse='textures\shared\cagemetal01_d.dds' normal='textures\shared\cagemetal01_n.dds' mat='materials\Shared\CageMetal01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.9,2.4,84.0)
+[14:16:53.042] [23320] [I] [ModelPreview]   shape 'DoorSm01:1' tris=4 diffuse='textures\shared\cagemesh01_d.dds' normal='textures\shared\cagemesh01_n.dds' mat='materials\Shared\CageMesh01.BGSM' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(48.2,-3.0,10.4)
+[14:16:53.042] [23320] [I] [ModelPreview]   shape 'DoorSm01:0' tris=588 diffuse='textures\shared\cagemetal01_d.dds' normal='textures\shared\cagemetal01_n.dds' mat='materials\Shared\CageMetal01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(48.0,-3.0,0.5)
+[14:16:53.042] [23320] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_MetalMeshDoorSm01.nif' (1 piece(s)) shapes=4 dropped=0 skin=0 ok=true invMarker=false extent=(98.2,17.7,167.0) matSwap=''
+[14:16:53.055] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=4, lease=0)
+[14:16:53.068] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_MetalMeshDoorSm01.nif' rect=(2248,1173,73,73) items=4
+[14:16:53.068] [26128] [I] [ModelPreview]   shape 'EditorMarker:3' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.1,47.0,55.7)
+[14:16:53.068] [31012] [I] [ModelPreview]   shape 'EditorMarker121:3' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(54.5,-47.4,55.7)
+[14:16:53.068] [26128] [I] [ModelPreview]   shape 'DLC02_BldWoodPDoor01:2@#1' tris=20 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(49.3,-4.3,84.0)
+[14:16:53.068] [31012] [I] [ModelPreview]   shape 'DLC02_BldWoodPDoor02:2@#1' tris=20 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-49.3,-4.3,84.0)
+[14:16:53.068] [26128] [I] [ModelPreview]   shape 'DLC02_BldWoodPDoor01:2' tris=56 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(2.5,-47.8,84.0)
+[14:16:53.068] [31012] [I] [ModelPreview]   shape 'DLC02_BldWoodPDoor02:2' tris=56 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(2.5,47.8,84.0)
+[14:16:53.068] [26128] [I] [ModelPreview]   shape 'DoorKnob06:2' tris=140 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,0.0)
+[14:16:53.068] [31012] [I] [ModelPreview]   shape 'DoorKnob:2' tris=140 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.2,0.0,0.0)
+[14:16:53.068] [26128] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_BldWoodPDoor01.nif' (1 piece(s)) shapes=4 dropped=0 skin=0 ok=true invMarker=false extent=(98.6,12.8,168.0) matSwap=''
+[14:16:53.068] [31012] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_BldWoodPDoor02.nif' (1 piece(s)) shapes=4 dropped=0 skin=0 ok=true invMarker=false extent=(98.7,12.9,168.0) matSwap=''
+[14:16:53.070] [32168] [I] [ModelPreview] engine texture 'textures\shared\cagemetal01_d.dds': niTexture=true
+[14:16:53.071] [32168] [I] [ModelPreview] engine texture 'textures\shared\cagemesh01_d.dds': niTexture=true
+[14:16:53.071] [32168] [I] [ModelPreview] engine texture 'textures\shared\cagemetal01_d.dds': niTexture=true
+[14:16:53.071] [23320] [I] [ModelPreview]   shape 'EditorMarker122:17' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.3,-2.9,55.7)
+[14:16:53.071] [23320] [I] [ModelPreview]   shape 'DLC02_IndMetalDoor01:19' tris=30 diffuse='textures\interiors\industrial\metaldoorindustrial01_d.dds' normal='textures\interiors\industrial\metaldoorindustrial01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Interiors\Industrial\MetalDoorIndustrial01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.9,4.3,84.0)
+[14:16:53.071] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE001:19' tris=334 diffuse='textures\interiors\industrial\metaldoorindustrial01_d.dds' normal='textures\interiors\industrial\metaldoorindustrial01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Interiors\Industrial\MetalDoorIndustrial01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(48.0,-3.0,84.5)
+[14:16:53.072] [23320] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_IndMetalDoor01.nif' (1 piece(s)) shapes=3 dropped=0 skin=0 ok=true invMarker=false extent=(97.6,15.2,167.0) matSwap=''
+[14:16:53.098] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_BldWoodPDoor01.nif' rect=(2081,1173,73,73) items=4
+[14:16:53.099] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_BldWoodPDoor02.nif' rect=(1913,1173,73,73) items=4
+[14:16:53.099] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_IndMetalDoor01.nif' rect=(1746,1173,73,73) items=3
+[14:16:53.100] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.100] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.100] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.100] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.100] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.100] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.102] [32168] [I] [ModelPreview] engine texture 'textures\interiors\industrial\metaldoorindustrial01_d.dds': niTexture=true
+[14:16:53.102] [32168] [I] [ModelPreview] engine texture 'textures\interiors\industrial\metaldoorindustrial01_d.dds': niTexture=true
+[14:16:53.130] [23320] [I] [ModelPreview]   shape 'EditorMarker123:20' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.3,-2.9,55.7)
+[14:16:53.130] [26128] [I] [ModelPreview]   shape 'EditorMarker:3' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.1,47.0,55.7)
+[14:16:53.130] [31012] [I] [ModelPreview]   shape 'EditorMarker:3' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(54.5,-47.4,55.7)
+[14:16:53.130] [26128] [I] [ModelPreview]   shape 'DLC02_BldWoodPDoorBroke02:2' tris=20 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(49.2,-4.3,84.0)
+[14:16:53.130] [23320] [I] [ModelPreview]   shape 'DLC02_SteamTMetalDoor01:22' tris=30 diffuse='textures\interiors\steamt\metalsteamtdoor01_d.dds' normal='textures\interiors\steamt\metalsteamtdoor01_n.dds' mat='materials\Interiors\SteamT\MetalSteamTDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.9,4.3,84.0)
+[14:16:53.130] [31012] [I] [ModelPreview]   shape 'DLC02_BldWoodPDoorBroke01:2' tris=20 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-49.3,-4.3,84.0)
+[14:16:53.130] [26128] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:4' tris=168 diffuse='textures\interiors\building\bldwoodwallscratches01_d.dds' normal='textures\interiors\building\bldwoodwallscratches01_n.dds' mat='materials\Interiors\Building\BldWoodWallScratches01Decal.BGSM' blend=opaque alphaTest=true thr=0.19 emissive=(0.000,0.000,0.000)x1.00 center=(-54.3,-2.0,115.3)
+[14:16:53.130] [26128] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:2' tris=164 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-47.8,-2.5,84.0)
+[14:16:53.130] [31012] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:4' tris=168 diffuse='textures\interiors\building\bldwoodwallscratches01_d.dds' normal='textures\interiors\building\bldwoodwallscratches01_n.dds' mat='materials\Interiors\Building\BldWoodWallScratches01Decal.BGSM' blend=opaque alphaTest=true thr=0.19 emissive=(0.000,0.000,0.000)x1.00 center=(54.3,2.0,114.3)
+[14:16:53.130] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE002:22' tris=482 diffuse='textures\interiors\steamt\metalsteamtdoor01_d.dds' normal='textures\interiors\steamt\metalsteamtdoor01_n.dds' mat='materials\Interiors\SteamT\MetalSteamTDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(48.0,-1.5,0.5)
+[14:16:53.130] [23320] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_SteamTMetalDoor01.nif' (1 piece(s)) shapes=3 dropped=0 skin=0 ok=true invMarker=false extent=(98.2,12.2,167.0) matSwap=''
+[14:16:53.130] [26128] [I] [ModelPreview]   shape 'DoorKnob008:2' tris=140 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,0.0)
+[14:16:53.130] [26128] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_BldWoodPDoorBroke02.nif' (1 piece(s)) shapes=5 dropped=0 skin=0 ok=true invMarker=false extent=(98.8,12.8,168.0) matSwap=''
+[14:16:53.130] [31012] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:2' tris=164 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(47.8,1.5,84.0)
+[14:16:53.130] [31012] [I] [ModelPreview]   shape 'DoorKnob007:2' tris=140 diffuse='textures\interiors\building\bldwooddoor01_d.dds' normal='textures\interiors\building\bldwooddoor01_n.dds' mat='Data\materials\Interiors\Building\BldWoodDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,0.0)
+[14:16:53.130] [31012] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_BldWoodPDoorBroke01.nif' (1 piece(s)) shapes=5 dropped=0 skin=0 ok=true invMarker=false extent=(98.7,12.8,168.0) matSwap=''
+[14:16:53.157] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_SteamTMetalDoor01.nif' rect=(1243,1172,73,73) items=3
+[14:16:53.157] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_BldWoodPDoorBroke02.nif' rect=(1578,1173,73,73) items=5
+[14:16:53.157] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_BldWoodPDoorBroke01.nif' rect=(1411,1172,73,73) items=5
+[14:16:53.157] [26128] [I] [ModelPreview]   shape 'DLC02_SignBiohazard01:2' tris=44 diffuse='textures\setdressing\signage\SingHazardMat01_d.dds' normal='textures\setdressing\signage\SingHazardMat01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-0.2,0.0)
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.157] [26128] [I] [ModelPreview] load 'SetDressing\\Signage\\Workshop_SignBiohazard01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(43.1,0.4,38.3) matSwap=''
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwoodwallscratches01_d.dds': niTexture=true
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwoodwallscratches01_d.dds': niTexture=true
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.157] [32168] [I] [ModelPreview] engine texture 'textures\interiors\building\bldwooddoor01_d.dds': niTexture=true
+[14:16:53.158] [32168] [I] [ModelPreview] engine texture 'textures\interiors\steamt\metalsteamtdoor01_d.dds': niTexture=true
+[14:16:53.158] [32168] [I] [ModelPreview] engine texture 'textures\interiors\steamt\metalsteamtdoor01_d.dds': niTexture=true
+[14:16:53.171] [1832 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.189] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Signage\\Workshop_SignBiohazard01.nif' rect=(908,1167,73,73) items=1
+[14:16:53.189] [26128] [I] [ModelPreview]   shape '' tris=4624 diffuse='textures\SetDressing\Habitat\HabitatMetal01_d.dds' normal='textures\SetDressing\Habitat\HabitatMetal01_n.dds' mat='Materials\SetDressing\Habitat\HabitatMetal01.BGSM' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,0.0)
+[14:16:53.189] [26128] [I] [ModelPreview] load 'SCOL\\Fallout4.esm\\CM002239CB.NIF' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(85.8,151.9,119.2) matSwap=''
+[14:16:53.189] [23320] [I] [ModelPreview]   shape 'EditorMarker126:17' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.3,-2.9,55.7)
+[14:16:53.189] [23320] [I] [ModelPreview]   shape 'DLC02_UtilMetalDoor01:23' tris=30 diffuse='textures\interiors\utility\metalutilitydoor01_d.dds' normal='textures\interiors\utility\metalutilitydoor01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Interiors\Utility\MetalUtilityDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.9,4.3,84.0)
+[14:16:53.189] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE003:23' tris=418 diffuse='textures\interiors\utility\metalutilitydoor01_d.dds' normal='textures\interiors\utility\metalutilitydoor01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Interiors\Utility\MetalUtilityDoor01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(48.0,-2.9,0.0)
+[14:16:53.189] [23320] [I] [ModelPreview] load 'SetDressing\\Doors\\Workshop_UtilMetalDoor01.nif' (1 piece(s)) shapes=3 dropped=0 skin=0 ok=true invMarker=false extent=(98.2,13.7,167.0) matSwap=''
+[14:16:53.190] [32168] [I] [ModelPreview] engine texture 'textures\setdressing\signage\SingHazardMat01_d.dds': niTexture=true
+[14:16:53.191] [31012] [I] [ModelPreview]   shape 'PictureAbstractRect01Framed01:26' tris=108 diffuse='textures\SetDressing\PaintingCanvas02_d.dds' normal='textures\SetDressing\PaintingCanvas01_n.dds' mat='Materials\SetDressing\PaintingsGeneric\PaintingCanvasLt.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-2.5,0.0)
+[14:16:53.191] [31012] [I] [ModelPreview]   shape 'PictureAbstractRect01Framed01:25' tris=2 diffuse='textures\SetDressing\PaintingsGeneric\PaintingAbstract01_d.DDS' normal='textures\SetDressing\PaintingCanvas01_n.dds' mat='setdressing/paintingsgeneric/paintingabstract01.bgsm' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-5.2,0.0)
+[14:16:53.191] [31012] [I] [ModelPreview]   shape 'PictureAbstractRect01Framed01:4' tris=32 diffuse='textures\SetDressing\PrewarWoodFrames01_d.dds' normal='textures\setdressing\woodframes01_n.dds' mat='materials\SetDressing\PrewarWoodFrames01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-2.6,0.0)
+[14:16:53.191] [31012] [I] [ModelPreview] load 'SetDressing\\ConcMuseum\\PictureAbstractRect01Framed01.nif' (1 piece(s)) shapes=3 dropped=0 skin=0 ok=true invMarker=false extent=(161.9,5.2,98.1) matSwap='setdressing/paintingsgeneric/paintingcanvasltswap.bgsm|setdressing/paintingsgeneric/paintingabstract01.bgsm'
+[14:16:53.201] [32420] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.217] [32168] [I] [ModelPreview] preview ready: view=7 nif='SCOL\\Fallout4.esm\\CM002239CB.NIF' rect=(573,1167,73,73) items=1
+[14:16:53.217] [26128] [I] [ModelPreview]   shape 'RaiderCampPole04SM:41' tris=36 diffuse='textures\SetDressing\Habitat\HabitatMetal01_d.dds' normal='textures\SetDressing\Habitat\HabitatMetal01_n.dds' mat='Materials\SetDressing\Habitat\HabitatMetal01.BGSM' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(-0.1,1.5,204.8)
+[14:16:53.217] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Doors\\Workshop_UtilMetalDoor01.nif' rect=(1076,1167,73,73) items=3
+[14:16:53.217] [26128] [I] [ModelPreview] load 'SetDressing\\Habitat\\RaiderCampPole04SM.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(6.9,8.3,493.4) matSwap=''
+[14:16:53.217] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\ConcMuseum\\PictureAbstractRect01Framed01.nif' rect=(741,1167,73,73) items=3
+[14:16:53.217] [32168] [I] [ModelPreview] engine texture 'textures\interiors\utility\metalutilitydoor01_d.dds': niTexture=true
+[14:16:53.217] [32168] [I] [ModelPreview] engine texture 'textures\interiors\utility\metalutilitydoor01_d.dds': niTexture=true
+[14:16:53.218] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\PaintingCanvas02_d.dds': niTexture=true
+[14:16:53.220] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\PaintingsGeneric\PaintingAbstract01_d.DDS': niTexture=true
+[14:16:53.222] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\PrewarWoodFrames01_d.dds': niTexture=true
+[14:16:53.222] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Habitat\HabitatMetal01_d.dds': niTexture=true
+[14:16:53.232] [1832 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.249] [32168] [I] [ModelPreview] preview ready: view=7 nif='SetDressing\\Habitat\\RaiderCampPole04SM.nif' rect=(406,1167,73,73) items=1
+[14:16:53.249] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Habitat\HabitatMetal01_d.dds': niTexture=true
+[14:16:53.259] [1832 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.284] [6160 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.311] [4884 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.338] [6160 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:53.462] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:53.884] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:54.010] [32168] [I] [ModelPreview] preview ready: view=7 nif='SCOL\\Fallout4.esm\\CM002239CB.NIF' rect=(68,1117,187,187) items=1
+[14:16:54.078] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=4, lease=0)
+[14:16:54.122] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:54.122] [32168] [D] [V11] window-thread UI event: view [7] 'prisma_build_item' data='00249EE6,00249EE4'
+[14:16:54.123] [32168] [I] [WebInput] capture=false swallow=false
+[14:16:54.123] [32168] [D] FocusMenu::Close requested
+[14:16:54.123] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=true layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x419 -> 0x41b)
+[14:16:54.123] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:16:54.123] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:16:54.123] [32168] [I] [PrismaUI InputMask] released (layerID=5)
+[14:16:54.126] [7556 ] [D] FocusMenu::Close: already closed, skipping
+[14:16:55.032] [32168] [I] [WebInput] capture=true swallow=true
+[14:16:55.032] [32168] [I] [WebInput] escapeOwned=true
+[14:16:55.032] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=false layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x41b -> 0x419)
+[14:16:55.032] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:16:55.032] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:16:55.032] [32168] [I] [PrismaUI InputMask] applied (layerID=5)
+[14:16:55.032] [32168] [D] FocusMenu::Close requested
+[14:16:55.034] [7556 ] [D] FocusMenu::Close: already closed, skipping
+[14:16:55.088] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=3, committedViews=4, lease=0)
+[14:16:55.103] [31012] [I] [ModelPreview]   shape 'HFs_Dog_House01:1' tris=15860 diffuse='textures\halffaces\hfs_dog_house01.dds' normal='textures\halffaces\hfs_dog_house01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.1,19.6,50.0)
+[14:16:55.103] [31012] [I] [ModelPreview] load 'SetDressing\\Doghouse\\Doghouse01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(107.5,146.9,100.4) matSwap=''
+[14:16:55.132] [26128] [I] [ModelPreview]   shape 'WetBar01:59' tris=320 diffuse='textures\setdressing\playerhouse_ruin\playerhouse_ruin_wetbar01_d.dds' normal='textures\setdressing\playerhouse_ruin\playerhouse_ruin_wetbar01_n.dds' mat='Materials\SetDressing\PlayerHouse_Ruin\PlayerHouse_Ruin_WetBar01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.3,-1.6,39.0)
+[14:16:55.132] [26128] [I] [ModelPreview] load 'SetDressing\\PlayerHouse_Ruin\\PlayerHouse_Ruin_WetBar01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(70.3,48.5,78.0) matSwap=''
+[14:16:55.164] [32168] [W] [ModelPreview][SLOWREAD] path='meshes/SetDressing/FederalistFurniture/FederalistMuseumBench01.nif' totalMs=31.71 bytes=32768 rescan=0
+[14:16:55.164] [31012] [I] [ModelPreview]   shape 'HFs_FederalistMuseumBench01:1' tris=1332 diffuse='textures\halffaces\hfs_federalistmuseumbench01.dds' normal='textures\halffaces\hfs_federalistmuseumbench01_n.dds' mat='' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,16.0)
+[14:16:55.164] [23320] [I] [ModelPreview]   shape 'PlayerHouse_Ruin_EndTable02:61' tris=188 diffuse='textures\setdressing\playerhouse_ruin\playerhouse_ruin_stereo01_d.dds' normal='textures\setdressing\playerhouse_ruin\playerhouse_ruin_stereo01_n.dds' mat='Materials\SetDressing\PlayerHouse_Ruin\PlayerHouse_Ruin_Stereo01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,24.4)
+[14:16:55.164] [31012] [I] [ModelPreview] load 'SetDressing\\FederalistFurniture\\FederalistMuseumBench01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(159.8,31.8,32.1) matSwap=''
+[14:16:55.165] [23320] [I] [ModelPreview] load 'SetDressing\\PlayerHouse_Ruin\\PlayerHouse_Ruin_EndTable02.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(44.9,44.9,48.5) matSwap=''
+[14:16:55.166] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:55.194] [26128] [I] [ModelPreview]   shape 'FederalistBookcaseShort01:2' tris=144 diffuse='textures\SetDressing\WoodFederalistFurniture01_d.dds' normal='textures\SetDressing\WoodFederalistFurniture01_n.dds' mat='Data\materials\SetDressing\WoodFederalistFurniture01Alpha.BGSM' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,32.0)
+[14:16:55.194] [26128] [I] [ModelPreview] load 'SetDressing\\FederalistFurniture\\FederalistBookcaseShort01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(34.0,100.0,64.0) matSwap=''
+[14:16:55.241] [32168] [W] [ModelPreview][SLOWREAD] path='Materials/DLC03/Architecture/PierShacksSiding03TwoWideWhite.BGSM' totalMs=19.73 bytes=8192 rescan=0
+[14:16:55.241] [31012] [I] [ModelPreview]   shape 'EditorMarker:17' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(63.3,-2.9,55.7)
+[14:16:55.241] [31012] [I] [ModelPreview]   shape 'Hinge:0' tris=36 diffuse='textures\architecture\warehouse\wrhsdoorsm01_d.dds' normal='textures\architecture\warehouse\wrhsdoorsm01_n.dds' mat='Materials\Architecture\Warehouse\WrhsDoorSm.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.9,2.4,84.0)
+[14:16:55.241] [31012] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:30' tris=108 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWideWhite_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWideWhite.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(48.0,-2.0,0.3)
+[14:16:55.241] [31012] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:0' tris=242 diffuse='textures\architecture\warehouse\wrhsdoorsm01_d.dds' normal='textures\architecture\warehouse\wrhsdoorsm01_n.dds' mat='Materials\Architecture\Warehouse\WrhsDoorSm.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(45.3,-2.0,0.0)
+[14:16:55.241] [31012] [I] [ModelPreview] load 'DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnDoorSm02.nif' (1 piece(s)) shapes=4 dropped=0 skin=0 ok=true invMarker=false extent=(98.2,13.8,167.0) matSwap=''
+[14:16:55.286] [32168] [W] [ModelPreview][SLOWREAD] path='meshes/DLC03/Architecture/BarnWorkshop/Dlc03BarnPost01.nif' totalMs=18.49 bytes=8192 rescan=0
+[14:16:55.286] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnDoorSm02.nif' rect=(1913,1173,73,73) items=4
+[14:16:55.288] [32168] [I] [ModelPreview] engine texture 'textures\architecture\warehouse\wrhsdoorsm01_d.dds': niTexture=true
+[14:16:55.290] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWideWhite_d.dds': niTexture=true
+[14:16:55.290] [32168] [I] [ModelPreview] engine texture 'textures\architecture\warehouse\wrhsdoorsm01_d.dds': niTexture=true
+[14:16:55.290] [26128] [I] [ModelPreview]   shape 'Dlc03BarnOuthouseChair01:36' tris=32 diffuse='textures\Landscape\Ground\MarshMudFloor01_d.dds' normal='textures\Landscape\Ground\MarshMudFloor01_n.dds' mat='Materials\Landscape\Ground\MarshMudTrash01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-1.3,25.0,18.8)
+[14:16:55.290] [31012] [I] [ModelPreview]   shape 'Dlc03BarnPost01:28' tris=12 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWide.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,128.0)
+[14:16:55.291] [31012] [I] [ModelPreview] load 'DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnPost01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(20.0,20.0,256.0) matSwap=''
+[14:16:55.291] [26128] [I] [ModelPreview]   shape 'Dlc03BarnOuthouseChair01:28' tris=96 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWide.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-0.1,28.6,16.0)
+[14:16:55.291] [26128] [I] [ModelPreview] load 'DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnOuthouseChair01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(120.0,60.4,32.0) matSwap=''
+[14:16:55.308] [23320] [I] [ModelPreview]   shape 'EditorMarker:17' tris=112 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(-2.9,63.3,55.7)
+[14:16:55.308] [23320] [I] [ModelPreview]   shape 'Hinge:0' tris=36 diffuse='textures\architecture\warehouse\wrhsdoorsm01_d.dds' normal='textures\architecture\warehouse\wrhsdoorsm01_n.dds' mat='Materials\Architecture\Warehouse\WrhsDoorSm.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(48.9,2.4,84.0)
+[14:16:55.308] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:30' tris=104 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWideWhite_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWideWhite.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.0,-2.0,0.3)
+[14:16:55.308] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:29' tris=64 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWideRed_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWideRed.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.0,-2.0,0.5)
+[14:16:55.308] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:28' tris=56 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWide.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-48.7,-2.0,28.4)
+[14:16:55.308] [23320] [I] [ModelPreview]   shape 'REF_ATTACH_NODE:0' tris=242 diffuse='textures\architecture\warehouse\wrhsdoorsm01_d.dds' normal='textures\architecture\warehouse\wrhsdoorsm01_n.dds' mat='Materials\Architecture\Warehouse\WrhsDoorSm.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-45.3,-2.0,0.0)
+[14:16:55.308] [23320] [I] [ModelPreview] load 'DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnOuthouseDoor01.nif' (1 piece(s)) shapes=6 dropped=0 skin=0 ok=true invMarker=false extent=(98.2,13.8,167.0) matSwap=''
+[14:16:55.338] [32168] [W] [ModelPreview][SLOWREAD] path='meshes/DLC03/Architecture/BarnWorkshop/Dlc03BarnRafter01.nif' totalMs=30.31 bytes=16384 rescan=0
+[14:16:55.338] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnPost01.nif' rect=(1411,1173,73,73) items=1
+[14:16:55.338] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnOuthouseChair01.nif' rect=(1578,1173,73,73) items=2
+[14:16:55.338] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnOuthouseDoor01.nif' rect=(1746,1173,73,73) items=6
+[14:16:55.339] [32168] [I] [ModelPreview] engine texture 'textures\architecture\warehouse\wrhsdoorsm01_d.dds': niTexture=true
+[14:16:55.339] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWideWhite_d.dds': niTexture=true
+[14:16:55.341] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWideRed_d.dds': niTexture=true
+[14:16:55.342] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds': niTexture=true
+[14:16:55.342] [32168] [I] [ModelPreview] engine texture 'textures\architecture\warehouse\wrhsdoorsm01_d.dds': niTexture=true
+[14:16:55.345] [32168] [I] [ModelPreview] engine texture 'textures\Landscape\Ground\MarshMudFloor01_d.dds': niTexture=true
+[14:16:55.345] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds': niTexture=true
+[14:16:55.345] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds': niTexture=true
+[14:16:55.346] [26128] [I] [ModelPreview]   shape 'Dlc03BarnPost02:28' tris=12 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWide.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,64.0)
+[14:16:55.346] [23320] [I] [ModelPreview]   shape 'Track01:1' tris=120 diffuse='textures\Architecture\shacks\shackplanks01_d.dds' normal='textures\Architecture\shacks\shackplanks01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,0.0)
+[14:16:55.346] [26128] [I] [ModelPreview] load 'DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnPost02.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(20.0,20.0,128.0) matSwap=''
+[14:16:55.346] [23320] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackSupport01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(14.0,78.0,256.0) matSwap=''
+[14:16:55.346] [31012] [I] [ModelPreview]   shape 'Dlc03BarnRafter01:28' tris=116 diffuse='textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds' normal='textures\DLC03\Architecture\PierShacksSiding03TwoWide_n.dds' mat='Materials\DLC03\Architecture\PierShacksSiding03TwoWide.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,65.8)
+[14:16:55.346] [31012] [I] [ModelPreview] load 'DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnRafter01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(256.0,256.0,120.5) matSwap=''
+[14:16:55.356] [6160 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:55.382] [32168] [W] [ModelPreview][SLOWREAD] path='meshes/DLC05/SetDressing/Workshop/BallTrack/WksBallTrackStraightTrigger01.nif' totalMs=9.65 bytes=57344 rescan=0
+[14:16:55.382] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnPost02.nif' rect=(1076,1168,73,73) items=1
+[14:16:55.382] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackSupport01.nif' rect=(2416,1171,73,73) items=1
+[14:16:55.382] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnRafter01.nif' rect=(1243,1168,73,73) items=1
+[14:16:55.382] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds': niTexture=true
+[14:16:55.382] [32168] [I] [ModelPreview] engine texture 'textures\DLC03\Architecture\PierShacksSiding03TwoWide_d.dds': niTexture=true
+[14:16:55.382] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\shackplanks01_d.dds': niTexture=true
+[14:16:55.394] [4884 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:55.431] [32168] [W] [ModelPreview][SLOWREAD] path='meshes/Architecture/Shacks/ShackBalconyFloor01.nif' totalMs=22.24 bytes=22128 rescan=0
+[14:16:55.443] [6160 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:55.458] [31012] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [26128] [I] [ModelPreview]   shape 'Brace01:4' tris=96 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(-0.0,-0.3,62.9)
+[14:16:55.458] [26128] [I] [ModelPreview]   shape 'Brace01:3' tris=336 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(-0.0,-0.3,63.8)
+[14:16:55.458] [26128] [I] [ModelPreview]   shape 'Track01:0' tris=56 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,8.0)
+[14:16:55.458] [26128] [I] [ModelPreview]   shape 'Brace01:0' tris=464 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='materials\SetDressing\Power\PowerSwitchBox01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-0.4,24.2)
+[14:16:55.458] [31012] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'WksBallTrackFloorFunnelMid02:21' tris=216 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.8,-67.6)
+[14:16:55.458] [31012] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'WksBallTrackFloorFunnelMid02:4' tris=184 diffuse='textures\architecture\shacks\shackwoodtile01_d.dds' normal='textures\architecture\shacks\shackwoodtile01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodTile01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,-72.0)
+[14:16:55.458] [31012] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [31012] [I] [ModelPreview]   shape 'ShackBalconyFloor01:3' tris=12 diffuse='textures\architecture\shacks\shackwoodtile01_d.dds' normal='textures\architecture\shacks\shackwoodtile01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodTile01Alpha.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,-3.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [31012] [I] [ModelPreview]   shape 'ShackBalconyFloor01:5 - L2_Boards:5' tris=80 diffuse='textures\architecture\shacks\shackplanks01_d.dds' normal='textures\architecture\shacks\shackplanks01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodPlanks01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,-8.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [31012] [I] [ModelPreview] load 'Architecture\\Shacks\\ShackBalconyFloor01.nif' (1 piece(s)) shapes=6 dropped=0 skin=0 ok=true invMarker=false extent=(128.0,128.0,12.0) matSwap=''
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.458] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [26128] [I] [ModelPreview]   shape 'WorkshopPowerConnectorFloor01:0' tris=284 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='materials\SetDressing\Power\PowerSwitchBox01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-0.1,15.1)
+[14:16:55.459] [26128] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackStraightTrigger01.nif' (1 piece(s)) shapes=5 dropped=0 skin=0 ok=true invMarker=false extent=(38.4,128.0,102.3) matSwap=''
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'EditorMarker:2' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'EditorMarker:2' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'EditorMarker:2' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'EditorMarker:2' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'WksBallTrackFloorFunnelMid02:2' tris=384 diffuse='textures\architecture\shacks\shackroof01_d.dds' normal='textures\architecture\shacks\shackroof01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackRoofMetalCorrugated01Alpha.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,-31.9)
+[14:16:55.459] [23320] [I] [ModelPreview]   shape 'WksBallTrackFloorFunnelMid02:5 - L2_Boards:5' tris=112 diffuse='textures\architecture\shacks\shackplanks01_d.dds' normal='textures\architecture\shacks\shackplanks01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodPlanks01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,-8.0)
+[14:16:55.459] [23320] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackFloorFunnelMid02.nif' (1 piece(s)) shapes=16 dropped=0 skin=0 ok=true invMarker=false extent=(256.0,256.0,144.2) matSwap=''
+[14:16:55.470] [1832 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:55.492] [32168] [W] [ModelPreview][SLOWREAD] path='meshes/Architecture/Shacks/ShackBalconyRailing01.nif' totalMs=6.42 bytes=9672 rescan=0
+[14:16:55.493] [32168] [I] [ModelPreview] preview ready: view=7 nif='Architecture\\Shacks\\ShackBalconyFloor01.nif' rect=(908,1167,73,73) items=6
+[14:16:55.493] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackStraightTrigger01.nif' rect=(2248,1167,73,73) items=5
+[14:16:55.493] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackFloorFunnelMid02.nif' rect=(2081,1167,73,73) items=16
+[14:16:55.496] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackwoodtile01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackroof01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackplanks01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackwoodtile01_d.dds': niTexture=true
+[14:16:55.498] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackplanks01_d.dds': niTexture=true
+[14:16:55.509] [32420] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:55.525] [31012] [I] [ModelPreview]   shape 'EditorMarker:4' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.526] [31012] [I] [ModelPreview]   shape 'ShackBalconyRailing01:5' tris=72 diffuse='textures\architecture\shacks\shackplanks01_d.dds' normal='textures\architecture\shacks\shackplanks01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodPlanks01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-65.0,25.7)
+[14:16:55.526] [31012] [I] [ModelPreview] load 'Architecture\\Shacks\\ShackBalconyRailing01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(126.0,10.1,84.6) matSwap=''
+[14:16:55.526] [26128] [I] [ModelPreview]   shape 'L2_Boards:5' tris=36 diffuse='textures\architecture\shacks\shackplanks01_d.dds' normal='textures\architecture\shacks\shackplanks01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodPlanks01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-0.0,-76.7,61.4)
+[14:16:55.526] [26128] [I] [ModelPreview]   shape 'EditorMarker:6' tris=128 diffuse='' normal='' mat='' blend=additive alphaTest=false thr=0.50 emissive=(0.000,0.000,0.000)x0.00 center=(8.0,0.0,0.0)
+[14:16:55.526] [26128] [I] [ModelPreview]   shape 'ShackWallFlatEnd01:4 - L2_Boards:4' tris=688 diffuse='textures\architecture\shacks\shackwoodtile01_d.dds' normal='textures\architecture\shacks\shackwoodtile01_n.dds' mat='C:\Projects\Fallout4\Build\PC\Data\materials\Architecture\Shacks\ShackWoodTile01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(-0.0,-65.6,95.4)
+[14:16:55.526] [26128] [I] [ModelPreview] load 'Architecture\\Shacks\\ShackWallFlatEnd01.nif' (1 piece(s)) shapes=3 dropped=0 skin=0 ok=true invMarker=false extent=(10.0,127.2,216.8) matSwap=''
+[14:16:55.536] [30512] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:16:55.552] [32168] [I] [ModelPreview] preview ready: view=7 nif='Architecture\\Shacks\\ShackBalconyRailing01.nif' rect=(741,1167,73,73) items=2
+[14:16:55.552] [32168] [I] [ModelPreview] preview ready: view=7 nif='Architecture\\Shacks\\ShackWallFlatEnd01.nif' rect=(573,1167,73,73) items=3
+[14:16:55.552] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackplanks01_d.dds': niTexture=true
+[14:16:55.552] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackplanks01_d.dds': niTexture=true
+[14:16:55.552] [32168] [I] [ModelPreview] engine texture 'textures\architecture\shacks\shackwoodtile01_d.dds': niTexture=true
+[14:16:55.905] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:56.117] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:56.223] [32168] [I] [ModelPreview] preview ready: view=7 nif='Architecture\\Shacks\\ShackBalconyRailing01.nif' rect=(68,1117,187,187) items=2
+[14:16:56.510] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:16:56.522] [32168] [D] [V11] window-thread UI event: view [7] 'prisma_build_item' data='0006FA29,000DF645'
+[14:16:56.523] [32168] [I] [WebInput] capture=false swallow=false
+[14:16:56.523] [32168] [D] FocusMenu::Close requested
+[14:16:56.523] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=true layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x419 -> 0x41b)
+[14:16:56.523] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:16:56.523] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:16:56.523] [32168] [I] [PrismaUI InputMask] released (layerID=5)
+[14:16:56.525] [4884 ] [D] FocusMenu::Close: already closed, skipping
+[14:16:56.731] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:57.540] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:58.355] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:59.167] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:16:59.980] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:17:00.070] [32168] [I] [WebInput] capture=true swallow=true
+[14:17:00.070] [32168] [I] [WebInput] escapeOwned=true
+[14:17:00.070] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=false layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x41b -> 0x419)
+[14:17:00.070] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:17:00.070] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:17:00.070] [32168] [I] [PrismaUI InputMask] applied (layerID=5)
+[14:17:00.070] [32168] [D] FocusMenu::Close requested
+[14:17:00.072] [32420] [D] FocusMenu::Close: already closed, skipping
+[14:17:00.082] [32168] [I] [PrismaHealth] view=7 pause=0 capture=1 mask=1 cursor=1 srvPresent=1 hostPaintCbAge=-1ms presentAge=0ms compositeAge=19ms focusAge=13ms composites=1375 ctxDropStreak=0 swapchain=0x253542fc390
+[14:17:00.093] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=4, lease=0)
+[14:17:00.119] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:17:00.144] [26128] [I] [ModelPreview]   shape 'Track01:0' tris=113 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,16.0)
+[14:17:00.144] [26128] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackMerge01.nif' (1 piece(s)) shapes=1 dropped=0 skin=0 ok=true invMarker=false extent=(96.0,128.0,160.0) matSwap=''
+[14:17:00.144] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnPost01.nif' rect=(741,1173,73,73) items=1
+[14:17:00.144] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC03\\Architecture\\BarnWorkshop\\Dlc03BarnPost02.nif' rect=(573,1173,73,73) items=1
+[14:17:00.144] [23320] [I] [ModelPreview]   shape 'Track01:2' tris=3 diffuse='textures\Architecture\shacks\ShackMetalDExt01_d.dds' normal='textures\Architecture\shacks\ShackMetal01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,31.5,-19.5)
+[14:17:00.144] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackMerge01.nif' rect=(1746,1173,73,73) items=1
+[14:17:00.144] [23320] [I] [ModelPreview]   shape 'Track01:0' tris=112 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,23.2)
+[14:17:00.144] [23320] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackFloorFunnelEdge01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(128.0,128.0,145.6) matSwap=''
+[14:17:00.144] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.144] [31012] [I] [ModelPreview]   shape 'DLC03WorkshopSignEchoLumberLake_Gen01:1' tris=4 diffuse='textures\DLC03\SetDressing\Signage\SignEchoLumberGenericSheet01_d.dds' normal='' mat='materials\DLC03\SetDressing\Signage\SignEchoLumberGenericSheet01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-1.5,0.0)
+[14:17:00.144] [31012] [I] [ModelPreview]   shape 'DLC03WorkshopSignEchoLumberLake_Gen01:0' tris=40 diffuse='textures\SetDressing\Signage\SignClutter02Rusted_d.dds' normal='textures\SetDressing\Signage\SignClutter02_n.dds' mat='materials\SetDressing\Signage\SignClutter02Rusted.BGSM' blend=opaque alphaTest=true thr=0.50 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-1.5,0.0)
+[14:17:00.144] [31012] [I] [ModelPreview] load 'DLC03\\SetDressing\\Signage\\DLC03WorkshopSignEchoLumberLake_Gen01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(86.4,3.1,32.4) matSwap=''
+[14:17:00.145] [26128] [I] [ModelPreview]   shape 'Track01:0' tris=80 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,32.0,-16.0)
+[14:17:00.145] [26128] [I] [ModelPreview]   shape 'Gate01:0' tris=36 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,16.0)
+[14:17:00.145] [26128] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackBallDrop01.nif' (1 piece(s)) shapes=2 dropped=0 skin=0 ok=true invMarker=false extent=(32.0,64.0,97.2) matSwap=''
+[14:17:00.169] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackFloorFunnelEdge01.nif' rect=(1578,1173,73,73) items=2
+[14:17:00.169] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackStraightTrigger01.nif' rect=(2081,1173,73,73) items=5
+[14:17:00.169] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackBallDrop01.nif' rect=(2416,1173,73,73) items=2
+[14:17:00.169] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.169] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.171] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackMetalDExt01_d.dds': niTexture=true
+[14:17:00.172] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.172] [23320] [I] [ModelPreview]   shape 'Flap01:2' tris=8 diffuse='textures\Architecture\shacks\ShackMetalDExt01_d.dds' normal='textures\Architecture\shacks\ShackMetal01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.1,-27.2,29.6)
+[14:17:00.172] [23320] [I] [ModelPreview]   shape 'Track01:2' tris=20 diffuse='textures\Architecture\shacks\ShackMetalDExt01_d.dds' normal='textures\Architecture\shacks\ShackMetal01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-35.4,51.5)
+[14:17:00.172] [23320] [I] [ModelPreview]   shape 'Track01:0' tris=108 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,16.0)
+[14:17:00.172] [23320] [I] [ModelPreview]   shape 'WorkshopPowerConnectorFloor01:0' tris=284 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='materials\SetDressing\Power\PowerSwitchBox01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-0.1,15.1)
+[14:17:00.172] [23320] [I] [ModelPreview]   shape 'Brace02:0' tris=432 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='materials\SetDressing\Power\PowerSwitchBox01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,22.6,14.6)
+[14:17:00.172] [23320] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackSplitPwr01.nif' (1 piece(s)) shapes=5 dropped=0 skin=0 ok=true invMarker=false extent=(96.0,129.3,216.6) matSwap=''
+[14:17:00.196] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackSplitPwr01.nif' rect=(2248,1173,73,73) items=5
+[14:17:00.196] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackMetalDExt01_d.dds': niTexture=true
+[14:17:00.196] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackMetalDExt01_d.dds': niTexture=true
+[14:17:00.196] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.196] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:17:00.196] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:17:00.196] [31012] [I] [ModelPreview]   shape 'Track01:0' tris=80 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,32.0,-16.0)
+[14:17:00.196] [31012] [I] [ModelPreview]   shape 'WorkshopPowerConnectorFloor01:0' tris=284 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='materials\SetDressing\Power\PowerSwitchBox01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-0.1,15.1)
+[14:17:00.196] [31012] [I] [ModelPreview]   shape 'Brace02:0' tris=464 diffuse='textures\SetDressing\Power\PowerSwitchBox01_d.dds' normal='textures\SetDressing\Power\PowerSwitchBox01_n.dds' mat='materials\SetDressing\Power\PowerSwitchBox01.BGSM' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,-0.7,22.9)
+[14:17:00.196] [31012] [I] [ModelPreview]   shape 'Gate01:0' tris=36 diffuse='textures\Architecture\shacks\ShackWoodTile02_d.dds' normal='textures\Architecture\shacks\shackwoodtile01_n.dds' mat='' blend=opaque alphaTest=false thr=0.00 emissive=(0.000,0.000,0.000)x1.00 center=(0.0,0.0,16.0)
+[14:17:00.196] [31012] [I] [ModelPreview] load 'DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackBallDropPwr01.nif' (1 piece(s)) shapes=4 dropped=0 skin=0 ok=true invMarker=false extent=(38.4,64.0,134.8) matSwap=''
+[14:17:00.218] [32168] [I] [ModelPreview] preview ready: view=7 nif='DLC05\\SetDressing\\Workshop\\BallTrack\\WksBallTrackBallDropPwr01.nif' rect=(1913,1173,73,73) items=4
+[14:17:00.218] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.218] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:17:00.218] [32168] [I] [ModelPreview] engine texture 'textures\SetDressing\Power\PowerSwitchBox01_d.dds': niTexture=true
+[14:17:00.218] [32168] [I] [ModelPreview] engine texture 'textures\Architecture\shacks\ShackWoodTile02_d.dds': niTexture=true
+[14:17:00.323] [32420] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.350] [7556 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.373] [1832 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.396] [32420] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.420] [4884 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.444] [7556 ] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.469] [30512] [D] RegisterJSListener fired: View [7] 'prisma_panel_rects' — data: '[[0,0.67734375,1,1],[0.006597900390625,0.6565321180555556,0.426165771484375,0.6780381944444445]]'
+[14:17:00.810] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:17:00.913] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:17:01.726] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:17:01.914] [32168] [I] [WebInput] capture=false swallow=false
+[14:17:01.914] [32168] [D] FocusMenu::Close requested
+[14:17:01.914] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=true layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x419 -> 0x41b)
+[14:17:01.914] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:17:01.914] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:17:01.914] [32168] [I] [PrismaUI InputMask] released (layerID=5)
+[14:17:01.915] [30512] [D] FocusMenu::Close: already closed, skipping
+[14:17:02.522] [32168] [I] [WebInput] capture=true swallow=true
+[14:17:02.522] [32168] [I] [WebInput] escapeOwned=true
+[14:17:02.522] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=false layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x41b -> 0x419)
+[14:17:02.522] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:17:02.522] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:17:02.522] [32168] [I] [PrismaUI InputMask] applied (layerID=5)
+[14:17:02.522] [32168] [D] FocusMenu::Close requested
+[14:17:02.524] [4884 ] [D] FocusMenu::Close: already closed, skipping
+[14:17:02.536] [32168] [D] [V11] window-thread UI event: view [7] 'refreshPrompts' data=''
+[14:17:02.536] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:17:02.558] [32168] [W] [Compositor] presenting committed frame without fresh content (producer starved; heldStreak=1, committedViews=4, lease=0)
+[14:17:02.895] [32168] [I] [WebInput] capture=false swallow=false
+[14:17:02.895] [32168] [D] FocusMenu::Close requested
+[14:17:02.895] [32168] [I] [PrismaUI InputMask] SetMaskedFlags enable=true layerID=5 userEventMask=0x142 (ok=true, cached 0x0 -> 0x0) otherEventMask=0x3b (ok=true, cached 0x419 -> 0x41b)
+[14:17:02.895] [32168] [W] [PrismaUI InputMask] userEventMask bits NOT all reflected in cachedInputUserEventsFlags after the call (requested 0x142, actually changed 0x0) -- some flag in this table may be silently failing
+[14:17:02.895] [32168] [W] [PrismaUI InputMask] otherEventMask bits NOT all reflected in cachedOtherInputEventsFlags after the call (requested 0x3b, actually changed 0x2) -- some flag in this table may be silently failing
+[14:17:02.895] [32168] [I] [PrismaUI InputMask] released (layerID=5)
+[14:17:02.896] [4884 ] [D] FocusMenu::Close: already closed, skipping
+[14:17:03.342] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:17:03.755] [7556 ] [I] VanillaUISuppressor: menu opened (first time this session): 'Console'
+[14:17:04.150] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''
+[14:17:04.962] [32168] [D] [V11] window-thread UI event: view [7] 'requestWorkshopStats' data=''

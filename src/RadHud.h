@@ -16,7 +16,7 @@ public:
         return instance;
     }
 
-    // kGameDataReady: acquire the PrismaUI API (no-op if framework absent).
+    // kGameDataReady / recovery lifecycle: acquire optional Prisma UI/HUD APIs.
     void RequestAPI();
 
     // kPostLoadGame / kNewGame: (re)create the HUD view.
@@ -58,12 +58,19 @@ public:
     void OnBlockingMenuOpened();
 
     [[nodiscard]] bool Available() const { return _api != nullptr; }
+    [[nodiscard]] bool HudLayoutAvailable() const { return _hudApi != nullptr; }
+    [[nodiscard]] bool ViewsReady() const { return _viewsReady.load(); }
 
 private:
     RadHud() = default;
     ~RadHud() = default;
 
+    void StartPrismaViewRetry();
+
     void* _api = nullptr;       // PRISMA_UI_API::IVPrismaUI2*
+    void* _threadApi = nullptr; // PRISMA_UI_API::IVPrismaUI11*
+    std::atomic<bool> _viewCreateRetry{ false };
+    std::atomic<bool> _viewsReady{ false };
     uint64_t _view = 0;         // PrismaView handle (0 = invalid)
     // atomic: written on the Ultralight/JS thread (DOM-ready callback), read on the game thread
     // every 4Hz tick — a plain bool is a data race (benign on x86, still UB).

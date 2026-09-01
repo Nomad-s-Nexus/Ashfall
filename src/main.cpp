@@ -3,6 +3,7 @@
 #include "Hooks.h"
 #include "RadHud.h"
 #include "RadCorrectnessPolicy.h"
+#include "RadLifecycle.h"
 #include <RE/U/UI.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/C/ControlMap.h>
@@ -15,7 +16,6 @@
 namespace
 {
     std::shared_ptr<spdlog::logger> logger;
-    RadiationEngine* g_engine = nullptr;
 
     enum class GameVersion
     {
@@ -179,7 +179,7 @@ namespace
                     free->store(ctrl, std::memory_order_release);
                 }))
             {
-                if (logger) logger->error("FalloutAnomaly: failed to queue radhud world-ready probe on game-main thread.");
+                if (logger) logger->debug("FalloutAnomaly: radhud world-ready probe deferred until the game-thread dispatcher accepts work.");
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -193,13 +193,15 @@ namespace
                     const auto held = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - freeSince).count();
                     if (held >= 5000) { // wait 5 seconds after loading screen
                         if (logger) logger->info("FalloutAnomaly: player is in world, creating radhud view");
-                        if (!Hooks::QueueMainThreadTask([generation]() {
-                                if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
-                                        generation, g_radLoadGeneration.load(std::memory_order_acquire)))
-                                    RadHud::GetSingleton().CreateView();
-                            }))
+                        const bool createQueued = Hooks::QueueMainThreadTask([generation]() {
+                            if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                                    generation, g_radLoadGeneration.load(std::memory_order_acquire)))
+                                RadHud::GetSingleton().CreateView();
+                        });
+                        if (!createQueued)
                         {
-                            if (logger) logger->error("FalloutAnomaly: failed to queue radhud CreateView on game-main thread.");
+                            if (logger) logger->warn("FalloutAnomaly: radhud CreateView dispatch deferred; HUD retry worker will retry.");
+                            continue;
                         }
                         if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
                                 generation, g_radLoadGeneration.load(std::memory_order_acquire)))
@@ -253,54 +255,22 @@ namespace
             logger->info("========== GAME DATA READY EVENT ==========");
             logger->info("Game Version: {}", GameVersionString(g_gameVersion));
 
-            // Establish the verified handoff first. If that cannot be installed, fail closed: do not
-            // initialize engine-facing systems or install the worker producer hook.
+            // Configure a safe handoff without blocking F4SE startup. PrismaUI may have loaded its DLL
+            // before its V11 dispatcher begins accepting work; that transient state is deferred instead
+            // of treated as a permanent failure or redirected into the legacy queue.
             if (!Hooks::InstallMainThreadDispatcher())
             {
-                logger->critical("Failed to establish Fallout 4 main-thread dispatcher; radiation engine will remain inactive.");
+                logger->critical("Failed to establish Fallout 4 main-thread dispatch configuration; radiation engine will retry on load events.");
                 break;
             }
 
             if (!Hooks::QueueMainThreadTask([]() {
-                    logger->info("Initializing Radiation Engine on verified game-main thread...");
-                    try
-                    {
-                        if (RadiationEngine::GetSingleton().Initialize())
-                        {
-                            logger->info("✓ Radiation Engine initialized successfully");
-                            logger->debug("  - Core mechanics loaded");
-                            logger->debug("  - Configuration parsed");
-                            logger->debug("  - State tracker created");
-
-                            if (Hooks::InstallUpdateHook())
-                            {
-                                logger->info("✓ PlayerCharacter update producer installed");
-                                logger->debug("  - Per-frame input and 4Hz engine ticks are marshaled to game-main thread");
-                            }
-                            else
-                            {
-                                logger->critical("✗ Update producer hook failed; radiation engine will not tick.");
-                            }
-
-                            // Acquire the optional PrismaUI HUD API from the same verified engine thread.
-                            RadHud::GetSingleton().RequestAPI();
-                        }
-                        else
-                        {
-                            logger->error("✗ FAILED to initialize Radiation Engine");
-                            logger->error("  - Check JSON configuration files");
-                            logger->error("  - Verify data folder exists");
-                            logger->error("  - See detailed logs above");
-                        }
-                    }
-                    catch (const std::exception& ex)
-                    {
-                        logger->error("✗ EXCEPTION during main-thread initialization: {}", ex.what());
-                    }
+                    if (!RadLifecycle::EnsureEngineActiveOnGameThread())
+                        logger->error("[Lifecycle] GameDataReady activation incomplete; retrying on PostLoad/NewGame.");
                     logger->info("===========================================");
                 }))
             {
-                logger->critical("Could not queue Radiation Engine initialization on game-main thread.");
+                logger->warn("[Lifecycle] GameDataReady activation deferred; game-thread dispatcher is not ready yet.");
             }
             break;
 
@@ -308,6 +278,15 @@ namespace
         {
             logger->info("========== POST LOAD GAME EVENT ==========");
             const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+
+            // Reconfigure on every load so a dispatcher that was unavailable during GameDataReady can
+            // recover. This is idempotent and does not reinstall the update producer.
+            if (!Hooks::InstallMainThreadDispatcher())
+            {
+                logger->critical("[PostLoad] No verified game-main-thread dispatcher; Radiation Engine remains INACTIVE.");
+                break;
+            }
+
             // Post-load stall diagnostics: these pinpoint exactly where the path stops if the queued
             // task never completes (queued? entered? which sub-step?). One-shot per load — not spam.
             logger->info("[PostLoad] kPostLoadGame received on thread {}; queuing post-load task.",
@@ -321,6 +300,13 @@ namespace
                         return;
                     }
                     logger->info("[PostLoad] task entered on game-main thread {}.", ::GetCurrentThreadId());
+
+                    if (!RadLifecycle::EnsureEngineActiveOnGameThread())
+                    {
+                        logger->critical("[PostLoad] Game save loaded, but Radiation Engine remains INACTIVE; post-load mutations skipped.");
+                        return;
+                    }
+
                     auto& engine = RadiationEngine::GetSingleton();
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
@@ -343,11 +329,11 @@ namespace
                     logger->info("=========================================");
                 }))
             {
-                logger->info("[PostLoad] post-load task queued (wake posted to the game-main thread).");
+                logger->info("[PostLoad] post-load task queued on the verified game-main dispatcher.");
             }
             else
             {
-                logger->critical("Failed to queue post-load radiation reset on game-main thread.");
+                logger->critical("[PostLoad] Failed to queue verified game-main work; Radiation Engine remains INACTIVE for this load.");
             }
             break;
         }
@@ -361,6 +347,13 @@ namespace
             logger->info("New game started");
             const auto loadGeneration = RadCorrectnessPolicy::BeginNewGameLoad(
                 g_radLoadGeneration, g_radWaiting);
+
+            if (!Hooks::InstallMainThreadDispatcher())
+            {
+                logger->critical("[NewGame] No verified game-main-thread dispatcher; Radiation Engine remains INACTIVE.");
+                break;
+            }
+
             if (!Hooks::QueueMainThreadTask([loadGeneration]() {
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration,
@@ -369,6 +362,13 @@ namespace
                         logger->debug("[NewGame] ignoring stale task for load generation {}.", loadGeneration);
                         return;
                     }
+
+                    if (!RadLifecycle::EnsureEngineActiveOnGameThread())
+                    {
+                        logger->critical("[NewGame] Radiation Engine remains INACTIVE; new-game mutations skipped.");
+                        return;
+                    }
+
                     auto& engine = RadiationEngine::GetSingleton();
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
@@ -389,7 +389,7 @@ namespace
                     logger->debug("  - Update loop: RUNNING");
                 }))
             {
-                logger->critical("Failed to queue new-game radiation reset on game-main thread.");
+                logger->critical("[NewGame] Failed to queue verified game-main work; Radiation Engine remains INACTIVE.");
             }
             break;
         }

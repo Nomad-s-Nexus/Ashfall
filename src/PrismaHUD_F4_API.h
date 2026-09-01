@@ -6,9 +6,6 @@
  * Timing: call RegisterWidget() inside kPostLoadGame / kNewGame, after you have
  * called CreateView() and stored the PrismaView handle.
  *
- * Your view's HTML must expose window.setHUDPosition(json) to receive layout
- * updates. PrismaHUD calls it with: {"x":0,"y":0,"w":400,"h":300}
- * Apply it however suits your view (e.g. set position:fixed on your root div).
  */
 #pragma once
 
@@ -28,7 +25,7 @@ namespace PRISMA_HUD_API {
 
     constexpr const auto PrismaHUDPluginName = "PrismaHUD_F4";
 
-    enum class InterfaceVersion : uint8_t { V1 };
+    enum class InterfaceVersion : uint8_t { V1, V2, V3 };
 
     struct WidgetDesc {
         const char* id;           // Stable identifier used as the key in layout JSON (e.g. "prisma_inventory")
@@ -60,6 +57,43 @@ namespace PRISMA_HUD_API {
         virtual void ApplyLayout(PrismaView view) noexcept = 0;
     };
 
+    typedef void (*BindingCallback)(void* context);
+
+    struct BindingDesc {
+        const char* id;
+        const char* displayName;
+        const char* category;
+        uint32_t defaultKey;
+        bool requireShift;
+        bool consume;
+        bool suppressible;
+    };
+
+    class IVPrismaHUD2 {
+    protected:
+        ~IVPrismaHUD2() = default;
+
+    public:
+        virtual void RegisterBinding(BindingDesc desc, BindingCallback onDown, void* downContext,
+                                     BindingCallback onUp, void* upContext) noexcept = 0;
+        virtual void UnregisterBinding(const char* id) noexcept = 0;
+        virtual uint32_t GetBoundKey(const char* id) noexcept = 0;
+        virtual bool IsExclusiveModeActive() const noexcept = 0;
+        virtual void SetExclusiveInputMode(bool on) noexcept = 0;
+    };
+
+    typedef void (*ActivateChoiceCallback)(void* context);
+
+    class IVPrismaHUD3 {
+    protected:
+        ~IVPrismaHUD3() = default;
+
+    public:
+        virtual void RegisterActivateChoice(const char* id, const char* label, const char* iconId,
+                                            ActivateChoiceCallback onTrigger, void* context) noexcept = 0;
+        virtual void UnregisterActivateChoice(const char* id) noexcept = 0;
+    };
+
     typedef void* (*RequestPluginAPIFunc)(InterfaceVersion interfaceVersion);
 
     [[nodiscard]] inline IVPrismaHUD1* RequestPluginAPI() {
@@ -73,6 +107,32 @@ namespace PRISMA_HUD_API {
             return nullptr;
 
         return static_cast<IVPrismaHUD1*>(fn(InterfaceVersion::V1));
+    }
+
+    [[nodiscard]] inline IVPrismaHUD2* RequestBindingsAPI() {
+        auto pluginHandle = GetModuleHandleW(L"PrismaHUD_F4.dll");
+        if (!pluginHandle)
+            return nullptr;
+
+        auto fn = reinterpret_cast<RequestPluginAPIFunc>(
+            GetProcAddress(pluginHandle, "RequestPrismaHUDAPI"));
+        if (!fn)
+            return nullptr;
+
+        return static_cast<IVPrismaHUD2*>(fn(InterfaceVersion::V2));
+    }
+
+    [[nodiscard]] inline IVPrismaHUD3* RequestActivateChoicesAPI() {
+        auto pluginHandle = GetModuleHandleW(L"PrismaHUD_F4.dll");
+        if (!pluginHandle)
+            return nullptr;
+
+        auto fn = reinterpret_cast<RequestPluginAPIFunc>(
+            GetProcAddress(pluginHandle, "RequestPrismaHUDAPI"));
+        if (!fn)
+            return nullptr;
+
+        return static_cast<IVPrismaHUD3*>(fn(InterfaceVersion::V3));
     }
 
 } // namespace PRISMA_HUD_API
