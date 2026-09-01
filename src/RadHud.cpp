@@ -5,6 +5,7 @@
 // RE headers BEFORE PrismaUI_F4_API.h: the API header pulls in Windows.h, whose macros clobber
 // engine struct layouts (e.g. TESFile) if the RE headers are parsed afterwards.
 #include <RE/A/ActorValue.h>
+#include <RE/A/ACTOR_VALUE_MODIFIER.h>
 #include <RE/B/BSTEvent.h>
 #include <RE/M/MenuOpenCloseEvent.h>
 #include <RE/M/MessageBoxMenu.h>
@@ -106,9 +107,17 @@ namespace
     // Same pattern for the toxicity widget view's OnDomReady callback (registers with PrismaHUD).
     std::atomic<bool>* g_toxicDomReadyFlag = nullptr;
     void*              g_hudApiForCb       = nullptr;
+    std::atomic<bool>* g_toxicWidgetRegisteredFlag = nullptr;
 
     // And for the filter/mask bar widget view's OnDomReady callback (also registers with PrismaHUD).
     std::atomic<bool>* g_filterDomReadyFlag = nullptr;
+
+    float EffectiveActorValueMax(const RE::PlayerCharacter& player, const RE::ActorValueInfo& value)
+    {
+        return std::max(0.0f,
+            player.GetPermanentActorValue(value) +
+            player.GetModifier(RE::ACTOR_VALUE_MODIFIER::kTemporary, value));
+    }
 
     // JS -> C++ bridge for the debug menu buttons. window.radDebug("storm:0") etc.
     void OnRadDebugCommand(const char* arg)
@@ -182,6 +191,8 @@ void RadHud::CreateView()
     // Shared callback state (both views' OnDomReady callbacks are plain function pointers).
     g_apiForCb    = _api;
     g_hudApiForCb = _hudApi;
+    _toxicWidgetRegistered.store(false);
+    g_toxicWidgetRegisteredFlag = &_toxicWidgetRegistered;
 
     // --- Main overlay view (radhud.html: gas-mask overlay, filter, storm banners, popup, debug) ---
     if (_view == 0 || !api->IsValid(_view))
@@ -213,18 +224,23 @@ void RadHud::CreateView()
 
         _toxicView = api->CreateView(kToxicViewPath, [](PrismaView v) {
             if (g_apiForCb) static_cast<PRISMA_UI_API::IVPrismaUI2*>(g_apiForCb)->Show(v);
-            if (g_hudApiForCb)
+            if (g_hudApiForCb && g_apiForCb &&
+                static_cast<PRISMA_UI_API::IVPrismaUI2*>(g_apiForCb)->IsValid(v))
+            {
                 static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(g_hudApiForCb)->RegisterWidget(v, kToxicDesc);
+                if (g_toxicWidgetRegisteredFlag) g_toxicWidgetRegisteredFlag->store(true);
+            }
             if (g_toxicDomReadyFlag) g_toxicDomReadyFlag->store(true);
         });
 
         // Same guarded hide-until-DOM-ready as the main view above.
         if (_toxicView != 0) { logger->info("[HUD] Toxicity widget view created (handle {}).", _toxicView); if (!_toxicDomReady.load()) api->Hide(_toxicView); }
     }
-    else if (_hudApi)
+    else if (_hudApi && api->IsValid(_toxicView))
     {
         // Existing toxic view on reload: re-register so PrismaHUD re-applies the saved layout.
         static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_toxicView, kToxicDesc);
+        _toxicWidgetRegistered.store(true);
     }
 
     // --- Filter/mask bar widget view (hud_filter.html), registered with PrismaHUD_F4 for positioning ---
@@ -259,18 +275,19 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
     auto* player = RE::PlayerCharacter::GetSingleton();
     auto* values = RE::ActorValue::GetSingleton();
     float health = 0.0f, healthMax = 0.0f, ap = 0.0f, apMax = 0.0f;
-    if (!_hudApi && player && values)
+    const bool fallback = !_toxicWidgetRegistered.load();
+    if (fallback && player && values)
     {
         if (values->health)
         {
             health = player->GetActorValue(*values->health);
-            healthMax = player->GetPermanentActorValue(*values->health);
+            healthMax = EffectiveActorValueMax(*player, *values->health);
             if (healthMax <= 0.0f && health > 0.0f) healthMax = health;
         }
         if (values->actionPoints)
         {
             ap = player->GetActorValue(*values->actionPoints);
-            apMax = player->GetPermanentActorValue(*values->actionPoints);
+            apMax = EffectiveActorValueMax(*player, *values->actionPoints);
             if (apMax <= 0.0f && ap > 0.0f) apMax = ap;
         }
     }
@@ -279,7 +296,7 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
     std::snprintf(json, sizeof(json),
         "{\"tissue\":%.1f,\"permanentTissue\":%.1f,\"fallback\":%s,"
         "\"health\":%.1f,\"healthMax\":%.1f,\"ap\":%.1f,\"apMax\":%.1f}",
-        tissue, permanentTissue, _hudApi ? "false" : "true", health, healthMax, ap, apMax);
+        tissue, permanentTissue, fallback ? "true" : "false", health, healthMax, ap, apMax);
     api->InteropCall(_toxicView, "updateToxic", json);
 }
 
