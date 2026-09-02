@@ -13,6 +13,7 @@ namespace Hooks
     // and a verified main-thread dispatcher is live.
     bool InstallUpdateHook();
     bool InstallInputHandler();
+    void SetDomeFollowActive(bool active) noexcept;
     void QueueDomeFollow();
 
     // Queue work for the verified game-main thread. Calls made from the main thread run inline.

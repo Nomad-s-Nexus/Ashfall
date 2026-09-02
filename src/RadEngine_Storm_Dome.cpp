@@ -1,5 +1,6 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
+#include "Hooks.h"
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -46,6 +47,7 @@ void RadiationEngine::SpawnStormDome()
         }
     }
     _stormDomeUp = placed > 0;
+    Hooks::SetDomeFollowActive(_stormDomeUp);
     if (_stormDomeUp)
     {
         _stormDomeCell = playerCell;
@@ -201,10 +203,12 @@ void RadiationEngine::UpdateDomeAnimation()
 
 void RadiationEngine::ClearStormDome()
 {
+    _stormDomeUp = false;
+    Hooks::SetDomeFollowActive(false);
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
     _stormDomeWorld = nullptr;
-    if (_stormDomeRefs.empty()) { _stormDomeUp = false; return; }
+    if (_stormDomeRefs.empty()) return;
     int cleared = 0;
     for (auto& layer : _stormDomeRefs)
     {
@@ -217,7 +221,6 @@ void RadiationEngine::ClearStormDome()
         }
     }
     _stormDomeRefs.clear();
-    _stormDomeUp = false;
     _stormDomeAnimStarted = false;
     Log()->info("[StormFX] Storm dome cleared ({} layers).", cleared);
 }

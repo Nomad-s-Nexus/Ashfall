@@ -232,11 +232,14 @@ def check_source(html_path, source_path):
         'PrismaUI absent; installed Win32 fallback',
         'if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())',
         's_domeFollowTaskQueued',
+        's_domeFollowActive',
+        'SetDomeFollowActive',
         'void QueueDomeFollow()',
         'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
         'QueueDomeFollow();',
         'kDomeFollowInterval',
         'std::chrono::milliseconds(33)',
+        'if (!s_domeFollowActive.load(std::memory_order_acquire)) return;',
         'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
     ):
         if marker not in hooks:
@@ -246,8 +249,11 @@ def check_source(html_path, source_path):
     if dome_queue_idx > dome_throttle_idx:
         raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
     dome_producer_idx = hooks.index('void QueueDomeFollow()')
+    dome_active_gate_idx = hooks.index('if (!s_domeFollowActive.load(std::memory_order_acquire)) return;', dome_producer_idx)
     dome_gate_idx = hooks.index('if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;', dome_producer_idx)
     dome_dispatch_idx = hooks.index('queued = QueueMainThreadTask', dome_producer_idx)
+    if dome_active_gate_idx > dome_gate_idx:
+        raise SystemExit('storm dome active flag must be checked before cadence throttling')
     if dome_gate_idx > dome_dispatch_idx:
         raise SystemExit('storm dome follow cadence must be gated before main-thread dispatch')
 
