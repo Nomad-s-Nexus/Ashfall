@@ -254,13 +254,19 @@ def check_source(html_path, source_path):
     for marker in (
         'void RadiationEngine::UpdateStormDomeLifecycle()',
         'void RadiationEngine::UpdateStormDomeFollow()',
+        'kStormDomeFollowInterval',
+        'std::chrono::milliseconds(33)',
+        'kStormDomeFollowDistanceThreshold',
+        'needsMove',
+        'ref->Get3D()',
+        'if (!player->Get3D()) return;',
         'if (player->cachedWorldspace != _stormDomeWorld) return;',
         'UpdateStormDomeLifecycle();',
         'ref->Update3DPosition(true);',
     ):
         if marker not in storm_source:
             raise SystemExit(f'missing smooth dome follow contract: {marker}')
-    for forbidden in ('ShouldFollowDomeOnTick', '_stormDomeFollowTick'):
+    for forbidden in ('ShouldFollowDomeOnTick', '_stormDomeFollowTick', 'Called once per player update'):
         if forbidden in storm_source:
             raise SystemExit(f'obsolete tick-throttled dome follow state remains: {forbidden}')
 

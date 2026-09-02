@@ -1,5 +1,6 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
+#include <chrono>
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -267,22 +268,55 @@ void RadiationEngine::UpdateStormDomeLifecycle()
 
 void RadiationEngine::UpdateStormDomeFollow()
 {
-    // Called once per player update through the verified main-thread dispatcher. This path only
-    // moves live references. It never spawns, deletes, reparents, or recreates anything.
-    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
+    using FollowClock = std::chrono::steady_clock;
+    static constexpr auto kStormDomeFollowInterval = std::chrono::milliseconds(33);
+    static constexpr float kStormDomeFollowDistanceThreshold = 16.0f;
+    static FollowClock::time_point lastFollow;
+
+    if (!_stormDomeUp || _stormDomeRefs.empty())
+    {
+        lastFollow = {};
+        return;
+    }
 
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
-    // Never drag exterior refs across a worldspace transition. The 4 Hz lifecycle owns that handoff.
+    if (!player->Get3D()) return;
     if (player->cachedWorldspace != _stormDomeWorld) return;
 
     const auto playerPosition = player->GetPosition();
+    bool hasLoaded3D = false;
+    bool needsMove = false;
     for (auto& layer : _stormDomeRefs)
     {
         auto ptr = layer.handle.get();
         auto* ref = ptr.get();
-        if (!ref || ref->IsDeleted() || ref->IsDisabled()) continue;
+        if (ref && !ref->IsDeleted() && !ref->IsDisabled() && ref->Get3D())
+        {
+            hasLoaded3D = true;
+            const auto desired = RadCorrectnessPolicy::DomePosition(
+                { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
+            const auto current = ref->GetPosition();
+            const float dx = desired.x - current.x;
+            const float dy = desired.y - current.y;
+            const float dz = desired.z - current.z;
+            if ((dx * dx) + (dy * dy) + (dz * dz) >=
+                kStormDomeFollowDistanceThreshold * kStormDomeFollowDistanceThreshold)
+                needsMove = true;
+        }
+    }
+    if (!hasLoaded3D || !needsMove) return;
+
+    const auto now = FollowClock::now();
+    if (lastFollow != FollowClock::time_point{} && now - lastFollow < kStormDomeFollowInterval) return;
+
+    lastFollow = now;
+    for (auto& layer : _stormDomeRefs)
+    {
+        auto ptr = layer.handle.get();
+        auto* ref = ptr.get();
+        if (!ref || ref->IsDeleted() || ref->IsDisabled() || !ref->Get3D()) continue;
 
         const auto position = RadCorrectnessPolicy::DomePosition(
             { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
