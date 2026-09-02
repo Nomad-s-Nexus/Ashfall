@@ -82,10 +82,9 @@ void RadiationEngine::EnterWarningPhase()
     // The alarm goes up now (not at spawn), together with the alert text.
     if (!IsPlayerSheltered())
     {
-        SpawnStormDome();   // re-ensure the dome if the player stepped out during the lead (self-guards on _stormDomeUp)
         PlayStormCue();
-        ApplyStormIMAD(_activeStormType);
     }
+    UpdateStormFXVisibility();
     char msg[96];
     if (st.lethal)
         std::snprintf(msg, sizeof(msg), "WARNING: %s approaching! SEEK SHELTER NOW!", st.name);

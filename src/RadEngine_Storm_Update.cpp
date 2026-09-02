@@ -158,6 +158,7 @@ void RadiationEngine::UpdateStorm()
     case StormPhase::Warning:
     {
         // (Dome + siren + alert fired at EnterWarningPhase when the APPROACH lead elapsed.)
+        UpdateStormFXVisibility();
         if (--_stormTicksLeft <= 0)
         {
             const StormType& st = kStormTypes[_activeStormType];
@@ -245,7 +246,6 @@ void RadiationEngine::UpdateStorm()
             else
             {
                 _firestormAwaitingNuke = false;
-                // Ash / ambient storms: atmosphere arrives immediately with the peak (exposed only).
                 _stormRollInTicks = 0;
                 if (_stormFXVisible)
                     ApplyStormIMAD(_activeStormType);

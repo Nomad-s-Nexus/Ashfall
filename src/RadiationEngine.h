@@ -469,7 +469,6 @@ private:
     void UpdateDustMotes();
 
     // Storm atmosphere IMADs — engine color grading per storm type (0x880-0x884).
-    // Triggered at Warning→Active via Trigger(imad, 1.0, nullptr); stopped at aftermath.
     // Index matches kStormTypes[]: 0=Ash, 1=Fire, 2=Sulfur, 3=Acid Rain, 4=Dust.
     RE::TESImageSpaceModifier* _stormIMADs[kStormTypeCount] = {};
     int _activeStormImadIndex = -1;  // index of the currently-running storm IMAD, -1 = none

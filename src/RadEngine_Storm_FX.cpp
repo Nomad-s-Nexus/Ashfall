@@ -181,9 +181,16 @@ void RadiationEngine::UpdateStormFXVisibility()
     _stormFXVisible = exposed;
     if (exposed)
     {
-        TriggerStormFX(true);                  // shake (Papyrus, lethal); nuke only if not yet fired
+        if (_stormPhase != StormPhase::Warning)
+            TriggerStormFX(true);              // shake (Papyrus, lethal); nuke only if not yet fired
         SpawnStormDome();                      // re-spawn the native dome on stepping back outside
-        ApplyStormIMAD(_activeStormType);      // re-apply the colour grade
+        const bool firestormWarning = _stormPhase == StormPhase::Warning &&
+            _activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
+            kStormTypes[_activeStormType].themeId == 1;
+        if (firestormWarning)
+            ClearStormIMAD();
+        else
+            ApplyStormIMAD(_activeStormType);  // re-apply the colour grade
         // Firestorm's ground fire ring also restores on re-exposure (every other FX does). Only during
         // Active — it's a peak effect, not a warning one — and only for the firestorm theme; SpawnFireRing
         // self-clears its old refs at entry, so re-calling is safe.
