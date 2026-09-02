@@ -410,6 +410,9 @@ void RadiationEngine::DebugForceWeatherByForm(const std::string& spec)
     // dominated by the PREVIOUS weather ("Clear looks like Overcast") and precipitation never started
     // (rain only renders at full pct). ForceWeather(override=true) applies it immediately at full pct.
     // The smooth path stays for real storms, where the gradual roll-in is the point.
+    CaptureWeatherReturnTarget();
+    _releaseWeatherOverrideWhenSettled = false;
+    _weatherHandoffSettleTicks = 0;
     _debugWeatherHold = true;   // hold the vetoes down or CheckRadstormWarning reverts this
     if (auto* sky2 = RE::Sky::GetSingleton())
         sky2->ForceWeather(static_cast<RE::TESWeather*>(f), true);
@@ -433,6 +436,7 @@ void RadiationEngine::DebugPreviewWeather(int idx)
         // in-game behaviour — a gradual roll-in, no jarring snap, no purple flash.
         RE::TESWeather* prev = sky->currentWeather;
         dlog->warn("[DIAG]   BeginSmoothWeather...");
+        CaptureWeatherReturnTarget();
         _debugWeatherHold = true;     // stand the radstorm/dust vetoes down (they'd revert this to clear)
         BeginSmoothWeather(w);        // visual only — does NOT run the storm gameplay
         dlog->warn("[DIAG]   transition armed.");
@@ -476,7 +480,8 @@ void RadiationEngine::DebugScanWornMask()
 
 void RadiationEngine::DebugClearWeather()
 {
-    // Force the Commonwealth clear sky AND silence any lingering storm/radstorm audio. (Uses
+    // Restore the pre-debug/pre-storm weather smoothly and silence lingering storm/radstorm audio.
+    // Commonwealth clear is only a fallback when no valid return weather was captured. (Uses
     // ForceWeather, which is interior-safe — NOT Sky::ResetWeather, which CTDs in interiors.)
     _debugWeatherHold = false;   // release the veto hold — the region system takes back over
     ForceClearAndSilence();

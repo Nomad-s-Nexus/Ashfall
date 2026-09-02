@@ -244,7 +244,10 @@ private:
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
-    bool            _releaseClearOverrideWhenSettled = false; // clear sky is temporarily locked only while its blend finishes
+    RE::TESWeather* _weatherReturnTarget = nullptr; // weather live before Rad/debug took sky control
+    bool            _weatherReturnCaptured = false; // keep the original return target while test/storm weathers change
+    bool            _releaseWeatherOverrideWhenSettled = false; // release only after the return blend is stable
+    int             _weatherHandoffSettleTicks = 0; // short stable hold prevents an edge snap on override release
     bool            _debugWeatherHold = false;      // a debug-menu forced weather is held: stand the
                                                     // radstorm/dust/rain vetoes down so they can't revert it
     int             _stormPeakTick = 0;             // tick index at which the lethal NPC burst fires
@@ -410,8 +413,9 @@ private:
     bool IsGhoulActor(RE::Actor* a) const;  // true if the actor's race carries ActorTypeGhoul
     void MakeNearbyNPCsFlee();         // lethal storms: panic nearby non-ghoul NPCs (engine flee)
     int  _fleeTick = 0;                // throttle for re-issuing the flee order
-    void UpdateClearWeatherHandoff();  // release the temporary clear override after the smooth blend settles
-    void ReleaseStormWeather();        // transition managed weather to clear, then hand control back to the region system
+    void CaptureWeatherReturnTarget(); // remember pre-Rad/pre-debug weather before taking sky control
+    void UpdateWeatherHandoff();       // release the temporary return override after the blend is stably settled
+    void ReleaseStormWeather();        // smoothly restore remembered weather, then return control to the region system
     void Notify(const char* message, bool warning) const;  // vanilla HUD corner message
 
     // Fire hazard refs spawned around the player during a Firestorm (themeId==1).

@@ -108,6 +108,7 @@ void RadiationEngine::EnterWarningPhase()
             RE::TESWeather* prev = sky->currentWeather;
             if (dust && prev && prev != dust)
             {
+                CaptureWeatherReturnTarget();
                 BeginSmoothWeather(dust);
                 _dustBuildupActive = true;
                 _warnTicksTotal    = warnTicks;
@@ -168,72 +169,81 @@ void RadiationEngine::EnterStormPhase(StormPhase phase, int durationTicks)
 
 void RadiationEngine::ReleaseStormWeather()
 {
-    // Stop any in-progress Dust Storm fog roll-in and leave the dust weather at its full profile, so
-    // a later debug preview (weather:4) or the next storm's re-seed starts from a known-good state.
-    // Stop any Dust Storm build-up / roll-in cross-fade (dust fog stays at its full profile from load).
-    _dustBuildupActive   = false;
-    _dustFogRollTick     = 0;
-    _warnTicksTotal      = 0;
+    _dustBuildupActive = false;
+    _dustFogRollTick = 0;
+    _warnTicksTotal = 0;
     _dustRollPrevWeather = nullptr;
-    _dustRollElapsed     = 0;
-    _dustRollTotal       = 0;
-    // Restore the dust weather's full fog profile (the roll leaves it mid-ramp if interrupted) so a
-    // later preview or the next storm starts from the known-good target, not a stale thin value.
+    _dustRollElapsed = 0;
+    _dustRollTotal = 0;
     if (RE::TESWeather* dust = _stormWeathers[kDustStormIndex])
     {
-        const StormType& s = kStormTypes[kDustStormIndex];
-        ApplyWeatherFog(dust, s.fogNear, s.fogFar, s.fogPower, s.fogHeightMid, s.fogHeightRange, s.fogHiDensity);
+        const StormType& st = kStormTypes[kDustStormIndex];
+        ApplyWeatherFog(dust, st.fogNear, st.fogFar, st.fogPower, st.fogHeightMid, st.fogHeightRange, st.fogHiDensity);
     }
-    // Fade the incoming-storm siren out with a short fall-off instead of leaving it ringing, and drop
-    // any pending onset countdown so a storm that ends inside the dome-fade window can't start the
-    // siren after the fact.
+
     _sirenDelayTicks = 0;
     StopStormCue(kRadstormCueFalloffMs);
 
-    // Always attempt the release (don't gate on _weatherForced) — a forced sky can outlive our
-    // flag if a save was loaded mid-storm. ReleaseWeatherOverride just sets an engine flag, so
-    // it's safe anywhere (including interiors). We deliberately do NOT call Sky::ResetWeather()
-    // here — it dereferences the sky's current weather and CTDs when called in an interior
-    // (no active sky weather), which is what crashed "End Storm" indoors.
     auto* sky = RE::Sky::GetSingleton();
-    if (!sky) { _weatherForced = false; return; }
+    if (!sky)
+    {
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherForced = false;
+        return;
+    }
 
-    sky->ReleaseWeatherOverride();
+    RE::TESWeather* target = _weatherReturnCaptured ? _weatherReturnTarget : nullptr;
+    if (!target)
+        target = _clearWeather;
 
-    // INTERIOR FIX: while the player is sheltered/indoors the exterior sky isn't being simulated,
-    // so a plain override-release leaves the forced STORM weather sitting as the "current" weather.
-    // It then lingers — and its weather-conditioned rad magic effect (GetIsCurrentWeather) re-fires —
-    // the instant the player steps back outside, so the storm appears to "never end" until they leave
-    // the interior. Hard-snap to the Commonwealth clear weather in that case so the storm is genuinely
-    // over regardless of location. Outdoors we keep the soft release so the sky transitions naturally.
-    if (_clearWeather && IsPlayerSheltered())
-        sky->ForceWeather(_clearWeather, true);
+    if (!target)
+    {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] No remembered/clear weather available; released override without a managed transition.");
+        return;
+    }
 
-    _weatherForced = false;
+    if (sky->currentWeather == target)
+    {
+        sky->overrideWeather = target;
+        _weatherReturnTarget = target;
+        _weatherReturnCaptured = true;
+        _releaseWeatherOverrideWhenSettled = true;
+        _weatherForced = true;
+        Log()->debug("[StormWeather] Return transition already targets 0x{:06X} at pct {:.2f}; continuing without restart.",
+            target->GetFormID(), sky->currentWeatherPct);
+        return;
+    }
+
+    const std::uint32_t previous = sky->currentWeather ? sky->currentWeather->GetFormID() : 0;
+    _weatherReturnTarget = target;
+    _weatherReturnCaptured = true;
+    _weatherHandoffSettleTicks = 0;
+    BeginSmoothWeather(target, /*lockOverride=*/true);
+    _releaseWeatherOverrideWhenSettled = true;
+    _weatherForced = true;
+    Log()->info("[StormWeather] Returning weather 0x{:06X} -> 0x{:06X} smoothly; region control releases only after the blend is stable.",
+        previous, target->GetFormID());
 }
+
 
 
 void RadiationEngine::ForceClearAndSilence()
 {
-    // Silence ALL storm audio: the managed ambient AND the incoming-storm siren. Both FADE out now
-    // (short fall-off) rather than hard-cutting — the siren was previously left ringing after the storm.
     StopStormCue(kRadstormCueFalloffMs);
-    if (_stormSoundHandle.IsValid())  _stormSoundHandle.FadeOutAndRelease(kStormSoundFadeMs);
-    _curStormBed = nullptr;    // UpdateAmbientAudio re-derives from the (now clear) weather next tick
-    _radstormWarned = false;   // re-arm the cue for the next storm
-
-    // Transition to the Commonwealth clear sky via the engine's OWN smooth path (locks it as override so
-    // the region can't immediately re-roll a storm). BeginSmoothWeather sets currentWeather=clear right
-    // away (so the storm's weather-conditioned rad effect stops immediately — no lingering), while the
-    // engine blends the sky back smoothly instead of snapping. Fall back to a plain release if the
-    // clear-weather form didn't resolve.
-    if (auto* sky = RE::Sky::GetSingleton())
-    {
-        if (_clearWeather) BeginSmoothWeather(_clearWeather);
-        else               sky->ReleaseWeatherOverride();
-    }
-    _weatherForced = false;
+    if (_stormSoundHandle.IsValid())
+        _stormSoundHandle.FadeOutAndRelease(kStormSoundFadeMs);
+    _curStormBed = nullptr;
+    _radstormWarned = false;
+    ReleaseStormWeather();
 }
+
 
 
 void RadiationEngine::SpawnFireRing()
@@ -352,6 +362,7 @@ void RadiationEngine::SpawnStormDome()
     // ACTI layers (below); if those fail to resolve but the arena lights do, _stormDomeUp stays false
     // and every re-exposure would otherwise append another light pair, leaking the previous ones.
     ClearStormDome();
+    _stormDomeFollowTick = 0;
 
     const RE::NiPoint3 base = player->GetPosition();
     auto* const playerCell = player->GetParentCell();
@@ -547,6 +558,7 @@ void RadiationEngine::UpdateDomeAnimation()
 
 void RadiationEngine::ClearStormDome()
 {
+    _stormDomeFollowTick = 0;
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
     _stormDomeWorld = nullptr;
@@ -568,7 +580,7 @@ void RadiationEngine::ClearStormDome()
     Log()->info("[StormFX] Storm dome cleared ({} layers).", cleared);
 }
 
-void RadiationEngine::UpdateStormDomeLifecycle()
+void RadiationEngine::UpdateStormDomePosition()
 {
     const bool domePhase = _stormPhase == StormPhase::Approach ||
         _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
@@ -583,7 +595,7 @@ void RadiationEngine::UpdateStormDomeLifecycle()
     if (!player) return;
 
     // A transition can briefly leave the worldspace unresolved, or a target cell can reject all
-    // placements. Keep retrying on the normal 4 Hz engine lifecycle cadence through every dome-bearing phase instead
+    // placements. Keep retrying at the normal 1 Hz cadence through every dome-bearing phase instead
     // of leaving the storm permanently dome-less after one failed recreation.
     if (!_stormDomeUp)
     {
@@ -609,19 +621,8 @@ void RadiationEngine::UpdateStormDomeLifecycle()
         return;
     }
 
-}
-
-void RadiationEngine::UpdateStormDomeFollow()
-{
-    // Called once per player update through the verified main-thread dispatcher. This path only
-    // moves live references. It never spawns, deletes, reparents, or recreates anything.
-    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
-
-    auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player) return;
-
-    // Never drag exterior refs across a worldspace transition. The 4 Hz lifecycle owns that handoff.
-    if (player->cachedWorldspace != _stormDomeWorld) return;
+    if (!RadCorrectnessPolicy::ShouldFollowDomeOnTick(++_stormDomeFollowTick)) return;
+    _stormDomeFollowTick = 0;
 
     const auto playerPosition = player->GetPosition();
     for (auto& layer : _stormDomeRefs)
@@ -1142,7 +1143,8 @@ void RadiationEngine::MakeNearbyNPCsFlee()
 void RadiationEngine::UpdateStorm()
 {
     auto logger = Log();
-    UpdateStormDomeLifecycle();
+    UpdateWeatherHandoff();
+    UpdateStormDomePosition();
 
     // New-game safety: the first time the player is outdoors after a new game, force the
     // Commonwealth clear weather so a vault exit / alt-start never opens straight into a rad storm
@@ -1335,6 +1337,7 @@ void RadiationEngine::UpdateStorm()
                         // No build-up (non-dust storm, or dust loaded mid-storm): begin the storm sky via the
                         // engine's OWN smooth transition (vanilla path) — no jarring snap, no purple flash.
                         RE::TESWeather* prev = sky->currentWeather;
+                        CaptureWeatherReturnTarget();
                         BeginSmoothWeather(w);
                         if (_activeStormType == kDustStormIndex && prev && prev != w)
                         {

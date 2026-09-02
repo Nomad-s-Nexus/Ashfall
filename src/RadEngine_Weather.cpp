@@ -150,8 +150,11 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     //   destabilising the (hard-won) working path over — documented so it's a choice, not an oversight.
     auto* sky = RE::Sky::GetSingleton();
     if (!sky || !a_target || sky->currentWeather == a_target) return;
-    if (_releaseClearOverrideWhenSettled && a_target != _clearWeather)
-        _releaseClearOverrideWhenSettled = false;
+    if (_releaseWeatherOverrideWhenSettled && a_target != _weatherReturnTarget)
+    {
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+    }
     if (a_lockOverride)
         sky->overrideWeather = a_target;            // lock target (region won't override it back)
     sky->lastWeather       = sky->currentWeather;   // transition SOURCE (engine blends from this)
@@ -161,27 +164,77 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     _weatherForced = true;
 }
 
-void RadiationEngine::UpdateClearWeatherHandoff()
+void RadiationEngine::CaptureWeatherReturnTarget()
 {
-    if (!_releaseClearOverrideWhenSettled) return;
+    if (_weatherReturnCaptured) return;
+
+    auto* sky = RE::Sky::GetSingleton();
+    if (!sky || !sky->currentWeather)
+    {
+        if (_clearWeather)
+        {
+            _weatherReturnTarget = _clearWeather;
+            _weatherReturnCaptured = true;
+        }
+        return;
+    }
+
+    RE::TESWeather* candidate = sky->currentWeather;
+    bool isManagedStorm = false;
+    for (auto* managed : _stormWeathers)
+    {
+        if (managed && managed == candidate)
+        {
+            isManagedStorm = true;
+            break;
+        }
+    }
+
+    _weatherReturnTarget = isManagedStorm ? _clearWeather : candidate;
+    _weatherReturnCaptured = _weatherReturnTarget != nullptr;
+    if (_weatherReturnCaptured)
+        Log()->debug("[StormWeather] Captured pre-override return weather 0x{:06X}.", _weatherReturnTarget->GetFormID());
+}
+
+
+void RadiationEngine::UpdateWeatherHandoff()
+{
+    if (!_releaseWeatherOverrideWhenSettled) return;
+
     auto* sky = RE::Sky::GetSingleton();
     if (!sky)
     {
-        _releaseClearOverrideWhenSettled = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
         _weatherForced = false;
         return;
     }
-    if (!_clearWeather || sky->currentWeather != _clearWeather)
+
+    RE::TESWeather* target = _weatherReturnTarget;
+    if (!target || sky->currentWeather != target)
     {
-        _releaseClearOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
         return;
     }
-    const bool settled = sky->lastWeather == nullptr || sky->currentWeatherPct >= 0.999f;
-    if (!settled) return;
+
+    if (sky->currentWeatherPct < 0.999f)
+    {
+        _weatherHandoffSettleTicks = 0;
+        return;
+    }
+
+    // Hold the fully returned sky steady for ~2 seconds before releasing the temporary override.
+    // That gives Fallout a stable source state for whatever the region system chooses next.
+    if (++_weatherHandoffSettleTicks < 8) return;
+
+    const std::uint32_t targetId = target->GetFormID();
     sky->ReleaseWeatherOverride();
-    _releaseClearOverrideWhenSettled = false;
+    _weatherReturnTarget = nullptr;
+    _weatherReturnCaptured = false;
+    _releaseWeatherOverrideWhenSettled = false;
+    _weatherHandoffSettleTicks = 0;
     _weatherForced = false;
-    Log()->info("[StormWeather] Commonwealth clear transition settled; vanilla region weather control restored.");
+    Log()->info("[StormWeather] Return weather 0x{:06X} stable; vanilla region weather control restored.", targetId);
 }
 
 
