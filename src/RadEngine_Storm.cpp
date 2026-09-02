@@ -547,7 +547,6 @@ void RadiationEngine::UpdateDomeAnimation()
 
 void RadiationEngine::ClearStormDome()
 {
-    _stormDomeFollowTick = 0;
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
     _stormDomeWorld = nullptr;
