@@ -322,15 +322,13 @@ void RadiationEngine::UpdateStorm()
                 // The atmosphere rolls in with the blast wave — but only for an EXPOSED player, so the
                 // fog/fire/dome never appear inside. If sheltered, leave it hidden; UpdateStormFXVisibility
                 // rolls it in the moment they step outside. (SpawnFireRing already self-gates on shelter.)
-                // NOTE: we deliberately do NOT touch _stormFXVisible here — the visibility manager owns it
-                // and reconciles the real FX state next tick. Hand-setting it desynced when the player ran
-                // indoors mid-roll-in (the nuke's shake stayed on because the manager thought FX were off).
                 if (!IsPlayerSheltered())
                 {
                     ApplyStormIMAD(_activeStormType);
                     if (st.themeId == 1)
                         SpawnFireRing();                // ground fire ring rolls in
                     TriggerStormDome();                 // cloud dome rolls in with the blast wave
+                    _stormFXVisible = true;
                     RE::BSSoundHandle wave{};
                     if (!Play2DSound(kSndBlastWave, wave))   // the shockwave sweeping in (one-shot)
                         logger->warn("[StormAudio] blast wave '{}' failed to load.", kSndBlastWave);
