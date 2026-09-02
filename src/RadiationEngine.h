@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <RE/B/BSPointerHandle.h>
 #include <RE/B/BSSoundHandle.h>
+#include <RE/I/ImageSpaceModifierInstanceForm.h>
 #include <RE/N/NiPoint3.h>
 
 #include "RadCorrectnessPolicy.h"
@@ -64,6 +65,7 @@ public:
     // Cheap per-frame main-thread transform pump for already-spawned storm dome refs. Spawn/retry,
     // shelter visibility, and worldspace ownership stay on the 4 Hz engine lifecycle path.
     void UpdateStormDomeFollow();
+    void UpdateStormIMADFade();
     void ApplyDebuffs(uint32_t radLevel);
 
     // Called on game load / new game: re-sync penalty tracking with the freshly
@@ -76,6 +78,10 @@ public:
         _currentStageLevel = 0;
         _appliedPerkIndex = -1;  // perks persist in the save; re-sync from scratch
         _activeStormImadIndex = -1;
+        _stormImadInstance = nullptr;
+        _stormImadTargetStrength = 0.0f;
+        _stormImadFadeRate = 0.0f;
+        _stormImadStopWhenFaded = false;
         _radstormWarned = false;
         _stormRollInTicks = 0;
         // -1 sentinel = "no previous tick yet": both the sheltered rad-gain refund and the
@@ -472,8 +478,14 @@ private:
     // Index matches kStormTypes[]: 0=Ash, 1=Fire, 2=Sulfur, 3=Acid Rain, 4=Dust.
     RE::TESImageSpaceModifier* _stormIMADs[kStormTypeCount] = {};
     int _activeStormImadIndex = -1;  // index of the currently-running storm IMAD, -1 = none
-    void ApplyStormIMAD(int typeIndex);   // trigger the per-type atmosphere IMAD
-    void ClearStormIMAD();               // stop any active storm IMAD
+    RE::NiPointer<RE::ImageSpaceModifierInstanceForm> _stormImadInstance;
+    float _stormImadTargetStrength = 0.0f;
+    float _stormImadFadeRate = 0.0f;
+    bool _stormImadStopWhenFaded = false;
+    void ApplyStormIMAD(int typeIndex);
+    void SetStormIMADTarget(int typeIndex, float strength, float fadeSeconds);
+    void FadeOutStormIMAD(float fadeSeconds);
+    void ClearStormIMAD();
 
     // Feral ghoul spawns — ghouls emerge from the radiation during lethal storms.
     // Leveled lists from Fallout4.esm (LCharFeralGhoul 0x0758AE, Glowing One 0x0D39EE).

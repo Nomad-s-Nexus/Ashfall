@@ -9,6 +9,7 @@
 namespace Hooks
 {
     static std::atomic_bool s_domeFollowActive{ false };
+    static std::atomic_bool s_stormImadFadeActive{ false };
     static std::atomic_bool s_domeFollowTaskQueued{ false };
 
     void SetDomeFollowActive(bool active) noexcept
@@ -16,9 +17,15 @@ namespace Hooks
         s_domeFollowActive.store(active, std::memory_order_release);
     }
 
+    void SetStormIMADFadeActive(bool active) noexcept
+    {
+        s_stormImadFadeActive.store(active, std::memory_order_release);
+    }
+
     void QueueDomeFollow()
     {
-        if (!s_domeFollowActive.load(std::memory_order_acquire)) return;
+        if (!s_domeFollowActive.load(std::memory_order_acquire) &&
+            !s_stormImadFadeActive.load(std::memory_order_acquire)) return;
 
         static constexpr auto kDomeFollowInterval = std::chrono::milliseconds(33);
         static std::mutex throttleMutex;
@@ -43,6 +50,7 @@ namespace Hooks
                 try
                 {
                     RadiationEngine::GetSingleton().UpdateStormDomeFollow();
+                    RadiationEngine::GetSingleton().UpdateStormIMADFade();
                 }
                 catch (...)
                 {

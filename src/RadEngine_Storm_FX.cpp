@@ -184,13 +184,16 @@ void RadiationEngine::UpdateStormFXVisibility()
         if (_stormPhase != StormPhase::Warning)
             TriggerStormFX(true);              // shake (Papyrus, lethal); nuke only if not yet fired
         SpawnStormDome();                      // re-spawn the native dome on stepping back outside
-        const bool firestormWarning = _stormPhase == StormPhase::Warning &&
-            _activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
+        const bool firestorm = _activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
             kStormTypes[_activeStormType].themeId == 1;
-        if (firestormWarning)
-            ClearStormIMAD();
+        const bool firestormHolding = firestorm &&
+            (_stormPhase == StormPhase::Warning || _firestormAwaitingNuke || _stormRollInTicks > 0);
+        if (firestormHolding)
+            FadeOutStormIMAD(1.0f);
+        else if (_stormPhase == StormPhase::Warning)
+            SetStormIMADTarget(_activeStormType, 0.35f, 3.0f);
         else
-            ApplyStormIMAD(_activeStormType);  // re-apply the colour grade
+            ApplyStormIMAD(_activeStormType);
         // Firestorm's ground fire ring also restores on re-exposure (every other FX does). Only during
         // Active — it's a peak effect, not a warning one — and only for the firestorm theme; SpawnFireRing
         // self-clears its old refs at entry, so re-calling is safe.
@@ -202,7 +205,7 @@ void RadiationEngine::UpdateStormFXVisibility()
     {
         TriggerStormFX(false);                 // stop shake
         ClearStormDome();                      // despawn the native dome indoors (it would clip walls)
-        ClearStormIMAD();                      // remove the green colour grade indoors
+        FadeOutStormIMAD(1.0f);
     }
 }
 void RadiationEngine::ApplyStormExposure()

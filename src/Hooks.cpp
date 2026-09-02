@@ -1,15 +1,20 @@
 #include "pch.h"
 #include "Hooks.h"
 #include "PrismaUI_F4_API.h"
+
+#ifdef MEM_RELEASE
+#undef MEM_RELEASE
+#endif
+
+#ifdef constant
+#undef constant
+#endif
+
 #include "RadiationEngine.h"
 #include "RadHud.h"
 
 #ifdef MAX_PATH
 #undef MAX_PATH
-#endif
-
-#ifdef MEM_RELEASE
-#undef MEM_RELEASE
 #endif
 
 #include <RE/B/BSInputEventUser.h>

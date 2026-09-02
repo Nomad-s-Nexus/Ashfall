@@ -1,5 +1,8 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
+#include "Hooks.h"
+#include <algorithm>
+#include <cmath>
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -143,39 +146,126 @@ void RadiationEngine::ClearStormGhouls()
 }
 void RadiationEngine::ApplyStormIMAD(int typeIndex)
 {
-    if (typeIndex < 0 || typeIndex >= kStormTypeCount) return;
-    if (_activeStormImadIndex == typeIndex) return;
+    SetStormIMADTarget(typeIndex, 1.0f, 2.5f);
+}
 
-    // Dust Storm uses NO image-space modifier (like vanilla CommonwealthDusty): the brown TintColor
-    // added over the dark-blue night sky rendered PURPLE, and it read as a flat "painted" grade on top.
-    // The heavy fog + brown weather colours + camera-dust particles carry the look instead. Clear any
-    // dust IMAD still running from a prior apply and bail.
-    if (typeIndex == kDustStormIndex)
+void RadiationEngine::SetStormIMADTarget(int typeIndex, float strength, float fadeSeconds)
+{
+    strength = std::clamp(strength, 0.0f, 1.0f);
+    if (strength <= 0.0f || typeIndex < 0 || typeIndex >= kStormTypeCount || typeIndex == kDustStormIndex)
     {
-        ClearStormIMAD();
+        FadeOutStormIMAD(fadeSeconds);
         return;
     }
 
-    RE::TESImageSpaceModifier* imad = _stormIMADs[typeIndex];
-    if (!imad) return;
-
-    // Stop any previously-running storm IMAD first to avoid stacking.
-    if (_activeStormImadIndex >= 0 && _activeStormImadIndex < kStormTypeCount
-        && _stormIMADs[_activeStormImadIndex])
+    auto* imad = _stormIMADs[typeIndex];
+    if (!imad)
     {
-        RE::ImageSpaceModifierInstanceForm::Stop(_stormIMADs[_activeStormImadIndex]);
+        FadeOutStormIMAD(fadeSeconds);
+        return;
     }
 
-    RE::ImageSpaceModifierInstanceForm::Trigger(imad, 1.0f, nullptr);
-    _activeStormImadIndex = typeIndex;
-    Log()->info("[StormIMAD] Applied atmosphere IMAD for '{}' (type {}).",
-        kStormTypes[typeIndex].name, typeIndex);
+    if (_activeStormImadIndex != typeIndex || !_stormImadInstance)
+    {
+        if (_stormImadInstance)
+            static_cast<RE::ImageSpaceModifierInstance*>(_stormImadInstance.get())->Stop();
+        _stormImadInstance = RE::ImageSpaceModifierInstanceForm::Trigger(imad, 0.0f, nullptr);
+        if (!_stormImadInstance)
+        {
+            _activeStormImadIndex = -1;
+            _stormImadTargetStrength = 0.0f;
+            _stormImadFadeRate = 0.0f;
+            Hooks::SetStormIMADFadeActive(false);
+            return;
+        }
+        _activeStormImadIndex = typeIndex;
+        Log()->info("[StormIMAD] Started atmosphere IMAD for '{}' (type {}).",
+            kStormTypes[typeIndex].name, typeIndex);
+    }
+
+    const float current = _stormImadInstance->strength;
+    _stormImadTargetStrength = strength;
+    _stormImadStopWhenFaded = false;
+    _stormImadFadeRate = fadeSeconds > 0.0f ? std::abs(strength - current) / fadeSeconds : 0.0f;
+    if (fadeSeconds <= 0.0f)
+    {
+        _stormImadInstance->strength = strength;
+        _stormImadFadeRate = 0.0f;
+        Hooks::SetStormIMADFadeActive(false);
+    }
+    else
+    {
+        Hooks::SetStormIMADFadeActive(current != strength);
+    }
 }
+
+void RadiationEngine::FadeOutStormIMAD(float fadeSeconds)
+{
+    if (!_stormImadInstance)
+    {
+        Hooks::SetStormIMADFadeActive(false);
+        return;
+    }
+    _stormImadTargetStrength = 0.0f;
+    _stormImadStopWhenFaded = true;
+    _stormImadFadeRate = fadeSeconds > 0.0f ? _stormImadInstance->strength / fadeSeconds : 0.0f;
+    if (fadeSeconds <= 0.0f || _stormImadInstance->strength <= 0.001f)
+    {
+        static_cast<RE::ImageSpaceModifierInstance*>(_stormImadInstance.get())->Stop();
+        _stormImadInstance = nullptr;
+        _activeStormImadIndex = -1;
+        _stormImadStopWhenFaded = false;
+        Hooks::SetStormIMADFadeActive(false);
+    }
+    else
+        Hooks::SetStormIMADFadeActive(true);
+}
+
+void RadiationEngine::UpdateStormIMADFade()
+{
+    if (!_stormImadInstance)
+    {
+        Hooks::SetStormIMADFadeActive(false);
+        return;
+    }
+
+    const float current = _stormImadInstance->strength;
+    const float delta = _stormImadTargetStrength - current;
+    if (std::abs(delta) <= 0.001f)
+    {
+        _stormImadInstance->strength = _stormImadTargetStrength;
+        if (_stormImadStopWhenFaded && _stormImadTargetStrength <= 0.0f)
+        {
+            static_cast<RE::ImageSpaceModifierInstance*>(_stormImadInstance.get())->Stop();
+            _stormImadInstance = nullptr;
+            _activeStormImadIndex = -1;
+            _stormImadFadeRate = 0.0f;
+            _stormImadStopWhenFaded = false;
+            Hooks::SetStormIMADFadeActive(false);
+        }
+        else
+        {
+            _stormImadFadeRate = 0.0f;
+            Hooks::SetStormIMADFadeActive(false);
+        }
+        return;
+    }
+
+    const float step = _stormImadFadeRate > 0.0f ? _stormImadFadeRate / 30.0f : std::abs(delta);
+    _stormImadInstance->strength = current + std::copysign(std::min(std::abs(delta), step), delta);
+}
+
 void RadiationEngine::ClearStormIMAD()
 {
-    if (_activeStormImadIndex < 0) return;
-    if (_activeStormImadIndex < kStormTypeCount && _stormIMADs[_activeStormImadIndex])
+    if (_stormImadInstance)
+        static_cast<RE::ImageSpaceModifierInstance*>(_stormImadInstance.get())->Stop();
+    else if (_activeStormImadIndex >= 0 && _activeStormImadIndex < kStormTypeCount && _stormIMADs[_activeStormImadIndex])
         RE::ImageSpaceModifierInstanceForm::Stop(_stormIMADs[_activeStormImadIndex]);
+    _stormImadInstance = nullptr;
     _activeStormImadIndex = -1;
+    _stormImadTargetStrength = 0.0f;
+    _stormImadFadeRate = 0.0f;
+    _stormImadStopWhenFaded = false;
+    Hooks::SetStormIMADFadeActive(false);
     Log()->debug("[StormIMAD] Storm atmosphere IMAD cleared.");
 }

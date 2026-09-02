@@ -233,13 +233,17 @@ def check_source(html_path, source_path):
         'if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())',
         's_domeFollowTaskQueued',
         's_domeFollowActive',
+        's_stormImadFadeActive',
         'SetDomeFollowActive',
+        'SetStormIMADFadeActive',
         'void QueueDomeFollow()',
         'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
+        'RadiationEngine::GetSingleton().UpdateStormIMADFade();',
         'QueueDomeFollow();',
         'kDomeFollowInterval',
         'std::chrono::milliseconds(33)',
-        'if (!s_domeFollowActive.load(std::memory_order_acquire)) return;',
+        's_domeFollowActive.load(std::memory_order_acquire)',
+        's_stormImadFadeActive.load(std::memory_order_acquire)',
         'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
     ):
         if marker not in hooks:
@@ -249,11 +253,12 @@ def check_source(html_path, source_path):
     if dome_queue_idx > dome_throttle_idx:
         raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
     dome_producer_idx = hooks.index('void QueueDomeFollow()')
-    dome_active_gate_idx = hooks.index('if (!s_domeFollowActive.load(std::memory_order_acquire)) return;', dome_producer_idx)
+    dome_active_gate_idx = hooks.index('s_domeFollowActive.load(std::memory_order_acquire)', dome_producer_idx)
+    imad_active_gate_idx = hooks.index('s_stormImadFadeActive.load(std::memory_order_acquire)', dome_producer_idx)
     dome_gate_idx = hooks.index('if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;', dome_producer_idx)
     dome_dispatch_idx = hooks.index('queued = QueueMainThreadTask', dome_producer_idx)
-    if dome_active_gate_idx > dome_gate_idx:
-        raise SystemExit('storm dome active flag must be checked before cadence throttling')
+    if max(dome_active_gate_idx, imad_active_gate_idx) > dome_gate_idx:
+        raise SystemExit('storm visual active flags must be checked before cadence throttling')
     if dome_gate_idx > dome_dispatch_idx:
         raise SystemExit('storm dome follow cadence must be gated before main-thread dispatch')
 
@@ -288,6 +293,8 @@ def check_source(html_path, source_path):
     engine_header = Path(source_path).with_name('RadiationEngine.h').read_text(encoding='utf-8')
     if 'void UpdateStormDomeFollow();' not in engine_header:
         raise SystemExit('RadiationEngine must expose per-frame dome follow')
+    if 'void UpdateStormIMADFade();' not in engine_header:
+        raise SystemExit('RadiationEngine must expose bounded IMAD fade updates')
     if '_stormDomeFollowTick' in engine_header:
         raise SystemExit('obsolete dome follow tick member must not return')
 

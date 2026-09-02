@@ -327,7 +327,7 @@ void RadiationEngine::UpdateStorm()
                 // indoors mid-roll-in (the nuke's shake stayed on because the manager thought FX were off).
                 if (!IsPlayerSheltered())
                 {
-                    ApplyStormIMAD(_activeStormType);   // engine colour grade rolls in
+                    ApplyStormIMAD(_activeStormType);
                     if (st.themeId == 1)
                         SpawnFireRing();                // ground fire ring rolls in
                     TriggerStormDome();                 // cloud dome rolls in with the blast wave
@@ -402,7 +402,7 @@ void RadiationEngine::UpdateStorm()
             ClearFireRefs();        // remove any spawned fire hazards
             // NOTE: hunter ghouls are NOT cleared here — they persist past the storm and keep hunting,
             // despawning only when the player leaves the area (CheckGhoulPackCleanup).
-            ClearStormIMAD();       // remove the engine atmosphere color grading
+            FadeOutStormIMAD(3.0f);
             TriggerStormFX(false);  // stop shake (Papyrus, if it ever works)
             ClearStormDome();       // despawn the native cloud dome
             _stormFXVisible = false;
