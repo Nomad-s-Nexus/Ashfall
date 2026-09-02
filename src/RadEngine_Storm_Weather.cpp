@@ -33,6 +33,8 @@ void RadiationEngine::ReleaseStormWeather()
     auto* sky = RE::Sky::GetSingleton();
     if (!sky)
     {
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
         _weatherForced = false;
@@ -84,17 +86,30 @@ void RadiationEngine::ForceClearAndSilence()
         _stormSoundHandle.FadeOutAndRelease(kStormSoundFadeMs);
     _curStormBed = nullptr;
     _radstormWarned = false;
-    ReleaseStormWeather();
 
-    auto* sky = RE::Sky::GetSingleton();
-    if (!sky || !_clearWeather) return;
-    sky->ReleaseWeatherOverride();
-    sky->ForceWeather(_clearWeather, false);
+    _dustBuildupActive = false;
+    _dustFogRollTick = 0;
+    _warnTicksTotal = 0;
+    _dustRollPrevWeather = nullptr;
+    _dustRollElapsed = 0;
+    _dustRollTotal = 0;
+    if (RE::TESWeather* dust = _stormWeathers[kDustStormIndex])
+    {
+        const StormType& st = kStormTypes[kDustStormIndex];
+        ApplyWeatherFog(dust, st.fogNear, st.fogFar, st.fogPower, st.fogHeightMid, st.fogHeightRange, st.fogHiDensity);
+    }
+    _sirenDelayTicks = 0;
+    StopStormCue(kRadstormCueFalloffMs);
     _weatherReturnTarget = nullptr;
     _weatherReturnCaptured = false;
     _releaseWeatherOverrideWhenSettled = false;
     _weatherHandoffSettleTicks = 0;
     _weatherForced = false;
+
+    auto* sky = RE::Sky::GetSingleton();
+    if (!sky || !_clearWeather) return;
+    sky->ReleaseWeatherOverride();
+    sky->ForceWeather(_clearWeather, false);
 }
 void RadiationEngine::SpawnFireRing()
 {

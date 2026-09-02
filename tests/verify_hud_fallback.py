@@ -174,6 +174,11 @@ def check_source(html_path, source_path):
     ):
         if marker not in storm_source:
             raise SystemExit(f'missing smooth storm-weather return contract: {marker}')
+    storm_weather_source = Path(source_path).with_name('RadEngine_Storm_Weather.cpp').read_text(encoding='utf-8')
+    force_clear_start = storm_weather_source.index('void RadiationEngine::ForceClearAndSilence()')
+    force_clear_body = storm_weather_source[force_clear_start:storm_weather_source.index('\n}\n', force_clear_start)]
+    if 'ReleaseStormWeather();' in force_clear_body:
+        raise SystemExit('ForceClearAndSilence must abort the handoff directly')
 
     weather_source = Path(source_path).with_name('RadEngine_Weather.cpp').read_text(encoding='utf-8')
     for marker in (
