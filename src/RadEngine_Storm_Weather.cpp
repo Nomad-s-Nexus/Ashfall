@@ -1,12 +1,53 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
+#include <RE/B/bhkPickData.h>
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
 #include <RE/N/NiAVObject.h>
 #include <RE/N/NiObjectNET.h>
+#include <RE/T/TESObjectCELL.h>
+#include <RE/T/TESWorldSpace.h>
 
 using namespace RadInternal;
+
+namespace
+{
+    constexpr float kExteriorCellSize = 4096.0f;
+    constexpr float kGroundProbeTop = 20000.0f;
+    constexpr float kGroundProbeBottom = -20000.0f;
+    constexpr float kNukeGroundClearance = 16.0f;
+
+    bool ResolveGroundHeight(RE::TESWorldSpace* world, const RE::NiPoint3& target, float& groundZ)
+    {
+        if (!world)
+            return false;
+
+        const auto cellX = static_cast<std::int32_t>(std::floor(target.x / kExteriorCellSize));
+        const auto cellY = static_cast<std::int32_t>(std::floor(target.y / kExteriorCellSize));
+        const auto packed = static_cast<std::int32_t>(
+            (static_cast<std::uint32_t>(cellY) & 0xFFFFu) |
+            (static_cast<std::uint32_t>(static_cast<std::int16_t>(cellX)) << 16));
+        const auto cellIt = world->cellMap.find(packed);
+        if (cellIt == world->cellMap.end() || !cellIt->second)
+            return false;
+
+        auto* cell = cellIt->second;
+        if (!cell->IsAttached() || !cell->GetbhkWorld())
+            return false;
+
+        RE::bhkPickData pick;
+        pick.SetStartEnd(
+            { target.x, target.y, target.z + kGroundProbeTop },
+            { target.x, target.y, target.z + kGroundProbeBottom });
+        (void)cell->Pick(pick);
+        if (!pick.HasHit())
+            return false;
+
+        groundZ = pick.result.position.z;
+        return std::isfinite(groundZ);
+    }
+}
 
 // Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
 // Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
@@ -183,9 +224,19 @@ bool RadiationEngine::SpawnDistantNuke()
     const float yaw = player->data.angle.z + yawJitter(rng) * (kPi / 180.0f);
     const float distance = distanceDist(rng);
     const RE::NiPoint3 base = player->GetPosition();
-    const auto nuke = RadCorrectnessPolicy::DistantNukePlacement(
-        { base.x, base.y, base.z }, yaw, distance, 0.0f);
-    const RE::NiPoint3 pos{ nuke.strike.x, nuke.strike.y, nuke.strike.z };
+    const auto nuke = RadCorrectnessPolicy::DistantNukePlacementXY(
+        { base.x, base.y, base.z }, yaw, distance);
+    const RE::NiPoint3 targetXY{ nuke.strike.x, nuke.strike.y, 0.0f };
+    float groundZ = 0.0f;
+    if (!ResolveGroundHeight(player->cachedWorldspace, targetXY, groundZ))
+    {
+        Log()->warn("[Storm/Nuke] ground resolution failed playerZ={:.0f} targetXY=({:.0f},{:.0f}) "
+                    "groundResolved=false; will retry within the bounded window.",
+            base.z, targetXY.x, targetXY.y);
+        return false;
+    }
+
+    const RE::NiPoint3 pos{ targetXY.x, targetXY.y, groundZ + kNukeGroundClearance };
     const RE::NiPoint3 rot{ 0.0f, 0.0f, nuke.facingYaw };
 
     // DETONATE (not place) via the authoritative commonlib_NonVR wrapper. Cell is passed null on
@@ -195,8 +246,10 @@ bool RadiationEngine::SpawnDistantNuke()
         static_cast<RE::TESBoundObject*>(_nukeExplosionForm),
         pos, rot, nullptr, player->cachedWorldspace);
 
-    Log()->info("[Storm/Nuke] distant firestorm strike detonated={} distance={:.0f} strike=({:.0f},{:.0f},{:.0f}) facingPlayerYaw={:.2f}.",
-        static_cast<bool>(handle), distance, pos.x, pos.y, pos.z, nuke.facingYaw);
+    Log()->info("[Storm/Nuke] distant firestorm strike detonated={} playerZ={:.0f} "
+                "targetXY=({:.0f},{:.0f}) groundZ={:.0f} finalZ={:.0f} "
+                "distance={:.0f} groundResolved=true facingPlayerYaw={:.2f}.",
+        static_cast<bool>(handle), base.z, targetXY.x, targetXY.y, groundZ, pos.z, distance, nuke.facingYaw);
     if (!handle)
         Log()->warn("[Storm/Nuke] null handle — target cell not loaded at that position (engine gate), "
                     "or the EXPL form failed its type check. Will retry within the bounded window.");

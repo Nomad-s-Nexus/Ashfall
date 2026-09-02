@@ -26,12 +26,12 @@ namespace RadCorrectnessPolicy
         float facingYaw;
     };
 
-    inline NukePlacement DistantNukePlacement(Position player, float originYaw, float distance, float zOffset)
+    inline NukePlacement DistantNukePlacementXY(Position player, float originYaw, float distance)
     {
         const Position strike{
             player.x + distance * std::sin(originYaw),
             player.y + distance * std::cos(originYaw),
-            player.z + zOffset
+            0.0f
         };
         return { strike, std::atan2(player.x - strike.x, player.y - strike.y) };
     }

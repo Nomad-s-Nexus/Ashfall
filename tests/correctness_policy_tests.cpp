@@ -18,8 +18,9 @@ int main()
     using namespace RadCorrectnessPolicy;
 
     Require(DomePosition({ 10.0f, 20.0f, 30.0f }, 6000.0f) == Position{ 10.0f, 20.0f, 6030.0f });
-    const auto nuke = DistantNukePlacement({ 0.0f, 0.0f, 0.0f }, 0.0f, 4250.0f, 0.0f);
-    Require(nuke.strike == Position{ 0.0f, 4250.0f, 0.0f });
+    const auto nuke = DistantNukePlacementXY({ 123.0f, 456.0f, 789.0f }, 0.0f, 4250.0f);
+    Require(nuke.strike.x == 123.0f);
+    Require(nuke.strike.y == 4706.0f);
     Require(std::abs(nuke.facingYaw - 3.14159265f) < 0.001f);
     Require(ShouldReturnToClear(true, false));
     Require(ShouldReturnToClear(false, true));

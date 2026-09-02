@@ -51,3 +51,7 @@ The return target excludes vanilla radstorm weather so a managed firestorm canno
 References: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::SpawnStormDome`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateStormDomeLifecycle`, `src/RadEngine_Storm_FX.cpp:RadiationEngine::TriggerStormFX`, and `src/RadEngine_Storm_Weather.cpp:RadiationEngine::SpawnDistantNuke`.
 
 The native fog dome is restricted to Ash Fallout. Other storm types retain their weather-specific atmosphere and effects without creating the dome. The firestorm explosion remains a native detonation, placed 3,500–5,000 units from the player at terrain height so the effect remains within the loaded exterior grid.
+
+References: `src/RadEngine_Storm_Weather.cpp:ResolveGroundHeight` and `src/RadEngine_Storm_Weather.cpp:RadiationEngine::SpawnDistantNuke`.
+
+The nuke policy supplies only distant X/Y and facing. The runtime resolves the loaded target cell's collision height through the verified `TESObjectCELL::Pick` wrapper, adds 16 units of clearance, and retries when the target cell or ground probe is unavailable. Nuke logs include player Z, target X/Y, resolved ground Z, final Z, and the resolution result.
