@@ -103,6 +103,11 @@ html, body {
 }
 @keyframes bannerDust { 0%,100%{opacity:1;letter-spacing:4px;}50%{opacity:.6;letter-spacing:6px;} }
 
+#emissionBanner.warning-blink, #emissionSub.warning-blink {
+  animation: stormWarningBlink .75s steps(2,end) infinite;
+}
+@keyframes stormWarningBlink { 0%,100%{opacity:1;}50%{opacity:.35;} }
+
 #emissionSub {
   position: fixed; top: calc(13% + 46px); left: 50%; transform: translateX(-50%);
   font-size: 12px; letter-spacing: 6px; opacity: 0;

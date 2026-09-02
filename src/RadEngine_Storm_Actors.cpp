@@ -144,6 +144,7 @@ void RadiationEngine::ClearStormGhouls()
 void RadiationEngine::ApplyStormIMAD(int typeIndex)
 {
     if (typeIndex < 0 || typeIndex >= kStormTypeCount) return;
+    if (_activeStormImadIndex == typeIndex) return;
 
     // Dust Storm uses NO image-space modifier (like vanilla CommonwealthDusty): the brown TintColor
     // added over the dark-blue night sky rendered PURPLE, and it read as a flat "painted" grade on top.

@@ -82,7 +82,10 @@ window.stormPhase = function(json) {
     currentStormTheme = theme; currentStormPhase = phase;
     var banner = document.getElementById("emissionBanner");
     var sub    = document.getElementById("emissionSub");
-    if (phase === 0 || !STORM_THEMES[theme]) { banner.className=""; sub.className=""; return; }
+    if (phase === 0 || !STORM_THEMES[theme]) {
+      clearTimeout(bannerTimer);
+      banner.className=""; sub.className=""; return;
+    }
     if (phaseChanged) {
       var th = STORM_THEMES[theme];
       if (phase === 3) {
@@ -94,10 +97,12 @@ window.stormPhase = function(json) {
         banner.textContent = th.name + (lethal && (phase===1||(phase===2&&!shelter)) ? " - SEEK SHELTER!" : "");
         sub.textContent    = th.sub;
       }
-      banner.className = "on " + th.cls + "-b";
-      sub.className    = "on " + th.cls + "-s";
+      var warning = phase === 1;
+      var blink = warning ? " warning-blink" : "";
+      banner.className = "on " + th.cls + "-b" + blink;
+      sub.className    = "on " + th.cls + "-s" + blink;
       clearTimeout(bannerTimer);
-      bannerTimer = setTimeout(function(){ banner.className=""; sub.className=""; }, 10000);
+      bannerTimer = warning ? 0 : setTimeout(function(){ banner.className=""; sub.className=""; }, 10000);
     }
   } catch(e) {}
 };

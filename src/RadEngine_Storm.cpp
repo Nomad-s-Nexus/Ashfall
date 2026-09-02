@@ -84,6 +84,7 @@ void RadiationEngine::EnterWarningPhase()
     {
         SpawnStormDome();   // re-ensure the dome if the player stepped out during the lead (self-guards on _stormDomeUp)
         PlayStormCue();
+        ApplyStormIMAD(_activeStormType);
     }
     char msg[96];
     if (st.lethal)
