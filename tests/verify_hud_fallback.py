@@ -151,13 +151,26 @@ def check_source(html_path, source_path):
         if marker not in source:
             raise SystemExit(f'cross-thread HUD callback bridge must use atomic publication: {marker}')
 
-    storm_source = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    storm_source = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in (
+            'RadEngine_Storm.cpp',
+            'RadEngine_Storm_Weather.cpp',
+            'RadEngine_Storm_Dome.cpp',
+            'RadEngine_Storm_Actors.cpp',
+            'RadEngine_Storm_FX.cpp',
+            'RadEngine_Storm_Update.cpp',
+        )
+    )
     for marker in (
         'UpdateWeatherHandoff();',
         'CaptureWeatherReturnTarget();',
         'BeginSmoothWeather(target, /*lockOverride=*/true);',
         '_weatherReturnCaptured ? _weatherReturnTarget',
         'region control releases only after the blend is stable',
+        'RadCorrectnessPolicy::DistantNukePlacement',
+        'facingPlayerYaw',
+        'sky->ForceWeather(_clearWeather, false);',
     ):
         if marker not in storm_source:
             raise SystemExit(f'missing smooth storm-weather return contract: {marker}')
@@ -173,6 +186,7 @@ def check_source(html_path, source_path):
         '_weatherReturnTarget',
         '_weatherHandoffSettleTicks < 8',
         'vanilla region weather control restored',
+        'RadCorrectnessPolicy::ShouldReturnToClear',
     ):
         if marker not in weather_source:
             raise SystemExit(f'missing weather return handoff contract: {marker}')
@@ -221,7 +235,17 @@ def check_source(html_path, source_path):
     if dome_queue_idx > dome_throttle_idx:
         raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
 
-    storm_source = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    storm_source = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in (
+            'RadEngine_Storm.cpp',
+            'RadEngine_Storm_Weather.cpp',
+            'RadEngine_Storm_Dome.cpp',
+            'RadEngine_Storm_Actors.cpp',
+            'RadEngine_Storm_FX.cpp',
+            'RadEngine_Storm_Update.cpp',
+        )
+    )
     for marker in (
         'void RadiationEngine::UpdateStormDomeLifecycle()',
         'void RadiationEngine::UpdateStormDomeFollow()',

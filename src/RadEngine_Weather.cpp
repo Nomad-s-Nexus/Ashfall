@@ -190,7 +190,10 @@ void RadiationEngine::CaptureWeatherReturnTarget()
         }
     }
 
-    _weatherReturnTarget = isManagedStorm ? _clearWeather : candidate;
+    const bool isVanillaRadstorm = IsRadstormWeather(candidate->GetFormID());
+    _weatherReturnTarget = RadCorrectnessPolicy::ShouldReturnToClear(isManagedStorm, isVanillaRadstorm)
+        ? _clearWeather
+        : candidate;
     _weatherReturnCaptured = _weatherReturnTarget != nullptr;
     if (_weatherReturnCaptured)
         Log()->debug("[StormWeather] Captured pre-override return weather 0x{:06X}.", _weatherReturnTarget->GetFormID());
