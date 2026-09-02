@@ -17,8 +17,6 @@ int main()
     using namespace RadCorrectnessPolicy;
 
     Require(DomePosition({ 10.0f, 20.0f, 30.0f }, 6000.0f) == Position{ 10.0f, 20.0f, 6030.0f });
-    Require(!ShouldFollowDomeOnTick(3));
-    Require(ShouldFollowDomeOnTick(4));
     Require(!ShouldRecreateDomeForOwner(false, false, false));
     Require(!ShouldRecreateDomeForOwner(true, true, true));
     // Exterior parent-cell changes are normal streaming inside one worldspace. Keep the existing

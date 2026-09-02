@@ -173,9 +173,38 @@ def check_source(html_path, source_path):
         'if (IsPrismaModuleLoaded())',
         'PrismaUI absent; installed Win32 fallback',
         'if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())',
+        's_domeFollowTaskQueued',
+        'static void QueueDomeFollow()',
+        'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
+        'QueueDomeFollow();',
     ):
         if marker not in hooks:
             raise SystemExit(f'missing non-blocking game-thread dispatch contract: {marker}')
+    dome_queue_idx = hooks.index('QueueDomeFollow();')
+    dome_throttle_idx = hooks.index('if (elapsed < kUpdateInterval)', dome_queue_idx)
+    if dome_queue_idx > dome_throttle_idx:
+        raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
+
+    storm_source = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    for marker in (
+        'void RadiationEngine::UpdateStormDomeLifecycle()',
+        'void RadiationEngine::UpdateStormDomeFollow()',
+        'if (player->cachedWorldspace != _stormDomeWorld) return;',
+        'UpdateStormDomeLifecycle();',
+        'ref->Update3DPosition(true);',
+    ):
+        if marker not in storm_source:
+            raise SystemExit(f'missing smooth dome follow contract: {marker}')
+    for forbidden in ('ShouldFollowDomeOnTick', '_stormDomeFollowTick'):
+        if forbidden in storm_source:
+            raise SystemExit(f'obsolete tick-throttled dome follow state remains: {forbidden}')
+
+    engine_header = Path(source_path).with_name('RadiationEngine.h').read_text(encoding='utf-8')
+    if 'void UpdateStormDomeFollow();' not in engine_header:
+        raise SystemExit('RadiationEngine must expose per-frame dome follow')
+    if '_stormDomeFollowTick' in engine_header:
+        raise SystemExit('obsolete dome follow tick member must not return')
+
     for forbidden in (
         'WaitForPrismaDispatcher',
         'PrismaDispatcherProbe',

@@ -82,6 +82,7 @@ namespace Hooks
     // Coalesce producer traffic. PlayerCharacter::Update can run 60-120+ times/s; there is no reason to
     // enqueue another input poll or 4 Hz engine tick while one of the same kind is already waiting.
     static std::atomic_bool s_inputTaskQueued{ false };
+    static std::atomic_bool s_domeFollowTaskQueued{ false };
     static std::atomic_bool s_updateTaskQueued{ false };
 
     // PlayerCharacter::Update is a worker job and may migrate between worker threads across frames.
@@ -370,6 +371,37 @@ namespace Hooks
             s_inputTaskQueued.store(false);
     }
 
+    static void QueueDomeFollow()
+    {
+        bool expected = false;
+        if (!s_domeFollowTaskQueued.compare_exchange_strong(expected, true))
+            return;
+
+        bool queued = false;
+        try
+        {
+            queued = QueueMainThreadTask([]() {
+                try
+                {
+                    RadiationEngine::GetSingleton().UpdateStormDomeFollow();
+                }
+                catch (...)
+                {
+                    s_domeFollowTaskQueued.store(false);
+                    throw;
+                }
+                s_domeFollowTaskQueued.store(false);
+            });
+        }
+        catch (...)
+        {
+            s_domeFollowTaskQueued.store(false);
+            throw;
+        }
+        if (!queued)
+            s_domeFollowTaskQueued.store(false);
+    }
+
     static void QueueEngineUpdate()
     {
         bool expected = false;
@@ -417,6 +449,9 @@ namespace Hooks
 
             // Preserve per-frame key responsiveness without touching engine state on this worker.
             QueueInputPoll();
+
+            // Dome motion is visual and must not inherit the 4 Hz radiation-engine cadence.
+            QueueDomeFollow();
 
             // Wall-clock throttle: actor delta-time can be zero in fullscreen menus. At most one engine
             // update is produced every 250 ms. The mutex makes this safe even if Fallout migrates the
@@ -502,7 +537,7 @@ namespace Hooks
             {
                 logger->info("[Hook] Producer hook installed successfully.");
                 logger->debug("  Original function address: 0x{:X}", original_Update.address());
-                logger->debug("  Producer cadence: per-frame input + ~4 Hz engine tick");
+                logger->debug("  Producer cadence: per-frame input + dome follow + ~4 Hz engine tick");
                 logger->debug("  Engine execution thread: verified game-main thread {}", s_gameMainThreadId.load());
             }
             return true;

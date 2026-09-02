@@ -352,7 +352,6 @@ void RadiationEngine::SpawnStormDome()
     // ACTI layers (below); if those fail to resolve but the arena lights do, _stormDomeUp stays false
     // and every re-exposure would otherwise append another light pair, leaking the previous ones.
     ClearStormDome();
-    _stormDomeFollowTick = 0;
 
     const RE::NiPoint3 base = player->GetPosition();
     auto* const playerCell = player->GetParentCell();
@@ -570,7 +569,7 @@ void RadiationEngine::ClearStormDome()
     Log()->info("[StormFX] Storm dome cleared ({} layers).", cleared);
 }
 
-void RadiationEngine::UpdateStormDomePosition()
+void RadiationEngine::UpdateStormDomeLifecycle()
 {
     const bool domePhase = _stormPhase == StormPhase::Approach ||
         _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
@@ -585,7 +584,7 @@ void RadiationEngine::UpdateStormDomePosition()
     if (!player) return;
 
     // A transition can briefly leave the worldspace unresolved, or a target cell can reject all
-    // placements. Keep retrying at the normal 1 Hz cadence through every dome-bearing phase instead
+    // placements. Keep retrying on the normal 4 Hz engine lifecycle cadence through every dome-bearing phase instead
     // of leaving the storm permanently dome-less after one failed recreation.
     if (!_stormDomeUp)
     {
@@ -611,8 +610,19 @@ void RadiationEngine::UpdateStormDomePosition()
         return;
     }
 
-    if (!RadCorrectnessPolicy::ShouldFollowDomeOnTick(++_stormDomeFollowTick)) return;
-    _stormDomeFollowTick = 0;
+}
+
+void RadiationEngine::UpdateStormDomeFollow()
+{
+    // Called once per player update through the verified main-thread dispatcher. This path only
+    // moves live references. It never spawns, deletes, reparents, or recreates anything.
+    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
+
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    if (!player) return;
+
+    // Never drag exterior refs across a worldspace transition. The 4 Hz lifecycle owns that handoff.
+    if (player->cachedWorldspace != _stormDomeWorld) return;
 
     const auto playerPosition = player->GetPosition();
     for (auto& layer : _stormDomeRefs)
@@ -1133,7 +1143,7 @@ void RadiationEngine::MakeNearbyNPCsFlee()
 void RadiationEngine::UpdateStorm()
 {
     auto logger = Log();
-    UpdateStormDomePosition();
+    UpdateStormDomeLifecycle();
 
     // New-game safety: the first time the player is outdoors after a new game, force the
     // Commonwealth clear weather so a vault exit / alt-start never opens straight into a rad storm

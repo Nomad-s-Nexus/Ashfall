@@ -19,11 +19,6 @@ namespace RadCorrectnessPolicy
         return { player.x, player.y, player.z + zOffset };
     }
 
-    constexpr bool ShouldFollowDomeOnTick(int ticksSinceLastMove)
-    {
-        return ticksSinceLastMove >= 4;
-    }
-
     constexpr bool ShouldRecreateDomeForOwner(bool domeUp, [[maybe_unused]] bool sameCell, bool sameWorld)
     {
         // Exterior parent-cell changes are normal streaming while the player moves through one
