@@ -150,6 +150,8 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     //   destabilising the (hard-won) working path over — documented so it's a choice, not an oversight.
     auto* sky = RE::Sky::GetSingleton();
     if (!sky || !a_target || sky->currentWeather == a_target) return;
+    if (_releaseClearOverrideWhenSettled && a_target != _clearWeather)
+        _releaseClearOverrideWhenSettled = false;
     if (a_lockOverride)
         sky->overrideWeather = a_target;            // lock target (region won't override it back)
     sky->lastWeather       = sky->currentWeather;   // transition SOURCE (engine blends from this)
@@ -158,6 +160,30 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     sky->currentWeatherPct  = 0.0f;                 // begin the blend; engine ramps it to 1.0 from here
     _weatherForced = true;
 }
+
+void RadiationEngine::UpdateClearWeatherHandoff()
+{
+    if (!_releaseClearOverrideWhenSettled) return;
+    auto* sky = RE::Sky::GetSingleton();
+    if (!sky)
+    {
+        _releaseClearOverrideWhenSettled = false;
+        _weatherForced = false;
+        return;
+    }
+    if (!_clearWeather || sky->currentWeather != _clearWeather)
+    {
+        _releaseClearOverrideWhenSettled = false;
+        return;
+    }
+    const bool settled = sky->lastWeather == nullptr || sky->currentWeatherPct >= 0.999f;
+    if (!settled) return;
+    sky->ReleaseWeatherOverride();
+    _releaseClearOverrideWhenSettled = false;
+    _weatherForced = false;
+    Log()->info("[StormWeather] Commonwealth clear transition settled; vanilla region weather control restored.");
+}
+
 
 
 void RadiationEngine::UpdateDustFogRoll()

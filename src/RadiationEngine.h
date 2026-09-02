@@ -244,6 +244,7 @@ private:
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
+    bool            _releaseClearOverrideWhenSettled = false; // clear sky is temporarily locked only while its blend finishes
     bool            _debugWeatherHold = false;      // a debug-menu forced weather is held: stand the
                                                     // radstorm/dust/rain vetoes down so they can't revert it
     int             _stormPeakTick = 0;             // tick index at which the lethal NPC burst fires
@@ -409,7 +410,8 @@ private:
     bool IsGhoulActor(RE::Actor* a) const;  // true if the actor's race carries ActorTypeGhoul
     void MakeNearbyNPCsFlee();         // lethal storms: panic nearby non-ghoul NPCs (engine flee)
     int  _fleeTick = 0;                // throttle for re-issuing the flee order
-    void ReleaseStormWeather();        // drop any forced weather override
+    void UpdateClearWeatherHandoff();  // release the temporary clear override after the smooth blend settles
+    void ReleaseStormWeather();        // transition managed weather to clear, then hand control back to the region system
     void Notify(const char* message, bool warning) const;  // vanilla HUD corner message
 
     // Fire hazard refs spawned around the player during a Firestorm (themeId==1).

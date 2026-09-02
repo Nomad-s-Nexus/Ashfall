@@ -151,6 +151,26 @@ def check_source(html_path, source_path):
         if marker not in source:
             raise SystemExit(f'cross-thread HUD callback bridge must use atomic publication: {marker}')
 
+    storm_source = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    for marker in (
+        'UpdateClearWeatherHandoff();',
+        'BeginSmoothWeather(_clearWeather, /*lockOverride=*/true);',
+        '_releaseClearOverrideWhenSettled = true;',
+        'temporary override will release after the blend settles',
+    ):
+        if marker not in storm_source:
+            raise SystemExit(f'missing deterministic storm-weather clear contract: {marker}')
+
+    weather_source = Path(source_path).with_name('RadEngine_Weather.cpp').read_text(encoding='utf-8')
+    for marker in (
+        'void RadiationEngine::UpdateClearWeatherHandoff()',
+        'sky->currentWeather != _clearWeather',
+        'sky->currentWeatherPct >= 0.999f',
+        'vanilla region weather control restored',
+    ):
+        if marker not in weather_source:
+            raise SystemExit(f'missing clear-weather handoff contract: {marker}')
+
     lifecycle = Path(source_path).with_name('RadHudLifecycle.cpp').read_text(encoding='utf-8')
     for marker in (
         'RadHud::GetSingleton().ViewsReady()',
