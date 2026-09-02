@@ -30,36 +30,6 @@
 
 namespace Hooks
 {
-    class RadInputHandler final : public RE::BSInputEventUser
-    {
-    public:
-        static RadInputHandler* GetSingleton() { static RadInputHandler instance; return &instance; }
-        bool ShouldHandleEvent(const RE::InputEvent* e) override
-        {
-            return e && e->eventType == RE::INPUT_EVENT_TYPE::kButton && e->device == RE::INPUT_DEVICE::kKeyboard;
-        }
-        void OnButtonEvent(const RE::ButtonEvent* e) override
-        {
-            if (!e || !e->QJustPressed() || e->GetBSButtonCode() != RE::BS_BUTTON_CODE::kF8 ||
-                (::GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) return;
-            RadHud::GetSingleton().ToggleDebugMenu();
-            const_cast<RE::ButtonEvent*>(e)->handled = RE::InputEvent::HANDLED_RESULT::kStop;
-        }
-    };
-
-    bool InstallInputHandler()
-    {
-        static bool installed = false;
-        if (installed) return true;
-        auto logger = spdlog::get("FalloutAnomaly");
-        auto* controls = RE::MenuControls::GetSingleton();
-        if (!controls) { if (logger) logger->error("[Input] MenuControls unavailable; Shift+F8 disabled."); return false; }
-        controls->RegisterHandler(RadInputHandler::GetSingleton());
-        installed = true;
-        if (logger) logger->info("[Input] Rad debug handler registered with MenuControls (Shift+F8).");
-        return true;
-    }
-
     // PlayerCharacter::Update is a producer only. Runtime probing established that this vfunc executes
     // on a worker thread in this Fallout 4 runtime, so engine-facing radiation work must never run
     // directly from it.
@@ -82,7 +52,6 @@ namespace Hooks
     // Coalesce producer traffic. PlayerCharacter::Update can run 60-120+ times/s; there is no reason to
     // enqueue another input poll or 4 Hz engine tick while one of the same kind is already waiting.
     static std::atomic_bool s_inputTaskQueued{ false };
-    static std::atomic_bool s_domeFollowTaskQueued{ false };
     static std::atomic_bool s_updateTaskQueued{ false };
 
     // PlayerCharacter::Update is a worker job and may migrate between worker threads across frames.
@@ -369,37 +338,6 @@ namespace Hooks
         }
         if (!queued)
             s_inputTaskQueued.store(false);
-    }
-
-    static void QueueDomeFollow()
-    {
-        bool expected = false;
-        if (!s_domeFollowTaskQueued.compare_exchange_strong(expected, true))
-            return;
-
-        bool queued = false;
-        try
-        {
-            queued = QueueMainThreadTask([]() {
-                try
-                {
-                    RadiationEngine::GetSingleton().UpdateStormDomeFollow();
-                }
-                catch (...)
-                {
-                    s_domeFollowTaskQueued.store(false);
-                    throw;
-                }
-                s_domeFollowTaskQueued.store(false);
-            });
-        }
-        catch (...)
-        {
-            s_domeFollowTaskQueued.store(false);
-            throw;
-        }
-        if (!queued)
-            s_domeFollowTaskQueued.store(false);
     }
 
     static void QueueEngineUpdate()

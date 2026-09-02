@@ -13,6 +13,7 @@ namespace Hooks
     // and a verified main-thread dispatcher is live.
     bool InstallUpdateHook();
     bool InstallInputHandler();
+    void QueueDomeFollow();
 
     // Queue work for the verified game-main thread. Calls made from the main thread run inline.
     // Returns false when PrismaUI is present but its dispatcher is not ready yet, or when the

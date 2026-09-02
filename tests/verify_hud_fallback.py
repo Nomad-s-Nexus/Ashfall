@@ -214,7 +214,10 @@ def check_source(html_path, source_path):
         if marker not in lifecycle:
             raise SystemExit(f'missing PrismaUI startup retry contract: {marker}')
 
-    hooks = Path(source_path).with_name('Hooks.cpp').read_text(encoding='utf-8')
+    hooks = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in ('Hooks.cpp', 'Hooks_Input.cpp', 'Hooks_DomeFollow.cpp')
+    )
     for marker in (
         'class RadInputHandler final : public RE::BSInputEventUser',
         'RE::MenuControls::GetSingleton()',
@@ -229,9 +232,12 @@ def check_source(html_path, source_path):
         'PrismaUI absent; installed Win32 fallback',
         'if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())',
         's_domeFollowTaskQueued',
-        'static void QueueDomeFollow()',
+        'void QueueDomeFollow()',
         'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
         'QueueDomeFollow();',
+        'kDomeFollowInterval',
+        'std::chrono::milliseconds(33)',
+        'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
     ):
         if marker not in hooks:
             raise SystemExit(f'missing non-blocking game-thread dispatch contract: {marker}')
@@ -239,6 +245,11 @@ def check_source(html_path, source_path):
     dome_throttle_idx = hooks.index('if (elapsed < kUpdateInterval)', dome_queue_idx)
     if dome_queue_idx > dome_throttle_idx:
         raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
+    dome_producer_idx = hooks.index('void QueueDomeFollow()')
+    dome_gate_idx = hooks.index('if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;', dome_producer_idx)
+    dome_dispatch_idx = hooks.index('queued = QueueMainThreadTask', dome_producer_idx)
+    if dome_gate_idx > dome_dispatch_idx:
+        raise SystemExit('storm dome follow cadence must be gated before main-thread dispatch')
 
     storm_source = '\n'.join(
         Path(source_path).with_name(name).read_text(encoding='utf-8')
@@ -254,8 +265,6 @@ def check_source(html_path, source_path):
     for marker in (
         'void RadiationEngine::UpdateStormDomeLifecycle()',
         'void RadiationEngine::UpdateStormDomeFollow()',
-        'kStormDomeFollowInterval',
-        'std::chrono::milliseconds(33)',
         'kStormDomeFollowDistanceThreshold',
         'needsMove',
         'ref->Get3D()',

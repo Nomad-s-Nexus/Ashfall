@@ -1,6 +1,5 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
-#include <chrono>
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -268,14 +267,10 @@ void RadiationEngine::UpdateStormDomeLifecycle()
 
 void RadiationEngine::UpdateStormDomeFollow()
 {
-    using FollowClock = std::chrono::steady_clock;
-    static constexpr auto kStormDomeFollowInterval = std::chrono::milliseconds(33);
     static constexpr float kStormDomeFollowDistanceThreshold = 16.0f;
-    static FollowClock::time_point lastFollow;
 
     if (!_stormDomeUp || _stormDomeRefs.empty())
     {
-        lastFollow = {};
         return;
     }
 
@@ -308,10 +303,6 @@ void RadiationEngine::UpdateStormDomeFollow()
     }
     if (!hasLoaded3D || !needsMove) return;
 
-    const auto now = FollowClock::now();
-    if (lastFollow != FollowClock::time_point{} && now - lastFollow < kStormDomeFollowInterval) return;
-
-    lastFollow = now;
     for (auto& layer : _stormDomeRefs)
     {
         auto ptr = layer.handle.get();
