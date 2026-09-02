@@ -165,6 +165,11 @@ def check_source(html_path, source_path):
     weather_source = Path(source_path).with_name('RadEngine_Weather.cpp').read_text(encoding='utf-8')
     for marker in (
         'void RadiationEngine::UpdateWeatherHandoff()',
+        'const bool resetSessionState = _forceClearOnEntry',
+        '_weatherReturnTarget = nullptr;',
+        '_weatherReturnCaptured = false;',
+        '_releaseWeatherOverrideWhenSettled = false;',
+        '_weatherHandoffSettleTicks = 0;',
         '_weatherReturnTarget',
         '_weatherHandoffSettleTicks < 8',
         'vanilla region weather control restored',

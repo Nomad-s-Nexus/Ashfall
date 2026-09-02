@@ -199,11 +199,24 @@ void RadiationEngine::CaptureWeatherReturnTarget()
 
 void RadiationEngine::UpdateWeatherHandoff()
 {
+    const bool resetSessionState = _forceClearOnEntry
+        || (!_weatherForced && (_weatherReturnTarget || _weatherReturnCaptured
+                                || _releaseWeatherOverrideWhenSettled || _weatherHandoffSettleTicks != 0));
+    if (resetSessionState)
+    {
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        return;
+    }
     if (!_releaseWeatherOverrideWhenSettled) return;
 
     auto* sky = RE::Sky::GetSingleton();
     if (!sky)
     {
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
         _weatherForced = false;
