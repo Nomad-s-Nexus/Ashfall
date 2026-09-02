@@ -54,4 +54,4 @@ The native fog dome is restricted to Ash Fallout. Other storm types retain their
 
 References: `src/RadEngine_Storm_Weather.cpp:ResolveGroundHeight` and `src/RadEngine_Storm_Weather.cpp:RadiationEngine::SpawnDistantNuke`.
 
-The nuke policy supplies only distant X/Y and facing. The runtime resolves the loaded target cell's collision height through the verified `TESObjectCELL::Pick` wrapper, adds 16 units of clearance, and retries when the target cell or ground probe is unavailable. Nuke logs include player Z, target X/Y, resolved ground Z, final Z, and the resolution result.
+The nuke policy supplies only distant X/Y and facing. The runtime resolves the loaded target cell's collision surface through the verified `TESObjectCELL::Pick` wrapper, reconstructs its height from the probe endpoints and hit fraction, adds 16 units of clearance, and retries when the target cell or probe is unavailable. Nuke logs include player Z, target X/Y, hit fraction, resolved surface Z, final Z, and the resolution result.

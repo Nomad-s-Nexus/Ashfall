@@ -18,8 +18,10 @@ namespace
     constexpr float kGroundProbeBottom = -20000.0f;
     constexpr float kNukeGroundClearance = 16.0f;
 
-    bool ResolveGroundHeight(RE::TESWorldSpace* world, const RE::NiPoint3& target, float& groundZ)
+    bool ResolveGroundHeight(
+        RE::TESWorldSpace* world, const RE::NiPoint3& target, float& groundZ, float& hitFraction)
     {
+        hitFraction = -1.0f;
         if (!world)
             return false;
 
@@ -36,15 +38,19 @@ namespace
         if (!cell->IsAttached() || !cell->GetbhkWorld())
             return false;
 
+        const RE::NiPoint3 start{ target.x, target.y, target.z + kGroundProbeTop };
+        const RE::NiPoint3 end{ target.x, target.y, target.z + kGroundProbeBottom };
         RE::bhkPickData pick;
-        pick.SetStartEnd(
-            { target.x, target.y, target.z + kGroundProbeTop },
-            { target.x, target.y, target.z + kGroundProbeBottom });
+        pick.SetStartEnd(start, end);
         (void)cell->Pick(pick);
         if (!pick.HasHit())
             return false;
 
-        groundZ = pick.result.position.z;
+        hitFraction = pick.GetHitFraction();
+        if (!std::isfinite(hitFraction) || hitFraction < 0.0f || hitFraction > 1.0f)
+            return false;
+
+        groundZ = start.z + (end.z - start.z) * hitFraction;
         return std::isfinite(groundZ);
     }
 }
@@ -228,11 +234,12 @@ bool RadiationEngine::SpawnDistantNuke()
         { base.x, base.y, base.z }, yaw, distance);
     const RE::NiPoint3 targetXY{ nuke.strike.x, nuke.strike.y, 0.0f };
     float groundZ = 0.0f;
-    if (!ResolveGroundHeight(player->cachedWorldspace, targetXY, groundZ))
+    float hitFraction = -1.0f;
+    if (!ResolveGroundHeight(player->cachedWorldspace, targetXY, groundZ, hitFraction))
     {
         Log()->warn("[Storm/Nuke] ground resolution failed playerZ={:.0f} targetXY=({:.0f},{:.0f}) "
-                    "groundResolved=false; will retry within the bounded window.",
-            base.z, targetXY.x, targetXY.y);
+                    "hitFraction={:.3f} groundResolved=false; will retry within the bounded window.",
+            base.z, targetXY.x, targetXY.y, hitFraction);
         return false;
     }
 
@@ -248,8 +255,8 @@ bool RadiationEngine::SpawnDistantNuke()
 
     Log()->info("[Storm/Nuke] distant firestorm strike detonated={} playerZ={:.0f} "
                 "targetXY=({:.0f},{:.0f}) groundZ={:.0f} finalZ={:.0f} "
-                "distance={:.0f} groundResolved=true facingPlayerYaw={:.2f}.",
-        static_cast<bool>(handle), base.z, targetXY.x, targetXY.y, groundZ, pos.z, distance, nuke.facingYaw);
+                "distance={:.0f} groundResolved=true hitFraction={:.3f} facingPlayerYaw={:.2f}.",
+        static_cast<bool>(handle), base.z, targetXY.x, targetXY.y, groundZ, pos.z, distance, hitFraction, nuke.facingYaw);
     if (!handle)
         Log()->warn("[Storm/Nuke] null handle — target cell not loaded at that position (engine gate), "
                     "or the EXPL form failed its type check. Will retry within the bounded window.");
