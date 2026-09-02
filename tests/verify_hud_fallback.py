@@ -154,12 +154,13 @@ def check_source(html_path, source_path):
     storm_source = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
     for marker in (
         'UpdateWeatherHandoff();',
-        'BeginSmoothWeather(_clearWeather, /*lockOverride=*/true);',
-        '_releaseWeatherOverrideWhenSettled = true;',
-        'temporary override will release after the blend settles',
+        'CaptureWeatherReturnTarget();',
+        'BeginSmoothWeather(target, /*lockOverride=*/true);',
+        '_weatherReturnCaptured ? _weatherReturnTarget',
+        'region control releases only after the blend is stable',
     ):
         if marker not in storm_source:
-            raise SystemExit(f'missing deterministic storm-weather clear contract: {marker}')
+            raise SystemExit(f'missing smooth storm-weather return contract: {marker}')
 
     weather_source = Path(source_path).with_name('RadEngine_Weather.cpp').read_text(encoding='utf-8')
     for marker in (
@@ -169,7 +170,7 @@ def check_source(html_path, source_path):
         'vanilla region weather control restored',
     ):
         if marker not in weather_source:
-            raise SystemExit(f'missing clear-weather handoff contract: {marker}')
+            raise SystemExit(f'missing weather return handoff contract: {marker}')
 
     debug_source = Path(source_path).with_name('RadEngine_Debug.cpp').read_text(encoding='utf-8')
     for marker in (
