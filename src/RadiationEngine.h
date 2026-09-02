@@ -181,11 +181,8 @@ private:
     bool _eslAvailable = false;
     bool _eslChecked = false;
 
-    RE::TESQuest* _stormFXQuest = nullptr;   // RadOverhaul_StormFXQuest — drives shake/nuke/dome FX
-    // Stage map: 10 = ash (shake+dome), 11 = firestorm (nuke+shake, dome deferred),
-    // 12 = spawn dome only, 20 = stop everything.
+    RE::TESQuest* _stormFXQuest = nullptr;
     void TriggerStormFX(bool on);            // start (per storm type) / stop the storm FX
-    void TriggerStormDome();                 // SetStage(12) — roll the cloud dome in
     int  _sirenDelayTicks = 0;               // >0: ticks until the incoming-storm siren starts (dome fades in first)
     // StartGameEnabled only auto-runs a quest on a NEW game; a quest added to the ESP after a
     // save was made stays dormant and SetStage() silently fails. Force-start via the Papyrus VM

@@ -327,7 +327,6 @@ void RadiationEngine::UpdateStorm()
                     ApplyStormIMAD(_activeStormType);
                     if (st.themeId == 1)
                         SpawnFireRing();                // ground fire ring rolls in
-                    TriggerStormDome();                 // cloud dome rolls in with the blast wave
                     _stormFXVisible = true;
                     RE::BSSoundHandle wave{};
                     if (!Play2DSound(kSndBlastWave, wave))   // the shockwave sweeping in (one-shot)

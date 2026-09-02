@@ -121,13 +121,6 @@ void RadiationEngine::DumpQuestStageTable(RE::TESQuest* quest)
 }
 void RadiationEngine::TriggerStormFX(bool on)
 {
-    // Storm screen FX via the RadStormFX Papyrus quest. Every storm spawns the cloud dome;
-    // lethal storms also shake; the firestorm also detonates a distant nuke. No-op if the
-    // companion ESP / quest isn't installed.
-    //   stage 10 = ash      (shake + dome)
-    //   stage 11 = firestorm (nuke + shake; dome deferred to the roll-in via TriggerStormDome)
-    //   stage 12 = dome only (ambient sulfur/acid)
-    //   stage 20 = stop (stop shake, remove dome)
     if (!_stormFXQuest) return;
     EnsureQuestRunning(_stormFXQuest);   // dormant on saves predating the quest; force-start
     // Sheltered = NO screen FX. The dome is a mesh that would follow the player indoors and clip
@@ -138,8 +131,8 @@ void RadiationEngine::TriggerStormFX(bool on)
         _stormFXQuest->SetStage(20);
         return;
     }
-    int stage = 12;  // default: ambient (exposed, non-lethal) — dome only, no shake or nuke
-    const char* desc = "ambient: dome only (no shake)";
+    int stage = 0;
+    const char* desc = "ambient: weather effects only";
     if (_activeStormType >= 0 && _activeStormType < kStormTypeTableSize)
     {
         const StormType& st = kStormTypes[_activeStormType];
@@ -149,9 +142,15 @@ void RadiationEngine::TriggerStormFX(bool on)
         // consumed the storm's one shot. The Active-phase tick now calls SpawnDistantNuke() with a
         // bounded retry and only latches _stormNukeFired on a successful detonation.
         if (st.themeId == 1)
+        {
+            stage = 11;
             desc = "firestorm: native nuke (fired on Active tick, bounded retry) + native shake";
+        }
         else if (st.lethal)
-            { desc = "lethal: native shake + dome"; }
+        {
+            stage = 10;
+            desc = "ash: native shake + dome";
+        }
     }
     // The stage call is retained ONLY so a user-supplied RadStormFX script can still react if the
     // quest is ever repaired. Every FX it used to drive (dome, shake, nuke) is native now, so a
@@ -159,15 +158,6 @@ void RadiationEngine::TriggerStormFX(bool on)
     const bool ok = _stormFXQuest->SetStage(static_cast<std::uint16_t>(stage));
     Log()->debug("[StormFX] SetStage({}) result={} ({}) — informational; FX are native.",
         stage, ok, desc);
-}
-void RadiationEngine::TriggerStormDome()
-{
-    // Spawn the cloud dome (stage 12) without re-triggering shake/nuke — used at the firestorm
-    // roll-in so the dome arrives with the fog rather than at the detonation instant.
-    if (!_stormFXQuest) return;
-    EnsureQuestRunning(_stormFXQuest);
-    _stormFXQuest->SetStage(12);
-    Log()->info("[StormFX] SetStage(12) — cloud dome roll-in.");
 }
 void RadiationEngine::UpdateStormFXVisibility()
 {

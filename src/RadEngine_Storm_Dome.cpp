@@ -16,6 +16,12 @@ using namespace RadInternal;
 
 void RadiationEngine::SpawnStormDome()
 {
+    if (_activeStormType != kAshStormIndex)
+    {
+        if (_stormDomeUp || !_stormDomeRefs.empty())
+            ClearStormDome();
+        return;
+    }
     if (_stormDomeUp || IsPlayerSheltered()) return;
     auto* dh     = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
@@ -227,6 +233,12 @@ void RadiationEngine::ClearStormDome()
 
 void RadiationEngine::UpdateStormDomeLifecycle()
 {
+    if (_activeStormType != kAshStormIndex)
+    {
+        if (_stormDomeUp || !_stormDomeRefs.empty())
+            ClearStormDome();
+        return;
+    }
     const bool domePhase = _stormPhase == StormPhase::Approach ||
         _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
     const bool exposed = !IsPlayerSheltered();

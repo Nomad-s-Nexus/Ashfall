@@ -437,6 +437,7 @@ namespace RadInternal
 
     // Dust-storm roll-in: the whole dust weather cross-fades IN from the outgoing sky over
     // kDustFogRollTicks (driven by ramping Sky::currentWeatherPct) instead of ForceWeather's hard snap.
+    constexpr int   kAshStormIndex     = 0;         // index of "Ash Fallout" in kStormTypes
     constexpr int   kDustStormIndex    = 4;         // index of "Dust Storm" in kStormTypes
     constexpr int   kDustFogRollTicks  = 40;        // ~10 s at 4 Hz (Active roll-in: build-up peak -> full)
     constexpr float kDustBurstSec      = 4.0f;      // heavy camera-dust burst duration at wall arrival
