@@ -424,7 +424,7 @@ private:
     // Fire hazard refs spawned around the player during a Firestorm (themeId==1).
     // Resolved once in EnsureEslLoaded. Spawned at Active phase, cleared at Aftermath.
     RE::BGSHazard* _fireHazardForm = nullptr;       // DN121FireHazard (0x1A7C6A, Fallout4.esm)
-    RE::BGSExplosion* _nukeExplosionForm = nullptr;  // FARO_EmissionStrikeAlpha (0x885)
+    RE::BGSExplosion* _nukeExplosionForm = nullptr;
     std::vector<RE::ObjectRefHandle> _fireRefs;    // live handles so we can disable on cleanup
     bool SpawnDistantNuke();                        // one distant firestorm strike; true = detonated (false = transient failure)
     void SpawnFireRing();                           // place a ring of fire hazards around player

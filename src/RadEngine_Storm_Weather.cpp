@@ -160,8 +160,6 @@ void RadiationEngine::SpawnFireRing()
 // One distant, purely cinematic firestorm detonation. The 4 Hz engine tick (RadiationEngine::Update and
 // everything it calls, this included) is marshaled to the verified Fallout 4 game-main thread by
 // Hooks.cpp's dispatcher — this does NOT run on the worker Update hook. The EXPL record
-// FARO_EmissionStrikeAlpha (0x885) still keeps PlacedObject = Null by design: it detonates without
-// spawning a placed reference, which is exactly what a pure horizon visual wants.
 // Returns true iff the explosion actually detonated (valid handle). false = a TRANSIENT failure the
 // caller should retry within its bounded window: unsupported runtime, player 3D/worldspace not up,
 // sheltered, or the target cell not yet streamed (engine returns a null handle). The one-shot latch

@@ -747,13 +747,11 @@ void RadiationEngine::EnsureEslLoaded()
             _fireHazardForm ? "resolved (firestorm ring spawn enabled)" : "NOT found");
     }
 
-    // Safe firestorm detonation. This spawns our zero-damage, 360-degree cinematic nuke explosion;
-    // the missile Projectile::Launch ABI remains out of scope until it can be tested independently.
     {
-        RE::TESForm* xForm = dh->LookupForm(0x885, kEslName);
+        RE::TESForm* xForm = dh->LookupForm(0x886, kEslName);
         _nukeExplosionForm = (xForm && xForm->GetFormType() == RE::ENUM_FORM_ID::kEXPL)
             ? static_cast<RE::BGSExplosion*>(xForm) : nullptr;
-        logger->info("[ESL] Firestorm distant-strike form (0x885): {}.",
+        logger->info("[ESL] Firestorm distant-strike form (0x886): {}.",
             _nukeExplosionForm ? "resolved" : "MISSING");
     }
 
