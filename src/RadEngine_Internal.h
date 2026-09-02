@@ -427,7 +427,7 @@ namespace RadInternal
         // warn = lead time (seconds*4 ticks) the player gets to seek shelter BEFORE the rad sky +
         // damage hit at Active. Kept generous so storms never feel instant.
         // Total event (warn + active + after) is kept under ~5 real minutes per storm.
-        { 0x840, "Ash Fallout",        4,     true,   18.0f, 2.5f, 90 * 4,  120 * 4,  30 * 4, 15,  1200.0f, 4000.0f, 0.60f, 128.0f,  2000.0f, 0.30f, kBedAshFallout  },  // 4.0 min
+        { 0x840, "Ash Fallout",        4,     true,   18.0f, 2.5f, 90 * 4,  120 * 4,  30 * 4, 15,  1200.0f, 8000.0f, 0.45f, 128.0f,  2000.0f, 0.30f, kBedAshFallout  },  // 4.0 min
         { 0x841, "Rad Firestorm",      1,     true,   14.0f, 4.0f, 90 * 4,  100 * 4,  30 * 4, 15,  1200.0f, 4500.0f, 0.60f, 128.0f,  2000.0f, 0.25f, kBedFirestorm   },  // 3.7 min
         { 0x842, "Toxic Sulfur Storm", 2,     false,  4.0f,  0.5f, 60 * 4,  180 * 4,  20 * 4, 35,  1000.0f, 3200.0f, 0.55f, 128.0f,  2000.0f, 0.20f, kBedSulfurStorm },  // 4.3 min
         { 0x843, "Acid Rain",          3,     false,  3.0f,  0.8f, 60 * 4,  180 * 4,  20 * 4, 35,  1400.0f, 6000.0f, 0.65f, 128.0f,  2000.0f, 0.45f, kBedAcidRain    },  // 4.3 min
