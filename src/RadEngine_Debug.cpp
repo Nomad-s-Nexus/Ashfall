@@ -159,7 +159,6 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     Log()->warn("[DIAG] DispatchDebugCommand (main thread): '{}'", a);
 
     // Commands: "storm:0".."storm:4", "endstorm", "tissue:150", "perm:40",
-    // "rads:600", "clear", "hud:open", "close".
     auto numAfter = [&](const char* prefix) -> float {
         return static_cast<float>(std::atof(a.c_str() + std::strlen(prefix)));
     };

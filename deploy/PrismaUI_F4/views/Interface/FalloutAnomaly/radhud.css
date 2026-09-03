@@ -136,7 +136,6 @@ html, body {
   box-shadow: 0 0 14px rgba(40,220,60,.3), inset 0 0 24px rgba(0,40,0,.5);
 }
 
-/* Tabs: RAD MOD | WEATHER | HUD LAYOUT */
 #debugPanel .dbg-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 #debugPanel .dbg-tab {
   flex: 1; background: rgba(12,30,14,.9);

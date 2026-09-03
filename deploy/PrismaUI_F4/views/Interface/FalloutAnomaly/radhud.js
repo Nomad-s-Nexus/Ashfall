@@ -117,7 +117,6 @@ window.SetDebugMenu = function(on) {
   }
 };
 
-// Debug-menu tabs: "rad" (Rad Mod controls) | "wthr" (force-weather list) | "hud" (layout editor).
 function showTab(which) {
   var tabs = ["rad", "wthr", "hud"];
   for (var i = 0; i < tabs.length; i++) {
