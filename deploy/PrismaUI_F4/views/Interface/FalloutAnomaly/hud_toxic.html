@@ -34,7 +34,7 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-
   -webkit-clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
 }
 .bar{height:100%;width:0%;position:relative;transition:width .25s linear;background:#b07a28}
-#hFill{background:#55a65c}
+#hFill{background:#b13b32}
 #hRads{position:absolute;right:0;top:0;height:100%;width:0%;pointer-events:none;transition:width .25s linear;background:#d9822b;z-index:2}
 #apFill{background:#55a65c}
 .bar::after{content:"";position:absolute;left:0;right:0;top:0;height:40%;pointer-events:none;
@@ -132,6 +132,7 @@ window.setEditorPreview=function(json){
 
 var WIDGET_ID='rad_toxic';
 var DEF={xf:30/1920,yf:882/1080,wf:200/1920,hf:44/1080};   // default: just below the rads widget
+var BASE_W=200,BASE_H=44;
 var _want=null,_lastW=0,_lastH=0;
 function flushPos(){
   if(!_want)return;
@@ -140,12 +141,21 @@ function flushPos(){
   if(W===_lastW&&H===_lastH)return;
   var r=document.getElementById('root');
   r.style.left=(_want.xf*W)+'px';r.style.top=(_want.yf*H)+'px';
-  r.style.setProperty('--s',_want.s);r.style.setProperty('--r',(_want.r||0)+'deg');
+  var explicitSize=_want.w!==null&&_want.h!==null;
+  var baseWidth=r.classList.contains('fallback')?260:BASE_W;
+  var baseHeight=r.classList.contains('fallback')?76:BASE_H;
+  var width=explicitSize?(_want.w<=1?_want.w*W:_want.w):baseWidth*_want.s;
+  var height=explicitSize?(_want.h<=1?_want.h*H:_want.h):baseHeight*_want.s;
+  r.style.width=Math.max(40,width)+'px';r.style.height=Math.max(20,height)+'px';
+  r.style.setProperty('--s',explicitSize?1:_want.s);r.style.setProperty('--r',(_want.r||0)+'deg');
   window.reportPosition(JSON.stringify({id:WIDGET_ID,x:_want.xf,y:_want.yf,s:_want.s,r:_want.r||0}));
   _lastW=W;_lastH=H;
 }
-function applyPos(xf,yf,s,rot){
-  _want={xf:xf,yf:yf,s:s,r:rot||0};
+function applyPos(xf,yf,s,rot,w,h){
+  _want={xf:Math.max(0,Math.min(1,+xf||0)),yf:Math.max(0,Math.min(1,+yf||0)),
+    s:Math.max(.25,Math.min(4,+s||1)),r:Math.max(-180,Math.min(180,+rot||0)),
+    w:(typeof w==='number'&&isFinite(w)&&w>0)?w:null,
+    h:(typeof h==='number'&&isFinite(h)&&h>0)?h:null};
   _lastW=0;_lastH=0;
   flushPos();
 }
@@ -153,12 +163,14 @@ try{new ResizeObserver(function(){flushPos();}).observe(document.documentElement
 var _posSet=false;
 window.setHUDPosition=function(json){
   _posSet=true;
-  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0));}catch(e){}
+  try{var p=(typeof json==='string')?JSON.parse(json):json;
+    applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0),
+      (typeof p.w==='number'?p.w:null),(typeof p.h==='number'?p.h:null));}catch(e){}
 };
 // no-op fallbacks if PrismaHUD hasn't injected these (e.g. PrismaHUD absent)
 window.reportPosition   =window.reportPosition   ||function(){};
 window.reportVisibility =window.reportVisibility ||function(){};
-setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0);},50);
+setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0,null,null);},50);
 </script>
 </body>
 </html>

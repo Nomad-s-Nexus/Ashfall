@@ -95,7 +95,7 @@ def check_behavior():
 
 def check_source(html_path, source_path):
     html = Path(html_path).read_text(encoding="utf-8")
-    for marker in ('HEALTH', 'STAMINA (AP)', 'TISSUE', 'id="hRads"', '#hFill{background:#55a65c}', 'background:#d9822b', 'setHealthVital', 'd.rads,d.radsMax', "fallback=!!d.fallback", "var show=fallback||t>0"):
+    for marker in ('HEALTH', 'STAMINA (AP)', 'TISSUE', 'id="hRads"', '#hFill{background:#b13b32}', 'background:#d9822b', 'setHealthVital', 'd.rads,d.radsMax', "fallback=!!d.fallback", "var show=fallback||t>0"):
         if marker not in html:
             raise SystemExit(f"missing HUD fallback contract: {marker}")
 
@@ -104,6 +104,9 @@ def check_source(html_path, source_path):
         "if(W===_lastW&&H===_lastH)return;",
         "_lastW=W;_lastH=H;",
         "r.style.setProperty('--r',(_want.r||0)+'deg');",
+        "var explicitSize=_want.w!==null&&_want.h!==null;",
+        "typeof p.w==='number'?p.w:null",
+        "typeof p.h==='number'?p.h:null",
         'new ResizeObserver(function(){flushPos();})',
     )
     for view in (Path(html_path), Path(html_path).with_name('hud_filter.html')):
