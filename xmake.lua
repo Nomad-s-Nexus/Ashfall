@@ -82,6 +82,7 @@ target("FalloutAnomalyRadiation")
         if mods then
             table.insert(dests, path.join(mods, "RadiationOverhaul", "F4SE", "Plugins"))
         end
+        table.insert(dests, "C:/Modlists/TMR/mods/Fallout Anomaly - Radiation Overhaul/F4SE/Plugins")
         table.insert(dests, "E:/Modlists/Fallen World Alpha 2/mods/RadiationOverhaul/F4SE/Plugins")
         for _, d in ipairs(dests) do
             if os.isdir(d) then
@@ -97,5 +98,11 @@ target("FalloutAnomalyRadiation")
 target("rad_correctness_policy_tests")
     set_kind("binary")
     add_files("tests/correctness_policy_tests.cpp")
+    add_includedirs("src")
+    set_targetdir("build/tests")
+
+target("serialization_policy_tests")
+    set_kind("binary")
+    add_files("tests/serialization_policy_tests.cpp")
     add_includedirs("src")
     set_targetdir("build/tests")

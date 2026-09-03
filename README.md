@@ -60,8 +60,8 @@ xmake
 
 Close Fallout 4 before redeploying the DLL because a loaded DLL is file-locked.
 
-`xmake.lua` can auto-copy a successful build to a live Fallen World mod directory when
-`XSE_FO4_MODS_PATH` is set. Its hardcoded development-path fallback is local convenience only.
+`xmake.lua` can auto-copy a successful build to a live mod directory when `XSE_FO4_MODS_PATH` is set.
+The local development fallback also covers `C:\Modlists\TMR\mods\Fallout Anomaly - Radiation Overhaul`.
 
 ## Build the ESP
 

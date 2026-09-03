@@ -6,8 +6,28 @@
 #include <RE/N/NiControllerSequence.h>
 #include <RE/N/NiAVObject.h>
 #include <RE/N/NiObjectNET.h>
+#include <RE/T/TESObjectCELL.h>
+#include <RE/T/TESWorldSpace.h>
 
 using namespace RadInternal;
+
+namespace
+{
+    bool IsValidDomeOwner(RE::PlayerCharacter* player, RE::TESObjectCELL*& cell, RE::TESWorldSpace*& world)
+    {
+        cell = player ? player->GetParentCell() : nullptr;
+        world = player ? player->cachedWorldspace : nullptr;
+        return player && player->Get3D() && cell && cell->IsExterior() && cell->IsAttached() && world &&
+            cell->worldSpace == world;
+    }
+
+    bool IsValidDomeReference(RE::TESObjectREFR* ref, RE::TESWorldSpace* world)
+    {
+        if (!ref || ref->IsDeleted() || ref->IsDisabled()) return false;
+        auto* cell = ref->GetParentCell();
+        return cell && cell->IsExterior() && cell->IsAttached() && cell->worldSpace == world;
+    }
+}
 
 // Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
 // Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
@@ -35,6 +55,8 @@ void RadiationEngine::SpawnStormDome()
     const RE::NiPoint3 base = player->GetPosition();
     auto* const playerCell = player->GetParentCell();
     auto* const playerWorld = player->cachedWorldspace;
+    if (!playerCell || !playerCell->IsExterior() || !playerCell->IsAttached() || playerCell->worldSpace != playerWorld)
+        return;
     int placed = 0;
     for (int k = 0; k < 4; ++k)
     {
@@ -251,6 +273,14 @@ void RadiationEngine::UpdateStormDomeLifecycle()
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
+    RE::TESObjectCELL* playerCell = nullptr;
+    RE::TESWorldSpace* playerWorld = nullptr;
+    if (!IsValidDomeOwner(player, playerCell, playerWorld))
+    {
+        if (_stormDomeUp || !_stormDomeRefs.empty()) ClearStormDome();
+        return;
+    }
+
     // A transition can briefly leave the worldspace unresolved, or a target cell can reject all
     // placements. Keep retrying on the normal 4 Hz engine lifecycle cadence through every dome-bearing phase instead
     // of leaving the storm permanently dome-less after one failed recreation.
@@ -267,9 +297,19 @@ void RadiationEngine::UpdateStormDomeLifecycle()
     }
     _stormDomeRespawnRetryTicks = 0;
 
-    const bool sameCell = player->GetParentCell() == _stormDomeCell;
-    const bool sameWorld = player->cachedWorldspace == _stormDomeWorld;
-    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld))
+    const bool sameCell = playerCell == _stormDomeCell;
+    const bool sameWorld = playerWorld == _stormDomeWorld;
+    bool staleReference = false;
+    for (auto& layer : _stormDomeRefs)
+    {
+        auto ptr = layer.handle.get();
+        if (!IsValidDomeReference(ptr.get(), _stormDomeWorld))
+        {
+            staleReference = true;
+            break;
+        }
+    }
+    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld) || staleReference)
     {
         Log()->info("[StormFX] Dome owner changed (cellSame={}, worldSame={}); recreating references.",
             sameCell, sameWorld);
@@ -292,8 +332,9 @@ void RadiationEngine::UpdateStormDomeFollow()
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
-    if (!player->Get3D()) return;
-    if (player->cachedWorldspace != _stormDomeWorld) return;
+    RE::TESObjectCELL* playerCell = nullptr;
+    RE::TESWorldSpace* playerWorld = nullptr;
+    if (!IsValidDomeOwner(player, playerCell, playerWorld) || playerWorld != _stormDomeWorld) return;
 
     const auto playerPosition = player->GetPosition();
     bool hasLoaded3D = false;
@@ -302,7 +343,8 @@ void RadiationEngine::UpdateStormDomeFollow()
     {
         auto ptr = layer.handle.get();
         auto* ref = ptr.get();
-        if (ref && !ref->IsDeleted() && !ref->IsDisabled() && ref->Get3D())
+        if (!IsValidDomeReference(ref, _stormDomeWorld)) return;
+        if (ref->Get3D())
         {
             hasLoaded3D = true;
             const auto desired = RadCorrectnessPolicy::DomePosition(
@@ -322,7 +364,7 @@ void RadiationEngine::UpdateStormDomeFollow()
     {
         auto ptr = layer.handle.get();
         auto* ref = ptr.get();
-        if (!ref || ref->IsDeleted() || ref->IsDisabled() || !ref->Get3D()) continue;
+        if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D()) return;
 
         const auto position = RadCorrectnessPolicy::DomePosition(
             { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);

@@ -8,6 +8,7 @@
 #include <RE/N/NiObjectNET.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESWorldSpace.h>
+#include <limits>
 
 using namespace RadInternal;
 
@@ -27,6 +28,9 @@ namespace
 
         const auto cellX = static_cast<std::int32_t>(std::floor(target.x / kExteriorCellSize));
         const auto cellY = static_cast<std::int32_t>(std::floor(target.y / kExteriorCellSize));
+        if (cellX < std::numeric_limits<std::int16_t>::min() || cellX > std::numeric_limits<std::int16_t>::max() ||
+            cellY < std::numeric_limits<std::int16_t>::min() || cellY > std::numeric_limits<std::int16_t>::max())
+            return false;
         const auto packed = static_cast<std::int32_t>(
             (static_cast<std::uint32_t>(cellY) & 0xFFFFu) |
             (static_cast<std::uint32_t>(static_cast<std::int16_t>(cellX)) << 16));
@@ -35,7 +39,7 @@ namespace
             return false;
 
         auto* cell = cellIt->second;
-        if (!cell->IsAttached() || !cell->GetbhkWorld())
+        if (!cell->IsExterior() || !cell->IsAttached() || cell->worldSpace != world || !cell->GetbhkWorld())
             return false;
 
         const RE::NiPoint3 start{ target.x, target.y, target.z + kGroundProbeTop };
@@ -84,6 +88,7 @@ void RadiationEngine::ReleaseStormWeather()
         _weatherReturnCaptured = false;
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
         _weatherForced = false;
         return;
     }
@@ -99,6 +104,7 @@ void RadiationEngine::ReleaseStormWeather()
         _weatherReturnCaptured = false;
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
         _weatherForced = false;
         Log()->warn("[StormWeather] No remembered/clear weather available; released override without a managed transition.");
         return;
@@ -120,6 +126,7 @@ void RadiationEngine::ReleaseStormWeather()
     _weatherReturnTarget = target;
     _weatherReturnCaptured = true;
     _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
     BeginSmoothWeather(target, /*lockOverride=*/true);
     _releaseWeatherOverrideWhenSettled = true;
     _weatherForced = true;
@@ -151,6 +158,7 @@ void RadiationEngine::ForceClearAndSilence()
     _weatherReturnCaptured = false;
     _releaseWeatherOverrideWhenSettled = false;
     _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
     _weatherForced = false;
 
     auto* sky = RE::Sky::GetSingleton();
@@ -221,6 +229,9 @@ bool RadiationEngine::SpawnDistantNuke()
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player || !player->cachedWorldspace) return false;
     if (!player->Get3D()) return false;               // worldspace must actually be up
+    auto* playerCell = player->GetParentCell();
+    if (!playerCell || !playerCell->IsExterior() || !playerCell->IsAttached() ||
+        playerCell->worldSpace != player->cachedWorldspace) return false;
 
     static std::mt19937 rng{ std::random_device{}() };
     constexpr float kPi = 3.14159265f;
@@ -230,6 +241,8 @@ bool RadiationEngine::SpawnDistantNuke()
     const float yaw = player->data.angle.z + yawJitter(rng) * (kPi / 180.0f);
     const float distance = distanceDist(rng);
     const RE::NiPoint3 base = player->GetPosition();
+    if (!std::isfinite(base.x) || !std::isfinite(base.y) || !std::isfinite(base.z) || !std::isfinite(yaw) ||
+        !std::isfinite(distance)) return false;
     const auto nuke = RadCorrectnessPolicy::DistantNukePlacementXY(
         { base.x, base.y, base.z }, yaw, distance);
     const RE::NiPoint3 targetXY{ nuke.strike.x, nuke.strike.y, 0.0f };

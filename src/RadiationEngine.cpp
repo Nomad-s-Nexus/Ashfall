@@ -1382,6 +1382,7 @@ void RadiationEngine::OnPostLoad()
     // NOTE: _stormScheduled / _nextStormPlaySec intentionally preserved (persisted schedule, see above).
     _stormExposedTicks = 0;
     _weatherForced     = false;
+    _weatherHandoffWaitTicks = 0;
     _debugWeatherHold  = false;   // never let a debug weather hold survive a load
     RadHud::GetSingleton().PushStorm(static_cast<int>(StormPhase::Idle), 0, 0.0f, true, false);
 

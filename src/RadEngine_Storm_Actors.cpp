@@ -8,6 +8,7 @@
 #include <RE/N/NiControllerSequence.h>
 #include <RE/N/NiAVObject.h>
 #include <RE/N/NiObjectNET.h>
+#include <RE/T/TESObjectCELL.h>
 
 using namespace RadInternal;
 
@@ -107,11 +108,17 @@ void RadiationEngine::CheckGhoulPackCleanup()
     if (!player) return;
 
     auto* cell = player->GetParentCell();
+    const auto* world = player->cachedWorldspace;
+    if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
+    {
+        Log()->info("[Storm/Ghouls] Player ownership is unresolved; despawning the hunter pack.");
+        ClearStormGhouls();
+        return;
+    }
     const bool wentIndoors  = cell && cell->IsInterior() && !_ghoulPackInterior;
     // Worldspace change (fast travel to a different exterior). Checked FIRST because the point
     // distance below is computed in raw cell coordinates — meaningless across worldspaces, where
     // it can read small even though the player is nowhere near the pack, leaving it stuck alive.
-    const auto* world       = player->cachedWorldspace;
     const std::uint32_t wid = world ? world->GetFormID() : 0;
     const bool changedWorld = _ghoulPackWorldID != 0 && wid != _ghoulPackWorldID;
     const float dist        = player->GetDistanceFromPoint(_ghoulPackCenter);

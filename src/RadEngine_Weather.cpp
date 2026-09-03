@@ -154,6 +154,7 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     {
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
     }
     if (a_lockOverride)
         sky->overrideWeather = a_target;            // lock target (region won't override it back)
@@ -204,13 +205,16 @@ void RadiationEngine::UpdateWeatherHandoff()
 {
     const bool resetSessionState = _forceClearOnEntry
         || (!_weatherForced && (_weatherReturnTarget || _weatherReturnCaptured
-                                || _releaseWeatherOverrideWhenSettled || _weatherHandoffSettleTicks != 0));
+                                || _releaseWeatherOverrideWhenSettled || _weatherHandoffSettleTicks != 0
+                                || _weatherHandoffWaitTicks != 0));
     if (resetSessionState)
     {
         _weatherReturnTarget = nullptr;
         _weatherReturnCaptured = false;
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
         return;
     }
     if (!_releaseWeatherOverrideWhenSettled) return;
@@ -222,6 +226,7 @@ void RadiationEngine::UpdateWeatherHandoff()
         _weatherReturnCaptured = false;
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
         _weatherForced = false;
         return;
     }
@@ -229,7 +234,40 @@ void RadiationEngine::UpdateWeatherHandoff()
     RE::TESWeather* target = _weatherReturnTarget;
     if (!target || sky->currentWeather != target)
     {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] Return target was lost or replaced; released the temporary weather override.");
+        return;
+    }
+
+    if (!std::isfinite(sky->currentWeatherPct))
+    {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] Return transition reported a non-finite blend; released the temporary weather override.");
+        return;
+    }
+
+    if (++_weatherHandoffWaitTicks > 240)
+    {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] Return transition exceeded its bounded wait; released the temporary weather override.");
         return;
     }
 
@@ -249,6 +287,7 @@ void RadiationEngine::UpdateWeatherHandoff()
     _weatherReturnCaptured = false;
     _releaseWeatherOverrideWhenSettled = false;
     _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
     _weatherForced = false;
     Log()->info("[StormWeather] Return weather 0x{:06X} stable; vanilla region weather control restored.", targetId);
 }

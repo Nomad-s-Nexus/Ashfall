@@ -190,6 +190,8 @@ def check_source(html_path, source_path):
         '_weatherHandoffSettleTicks = 0;',
         '_weatherReturnTarget',
         '_weatherHandoffSettleTicks < 8',
+        'std::isfinite(sky->currentWeatherPct)',
+        '_weatherHandoffWaitTicks > 240',
         'vanilla region weather control restored',
         'RadCorrectnessPolicy::ShouldReturnToClear',
     ):
@@ -245,6 +247,8 @@ def check_source(html_path, source_path):
         's_domeFollowActive.load(std::memory_order_acquire)',
         's_stormImadFadeActive.load(std::memory_order_acquire)',
         'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
+        'kMaxQueuedMainTasks',
+        's_mainTasks.size() >= kMaxQueuedMainTasks',
     ):
         if marker not in hooks:
             raise SystemExit(f'missing non-blocking game-thread dispatch contract: {marker}')
@@ -279,10 +283,12 @@ def check_source(html_path, source_path):
         'kStormDomeFollowDistanceThreshold',
         'needsMove',
         'ref->Get3D()',
-        'if (!player->Get3D()) return;',
-        'if (player->cachedWorldspace != _stormDomeWorld) return;',
+        'playerWorld != _stormDomeWorld',
         'UpdateStormDomeLifecycle();',
         'ref->Update3DPosition(true);',
+        'IsValidDomeOwner',
+        'IsValidDomeReference',
+        'cell->worldSpace == world',
     ):
         if marker not in storm_source:
             raise SystemExit(f'missing smooth dome follow contract: {marker}')

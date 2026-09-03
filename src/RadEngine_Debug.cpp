@@ -413,6 +413,7 @@ void RadiationEngine::DebugForceWeatherByForm(const std::string& spec)
     CaptureWeatherReturnTarget();
     _releaseWeatherOverrideWhenSettled = false;
     _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
     _debugWeatherHold = true;   // hold the vetoes down or CheckRadstormWarning reverts this
     if (auto* sky2 = RE::Sky::GetSingleton())
         sky2->ForceWeather(static_cast<RE::TESWeather*>(f), true);

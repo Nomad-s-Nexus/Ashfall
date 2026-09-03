@@ -251,6 +251,7 @@ private:
     bool            _weatherReturnCaptured = false; // keep the original return target while test/storm weathers change
     bool            _releaseWeatherOverrideWhenSettled = false; // release only after the return blend is stable
     int             _weatherHandoffSettleTicks = 0; // short stable hold prevents an edge snap on override release
+    int             _weatherHandoffWaitTicks = 0;
     bool            _debugWeatherHold = false;      // a debug-menu forced weather is held: stand the
                                                     // radstorm/dust/rain vetoes down so they can't revert it
     int             _stormPeakTick = 0;             // tick index at which the lethal NPC burst fires

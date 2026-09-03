@@ -53,6 +53,7 @@ namespace Hooks
     static std::atomic<PRISMA_UI_API::IVPrismaUI11*> s_prismaThreadApi{ nullptr };
     static std::mutex s_mainTaskMutex;
     static std::deque<std::function<void()>> s_mainTasks;
+    static constexpr std::size_t kMaxQueuedMainTasks = 128;
 
     // Coalesce producer traffic. PlayerCharacter::Update can run 60-120+ times/s; there is no reason to
     // enqueue another input poll or 4 Hz engine tick while one of the same kind is already waiting.
@@ -301,6 +302,12 @@ namespace Hooks
             return false;
 
         std::lock_guard<std::mutex> lock(s_mainTaskMutex);
+        if (s_mainTasks.size() >= kMaxQueuedMainTasks)
+        {
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->warn("[MainDispatch] fallback queue is full; rejecting non-critical game-main task.");
+            return false;
+        }
         s_mainTasks.emplace_back(std::move(task));
         if (!::PostThreadMessageW(s_gameMainThreadId, s_mainThreadWakeMessage, 0, 0))
         {
