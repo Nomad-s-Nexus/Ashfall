@@ -45,6 +45,7 @@ public:
     // Debug menu (separate focusable PrismaUI view, toggled with Shift+F8).
     void ToggleDebugMenu();
     void SetDebugMenu(bool open);
+    void OpenHudLayoutEditor();
     void ResetDebugMenuForSession();
 
     // Apply a debug-menu toggle that arrived before the view finished loading its DOM. Called every
@@ -77,6 +78,7 @@ private:
     std::atomic<bool> _domReady{ false };
 
     void* _hudApi = nullptr;    // PRISMA_HUD_API::IVPrismaHUD1* (optional; positions the toxic widget)
+    void* _hudEditorApi = nullptr; // PRISMA_HUD_API::IVPrismaHUD4* (optional; opens the layout editor)
     uint64_t _toxicView = 0;    // standalone toxicity widget view registered with PrismaHUD
     std::atomic<bool> _toxicDomReady{ false };
     std::atomic<bool> _toxicWidgetRegistered{ false };

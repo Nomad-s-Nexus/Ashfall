@@ -26,6 +26,7 @@
     <div class="dbg-tabs">
       <button class="dbg-tab on" id="tabbtn-rad"  onclick="showTab('rad')">RAD MOD</button>
       <button class="dbg-tab"    id="tabbtn-wthr" onclick="showTab('wthr')">WEATHER</button>
+      <button class="dbg-tab"    id="tabbtn-hud"  onclick="showTab('hud')">HUD LAYOUT</button>
     </div>
 
     <!-- ===================== TAB: RAD MOD ===================== -->
@@ -162,6 +163,13 @@
       <div class="dbg-row"><button class="warn" onclick="cmd('weather:clear')">Release Forced Weather</button></div>
 
     </div><!-- /tab-wthr -->
+
+    <div class="dbg-pane" id="tab-hud">
+      <div class="dbg-sec">HUD LAYOUT EDITOR</div>
+      <div class="dbg-help">Move, resize, rotate, hide, align, and save every HUD widget from one editor.</div>
+      <div class="dbg-row"><button onclick="cmd('hud:open')">OPEN HUD LAYOUT EDITOR</button></div>
+      <div class="dbg-help">The editor opens its canvas from this tab. Close it to return to the game, then press Shift+F8 to come back here.</div>
+    </div><!-- /tab-hud -->
 
     <div class="dbg-row" style="margin-top:8px;">
       <button class="close" onclick="cmd('close')">CLOSE  (Shift+F8)</button>

@@ -387,9 +387,10 @@ def check_source(html_path, source_path):
             'DispatchToGameThread',
         ),
         'PrismaHUD_F4_API.h': (
-            'enum class InterfaceVersion : uint8_t { V1, V2, V3 };',
+            'enum class InterfaceVersion : uint8_t { V1, V2, V3, V4 };',
             'class IVPrismaHUD2',
             'class IVPrismaHUD3',
+            'class IVPrismaHUD4',
         ),
     }
     for name, markers in headers.items():

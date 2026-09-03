@@ -164,6 +164,8 @@ void RadHud::RequestAPI()
     // until a later CreateView pass. Preserve an already-acquired pointer across later lifecycle calls.
     if (!_hudApi)
         _hudApi = PRISMA_HUD_API::RequestPluginAPI();
+    if (!_hudEditorApi)
+        _hudEditorApi = PRISMA_HUD_API::RequestEditorAPI();
     logger->info("[HUD] PrismaHUD_F4 {} — {}.",
         _hudApi ? "API acquired" : "not present",
         _hudApi ? "toxicity widget will be positionable in the HUD editor"
@@ -505,4 +507,21 @@ void RadHud::SetDebugMenu(bool open)
     }
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");
+}
+
+void RadHud::OpenHudLayoutEditor()
+{
+    auto logger = spdlog::get("FalloutAnomaly");
+    auto* editor = static_cast<PRISMA_HUD_API::IVPrismaHUD4*>(_hudEditorApi);
+    if (!editor)
+    {
+        RE::SendHUDMessage::ShowHUDMessage(
+            "[Radiation] HUD layout editor requires PrismaHUD_F4.", "", true, true);
+        if (logger) logger->warn("[HUD] Layout editor requested but PrismaHUD_F4 editor API is unavailable.");
+        return;
+    }
+
+    SetDebugMenu(false);
+    editor->OpenEditor();
+    if (logger) logger->info("[HUD] Opened PrismaHUD layout editor from the Shift+F8 debug menu.");
 }

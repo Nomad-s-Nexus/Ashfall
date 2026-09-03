@@ -159,7 +159,7 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     Log()->warn("[DIAG] DispatchDebugCommand (main thread): '{}'", a);
 
     // Commands: "storm:0".."storm:4", "endstorm", "tissue:150", "perm:40",
-    // "rads:600", "clear", "close".
+    // "rads:600", "clear", "hud:open", "close".
     auto numAfter = [&](const char* prefix) -> float {
         return static_cast<float>(std::atof(a.c_str() + std::strlen(prefix)));
     };
@@ -218,6 +218,7 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "cond:low")             { _maskCondition = 18.0f;  _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 18%.", false); }
     else if (a == "cond:broken")          { _maskCondition = 0.0f;   _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 0%.", false); }
     else if (a == "cond:repair")          RepairMask(false);
+    else if (a == "hud:open")             RadHud::GetSingleton().OpenHudLayoutEditor();
     else if (a == "close")                RadHud::GetSingleton().SetDebugMenu(false);
 }
 

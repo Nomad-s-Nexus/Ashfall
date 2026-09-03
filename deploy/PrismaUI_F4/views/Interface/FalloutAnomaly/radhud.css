@@ -136,7 +136,7 @@ html, body {
   box-shadow: 0 0 14px rgba(40,220,60,.3), inset 0 0 24px rgba(0,40,0,.5);
 }
 
-/* Tabs: RAD MOD | WEATHER */
+/* Tabs: RAD MOD | WEATHER | HUD LAYOUT */
 #debugPanel .dbg-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 #debugPanel .dbg-tab {
   flex: 1; background: rgba(12,30,14,.9);
@@ -152,6 +152,7 @@ html, body {
 }
 #debugPanel .dbg-pane { display: none; }
 #debugPanel .dbg-pane.on { display: block; }
+#debugPanel .dbg-help { color: #a8c8a8; font-size: 10px; line-height: 1.45; letter-spacing: .5px; margin: 7px 0; }
 
 /* Weather tab: two-column list of force buttons */
 #debugPanel .wthr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px; }
