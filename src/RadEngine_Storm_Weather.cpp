@@ -222,7 +222,7 @@ void RadiationEngine::SpawnFireRing()
 // single nuke.
 bool RadiationEngine::SpawnDistantNuke()
 {
-    if (!REX::FModule::IsRuntimeOG()) return false;   // authority wrapper is currently OG-only; fail closed elsewhere
+    if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE()) return false;
     if (!_nukeExplosionForm || IsPlayerSheltered()) return false;
 
     auto* dh = RE::TESDataHandler::GetSingleton();

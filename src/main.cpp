@@ -21,7 +21,8 @@ namespace
     {
         Unknown,
         OG,
-        NewGen
+        NewGen,
+        AE
     };
 
     GameVersion g_gameVersion = GameVersion::Unknown;
@@ -30,16 +31,22 @@ namespace
     {
         const auto ver = a_f4se->RuntimeVersion();
 
-        // OG: 1.10.162 - 1.10.980
+        // OG: 1.10.162 - 1.10.979
         if (ver >= F4SE::RUNTIME_1_10_162 && ver < F4SE::RUNTIME_1_10_980)
         {
             return GameVersion::OG;
         }
 
-        // New Gen: 1.10.980+
-        if (ver >= F4SE::RUNTIME_1_10_980)
+        // Next-gen: 1.10.980 - 1.10.984. CommonLib classifies 1.10.984 and below as NG.
+        if (ver >= F4SE::RUNTIME_1_10_980 && ver <= F4SE::RUNTIME_1_10_984)
         {
             return GameVersion::NewGen;
+        }
+
+        // AE: 1.11.137 and later. This is the runtime family supported by the AE relocations.
+        if (ver >= F4SE::RUNTIME_1_11_137)
+        {
+            return GameVersion::AE;
         }
 
         return GameVersion::Unknown;
@@ -52,7 +59,9 @@ namespace
         case GameVersion::OG:
             return "Original Game (1.10.x)";
         case GameVersion::NewGen:
-            return "Next Generation (1.10.980+)";
+            return "Next Generation (1.10.980-1.10.984)";
+        case GameVersion::AE:
+            return "Anniversary Edition (1.11.x)";
         case GameVersion::Unknown:
         default:
             return "UNKNOWN";
@@ -411,8 +420,7 @@ namespace
 
 // ---------------------------------------------------------------------------
 // Modern plugin declaration is retained because modern F4SE loaders inspect this
-// export before F4SEPlugin_Load. Runtime support is still deliberately OG-only;
-// F4SEPlugin_Load fails closed on NG before any hooks or messaging callbacks are installed.
+// export before F4SEPlugin_Load. Runtime support covers OG and AE; NG remains unsupported.
 // Legacy F4SEPlugin_Query is retained for OG F4SE.
 // ---------------------------------------------------------------------------
 F4SE_PLUGIN_VERSION = []() noexcept {
@@ -448,11 +456,9 @@ F4SEPlugin_Query(const F4SE::QueryInterface* a_f4se, F4SE::PluginInfo* a_info)
             return false;
         }
 
-        // This build is OG-only. The PlayerCharacter::Update vtable slot and raw
-        // native relocations have not been validated for NG, so reject it rather
-        // than letting an unsupported runtime install the hook.
+        // Reject NG and unknown runtimes before installing hooks.
         g_gameVersion = DetectGameVersion(skse);
-        return g_gameVersion == GameVersion::OG;
+        return g_gameVersion == GameVersion::OG || g_gameVersion == GameVersion::AE;
 }
 
 extern "C" __declspec(dllexport) bool F4SEAPI
@@ -464,8 +470,7 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         // InitializeLogger below). One DLL, one authoritative log.
         F4SE::Init(a_f4se, { .log = false });
 
-        // On NG, F4SEPlugin_Query is not called — detect version here so the same
-        // OG-only guard applies regardless of which loader path F4SE used.
+        // Some loaders do not call F4SEPlugin_Query — detect the runtime here as well.
         if (g_gameVersion == GameVersion::Unknown)
         {
             g_gameVersion = DetectGameVersion(a_f4se);
@@ -473,11 +478,11 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 
         InitializeLogger();
 
-        if (g_gameVersion != GameVersion::OG)
+        if (g_gameVersion != GameVersion::OG && g_gameVersion != GameVersion::AE)
         {
             logger->critical(
-                "Unsupported Fallout 4 runtime: {}. This build is OG-only (tested on 1.10.163); "
-                "refusing to install hooks on an unverified runtime.",
+                "Unsupported Fallout 4 runtime: {}. Supported runtimes are OG 1.10.163 and AE 1.11.240; "
+                "refusing to install hooks on an unsupported runtime.",
                 GameVersionString(g_gameVersion));
             return false;
         }

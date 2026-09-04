@@ -511,7 +511,7 @@ namespace RadInternal
     // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
     //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)
     //   TESDataHandler::CreateExplosionAtLocation(base, pos, rot, cell, world)  (RE/T/TESDataHandler.h)
-    // Both are OG-verified only (NG id unresolved -> traps on non-OG); Rad is OG-only so that is safe.
+    // Explosion is verified on OG/AE; camera shake remains OG-only until its AE entry is verified.
     // Full provenance is recorded in commonlib_NonVR RE-Work/docs/rad-overhaul-natives-2026-08.md.
     // Match the old RadStormFX values so the feel is unchanged: a decaying burst on the storm hit,
     // then a low sustained rumble for as long as the lethal storm is active.

@@ -116,7 +116,7 @@ void RadiationEngine::SpawnStormDome()
 }
 bool RadiationEngine::NativeShakeCamera(float strength, float duration)
 {
-    if (!REX::FModule::IsRuntimeOG()) return false;   // authority wrapper is currently OG-only; fail closed elsewhere
+    if (!REX::FModule::IsRuntimeOG()) return false;   // camera native is OG-only until its AE entry is verified
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player || !player->Get3D()) return false;    // 3D not up yet (streaming) — transient
     auto* cell = player->parentCell;

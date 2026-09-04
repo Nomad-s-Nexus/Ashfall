@@ -44,7 +44,7 @@ jobs:
           # SHA deliberately, or repoint at commonlib_NonVR main once that commit is merged there.
           # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
           # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"   # commonlib_NonVR main: merged guarded OG-only Rad natives (+ MagicTarget fix)
+          COMMONLIB_SHA="961358ddc5b67ac5d7de78440e3bce1ac33f3e53"   # commonlib_NonVR: verified AE CreateExplosionAtLocation + guarded OG camera shake
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
