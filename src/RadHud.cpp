@@ -479,31 +479,52 @@ void RadHud::SetDebugMenu(bool open)
     if (!_api) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
-    _debugOpen = open;
-
     if (_view != 0 && _domReady && api->IsValid(_view))
     {
-        // Toggle the debug + HUD-layout panel (both baked into radhud.html), then focus the
-        // HUD view so its buttons AND the HUD drag receive mouse input. Unfocus on close so
-        // the overlay returns to passthrough and the game regains mouse/keyboard. Never Hide
-        // here — the view must keep rendering the rad bars while the menu is shut.
-        api->InteropCall(_view, "SetDebugMenu", open ? "1" : "0");
         if (open)
         {
+            // Focus first. Showing the panel before a rejected focus request leaves a visible
+            // menu that cannot receive the mouse, which looks like a stuck/blocked cursor.
             api->Show(_view);
-            // disableFocusMenu=false (default): the game FocusMenu provides the mouse cursor. This
-            // menu opens during normal gameplay (no pause menu underneath), so it's the only cursor
-            // source — without it the cursor is clipped/stuck and the buttons are unreachable. The
-            // engine keeps ticking (not paused) so the debug-command queue still drains. Closing is
-            // done with Shift+F8 (F9 is the game's Quick Load and a passive poll can't consume it;
-            // F11 is the user's chat overlay; F10 is reserved by Windows and reads unreliably) or the
-            // CLOSE button; Unfocus then closes the FocusMenu so the Pip-Boy opens normally again.
-            api->Focus(_view);
+            // disableFocusMenu=false: PrismaUI's FocusMenu owns the cursor. This is required for
+            // normal gameplay menus; setting it true leaves the old game cursor in control and can
+            // clip/block mouse movement. The game keeps ticking (pauseGame=false).
+            const bool focusAccepted = api->Focus(_view, false, false);
+            if (!focusAccepted)
+            {
+                _debugOpen = false;
+                api->InteropCall(_view, "SetDebugMenu", "0");
+                api->Unfocus(_view);
+                _debugDesiredOpen = true;
+                _debugTogglePending = true;
+
+                static ULONGLONG lastFocusFailureLog = 0;
+                const auto now = ::GetTickCount64();
+                if (now - lastFocusFailureLog >= 1000)
+                {
+                    lastFocusFailureLog = now;
+                    if (auto logger = spdlog::get("FalloutAnomaly"))
+                        logger->warn("[RadHud] Debug-menu focus was rejected; retrying while the view settles.");
+                }
+                return;
+            }
+
+            _debugOpen = true;
+            // Toggle the debug + HUD-layout panel (both baked into radhud.html) only after the
+            // view has accepted focus, so every visible menu has a working mouse target.
+            api->InteropCall(_view, "SetDebugMenu", "1");
         }
         else
         {
+            _debugOpen = false;
+            // Never Hide here — the view must keep rendering the rad bars while the menu is shut.
+            api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
         }
+    }
+    else
+    {
+        _debugOpen = open;
     }
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");
