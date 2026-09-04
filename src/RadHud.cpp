@@ -430,8 +430,6 @@ void RadHud::ToggleDebugMenu()
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
-    // Case 2: ready now. A second Shift+F8 while an open is waiting to retry is a cancel, not
-    // another focus attempt.
     if (_view != 0 && api->IsValid(_view) && _domReady.load())
     {
         if (_debugTogglePending && _debugDesiredOpen)
@@ -497,8 +495,9 @@ void RadHud::PumpDeferredDebug()
 
 void RadHud::OnBlockingMenuOpened()
 {
-    // Runs on the main thread (menu event). Unfocus the debug menu so the pause menu / message box
-    // becomes interactable instead of input staying captured by the focused view.
+    _debugTogglePending = false;
+    _debugDesiredOpen = false;
+    _debugNextFocusRetryMs = 0;
     if (_debugOpen)
         SetDebugMenu(false);
 }
@@ -547,6 +546,7 @@ void RadHud::SetDebugMenu(bool open)
         {
             _debugOpen = false;
             _debugTogglePending = false;
+            _debugDesiredOpen = false;
             _debugNextFocusRetryMs = 0;
             // Never Hide here — the view must keep rendering the rad bars while the menu is shut.
             api->InteropCall(_view, "SetDebugMenu", "0");
