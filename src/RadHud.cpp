@@ -7,6 +7,7 @@
 #include <RE/A/ActorValue.h>
 #include <RE/A/ACTOR_VALUE_MODIFIER.h>
 #include <RE/B/BSTEvent.h>
+#include <RE/M/MenuCursor.h>
 #include <RE/M/MenuOpenCloseEvent.h>
 #include <RE/M/MessageBoxMenu.h>
 #include <RE/P/PauseMenu.h>
@@ -109,6 +110,22 @@ namespace
     std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_hudApiForCb{ nullptr };
     std::atomic<std::atomic<bool>*> g_toxicWidgetRegisteredFlag{ nullptr };
     std::atomic<std::atomic<bool>*> g_filterDomReadyFlag{ nullptr };
+
+    // Opening the debug HUD immediately after a focused vanilla menu can leave the engine's previous
+    // cursor bounds in effect. The result is the visible menu with a pointer trapped in only part of
+    // the screen. Recompute the engine cursor state, then clear the public percentage constraints and
+    // center it. All of these calls are provided by commonlib_NonVR for both OG and AE; no raw engine
+    // fields or version-specific offsets are written.
+    void ResetDebugCursorBounds()
+    {
+        if (auto* ui = RE::UI::GetSingleton())
+            ui->RefreshCursor();
+        if (auto* cursor = RE::MenuCursor::GetSingleton())
+        {
+            cursor->ClearConstraints();
+            cursor->CenterCursor();
+        }
+    }
 
     float EffectiveActorValueMax(const RE::PlayerCharacter& player, const RE::ActorValueInfo& value)
     {
@@ -486,10 +503,11 @@ void RadHud::SetDebugMenu(bool open)
             // Focus first. Showing the panel before a rejected focus request leaves a visible
             // menu that cannot receive the mouse, which looks like a stuck/blocked cursor.
             api->Show(_view);
-            // disableFocusMenu=false: PrismaUI's FocusMenu owns the cursor. This is required for
-            // normal gameplay menus; setting it true leaves the old game cursor in control and can
-            // clip/block mouse movement. The game keeps ticking (pauseGame=false).
-            const bool focusAccepted = api->Focus(_view, false, false);
+            // The Rad menu is a fullscreen HUD view with its own visible panel. Do not open
+            // PrismaUI's hidden FocusMenu on top of it: on this Fallout 4 setup that menu owns a
+            // stale cursor constraint, which traps the pointer in part of the screen. Focus still
+            // routes all input to this view; it simply avoids the extra hidden menu layer.
+            const bool focusAccepted = api->Focus(_view, false, true);
             if (!focusAccepted)
             {
                 _debugOpen = false;
@@ -510,6 +528,7 @@ void RadHud::SetDebugMenu(bool open)
             }
 
             _debugOpen = true;
+            ResetDebugCursorBounds();
             // Toggle the debug + HUD-layout panel (both baked into radhud.html) only after the
             // view has accepted focus, so every visible menu has a working mouse target.
             api->InteropCall(_view, "SetDebugMenu", "1");
