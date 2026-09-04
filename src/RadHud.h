@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -101,4 +102,5 @@ private:
     // so no atomic is needed; the cross-thread readiness signal (_domReady) is already atomic.
     bool _debugTogglePending = false;   // a toggle is waiting for the view to become DOM-ready
     bool _debugDesiredOpen   = false;   // the state to apply once ready (last press wins)
+    std::uint64_t _debugNextFocusRetryMs = 0;
 };

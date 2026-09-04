@@ -7,7 +7,6 @@
 #include <RE/A/ActorValue.h>
 #include <RE/A/ACTOR_VALUE_MODIFIER.h>
 #include <RE/B/BSTEvent.h>
-#include <RE/M/MenuCursor.h>
 #include <RE/M/MenuOpenCloseEvent.h>
 #include <RE/M/MessageBoxMenu.h>
 #include <RE/P/PauseMenu.h>
@@ -110,22 +109,6 @@ namespace
     std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_hudApiForCb{ nullptr };
     std::atomic<std::atomic<bool>*> g_toxicWidgetRegisteredFlag{ nullptr };
     std::atomic<std::atomic<bool>*> g_filterDomReadyFlag{ nullptr };
-
-    // Opening the debug HUD immediately after a focused vanilla menu can leave the engine's previous
-    // cursor bounds in effect. The result is the visible menu with a pointer trapped in only part of
-    // the screen. Recompute the engine cursor state, then clear the public percentage constraints and
-    // center it. All of these calls are provided by commonlib_NonVR for both OG and AE; no raw engine
-    // fields or version-specific offsets are written.
-    void ResetDebugCursorBounds()
-    {
-        if (auto* ui = RE::UI::GetSingleton())
-            ui->RefreshCursor();
-        if (auto* cursor = RE::MenuCursor::GetSingleton())
-        {
-            cursor->ClearConstraints();
-            cursor->CenterCursor();
-        }
-    }
 
     float EffectiveActorValueMax(const RE::PlayerCharacter& player, const RE::ActorValueInfo& value)
     {
@@ -421,6 +404,7 @@ void RadHud::ResetDebugMenuForSession()
     _debugOpen = false;
     _debugTogglePending = false;
     _debugDesiredOpen = false;
+    _debugNextFocusRetryMs = 0;
 }
 
 void RadHud::ToggleDebugMenu()
@@ -446,10 +430,21 @@ void RadHud::ToggleDebugMenu()
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
-    // Case 2: ready now — apply immediately and clear any stale deferred request.
+    // Case 2: ready now. A second Shift+F8 while an open is waiting to retry is a cancel, not
+    // another focus attempt.
     if (_view != 0 && api->IsValid(_view) && _domReady.load())
     {
+        if (_debugTogglePending && _debugDesiredOpen)
+        {
+            _debugTogglePending = false;
+            _debugDesiredOpen = false;
+            _debugNextFocusRetryMs = 0;
+            api->InteropCall(_view, "SetDebugMenu", "0");
+            if (logger) logger->info("[RadHud] Pending debug-menu open cancelled.");
+            return;
+        }
         _debugTogglePending = false;
+        _debugNextFocusRetryMs = 0;
         SetDebugMenu(!_debugOpen);
         return;
     }
@@ -458,7 +453,16 @@ void RadHud::ToggleDebugMenu()
     // once the DOM is ready — the press is retained, not dropped. Last press wins (a second press
     // before the view is ready cancels the first). We do NOT create the view here — CreateView owns
     // that behind the world/load readiness gate.
-    _debugDesiredOpen   = _debugTogglePending ? !_debugDesiredOpen : !_debugOpen;
+    const bool nextDesiredOpen = _debugTogglePending ? !_debugDesiredOpen : !_debugOpen;
+    if (_debugTogglePending && !nextDesiredOpen)
+    {
+        _debugTogglePending = false;
+        _debugDesiredOpen = false;
+        _debugNextFocusRetryMs = 0;
+        if (logger) logger->info("[RadHud] Pending debug-menu open cancelled before view readiness.");
+        return;
+    }
+    _debugDesiredOpen   = nextDesiredOpen;
     _debugTogglePending = true;
     if (logger)
         logger->info("[RadHud] Debug-menu toggle deferred until view ready (view={}, domReady={}); desired={}.",
@@ -477,10 +481,18 @@ void RadHud::PumpDeferredDebug()
     if (_view == 0 || !api->IsValid(_view) || !_domReady.load())
         return;                                           // still not ready — keep the request pending
 
-    _debugTogglePending = false;
+    const auto now = ::GetTickCount64();
+    if (_debugDesiredOpen && now < _debugNextFocusRetryMs)
+        return;
+
     SetDebugMenu(_debugDesiredOpen);
-    if (auto logger = spdlog::get("FalloutAnomaly"))
-        logger->info("[RadHud] Applied deferred debug-menu toggle: {}.", _debugDesiredOpen ? "opened" : "closed");
+    if (_debugOpen == _debugDesiredOpen)
+    {
+        _debugTogglePending = false;
+        _debugNextFocusRetryMs = 0;
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+            logger->info("[RadHud] Applied deferred debug-menu toggle: {}.", _debugOpen ? "opened" : "closed");
+    }
 }
 
 void RadHud::OnBlockingMenuOpened()
@@ -503,11 +515,7 @@ void RadHud::SetDebugMenu(bool open)
             // Focus first. Showing the panel before a rejected focus request leaves a visible
             // menu that cannot receive the mouse, which looks like a stuck/blocked cursor.
             api->Show(_view);
-            // The Rad menu is a fullscreen HUD view with its own visible panel. Do not open
-            // PrismaUI's hidden FocusMenu on top of it: on this Fallout 4 setup that menu owns a
-            // stale cursor constraint, which traps the pointer in part of the screen. Focus still
-            // routes all input to this view; it simply avoids the extra hidden menu layer.
-            const bool focusAccepted = api->Focus(_view, false, true);
+            const bool focusAccepted = api->Focus(_view, false, false);
             if (!focusAccepted)
             {
                 _debugOpen = false;
@@ -515,6 +523,7 @@ void RadHud::SetDebugMenu(bool open)
                 api->Unfocus(_view);
                 _debugDesiredOpen = true;
                 _debugTogglePending = true;
+                _debugNextFocusRetryMs = ::GetTickCount64() + 150;
 
                 static ULONGLONG lastFocusFailureLog = 0;
                 const auto now = ::GetTickCount64();
@@ -528,7 +537,8 @@ void RadHud::SetDebugMenu(bool open)
             }
 
             _debugOpen = true;
-            ResetDebugCursorBounds();
+            _debugTogglePending = false;
+            _debugNextFocusRetryMs = 0;
             // Toggle the debug + HUD-layout panel (both baked into radhud.html) only after the
             // view has accepted focus, so every visible menu has a working mouse target.
             api->InteropCall(_view, "SetDebugMenu", "1");
@@ -536,6 +546,8 @@ void RadHud::SetDebugMenu(bool open)
         else
         {
             _debugOpen = false;
+            _debugTogglePending = false;
+            _debugNextFocusRetryMs = 0;
             // Never Hide here — the view must keep rendering the rad bars while the menu is shut.
             api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
