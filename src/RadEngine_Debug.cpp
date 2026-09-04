@@ -114,8 +114,8 @@ void RadiationEngine::DebugClearAll()
 {
     _tissueDamage = 0.0f;
     _permanentTissueDamage = 0.0f;
-    if (_tissueGlobal)          _tissueGlobal->value = 0.0f;
-    if (_permanentTissueGlobal) _permanentTissueGlobal->value = 0.0f;
+    if (_tissueGlobal)          _tissueGlobal->value = _tissueDamage;
+    if (_permanentTissueGlobal) _permanentTissueGlobal->value = _permanentTissueDamage;
     auto* player = RE::PlayerCharacter::GetSingleton();
     auto* av = RE::ActorValue::GetSingleton();
     if (player && av && av->rads)
@@ -214,10 +214,11 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "filter:replace")       ReplaceFilter(false);
     else if (a == "give:repairkit")       DebugGiveItem(kGasMaskRepairKitID, kEslName, 5);
     else if (a == "cond:full")            { _maskCondition = 100.0f; _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 100%.", false); }
-    else if (a == "cond:low")             { _maskCondition = 18.0f;  _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 18%.", false); }
-    else if (a == "cond:broken")          { _maskCondition = 0.0f;   _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 0%.", false); }
+    else if (a == "cond:low")             { _maskCondition = 18.0f; _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 18%.", false); }
+    else if (a == "cond:broken")          { _maskCondition = 0.0f; _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 0%.", false); }
     else if (a == "cond:repair")          RepairMask(false);
     else if (a == "hud:open")             RadHud::GetSingleton().OpenHudLayoutEditor();
+    else if (a.rfind("hudlayout:", 0) == 0) RadHud::GetSingleton().ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")));
     else if (a == "close")                RadHud::GetSingleton().SetDebugMenu(false);
 }
 

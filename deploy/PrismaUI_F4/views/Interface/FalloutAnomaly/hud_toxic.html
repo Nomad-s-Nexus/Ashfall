@@ -39,7 +39,6 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-
 #apFill{background:#55a65c}
 .bar::after{content:"";position:absolute;left:0;right:0;top:0;height:40%;pointer-events:none;
   background:linear-gradient(to bottom,rgba(255,255,255,.16),rgba(255,255,255,0))}
-/* permanent (scarred) tissue overlay — hatched, sits at the right end of the current tissue */
 #tperm{position:absolute;top:0;height:100%;width:0%;left:0%;pointer-events:none;
   transition:width .25s linear,left .25s linear;
   background:repeating-linear-gradient(-45deg,rgba(150,30,30,.95) 0px,rgba(150,30,30,.95) 2px,rgba(90,20,20,.6) 2px,rgba(90,20,20,.6) 5px)}
@@ -81,7 +80,9 @@ var root =document.getElementById('root');
 var hFill=document.getElementById('hFill'),hRads=document.getElementById('hRads'),hNum=document.getElementById('hNum');
 var apFill=document.getElementById('apFill'),apNum=document.getElementById('apNum');
 var _visState=false;
-var _preview=false;   // HUD-editor preview
+var _preview=false;
+var _fallbackState=false;
+var _localHidden=false;
 
 function setIconSev(sev){ sev=Math.max(0,Math.min(1,sev)); icon.style.backgroundColor='hsl('+Math.round(120*(1-sev))+',80%,55%)'; }
 function setVital(fill,num,current,max){
@@ -99,39 +100,49 @@ function setHealthVital(fill,blocked,num,current,max,rads,radsMax){
   blocked.style.width=(radFrac*100)+'%';
   num.textContent=Math.round(current);
 }
+function refreshLocalVisibility(){root.style.visibility=(_localHidden&&!_preview)?'hidden':'visible';}
+function applyFallbackPresentation(fallback){
+  root.classList.toggle('fallback',fallback);
+  icon.style.display=fallback?'none':'';
+}
 
-// Data push from the Rad Mod DLL: {tissue, permanentTissue}
 window.updateToxic=function(json){
   try{
     var d=(typeof json==="string")?JSON.parse(json):json;
     var fallback=!!d.fallback;
-    root.classList.toggle('fallback',fallback);
-    icon.style.display=fallback?'none':'';
+    _fallbackState=fallback;
+    applyFallbackPresentation(fallback||_preview);
     if(fallback){setHealthVital(hFill,hRads,hNum,d.health,d.healthMax,d.rads,d.radsMax);setVital(apFill,apNum,d.ap,d.apMax);}
     var t=Math.max(0,Math.min(MAXT,+d.tissue||0));
     var perm=Math.min(t,Math.max(0,+d.permanentTissue||0));
     tFill.style.width=(t/MAXT*100)+'%';
     if(perm>0.5){ tperm.style.left=((t-perm)/MAXT*100).toFixed(1)+'%'; tperm.style.width=(perm/MAXT*100).toFixed(1)+'%'; }
     else { tperm.style.width='0%'; }
-    setIconSev(t/600);                 // tissue climbs toward 600 = worst -> redder
+    setIconSev(t/600);
     tNum.textContent=Math.round(t);
     tNum.classList.toggle('show',fallback||(1-t/600)<=0.75);
     var show=fallback||t>0;
     if(show!==_visState){ _visState=show;
       window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show})); }
     root.classList.toggle('visible',_visState||_preview);
+    refreshLocalVisibility();
   }catch(e){}
 };
 
-// HUD editor preview: force-show a sample toxicity reading while positioning.
 window.setEditorPreview=function(json){
   _preview=(json==='1'||json===1||json===true);
-  if(_preview){ tFill.style.width='35%'; tperm.style.left='0%'; tperm.style.width='0%'; setIconSev(0.58); tNum.textContent='350'; tNum.classList.add('show'); }
+  applyFallbackPresentation(_fallbackState||_preview);
+  if(_preview){
+    setHealthVital(hFill,hRads,hNum,72,100,180,1000);
+    setVital(apFill,apNum,64,100);
+    tFill.style.width='35%';tperm.style.left='27%';tperm.style.width='8%';setIconSev(0.58);tNum.textContent='350';tNum.classList.add('show');
+  }
   root.classList.toggle('visible',_visState||_preview);
+  refreshLocalVisibility();
 };
 
 var WIDGET_ID='rad_toxic';
-var DEF={xf:30/1920,yf:882/1080,wf:200/1920,hf:44/1080};   // default: just below the rads widget
+var DEF={xf:30/1920,yf:882/1080,wf:200/1920,hf:44/1080};
 var BASE_W=200,BASE_H=44;
 var _want=null,_lastW=0,_lastH=0;
 function flushPos(){
@@ -162,12 +173,19 @@ function applyPos(xf,yf,s,rot,w,h){
 try{new ResizeObserver(function(){flushPos();}).observe(document.documentElement);}catch(e){}
 var _posSet=false;
 window.setHUDPosition=function(json){
-  _posSet=true;
+  _posSet=true;_localHidden=false;refreshLocalVisibility();
   try{var p=(typeof json==='string')?JSON.parse(json):json;
     applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0),
       (typeof p.w==='number'?p.w:null),(typeof p.h==='number'?p.h:null));}catch(e){}
 };
-// no-op fallbacks if PrismaHUD hasn't injected these (e.g. PrismaHUD absent)
+window.setLocalHUDLayout=function(json){
+  try{var p=(typeof json==='string')?JSON.parse(json):json;
+    _posSet=true;_localHidden=!!p.hidden;
+    applyPos(typeof p.x==='number'?p.x:DEF.xf,typeof p.y==='number'?p.y:DEF.yf,
+      typeof p.s==='number'?p.s:1,typeof p.r==='number'?p.r:0,null,null);
+    refreshLocalVisibility();}catch(e){}
+};
+window.releaseLocalHUDLayout=function(){_localHidden=false;window.setEditorPreview('0');refreshLocalVisibility();};
 window.reportPosition   =window.reportPosition   ||function(){};
 window.reportVisibility =window.reportVisibility ||function(){};
 setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0,null,null);},50);

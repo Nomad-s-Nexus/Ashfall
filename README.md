@@ -23,7 +23,9 @@ Author: NomadsReach
   and the craftable **Radiation Chelation Compound** do not currently change tissue damage: their
   item-triggered effects are disabled fail-closed pending a verified source-identifying item-use adapter.
 - **PrismaUI HUD** (optional, degrades to no-op without the framework): gas-mask visor, storm
-  banners, debug controls, and positionable toxicity/filter widgets through PrismaHUD_F4 when present.
+  banners, debug controls, and Rad-owned toxicity/filter widgets. The Rad debug menu includes a
+  temporary built-in layout editor for those widgets. When PrismaHUD_F4 is detected, PrismaHUD
+  automatically becomes the layout owner and its shared editor takes over.
 - **Companion patches.** `RadOverhaul_GearPatch.esp` buffs the hazmat suit's radiation resistance;
   `RadOverhaulSurPatch.esp` is also included in the deployment package.
 

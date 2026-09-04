@@ -211,7 +211,7 @@ void RadHud::CreateView()
     // Publish callback state before creating views. These pointers are read from PrismaUI's web thread.
     g_apiForCb.store(api, std::memory_order_release);
     g_hudApiForCb.store(static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi), std::memory_order_release);
-    _toxicWidgetRegistered.store(false);
+    _toxicWidgetRegistered.store(_hudApi != nullptr);
     g_toxicWidgetRegisteredFlag.store(&_toxicWidgetRegistered, std::memory_order_release);
 
     // --- Main overlay view (radhud.html: gas-mask overlay, filter, storm banners, popup, debug) ---
@@ -293,6 +293,7 @@ void RadHud::CreateView()
     _viewsReady.store(_view != 0 && api->IsValid(_view) &&
                       _toxicView != 0 && api->IsValid(_toxicView) &&
                       _filterView != 0 && api->IsValid(_filterView));
+    SyncLocalHudLayout();
 }
 
 void RadHud::PushToxic(float tissue, float permanentTissue)
@@ -303,6 +304,7 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         _toxicView == 0 || !api->IsValid(_toxicView) ||
         _filterView == 0 || !api->IsValid(_filterView))
         CreateView();
+    SyncLocalHudLayout();
     if (!IsPlayerInWorld()) return;
     if (_toxicView == 0 || !_toxicDomReady || !api->IsValid(_toxicView)) return;
 
@@ -548,6 +550,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugTogglePending = false;
             _debugDesiredOpen = false;
             _debugNextFocusRetryMs = 0;
+            SetLocalHudEditorPreview(false);
             // Never Hide here — the view must keep rendering the rad bars while the menu is shut.
             api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
@@ -559,21 +562,4 @@ void RadHud::SetDebugMenu(bool open)
     }
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");
-}
-
-void RadHud::OpenHudLayoutEditor()
-{
-    auto logger = spdlog::get("FalloutAnomaly");
-    auto* editor = static_cast<PRISMA_HUD_API::IVPrismaHUD4*>(_hudEditorApi);
-    if (!editor)
-    {
-        RE::SendHUDMessage::ShowHUDMessage(
-            "[Radiation] HUD layout editor requires PrismaHUD_F4.", "", true, true);
-        if (logger) logger->warn("[HUD] Layout editor requested but PrismaHUD_F4 editor API is unavailable.");
-        return;
-    }
-
-    SetDebugMenu(false);
-    editor->OpenEditor();
-    if (logger) logger->info("[HUD] Opened PrismaHUD layout editor from the Shift+F8 debug menu.");
 }

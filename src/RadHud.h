@@ -47,6 +47,10 @@ public:
     void ToggleDebugMenu();
     void SetDebugMenu(bool open);
     void OpenHudLayoutEditor();
+    void ApplyLocalHudLayout(const std::string& payload);
+    void SyncLocalHudLayout();
+    void SetLocalHudEditorPreview(bool on);
+    void InvalidateLocalHudLayoutViews();
     void ResetDebugMenuForSession();
 
     // Apply a debug-menu toggle that arrived before the view finished loading its DOM. Called every
