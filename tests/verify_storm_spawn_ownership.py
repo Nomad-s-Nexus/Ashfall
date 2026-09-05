@@ -32,6 +32,17 @@ for token in (
 assert "ref->As<RE::Actor>()" not in ghoul_spawn
 assert "_stormGhoulRefs.erase" not in ghoul_spawn
 
+ghoul_cleanup = actors.split("void RadiationEngine::CheckGhoulPackCleanup()", 1)[1].split(
+    "void RadiationEngine::ClearStormGhouls()", 1
+)[0]
+assert "Player went indoors. Despawning the hunter pack." in ghoul_cleanup
+assert "Player ownership unresolved during streaming; deferring pack cleanup." in ghoul_cleanup
+unresolved = ghoul_cleanup.split(
+    "if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)", 1
+)[1].split("const std::uint32_t wid", 1)[0]
+assert "ClearStormGhouls();" not in unresolved
+assert "return;" in unresolved
+
 fire_ring = weather.split("void RadiationEngine::SpawnFireRing()", 1)[1].split(
     "bool RadiationEngine::SpawnDistantNuke()", 1
 )[0]
