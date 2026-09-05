@@ -2,19 +2,19 @@
 #include "RadCorrectnessPolicy.h"
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/B/bhkPickData.h>
+#include <RE/G/GridCellArray.h>
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
 #include <RE/N/NiAVObject.h>
 #include <RE/N/NiObjectNET.h>
+#include <RE/T/TES.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESWorldSpace.h>
-#include <limits>
 
 using namespace RadInternal;
 
 namespace
 {
-    constexpr float kExteriorCellSize = 4096.0f;
     constexpr float kGroundProbeTop = 20000.0f;
     constexpr float kGroundProbeBottom = -20000.0f;
     constexpr float kNukeGroundClearance = 16.0f;
@@ -23,38 +23,48 @@ namespace
         RE::TESWorldSpace* world, const RE::NiPoint3& target, float& groundZ, float& hitFraction)
     {
         hitFraction = -1.0f;
-        if (!world)
+        if (!world || !std::isfinite(target.x) || !std::isfinite(target.y) || !std::isfinite(target.z))
             return false;
 
-        const auto cellX = static_cast<std::int32_t>(std::floor(target.x / kExteriorCellSize));
-        const auto cellY = static_cast<std::int32_t>(std::floor(target.y / kExteriorCellSize));
-        if (cellX < std::numeric_limits<std::int16_t>::min() || cellX > std::numeric_limits<std::int16_t>::max() ||
-            cellY < std::numeric_limits<std::int16_t>::min() || cellY > std::numeric_limits<std::int16_t>::max())
-            return false;
-        const auto packed = static_cast<std::int32_t>(
-            (static_cast<std::uint32_t>(cellY) & 0xFFFFu) |
-            (static_cast<std::uint32_t>(static_cast<std::int16_t>(cellX)) << 16));
-        const auto cellIt = world->cellMap.find(packed);
-        if (cellIt == world->cellMap.end() || !cellIt->second)
-            return false;
-
-        auto* cell = cellIt->second;
-        if (!cell->IsExterior() || !cell->IsAttached() || cell->worldSpace != world || !cell->GetbhkWorld())
+        auto* tes = RE::TES::GetSingleton();
+        if (!tes || tes->worldSpace != world || !tes->gridCells)
             return false;
 
         const RE::NiPoint3 start{ target.x, target.y, target.z + kGroundProbeTop };
         const RE::NiPoint3 end{ target.x, target.y, target.z + kGroundProbeBottom };
-        RE::bhkPickData pick;
-        pick.SetStartEnd(start, end);
-        (void)cell->Pick(pick);
-        if (!pick.HasHit())
+        auto* grid = tes->gridCells;
+        float bestFraction = 2.0f;
+        bool found = false;
+
+        for (std::uint32_t gy = 0; gy < grid->dimension; ++gy)
+        {
+            for (std::uint32_t gx = 0; gx < grid->dimension; ++gx)
+            {
+                auto* cell = grid->GetCell(gx, gy);
+                if (!cell || !cell->IsExterior() || !cell->IsAttached() ||
+                    cell->worldSpace != world || !cell->GetbhkWorld())
+                    continue;
+
+                RE::bhkPickData pick;
+                pick.SetStartEnd(start, end);
+                (void)cell->Pick(pick);
+                if (!pick.HasHit())
+                    continue;
+
+                const float fraction = pick.GetHitFraction();
+                if (!std::isfinite(fraction) || fraction < 0.0f || fraction > 1.0f || fraction >= bestFraction)
+                    continue;
+
+                bestFraction = fraction;
+                found = true;
+            }
+        }
+
+        if (!found)
             return false;
 
-        hitFraction = pick.GetHitFraction();
-        if (!std::isfinite(hitFraction) || hitFraction < 0.0f || hitFraction > 1.0f)
-            return false;
-
-        groundZ = start.z + (end.z - start.z) * hitFraction;
+        hitFraction = bestFraction;
+        groundZ = start.z + (end.z - start.z) * bestFraction;
         return std::isfinite(groundZ);
     }
 }

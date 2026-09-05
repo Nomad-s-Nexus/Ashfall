@@ -31,8 +31,7 @@ namespace
     {
         const auto ver = a_f4se->RuntimeVersion();
 
-        // OG: 1.10.162 - 1.10.979
-        if (ver >= F4SE::RUNTIME_1_10_162 && ver < F4SE::RUNTIME_1_10_980)
+        if (ver == F4SE::RUNTIME_1_10_163)
         {
             return GameVersion::OG;
         }
@@ -43,8 +42,7 @@ namespace
             return GameVersion::NewGen;
         }
 
-        // AE: 1.11.137 and later. This is the runtime family supported by the AE relocations.
-        if (ver >= F4SE::RUNTIME_1_11_137)
+        if (ver > F4SE::RUNTIME_1_10_984)
         {
             return GameVersion::AE;
         }
@@ -57,11 +55,11 @@ namespace
         switch (version)
         {
         case GameVersion::OG:
-            return "Original Game (1.10.x)";
+            return "Original Game (1.10.163)";
         case GameVersion::NewGen:
             return "Next Generation (1.10.980-1.10.984)";
         case GameVersion::AE:
-            return "Anniversary Edition (1.11.x)";
+            return "Anniversary Edition (all post-NG versions)";
         case GameVersion::Unknown:
         default:
             return "UNKNOWN";
@@ -481,8 +479,8 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         if (g_gameVersion != GameVersion::OG && g_gameVersion != GameVersion::AE)
         {
             logger->critical(
-                "Unsupported Fallout 4 runtime: {}. Supported runtimes are OG 1.10.163 and AE 1.11.240; "
-                "refusing to install hooks on an unsupported runtime.",
+                "Unsupported Fallout 4 runtime: {}. Supported runtime families are OG and AE; "
+                "NG 1.10.980-1.10.984 remains unsupported.",
                 GameVersionString(g_gameVersion));
             return false;
         }

@@ -27,10 +27,24 @@ jobs:
     runs-on: [self-hosted, Linux, X64, largepluginmods]
     env:
       XWIN_ROOT: ${{ vars.XWIN_ROOT || '/opt/xwin' }}
+      RAD_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RAD_HEAD_SHA }}
+
+      - name: Verify exact PR head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$RAD_HEAD_SHA" || {
+            echo "ERROR: expected exact head $RAD_HEAD_SHA but checked out $actual" >&2
+            exit 1
+          }
+          echo "exact head: $actual"
 
       - name: Checkout commonlib_NonVR (RE authority)
         shell: bash
@@ -70,6 +84,7 @@ jobs:
           python3 tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python3 tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
           python3 tests/verify_local_hud_editor.py
+          python3 tests/verify_ae_runtime_support.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
@@ -132,7 +147,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ job.status }}" = "success" ]; then state=success; else state=failure; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${RAD_HEAD_SHA}" \
             -f state="$state" \
             -f context="RadOverhaul/xmake" \
-            -f description="Windows xmake cross-build (clang-cl/xwin) $state"
+            -f description="Windows xmake exact-head cross-build (clang-cl/xwin) $state"

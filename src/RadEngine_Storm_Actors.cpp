@@ -109,26 +109,31 @@ void RadiationEngine::CheckGhoulPackCleanup()
 
     auto* cell = player->GetParentCell();
     const auto* world = player->cachedWorldspace;
+    const bool wentIndoors = cell && cell->IsInterior() && !_ghoulPackInterior;
+    if (wentIndoors)
+    {
+        Log()->info("[Storm/Ghouls] Player went indoors. Despawning the hunter pack.");
+        ClearStormGhouls();
+        return;
+    }
+
     if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
     {
         Log()->info("[Storm/Ghouls] Player ownership is unresolved; despawning the hunter pack.");
         ClearStormGhouls();
         return;
     }
-    const bool wentIndoors  = cell && cell->IsInterior() && !_ghoulPackInterior;
-    // Worldspace change (fast travel to a different exterior). Checked FIRST because the point
-    // distance below is computed in raw cell coordinates — meaningless across worldspaces, where
-    // it can read small even though the player is nowhere near the pack, leaving it stuck alive.
-    const std::uint32_t wid = world ? world->GetFormID() : 0;
+
+    const std::uint32_t wid = world->GetFormID();
     const bool changedWorld = _ghoulPackWorldID != 0 && wid != _ghoulPackWorldID;
     const float dist        = player->GetDistanceFromPoint(_ghoulPackCenter);
-    const bool movedFar     = !changedWorld && dist > kGhoulDespawnDist;  // only trust dist in the same worldspace
+    const bool movedFar     = !changedWorld && dist > kGhoulDespawnDist;
 
-    if (wentIndoors || changedWorld || movedFar)
+    if (changedWorld || movedFar)
     {
         Log()->info(
             "[Storm/Ghouls] Player left the area ({}). Despawning the hunter pack.",
-            changedWorld ? "changed worldspace" : (wentIndoors ? "went indoors" : "moved far"));
+            changedWorld ? "changed worldspace" : "moved far");
         ClearStormGhouls();
     }
 }
