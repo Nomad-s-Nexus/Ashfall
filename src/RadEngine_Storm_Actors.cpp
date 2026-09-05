@@ -49,22 +49,27 @@ void RadiationEngine::SpawnStormGhouls()
     if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
         return;
 
-    for (auto it = _stormGhoulRefs.begin(); it != _stormGhoulRefs.end();)
+    std::size_t liveHunters = 0;
+    for (auto& handle : _stormGhoulRefs)
     {
-        auto ptr = it->get();
+        auto ptr = handle.get();
         auto* ref = ptr.get();
         auto* actor = ref && ref->GetFormType() == RE::ENUM_FORM_ID::kACHR
             ? static_cast<RE::Actor*>(ref) : nullptr;
-        if (!actor || actor->IsDead(false))
-            it = _stormGhoulRefs.erase(it);
-        else
-            ++it;
+        if (actor && !actor->IsDead(false))
+            ++liveHunters;
+    }
+    if (liveHunters > 0)
+    {
+        Log()->info("[Storm/Ghouls] Existing hunter pack still active ({} live); suppressing another pack.",
+            liveHunters);
+        return;
     }
     if (!_stormGhoulRefs.empty())
     {
-        Log()->info("[Storm/Ghouls] Existing hunter pack still active ({} live); suppressing another pack.",
+        Log()->info("[Storm/Ghouls] Previous hunter pack defeated; cleaning {} tracked ref(s) before the next pack roll.",
             _stormGhoulRefs.size());
-        return;
+        ClearStormGhouls();
     }
     _ghoulPackWorldID = 0;
     _ghoulPackInterior = false;
