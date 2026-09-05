@@ -154,6 +154,7 @@ namespace
     void WaitThenCreateRadHud(std::uint64_t generation)
     {
         auto free = std::make_shared<std::atomic<bool>>(false);
+        auto probeQueued = std::make_shared<std::atomic<bool>>(false);
         bool wasFree = false;
         auto freeSince = std::chrono::steady_clock::now();
 
@@ -171,22 +172,28 @@ namespace
                 break;
             }
 
-            // Runtime probing proved F4SE AddTask is not a game-main-thread marshal on this setup.
-            // Reset pessimistically before queuing: if the dispatcher is backlogged, a stale TRUE from
-            // the previous probe must not keep advancing the 5-second world-ready hold timer.
-            free->store(false, std::memory_order_release);
-            if (!Hooks::QueueMainThreadTask([free, generation]() {
-                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
-                            generation, g_radLoadGeneration.load(std::memory_order_acquire)))
-                        return;
-                    auto* ui = RE::UI::GetSingleton();
-                    auto* cm = RE::ControlMap::GetSingleton();
-                    auto* pc = RE::PlayerCharacter::GetSingleton();
-                    const bool ctrl = ui && ui->menuMode == 0 && cm && !cm->ignoreKeyboardMouse && pc && pc->parentCell;
-                    free->store(ctrl, std::memory_order_release);
-                }))
+            bool expectedProbe = false;
+            if (probeQueued->compare_exchange_strong(expectedProbe, true, std::memory_order_acq_rel))
             {
-                if (logger) logger->debug("FalloutAnomaly: radhud world-ready probe deferred until the game-thread dispatcher accepts work.");
+                // Runtime probing proved F4SE AddTask is not a game-main-thread marshal on this setup.
+                // Reset pessimistically only when a fresh probe is accepted: at most one probe remains
+                // queued while the dispatcher is backlogged, so a long load cannot build a closure pile.
+                free->store(false, std::memory_order_release);
+                if (!Hooks::QueueMainThreadTask([free, probeQueued, generation]() {
+                        probeQueued->store(false, std::memory_order_release);
+                        if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                                generation, g_radLoadGeneration.load(std::memory_order_acquire)))
+                            return;
+                        auto* ui = RE::UI::GetSingleton();
+                        auto* cm = RE::ControlMap::GetSingleton();
+                        auto* pc = RE::PlayerCharacter::GetSingleton();
+                        const bool ctrl = ui && ui->menuMode == 0 && cm && !cm->ignoreKeyboardMouse && pc && pc->parentCell;
+                        free->store(ctrl, std::memory_order_release);
+                    }))
+                {
+                    probeQueued->store(false, std::memory_order_release);
+                    if (logger) logger->debug("FalloutAnomaly: radhud world-ready probe deferred until the game-thread dispatcher accepts work.");
+                }
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
