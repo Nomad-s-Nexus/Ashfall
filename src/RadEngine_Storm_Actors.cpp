@@ -53,7 +53,8 @@ void RadiationEngine::SpawnStormGhouls()
     {
         auto ptr = it->get();
         auto* ref = ptr.get();
-        auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
+        auto* actor = ref && ref->GetFormType() == RE::ENUM_FORM_ID::kACHR
+            ? static_cast<RE::Actor*>(ref) : nullptr;
         if (!actor || actor->IsDead(false))
             it = _stormGhoulRefs.erase(it);
         else
