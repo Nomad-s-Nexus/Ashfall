@@ -5,6 +5,7 @@ SRC = ROOT / "src"
 
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
+main = (SRC / "main.cpp").read_text(encoding="utf-8")
 
 ghoul_spawn = actors.split("void RadiationEngine::SpawnStormGhouls()", 1)[1].split(
     "void RadiationEngine::CheckGhoulPackCleanup()", 1
@@ -62,4 +63,15 @@ already_current = release.split("if (sky->currentWeather == target)", 1)[1].spli
 assert "_weatherHandoffSettleTicks = 0;" in already_current
 assert "_weatherHandoffWaitTicks = 0;" in already_current
 
-print("storm spawn ownership and handoff counter guards verified")
+hud_wait = main.split("void WaitThenCreateRadHud", 1)[1].split(
+    "void StartRadHudWaitIfIdle", 1
+)[0]
+for token in (
+    "auto probeQueued = std::make_shared<std::atomic<bool>>(false);",
+    "probeQueued->compare_exchange_strong",
+    "[free, probeQueued, generation]",
+    "probeQueued->store(false, std::memory_order_release);",
+):
+    assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
+
+print("storm ownership, handoff, and HUD queue guards verified")
