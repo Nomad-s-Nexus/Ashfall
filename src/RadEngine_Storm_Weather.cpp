@@ -125,6 +125,8 @@ void RadiationEngine::ReleaseStormWeather()
         sky->overrideWeather = target;
         _weatherReturnTarget = target;
         _weatherReturnCaptured = true;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
         _releaseWeatherOverrideWhenSettled = true;
         _weatherForced = true;
         Log()->debug("[StormWeather] Return transition already targets 0x{:06X} at pct {:.2f}; continuing without restart.",
@@ -185,10 +187,10 @@ void RadiationEngine::SpawnFireRing()
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player) return;
 
-    // SpawnFireRing only called when !IsPlayerSheltered(), so player is in exterior.
-    // Use cachedWorldspace for the placement; interior is null for exterior cells.
+    auto* cell = player->GetParentCell();
     auto* world = player->cachedWorldspace;
-    if (!world) return;
+    if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
+        return;
 
     auto logger = Log();
     ClearFireRefs();  // clean up any leftover refs from a previous storm
