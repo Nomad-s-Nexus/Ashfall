@@ -3,7 +3,7 @@
 #include "Hooks.h"
 #include <algorithm>
 #include <cmath>
-#include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
+#include <RE/P/PlayerCamera.h>
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
 #include <RE/N/NiAVObject.h>
@@ -11,11 +11,6 @@
 #include <RE/T/TESObjectCELL.h>
 
 using namespace RadInternal;
-
-// Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
-// Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
-// RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
-
 
 void RadiationEngine::ClearFireRefs()
 {
@@ -35,22 +30,44 @@ void RadiationEngine::ClearFireRefs()
     _fireRefs.clear();
     logger->info("[Storm/Fire] Cleared {} fire hazard refs.", cleared);
 }
+
 void RadiationEngine::SpawnStormGhouls()
 {
-    if (!_stormGhoulForm) return;
-    if (IsPlayerSheltered()) return;
+    if (!_stormGhoulForm || IsPlayerSheltered()) return;
 
-    auto* dh     = RE::TESDataHandler::GetSingleton();
+    auto* dh = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player) return;
 
+    auto* cell = player->GetParentCell();
     auto* world = player->cachedWorldspace;
-    if (!world) return;
+    if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
+        return;
+
+    for (auto it = _stormGhoulRefs.begin(); it != _stormGhoulRefs.end();)
+    {
+        auto ptr = it->get();
+        auto* ref = ptr.get();
+        auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
+        if (!actor || actor->IsDead(false))
+            it = _stormGhoulRefs.erase(it);
+        else
+            ++it;
+    }
+
+    if (!_stormGhoulRefs.empty())
+    {
+        Log()->info("[Storm/Ghouls] Existing hunter pack still active ({} live); suppressing another pack.",
+            _stormGhoulRefs.size());
+        return;
+    }
+
+    _ghoulPackWorldID = 0;
+    _ghoulPackInterior = false;
 
     auto logger = Log();
     static std::mt19937 rng{ std::random_device{}() };
 
-    // % chance per lethal storm — most storms pass without a pack.
     std::uniform_real_distribution<float> chance(0.0f, 1.0f);
     if (chance(rng) > kStormGhoulSpawnChance)
     {
@@ -59,32 +76,29 @@ void RadiationEngine::SpawnStormGhouls()
     }
 
     constexpr float kPi = 3.14159265f;
-    std::uniform_int_distribution<int>    countDist(kStormGhoulMinCount, kStormGhoulMaxCount);
+    std::uniform_int_distribution<int> countDist(kStormGhoulMinCount, kStormGhoulMaxCount);
     std::uniform_real_distribution<float> radiusDist(kStormGhoulMinRadius, kStormGhoulMaxRadius);
     std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * kPi);
 
-    const int          count = countDist(rng);
-    const RE::NiPoint3 base  = player->GetPosition();
+    const int count = countDist(rng);
+    const RE::NiPoint3 base = player->GetPosition();
     int spawned = 0;
 
     for (int i = 0; i < count; ++i)
     {
-        const float angle  = angleDist(rng);
+        const float angle = angleDist(rng);
         const float radius = radiusDist(rng);
-        // Every ~6th is a Glowing One if available — adds menace to the pack.
         RE::TESBoundObject* form = (i % 6 == 0 && _stormGlowingOneForm) ? _stormGlowingOneForm : _stormGhoulForm;
 
         RE::NEW_REFR_DATA data;
-        data.object    = form;
-        data.location  = { base.x + radius * std::cos(angle),
-                           base.y + radius * std::sin(angle),
-                           base.z + 2.0f };
+        data.object = form;
+        data.location = { base.x + radius * std::cos(angle),
+                          base.y + radius * std::sin(angle),
+                          base.z + 2.0f };
         data.direction = { 0.0f, 0.0f, 0.0f };
-        data.interior  = nullptr;
-        data.world     = world;
+        data.interior = nullptr;
+        data.world = world;
 
-        // Tracked so we can despawn the pack once the player leaves the area (see CheckGhoulPackCleanup).
-        // They are NOT cleared at storm end, so they persist and hunt the player meanwhile.
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
         {
@@ -92,15 +106,13 @@ void RadiationEngine::SpawnStormGhouls()
             ++spawned;
         }
     }
-    // Remember where/when the pack was unleashed so cleanup can fire when the player moves on.
+
     _ghoulPackCenter = base;
-    auto* pcell = player->GetParentCell();
-    _ghoulPackWorldID = world ? world->GetFormID() : 0;   // for the cleanup worldspace-change check
-    _ghoulPackInterior = pcell && pcell->IsInterior();
+    _ghoulPackWorldID = world->GetFormID();
+    _ghoulPackInterior = false;
     logger->warn("[Storm/Ghouls] HUNT — unleashed {} feral ghoul(s); they hunt until killed or you leave the area.", spawned);
 }
-// Despawn the storm ghoul pack once the player has clearly left the area: traveled far from the
-// spawn center, changed worldspace, or gone indoors. Keeps persistent hunters from accumulating.
+
 void RadiationEngine::CheckGhoulPackCleanup()
 {
     if (_stormGhoulRefs.empty()) return;
@@ -126,8 +138,8 @@ void RadiationEngine::CheckGhoulPackCleanup()
 
     const std::uint32_t wid = world->GetFormID();
     const bool changedWorld = _ghoulPackWorldID != 0 && wid != _ghoulPackWorldID;
-    const float dist        = player->GetDistanceFromPoint(_ghoulPackCenter);
-    const bool movedFar     = !changedWorld && dist > kGhoulDespawnDist;
+    const float dist = player->GetDistanceFromPoint(_ghoulPackCenter);
+    const bool movedFar = !changedWorld && dist > kGhoulDespawnDist;
 
     if (changedWorld || movedFar)
     {
@@ -137,6 +149,7 @@ void RadiationEngine::CheckGhoulPackCleanup()
         ClearStormGhouls();
     }
 }
+
 void RadiationEngine::ClearStormGhouls()
 {
     if (_stormGhoulRefs.empty()) return;
@@ -153,9 +166,10 @@ void RadiationEngine::ClearStormGhouls()
         }
     }
     _stormGhoulRefs.clear();
-    _ghoulPackWorldID = 0;   // pack gone — clear its area trackers so stale state can't mislead the next check
+    _ghoulPackWorldID = 0;
     logger->info("[Storm/Ghouls] Cleared {} storm ghoul ref(s).", cleared);
 }
+
 void RadiationEngine::ApplyStormIMAD(int typeIndex)
 {
     SetStormIMADTarget(typeIndex, 1.0f, 2.5f);
