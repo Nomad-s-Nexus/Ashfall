@@ -86,6 +86,7 @@ jobs:
           python3 tests/verify_local_hud_editor.py
           python3 tests/verify_ae_runtime_support.py
           python3 tests/verify_ghoul_contract.py
+          python3 tests/verify_storm_spawn_ownership.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
