@@ -174,8 +174,9 @@ void RadiationEngine::ForceClearAndSilence()
     _weatherForced = false;
 
     auto* sky = RE::Sky::GetSingleton();
-    if (!sky || !_clearWeather) return;
+    if (!sky) return;
     sky->ReleaseWeatherOverride();
+    if (!_clearWeather) return;
     sky->ForceWeather(_clearWeather, false);
 }
 void RadiationEngine::SpawnFireRing()

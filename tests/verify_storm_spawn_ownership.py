@@ -64,6 +64,17 @@ already_current = release.split("if (sky->currentWeather == target)", 1)[1].spli
 assert "_weatherHandoffSettleTicks = 0;" in already_current
 assert "_weatherHandoffWaitTicks = 0;" in already_current
 
+force_clear = weather.split("void RadiationEngine::ForceClearAndSilence()", 1)[1].split(
+    "void RadiationEngine::SpawnFireRing()", 1
+)[0]
+assert "if (!sky || !_clearWeather) return;" not in force_clear
+assert "if (!sky) return;" in force_clear
+release_override = force_clear.find("sky->ReleaseWeatherOverride();")
+clear_guard = force_clear.find("if (!_clearWeather) return;")
+assert release_override != -1
+assert clear_guard != -1
+assert release_override < clear_guard
+
 dome_follow = dome.split("void RadiationEngine::UpdateStormDomeFollow()", 1)[1].split(
     "void RadiationEngine::UpdateDustMotes()", 1
 )[0]
@@ -84,4 +95,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, dome-follow, and HUD queue guards verified")
+print("storm ownership, handoff, clear-release, dome-follow, and HUD queue guards verified")
