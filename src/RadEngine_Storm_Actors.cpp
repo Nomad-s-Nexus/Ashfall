@@ -145,8 +145,7 @@ void RadiationEngine::CheckGhoulPackCleanup()
 
     if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
     {
-        Log()->info("[Storm/Ghouls] Player ownership is unresolved; despawning the hunter pack.");
-        ClearStormGhouls();
+        Log()->debug("[Storm/Ghouls] Player ownership unresolved during streaming; deferring pack cleanup.");
         return;
     }
 
