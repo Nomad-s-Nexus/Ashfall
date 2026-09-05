@@ -5,6 +5,7 @@ SRC = ROOT / "src"
 
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
+dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 
 ghoul_spawn = actors.split("void RadiationEngine::SpawnStormGhouls()", 1)[1].split(
@@ -63,6 +64,15 @@ already_current = release.split("if (sky->currentWeather == target)", 1)[1].spli
 assert "_weatherHandoffSettleTicks = 0;" in already_current
 assert "_weatherHandoffWaitTicks = 0;" in already_current
 
+dome_follow = dome.split("void RadiationEngine::UpdateStormDomeFollow()", 1)[1].split(
+    "void RadiationEngine::UpdateDustMotes()", 1
+)[0]
+dome_preflight, dome_move = dome_follow.split("if (!needsMove) return;", 1)
+assert "if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D()) return;" in dome_preflight
+assert "ref->Update3DPosition(true);" in dome_move
+assert "IsValidDomeReference" not in dome_move
+assert "ref->Get3D()" not in dome_move
+
 hud_wait = main.split("void WaitThenCreateRadHud", 1)[1].split(
     "void StartRadHudWaitIfIdle", 1
 )[0]
@@ -74,4 +84,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, and HUD queue guards verified")
+print("storm ownership, handoff, dome-follow, and HUD queue guards verified")

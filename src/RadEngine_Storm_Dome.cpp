@@ -337,35 +337,29 @@ void RadiationEngine::UpdateStormDomeFollow()
     if (!IsValidDomeOwner(player, playerCell, playerWorld) || playerWorld != _stormDomeWorld) return;
 
     const auto playerPosition = player->GetPosition();
-    bool hasLoaded3D = false;
     bool needsMove = false;
-    for (auto& layer : _stormDomeRefs)
-    {
-        auto ptr = layer.handle.get();
-        auto* ref = ptr.get();
-        if (!IsValidDomeReference(ref, _stormDomeWorld)) return;
-        if (ref->Get3D())
-        {
-            hasLoaded3D = true;
-            const auto desired = RadCorrectnessPolicy::DomePosition(
-                { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
-            const auto current = ref->GetPosition();
-            const float dx = desired.x - current.x;
-            const float dy = desired.y - current.y;
-            const float dz = desired.z - current.z;
-            if ((dx * dx) + (dy * dy) + (dz * dz) >=
-                kStormDomeFollowDistanceThreshold * kStormDomeFollowDistanceThreshold)
-                needsMove = true;
-        }
-    }
-    if (!hasLoaded3D || !needsMove) return;
-
     for (auto& layer : _stormDomeRefs)
     {
         auto ptr = layer.handle.get();
         auto* ref = ptr.get();
         if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D()) return;
 
+        const auto desired = RadCorrectnessPolicy::DomePosition(
+            { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
+        const auto current = ref->GetPosition();
+        const float dx = desired.x - current.x;
+        const float dy = desired.y - current.y;
+        const float dz = desired.z - current.z;
+        if ((dx * dx) + (dy * dy) + (dz * dz) >=
+            kStormDomeFollowDistanceThreshold * kStormDomeFollowDistanceThreshold)
+            needsMove = true;
+    }
+    if (!needsMove) return;
+
+    for (auto& layer : _stormDomeRefs)
+    {
+        auto ptr = layer.handle.get();
+        auto* ref = ptr.get();
         const auto position = RadCorrectnessPolicy::DomePosition(
             { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
         ref->data.location = { position.x, position.y, position.z };
