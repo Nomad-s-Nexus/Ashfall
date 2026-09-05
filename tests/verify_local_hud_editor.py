@@ -6,6 +6,8 @@ views = root / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomal
 rad_hud = (root / "src" / "RadHud.cpp").read_text(encoding="utf-8")
 rad_debug = (root / "src" / "RadEngine_Debug.cpp").read_text(encoding="utf-8")
 rad_layout = (root / "src" / "RadHudLayout.cpp").read_text(encoding="utf-8")
+hooks_input = (root / "src" / "Hooks_Input.cpp").read_text(encoding="utf-8")
+radiation_engine = (root / "src" / "RadiationEngine.cpp").read_text(encoding="utf-8")
 editor_js = (views / "rad_hud_local_editor.js").read_text(encoding="utf-8")
 toxic = (views / "hud_toxic.html").read_text(encoding="utf-8")
 filter_html = (views / "hud_filter.html").read_text(encoding="utf-8")
@@ -38,6 +40,13 @@ assert 'api->InteropCall(_toxicView, "releaseLocalHUDLayout", "")' in rad_layout
 assert 'api->InteropCall(_filterView, "releaseLocalHUDLayout", "")' in rad_layout
 assert 'hud_layout.json' in rad_layout
 
+poll_input = radiation_engine.split("void RadiationEngine::PollInput()", 1)[1].split(
+    "namespace\n{\n    constexpr std::uint32_t kStormClockRecord", 1
+)[0]
+assert poll_input.count("RadHud::GetSingleton().ToggleDebugMenu();") == 1
+assert "RadHud::GetSingleton().ToggleDebugMenu();" not in hooks_input
+assert "const_cast<RE::ButtonEvent*>(e)->handled = RE::InputEvent::HANDLED_RESULT::kStop;" in hooks_input
+
 assert 'Fallback vitals: Health + Rads / Stamina (AP) / Tissue' in editor_js
 assert 'Without PrismaHUD, Rad supplies Health with radiation loss, Stamina/AP, Tissue' in editor_js
 assert 'window.radHudLayout(JSON.stringify(command))' in editor_js
@@ -62,4 +71,4 @@ assert not (views / 'rad_hud_local_widget.js').exists()
 assert '<script src="rad_hud_local_editor.js"></script>' in main_html
 assert "cmd('hud:open')" in main_html
 
-print("Rad native fallback HUD ownership guard passed")
+print("Rad native fallback HUD ownership and single debug-hotkey guard passed")

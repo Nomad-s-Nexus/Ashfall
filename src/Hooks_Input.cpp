@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "Hooks.h"
-#include "RadHud.h"
 
 #ifdef MAX_PATH
 #undef MAX_PATH
@@ -33,7 +32,6 @@ namespace Hooks
         {
             if (!e || !e->QJustPressed() || e->GetBSButtonCode() != RE::BS_BUTTON_CODE::kF8 ||
                 (::GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) return;
-            RadHud::GetSingleton().ToggleDebugMenu();
             const_cast<RE::ButtonEvent*>(e)->handled = RE::InputEvent::HANDLED_RESULT::kStop;
         }
     };
