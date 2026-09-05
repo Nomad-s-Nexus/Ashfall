@@ -19,11 +19,14 @@ for token in (
     assert token in ghoul_spawn, f"storm ghoul spawn is missing ownership gate: {token}"
 
 for token in (
-    "ref->As<RE::Actor>()",
+    "ref->GetFormType() == RE::ENUM_FORM_ID::kACHR",
+    "static_cast<RE::Actor*>(ref)",
     "actor->IsDead(false)",
     "Existing hunter pack still active",
 ):
     assert token in ghoul_spawn, f"storm ghoul pack bound is missing: {token}"
+
+assert "ref->As<RE::Actor>()" not in ghoul_spawn
 
 fire_ring = weather.split("void RadiationEngine::SpawnFireRing()", 1)[1].split(
     "bool RadiationEngine::SpawnDistantNuke()", 1
