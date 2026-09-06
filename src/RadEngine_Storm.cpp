@@ -38,6 +38,7 @@ void RadiationEngine::BeginStorm(int typeIndex)
 
     _activeStormType   = typeIndex;
     _stormExposedTicks = 0;
+    _fleeTick          = 0;
     _stormFXVisible    = false;  // no screen FX until the storm hits (and only if exposed)
     _stormNukeFired    = false;  // re-arm the one-time firestorm nuke for this storm
     _firestormAwaitingNuke = false;  // set true at Active onset for a firestorm
