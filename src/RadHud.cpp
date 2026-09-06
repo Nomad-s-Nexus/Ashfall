@@ -221,11 +221,10 @@ void RadHud::CreateView()
         g_domReadyFlag.store(&_domReady, std::memory_order_release);
 
         _view = api->CreateView(kViewPath, [](PrismaView v) {
-            if (auto* a = g_apiForCb.load(std::memory_order_acquire))
-            {
-                a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
-                a->Show(v);
-            }
+            auto* a = g_apiForCb.load(std::memory_order_acquire);
+            if (!a || !a->IsValid(v)) return;
+            a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
+            a->Show(v);
             // Flag LAST: a Push seeing _domReady=true must find the listener already registered.
             if (auto* flag = g_domReadyFlag.load(std::memory_order_acquire))
                 flag->store(true, std::memory_order_release);
@@ -245,9 +244,10 @@ void RadHud::CreateView()
 
         _toxicView = api->CreateView(kToxicViewPath, [](PrismaView v) {
             auto* a = g_apiForCb.load(std::memory_order_acquire);
+            if (!a || !a->IsValid(v)) return;
             auto* hudApi = g_hudApiForCb.load(std::memory_order_acquire);
-            if (a) a->Show(v);
-            if (hudApi && a && a->IsValid(v))
+            a->Show(v);
+            if (hudApi)
             {
                 hudApi->RegisterWidget(v, kToxicDesc);
                 if (auto* flag = g_toxicWidgetRegisteredFlag.load(std::memory_order_acquire))
@@ -275,9 +275,10 @@ void RadHud::CreateView()
 
         _filterView = api->CreateView(kFilterViewPath, [](PrismaView v) {
             auto* a = g_apiForCb.load(std::memory_order_acquire);
+            if (!a || !a->IsValid(v)) return;
             auto* hudApi = g_hudApiForCb.load(std::memory_order_acquire);
-            if (a) a->Show(v);
-            if (hudApi && a && a->IsValid(v))
+            a->Show(v);
+            if (hudApi)
                 hudApi->RegisterWidget(v, kFilterDesc);
             if (auto* flag = g_filterDomReadyFlag.load(std::memory_order_acquire))
                 flag->store(true, std::memory_order_release);

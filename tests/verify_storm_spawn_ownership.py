@@ -16,6 +16,7 @@ lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 radiation_engine = (SRC / "RadiationEngine.cpp").read_text(encoding="utf-8")
 radiation_header = (SRC / "RadiationEngine.h").read_text(encoding="utf-8")
+radhud = (SRC / "RadHud.cpp").read_text(encoding="utf-8")
 
 ghoul_spawn = actors.split("void RadiationEngine::SpawnStormGhouls()", 1)[1].split(
     "void RadiationEngine::CheckGhoulPackCleanup()", 1
@@ -196,6 +197,17 @@ assert player_hit.rfind("RadLifecycleDispatch::PlayerUpdatesReady(generation)") 
     "_maskCondition = std::max"
 )
 
+assert radhud.count("if (!a || !a->IsValid(v)) return;") == 3
+for view_assignment, ready_flag in (
+    ("_view = api->CreateView(kViewPath", "g_domReadyFlag.load"),
+    ("_toxicView = api->CreateView(kToxicViewPath", "g_toxicDomReadyFlag.load"),
+    ("_filterView = api->CreateView(kFilterViewPath", "g_filterDomReadyFlag.load"),
+):
+    callback = radhud.split(view_assignment, 1)[1].split("});", 1)[0]
+    validity = callback.find("if (!a || !a->IsValid(v)) return;")
+    ready = callback.find(ready_flag)
+    assert validity != -1 and ready != -1 and validity < ready
+
 producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(
     "bool InstallUpdateHook", 1
 )[0]
@@ -298,4 +310,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
