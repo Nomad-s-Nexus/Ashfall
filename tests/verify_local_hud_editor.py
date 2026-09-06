@@ -79,10 +79,13 @@ drain_debug = rad_debug.split('void RadiationEngine::DrainDebugCommands()', 1)[1
     'void RadiationEngine::DispatchDebugCommand', 1
 )[0]
 session_gate = drain_debug.find('if (_prevRads < 0.0f)')
+mask_reset = drain_debug.find('_maskOverride = -1;')
+shelter_reset = drain_debug.find('_debugShelter = false;')
 pending_clear = drain_debug.find('_pendingDebugCmds.clear();')
 swap = drain_debug.find('cmds.swap(_pendingDebugCmds);')
-assert session_gate != -1 and pending_clear != -1 and swap != -1
-assert session_gate < pending_clear < swap
+assert session_gate != -1 and mask_reset != -1 and shelter_reset != -1 and pending_clear != -1 and swap != -1
+assert session_gate < mask_reset < pending_clear < swap
+assert session_gate < shelter_reset < pending_clear < swap
 
 assert rad_layout.count('void RadHud::OpenHudLayoutEditor()') == 1
 assert 'RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand)' in rad_layout
@@ -129,4 +132,4 @@ assert not (views / 'rad_hud_local_widget.js').exists()
 assert '<script src="rad_hud_local_editor.js"></script>' in main_html
 assert "cmd('hud:open')" in main_html
 
-print("Rad native fallback HUD ownership, readiness, recovery routing, load-safe debug queue, and single debug-hotkey guard passed")
+print("Rad native fallback HUD ownership, readiness, recovery routing, load-safe debug state, and single debug-hotkey guard passed")

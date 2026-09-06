@@ -145,6 +145,8 @@ void RadiationEngine::DrainDebugCommands()
         std::lock_guard<std::mutex> lock(_debugCmdMutex);
         if (_prevRads < 0.0f)
         {
+            _maskOverride = -1;
+            _debugShelter = false;
             _pendingDebugCmds.clear();
             return;
         }
