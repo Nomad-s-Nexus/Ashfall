@@ -11,6 +11,21 @@ void RadiationEngine::CheckRadstormWarning()
 {
     auto logger = Log();
 
+    if (_maskWasOn == -1)
+    {
+        _playerEnclosed = false;
+        _enclosedCheckTick = 0;
+        _prevSheltered = true;
+        _cellExitGraceTicks = 0;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* cell = player ? player->GetParentCell() : nullptr;
+        if (cell && cell->IsExterior())
+        {
+            _playerEnclosed = ComputeEnclosedByStructure();
+            _enclosedCheckTick = kEnclosedRecheckTicks;
+        }
+    }
+
     // Cell-exit grace: arm a short veto window whenever the player goes from sheltered to exposed
     // (interior load-door OR a roofed exterior base — IsPlayerSheltered covers both). While armed, the
     // veto below force-clears a vanilla radstorm regardless of its transition pct, so leaving Sanctuary

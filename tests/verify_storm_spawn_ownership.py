@@ -84,6 +84,25 @@ assert release_override != -1
 assert clear_guard != -1
 assert release_override < clear_guard
 
+radstorm_warning = weather_core.split("void RadiationEngine::CheckRadstormWarning()", 1)[1].split(
+    "void RadiationEngine::BeginSmoothWeather", 1
+)[0]
+load_shelter_reset = radstorm_warning.split("if (_maskWasOn == -1)", 1)[1].split(
+    "// Cell-exit grace:", 1
+)[0]
+for token in (
+    "_playerEnclosed = false;",
+    "_enclosedCheckTick = 0;",
+    "_prevSheltered = true;",
+    "_cellExitGraceTicks = 0;",
+    "_playerEnclosed = ComputeEnclosedByStructure();",
+    "_enclosedCheckTick = kEnclosedRecheckTicks;",
+):
+    assert token in load_shelter_reset, f"post-load shelter cache reset is missing: {token}"
+assert load_shelter_reset.find("_playerEnclosed = false;") < load_shelter_reset.find(
+    "_playerEnclosed = ComputeEnclosedByStructure();"
+)
+
 smooth_weather = weather_core.split("void RadiationEngine::BeginSmoothWeather", 1)[1].split(
     "void RadiationEngine::CaptureWeatherReturnTarget", 1
 )[0]
@@ -260,6 +279,7 @@ post_load_engine = radiation_engine.split("void RadiationEngine::OnPostLoad()", 
 assert "_forceClearOnEntry = false;" in post_load_engine
 assert "_spawnRadBlockTicks = 0;" in post_load_engine
 assert "_forcedStormType   = -1;" in post_load_engine
+assert "_maskWasOn = -1;" in post_load_engine
 assert "engine.OnNewGame();" not in post_load
 post_reset = new_game.find("engine.OnPostLoad();")
 new_game_arm = new_game.find("engine.OnNewGame();")
@@ -278,4 +298,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
