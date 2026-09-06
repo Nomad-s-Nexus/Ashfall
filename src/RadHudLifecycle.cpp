@@ -29,10 +29,11 @@ namespace
     }
 }
 
-void RadHud::StartPrismaViewRetry()
+bool RadHud::StartPrismaViewRetry()
 {
     _threadApi = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI11>();
-    if (!_threadApi || _viewCreateRetry.exchange(true)) return;
+    if (!_threadApi) return false;
+    if (_viewCreateRetry.exchange(true)) return true;
 
     auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(_threadApi);
     auto* retrying = &_viewCreateRetry;
@@ -62,4 +63,5 @@ void RadHud::StartPrismaViewRetry()
         }
         retrying->store(false);
     }).detach();
+    return true;
 }

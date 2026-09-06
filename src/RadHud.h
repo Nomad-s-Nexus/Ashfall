@@ -19,6 +19,7 @@ public:
 
     // kGameDataReady / recovery lifecycle: acquire optional Prisma UI/HUD APIs.
     void RequestAPI();
+    bool StartPrismaViewRetry();
 
     // kPostLoadGame / kNewGame: (re)create the HUD view.
     void CreateView();
@@ -73,8 +74,6 @@ public:
 private:
     RadHud() = default;
     ~RadHud() = default;
-
-    void StartPrismaViewRetry();
 
     void* _api = nullptr;       // PRISMA_UI_API::IVPrismaUI2*
     void* _threadApi = nullptr; // PRISMA_UI_API::IVPrismaUI11*

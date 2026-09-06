@@ -211,7 +211,11 @@ namespace
                         const bool createQueued = Hooks::QueueMainThreadTask([generation]() {
                             if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
                                     generation, g_radLoadGeneration.load(std::memory_order_acquire)))
-                                RadHud::GetSingleton().CreateView();
+                            {
+                                auto& hud = RadHud::GetSingleton();
+                                if (!hud.StartPrismaViewRetry())
+                                    hud.CreateView();
+                            }
                         });
                         if (!createQueued)
                         {

@@ -6,6 +6,7 @@ views = root / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomal
 rad_hud = (root / "src" / "RadHud.cpp").read_text(encoding="utf-8")
 rad_hud_header = (root / "src" / "RadHud.h").read_text(encoding="utf-8")
 rad_hud_lifecycle = (root / "src" / "RadHudLifecycle.cpp").read_text(encoding="utf-8")
+main_source = (root / "src" / "main.cpp").read_text(encoding="utf-8")
 rad_debug = (root / "src" / "RadEngine_Debug.cpp").read_text(encoding="utf-8")
 rad_layout = (root / "src" / "RadHudLayout.cpp").read_text(encoding="utf-8")
 hooks_input = (root / "src" / "Hooks_Input.cpp").read_text(encoding="utf-8")
@@ -23,7 +24,9 @@ assert rad_hud.count('SyncLocalHudLayout();') >= 2
 assert 'HUD layout editor requires PrismaHUD_F4' not in rad_hud
 assert 'void RadHud::OpenHudLayoutEditor()' not in rad_hud
 
-views_ready = rad_hud_header.split('[[nodiscard]] bool ViewsReady() const', 1)[1].split('private:', 1)[0]
+public_api = rad_hud_header.split('public:', 1)[1].split('private:', 1)[0]
+assert 'bool StartPrismaViewRetry();' in public_api
+views_ready = public_api.split('[[nodiscard]] bool ViewsReady() const', 1)[1]
 for token in (
     '_viewsReady.load()',
     '_domReady.load()',
@@ -36,7 +39,7 @@ suppress_callback = rad_hud_lifecycle.split('void SuppressVanillaMetersOnPrismaT
     'void CreateRadHudViewOnPrismaThread', 1
 )[0]
 create_callback = rad_hud_lifecycle.split('void CreateRadHudViewOnPrismaThread', 1)[1].split(
-    'void RadHud::StartPrismaViewRetry()', 1
+    'bool RadHud::StartPrismaViewRetry()', 1
 )[0]
 for widget in ('HUDPlayerHealthMeter', 'HUDActionPointMeter'):
     restore = f'api11->SuppressHUDWidget("{widget}", false);'
@@ -45,7 +48,10 @@ for widget in ('HUDPlayerHealthMeter', 'HUDActionPointMeter'):
     assert suppress in suppress_callback
     assert create_callback.find(restore) < create_callback.find('hud.CreateView();')
 assert 'if (!api11 || !RadHud::GetSingleton().ViewsReady()) return;' in suppress_callback
-retry_worker = rad_hud_lifecycle.split('void RadHud::StartPrismaViewRetry()', 1)[1]
+retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)[1]
+assert 'if (!_threadApi) return false;' in retry_worker
+assert 'if (_viewCreateRetry.exchange(true)) return true;' in retry_worker
+assert retry_worker.rstrip().endswith('return true;\n}')
 ready = retry_worker.find('RadHud::GetSingleton().ViewsReady()')
 suppress_dispatch = retry_worker.find('DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11)')
 assert ready != -1 and suppress_dispatch != -1 and ready < suppress_dispatch
@@ -57,6 +63,13 @@ assert 'if (!_threadApi)' in invalid_recovery
 assert 'CreateView();' in invalid_recovery
 assert invalid_recovery.find('StartPrismaViewRetry();') < invalid_recovery.find('CreateView();')
 assert 'return;' in invalid_recovery
+
+hud_wait = main_source.split('if (held >= 5000)', 1)[1].split('if (!createQueued)', 1)[0]
+assert 'auto& hud = RadHud::GetSingleton();' in hud_wait
+assert 'if (!hud.StartPrismaViewRetry())' in hud_wait
+assert 'hud.CreateView();' in hud_wait
+assert hud_wait.find('hud.StartPrismaViewRetry()') < hud_wait.find('hud.CreateView();')
+assert 'RadHud::GetSingleton().CreateView();' not in hud_wait
 
 assert 'a.rfind("hudlayout:", 0) == 0' in rad_debug
 assert 'ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")))' in rad_debug
