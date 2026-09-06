@@ -74,8 +74,9 @@ assert 'RadHud::GetSingleton().CreateView();' not in hud_wait
 session_reset = rad_hud.split('void RadHud::ResetDebugMenuForSession()', 1)[1].split(
     'void RadHud::ToggleDebugMenu()', 1
 )[0]
-for token in ('_debugOpen = false;', 'SetLocalHudEditorPreview(false);', 'SetDebugMenu(false);'):
+for token in ('g_inWorld.store(false);', '_debugOpen = false;', 'SetLocalHudEditorPreview(false);', 'SetDebugMenu(false);'):
     assert token in session_reset
+assert session_reset.find('g_inWorld.store(false);') < session_reset.find('SetDebugMenu(false);')
 assert session_reset.find('SetLocalHudEditorPreview(false);') < session_reset.find('SetDebugMenu(false);')
 
 assert 'a.rfind("hudlayout:", 0) == 0' in rad_debug
@@ -139,4 +140,4 @@ assert not (views / 'rad_hud_local_widget.js').exists()
 assert '<script src="rad_hud_local_editor.js"></script>' in main_html
 assert "cmd('hud:open')" in main_html
 
-print("Rad native fallback HUD ownership, session reset, recovery routing, load-safe debug state, and single debug-hotkey guard passed")
+print("Rad native fallback HUD ownership, session reset, in-world gate, recovery routing, load-safe debug state, and single debug-hotkey guard passed")

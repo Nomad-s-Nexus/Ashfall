@@ -408,6 +408,7 @@ void RadHud::PushStorm(int phase, int theme, float intensity, bool sheltered, bo
 
 void RadHud::ResetDebugMenuForSession()
 {
+    g_inWorld.store(false);
     _debugOpen = false;
     _debugTogglePending = false;
     _debugDesiredOpen = false;
