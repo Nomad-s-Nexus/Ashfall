@@ -149,12 +149,21 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     //   to 0, so a storm that begins mid-transition can cosmetically jump once. Rare, and not worth
     //   destabilising the (hard-won) working path over — documented so it's a choice, not an oversight.
     auto* sky = RE::Sky::GetSingleton();
-    if (!sky || !a_target || sky->currentWeather == a_target) return;
+    if (!sky || !a_target) return;
     if (_releaseWeatherOverrideWhenSettled && a_target != _weatherReturnTarget)
     {
         _releaseWeatherOverrideWhenSettled = false;
         _weatherHandoffSettleTicks = 0;
         _weatherHandoffWaitTicks = 0;
+    }
+    if (sky->currentWeather == a_target)
+    {
+        if (a_lockOverride)
+        {
+            sky->overrideWeather = a_target;
+            _weatherForced = true;
+        }
+        return;
     }
     if (a_lockOverride)
         sky->overrideWeather = a_target;            // lock target (region won't override it back)

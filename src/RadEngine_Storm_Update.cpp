@@ -195,6 +195,7 @@ void RadiationEngine::UpdateStorm()
                         // redundant dust->dust transition that resets pct AND, via the camera-VE end
                         // threshold, tears down the blowing-dust VE mid-storm (the "dust vanished after a
                         // second" bug). Do NOT re-force — the sky is right, just mark it.
+                        sky->overrideWeather = w;
                         _weatherForced = true;
                         logger->info("[StormFog] '{}' sky already current at Active — no re-transition.", st.name);
                     }

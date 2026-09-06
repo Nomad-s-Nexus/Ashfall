@@ -5,6 +5,7 @@ SRC = ROOT / "src"
 
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
+weather_core = (SRC / "RadEngine_Weather.cpp").read_text(encoding="utf-8")
 dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
 storm = (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8")
 storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
@@ -80,6 +81,17 @@ assert release_override != -1
 assert clear_guard != -1
 assert release_override < clear_guard
 
+smooth_weather = weather_core.split("void RadiationEngine::BeginSmoothWeather", 1)[1].split(
+    "void RadiationEngine::CaptureWeatherReturnTarget", 1
+)[0]
+same_current = smooth_weather.split("if (sky->currentWeather == a_target)", 1)[1].split("return;", 1)[0]
+assert "if (a_lockOverride)" in same_current
+assert "sky->overrideWeather = a_target;" in same_current
+assert "_weatherForced = true;" in same_current
+assert smooth_weather.find("_releaseWeatherOverrideWhenSettled && a_target != _weatherReturnTarget") < smooth_weather.find(
+    "if (sky->currentWeather == a_target)"
+)
+
 begin_storm = storm.split("void RadiationEngine::BeginStorm(int typeIndex)", 1)[1].split(
     "void RadiationEngine::EnterWarningPhase()", 1
 )[0]
@@ -118,6 +130,11 @@ warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
     "case StormPhase::Active:", 1
 )[0]
 assert "kSndNukeImpact" not in warning_phase
+already_current_storm = warning_phase.split("if (sky->currentWeather == w)", 1)[1].split(
+    "                    else", 1
+)[0]
+assert "sky->overrideWeather = w;" in already_current_storm
+assert already_current_storm.find("sky->overrideWeather = w;") < already_current_storm.find("_weatherForced = true;")
 active_phase = storm_update.split("case StormPhase::Active:", 1)[1].split(
     "case StormPhase::Aftermath:", 1
 )[0]
@@ -220,4 +237,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
