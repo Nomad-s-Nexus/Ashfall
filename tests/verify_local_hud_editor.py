@@ -50,6 +50,14 @@ ready = retry_worker.find('RadHud::GetSingleton().ViewsReady()')
 suppress_dispatch = retry_worker.find('DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11)')
 assert ready != -1 and suppress_dispatch != -1 and ready < suppress_dispatch
 
+push_toxic = rad_hud.split('void RadHud::PushToxic', 1)[1].split('void RadHud::PushMask', 1)[0]
+invalid_recovery = push_toxic.split('if (_view == 0 || !api->IsValid(_view)', 1)[1].split('SyncLocalHudLayout();', 1)[0]
+assert 'StartPrismaViewRetry();' in invalid_recovery
+assert 'if (!_threadApi)' in invalid_recovery
+assert 'CreateView();' in invalid_recovery
+assert invalid_recovery.find('StartPrismaViewRetry();') < invalid_recovery.find('CreateView();')
+assert 'return;' in invalid_recovery
+
 assert 'a.rfind("hudlayout:", 0) == 0' in rad_debug
 assert 'ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")))' in rad_debug
 assert 'cmds.swap(_pendingDebugCmds);' in rad_debug
@@ -100,4 +108,4 @@ assert not (views / 'rad_hud_local_widget.js').exists()
 assert '<script src="rad_hud_local_editor.js"></script>' in main_html
 assert "cmd('hud:open')" in main_html
 
-print("Rad native fallback HUD ownership, readiness, recovery, and single debug-hotkey guard passed")
+print("Rad native fallback HUD ownership, readiness, recovery routing, and single debug-hotkey guard passed")
