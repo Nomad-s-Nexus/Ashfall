@@ -326,11 +326,15 @@ void RadiationEngine::UpdateStorm()
                     if (st.themeId == 1)
                         SpawnFireRing();                // ground fire ring rolls in
                     _stormFXVisible = true;
-                    RE::BSSoundHandle wave{};
-                    if (!Play2DSound(kSndBlastWave, wave))   // the shockwave sweeping in (one-shot)
-                        logger->warn("[StormAudio] blast wave '{}' failed to load.", kSndBlastWave);
+                    if (_stormNukeFired)
+                    {
+                        RE::BSSoundHandle wave{};
+                        if (!Play2DSound(kSndBlastWave, wave))
+                            logger->warn("[StormAudio] blast wave '{}' failed to load.", kSndBlastWave);
+                    }
                 }
-                logger->info("[Storm] {} — blast wave arrived; atmosphere rolling in.", st.name);
+                logger->info("[Storm] {} — atmosphere rolling in{}.",
+                    st.name, _stormNukeFired ? " after the blast wave" : " without nuke detonation");
             }
             // The nuke's camera shake / dome are exterior-only during the inbound-wave window too. If
             // the player ducks inside while the blast is still rolling in, stop them now so the rumble
