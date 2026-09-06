@@ -1266,6 +1266,8 @@ void RadiationEngine::OnNewGame()
 void RadiationEngine::OnPostLoad()
 {
     auto logger = Log();
+    _forceClearOnEntry = false;
+    _spawnRadBlockTicks = 0;
 
     // Re-seed tissue fields from globals on every load so switching saves doesn't
     // carry the previous run's in-memory values into a fresh character's session.

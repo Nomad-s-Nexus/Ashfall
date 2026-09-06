@@ -13,6 +13,7 @@ hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
+radiation_engine = (SRC / "RadiationEngine.cpp").read_text(encoding="utf-8")
 
 ghoul_spawn = actors.split("void RadiationEngine::SpawnStormGhouls()", 1)[1].split(
     "void RadiationEngine::CheckGhoulPackCleanup()", 1
@@ -226,6 +227,16 @@ for section in (post_load, new_game):
     reset = section.find("engine.ResetAppliedPenalties();")
     assert reset != -1 and reset < ready
 
+post_load_engine = radiation_engine.split("void RadiationEngine::OnPostLoad()", 1)[1]
+assert "_forceClearOnEntry = false;" in post_load_engine
+assert "_spawnRadBlockTicks = 0;" in post_load_engine
+assert "engine.OnNewGame();" not in post_load
+post_reset = new_game.find("engine.OnPostLoad();")
+new_game_arm = new_game.find("engine.OnNewGame();")
+new_game_penalties = new_game.find("engine.ResetAppliedPenalties();")
+assert post_reset != -1 and new_game_arm != -1 and new_game_penalties != -1
+assert post_reset < new_game_arm < new_game_penalties
+
 hud_wait = main.split("void WaitThenCreateRadHud", 1)[1].split(
     "void StartRadHudWaitIfIdle", 1
 )[0]
@@ -237,4 +248,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, new-game load isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
