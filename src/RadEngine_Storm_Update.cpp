@@ -53,7 +53,7 @@ void RadiationEngine::UpdateStorm()
             if (sky)
             {
                 sky->ReleaseWeatherOverride();              // drop any stale forced sky first
-                if (_clearWeather) sky->ForceWeather(_clearWeather, true);
+                if (_clearWeather) sky->ForceWeather(_clearWeather, false);
             }
             // Silence the incoming-storm siren that may have started as we spawned into the storm.
             StopStormCue(kRadstormCueFalloffMs);

@@ -79,6 +79,17 @@ assert release_override != -1
 assert clear_guard != -1
 assert release_override < clear_guard
 
+new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
+    "if (!_nextEmissionGlobal) return;", 1
+)[0]
+assert "ForceWeather(_clearWeather, true)" not in new_game_clear
+assert "ForceWeather(_clearWeather, false)" in new_game_clear
+startup_release = new_game_clear.find("sky->ReleaseWeatherOverride();")
+startup_force = new_game_clear.find("ForceWeather(_clearWeather, false)")
+assert startup_release != -1
+assert startup_force != -1
+assert startup_release < startup_force
+
 dome_lifecycle = dome.split("void RadiationEngine::UpdateStormDomeLifecycle()", 1)[1].split(
     "void RadiationEngine::UpdateStormDomeFollow()", 1
 )[0]
@@ -193,4 +204,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, dome-streaming, lifecycle, queued-generation, nuke-audio, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, dome-follow, and HUD guards verified")
