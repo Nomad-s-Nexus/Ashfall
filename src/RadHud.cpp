@@ -412,6 +412,8 @@ void RadHud::ResetDebugMenuForSession()
     _debugTogglePending = false;
     _debugDesiredOpen = false;
     _debugNextFocusRetryMs = 0;
+    SetLocalHudEditorPreview(false);
+    SetDebugMenu(false);
 }
 
 void RadHud::ToggleDebugMenu()
