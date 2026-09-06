@@ -100,6 +100,8 @@ begin_storm = storm.split("void RadiationEngine::BeginStorm(int typeIndex)", 1)[
 )[0]
 assert "_stormRollInTicks  = 0;" in begin_storm
 assert "_fleeTick          = 0;" in begin_storm
+assert "const bool debugForced = _forcedStormType >= 0;" in begin_storm
+assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
     "if (!_nextEmissionGlobal) return;", 1
@@ -257,6 +259,7 @@ assert reset_penalties.find("_radstormWarned = false;") < reset_penalties.find("
 post_load_engine = radiation_engine.split("void RadiationEngine::OnPostLoad()", 1)[1]
 assert "_forceClearOnEntry = false;" in post_load_engine
 assert "_spawnRadBlockTicks = 0;" in post_load_engine
+assert "_forcedStormType   = -1;" in post_load_engine
 assert "engine.OnNewGame();" not in post_load
 post_reset = new_game.find("engine.OnPostLoad();")
 new_game_arm = new_game.find("engine.OnNewGame();")
@@ -275,4 +278,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, new-game load isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")

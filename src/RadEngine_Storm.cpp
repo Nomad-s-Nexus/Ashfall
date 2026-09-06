@@ -55,7 +55,8 @@ void RadiationEngine::BeginStorm(int typeIndex)
     // and begin the dust-sky roll-in + the rest of the storm. This is the APPROACH phase.
     // A debug-forced storm may shorten the silent lead (_forcedLeadTicks); consume it here so the
     // NEXT natural storm is back to the configured DomeLeadMinutes.
-    const int leadTicks = (_forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
+    const bool debugForced = _forcedStormType >= 0;
+    const int leadTicks = (debugForced && _forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
     _forcedLeadTicks = -1;
     _activeLeadTicks = leadTicks;
     logger->warn("========== STORM APPROACHING: {} ({}) — dome-only lead {} s ==========",
