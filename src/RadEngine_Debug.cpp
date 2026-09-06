@@ -143,6 +143,11 @@ void RadiationEngine::DrainDebugCommands()
     std::vector<std::string> cmds;
     {
         std::lock_guard<std::mutex> lock(_debugCmdMutex);
+        if (_prevRads < 0.0f)
+        {
+            _pendingDebugCmds.clear();
+            return;
+        }
         if (_pendingDebugCmds.empty()) return;
         cmds.swap(_pendingDebugCmds);
     }
