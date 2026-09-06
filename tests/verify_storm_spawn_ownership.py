@@ -14,6 +14,7 @@ dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 radiation_engine = (SRC / "RadiationEngine.cpp").read_text(encoding="utf-8")
+radiation_header = (SRC / "RadiationEngine.h").read_text(encoding="utf-8")
 
 ghoul_spawn = actors.split("void RadiationEngine::SpawnStormGhouls()", 1)[1].split(
     "void RadiationEngine::CheckGhoulPackCleanup()", 1
@@ -227,6 +228,13 @@ for section in (post_load, new_game):
     reset = section.find("engine.ResetAppliedPenalties();")
     assert reset != -1 and reset < ready
 
+reset_penalties = radiation_header.split("void ResetAppliedPenalties()", 1)[1].split(
+    "void OnPostLoad();", 1
+)[0]
+assert "_radstormCueHandle.IsValid()" in reset_penalties
+assert "_radstormCueHandle.FadeOutAndRelease(500);" in reset_penalties
+assert reset_penalties.find("_radstormWarned = false;") < reset_penalties.find("_radstormCueHandle.FadeOutAndRelease(500);")
+
 post_load_engine = radiation_engine.split("void RadiationEngine::OnPostLoad()", 1)[1]
 assert "_forceClearOnEntry = false;" in post_load_engine
 assert "_spawnRadBlockTicks = 0;" in post_load_engine
@@ -248,4 +256,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, new-game load isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, new-game load isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")

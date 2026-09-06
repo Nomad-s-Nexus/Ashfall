@@ -83,6 +83,7 @@ public:
         _stormImadFadeRate = 0.0f;
         _stormImadStopWhenFaded = false;
         _radstormWarned = false;
+        if (_radstormCueHandle.IsValid()) _radstormCueHandle.FadeOutAndRelease(500);
         _stormRollInTicks = 0;
         // -1 sentinel = "no previous tick yet": both the sheltered rad-gain refund and the
         // cure-delta check skip the first tick after a load instead of reading the entire
