@@ -303,7 +303,12 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
     if (_view == 0 || !api->IsValid(_view) ||
         _toxicView == 0 || !api->IsValid(_toxicView) ||
         _filterView == 0 || !api->IsValid(_filterView))
-        CreateView();
+    {
+        StartPrismaViewRetry();
+        if (!_threadApi)
+            CreateView();
+        return;
+    }
     SyncLocalHudLayout();
     if (!IsPlayerInWorld()) return;
     if (_toxicView == 0 || !_toxicDomReady || !api->IsValid(_toxicView)) return;
