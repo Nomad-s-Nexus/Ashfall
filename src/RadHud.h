@@ -65,7 +65,10 @@ public:
 
     [[nodiscard]] bool Available() const { return _api != nullptr; }
     [[nodiscard]] bool HudLayoutAvailable() const { return _hudApi != nullptr; }
-    [[nodiscard]] bool ViewsReady() const { return _viewsReady.load(); }
+    [[nodiscard]] bool ViewsReady() const
+    {
+        return _viewsReady.load() && _domReady.load() && _toxicDomReady.load() && _filterDomReady.load();
+    }
 
 private:
     RadHud() = default;
