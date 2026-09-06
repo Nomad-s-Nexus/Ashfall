@@ -45,4 +45,20 @@ int main()
 	Require(ClassifyStormClockCandidates({ candidate }) == StormClockCandidateDisposition::kRestore);
 	Require(ClassifyStormClockCandidates({ candidate, candidate }) == StormClockCandidateDisposition::kRestore);
 	Require(ClassifyStormClockCandidates({ candidate, overdueStorm }) == StormClockCandidateDisposition::kAmbiguous);
+
+	const FilterState fullFilter{ 100.0f, 100.0f };
+	const FilterState wornFilter{ 35.0f, 60.0f };
+	const FilterState legacyEffective{ 35.0f, 100.0f };
+	Require(IsValidFilterState(fullFilter));
+	Require(IsValidFilterState(wornFilter));
+	Require(!IsValidFilterState({ -1.0f, 100.0f }));
+	Require(!IsValidFilterState({ 101.0f, 100.0f }));
+	Require(!IsValidFilterState({ 100.0f, std::numeric_limits<float>::infinity() }));
+	Require(!IsValidFilterState({ std::numeric_limits<float>::quiet_NaN(), 100.0f }));
+	Require(ClassifyFilterCandidates({}) == FilterCandidateDisposition::kAmbiguous);
+	Require(ClassifyFilterCandidates({ wornFilter }) == FilterCandidateDisposition::kRestore);
+	Require(ClassifyFilterCandidates({ wornFilter, wornFilter }) == FilterCandidateDisposition::kRestore);
+	Require(ClassifyFilterCandidates({ wornFilter, fullFilter }) == FilterCandidateDisposition::kAmbiguous);
+	Require(ClassifyFilterCandidates({ legacyEffective, FilterState{ 35.0f, 100.0f } }) == FilterCandidateDisposition::kRestore);
+	Require(ClassifyFilterCandidates({ legacyEffective, wornFilter }) == FilterCandidateDisposition::kAmbiguous);
 }

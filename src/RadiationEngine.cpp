@@ -1142,7 +1142,9 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     // state. Conflicting valid records fail safe and schedule a fresh storm rather than arbitrarily moving
     // the monotonic play clock backward or postponing storms by an unbounded amount.
     std::vector<RadiationSerialization::StormClockState> clockCandidates;
-    int    clockSeen = 0, clockRejected = 0;
+    std::vector<RadiationSerialization::FilterState> filterCandidates;
+    int clockSeen = 0, clockRejected = 0;
+    int filterSeen = 0, filterRejected = 0;
 
     const auto readExact = [a_intfc]<class T>(T& a_value) {
         return a_intfc->ReadRecordData(a_value) == sizeof(T);
@@ -1152,23 +1154,22 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     {
         if (type == kFilterRecord)
         {
+            ++filterSeen;
             float charge = 100.0f;
             float condition = 100.0f;
             const bool isV1 = version == 1 && length == kFilterV1Len;
             const bool isV2 = version == kFilterVersion && length == kFilterV2Len;
             const bool read = isV1 ? readExact(charge) :
                               isV2 ? readExact(charge) && readExact(condition) : false;
-            if (!read || !std::isfinite(charge) || charge < 0.0f || charge > 100.0f ||
-                (isV2 && (!std::isfinite(condition) || condition < 0.0f || condition > 100.0f)))
+            const RadiationSerialization::FilterState candidate{ charge, condition };
+            if (!read || !RadiationSerialization::IsValidFilterState(candidate))
             {
-                logger->warn("[Load] Filter record v{} len {} is invalid or truncated — keeping defaults.", version, length);
+                ++filterRejected;
+                logger->warn("[Load] Filter record #{} v{} len {} is invalid or truncated — ignoring.",
+                    filterSeen, version, length);
                 continue;
             }
-            _filterCharge = charge;
-            if (isV2)
-                _maskCondition = condition;
-            logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%).",
-                _filterCharge, _maskCondition);
+            filterCandidates.push_back(candidate);
             continue;
         }
         if (type != kStormClockRecord)
@@ -1228,7 +1229,27 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
             clockSeen, clockRejected);
         ScheduleNextStorm();
     }
-    // No SCLK record at all: RevertState's fresh defaults (run before this callback) stand.
+
+    if (filterCandidates.size() == 1 ||
+        (filterCandidates.size() > 1 && RadiationSerialization::ClassifyFilterCandidates(filterCandidates) ==
+            RadiationSerialization::FilterCandidateDisposition::kRestore))
+    {
+        const auto& filter = filterCandidates.front();
+        _filterCharge = filter.charge;
+        _maskCondition = filter.condition;
+        logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%){}.",
+            _filterCharge, _maskCondition, filterCandidates.size() > 1 ? " [identical duplicates]" : "");
+    }
+    else if (!filterCandidates.empty())
+    {
+        logger->warn("[Load] {} conflicting valid filter records — refusing to choose; keeping fresh defaults.",
+            filterCandidates.size());
+    }
+    else if (filterSeen > 0)
+    {
+        logger->warn("[Load] {} filter record(s) present but none valid ({} rejected) — keeping fresh defaults.",
+            filterSeen, filterRejected);
+    }
 }
 
 

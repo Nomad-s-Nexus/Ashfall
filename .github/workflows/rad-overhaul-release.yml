@@ -87,10 +87,13 @@ jobs:
           python3 tests/verify_ae_runtime_support.py
           python3 tests/verify_ghoul_contract.py
           python3 tests/verify_storm_spawn_ownership.py
+          python3 tests/verify_serialization_policy.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
+          xmake build serialization_policy_tests
           ./build/tests/rad_correctness_policy_tests
+          ./build/tests/serialization_policy_tests
 
       - name: Verify xwin toolchain
         shell: bash
