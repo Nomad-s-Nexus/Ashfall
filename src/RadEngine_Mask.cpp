@@ -1,5 +1,6 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
+#include "RadLifecycleDispatch.h"
 #include "Hooks.h"
 
 using namespace RadInternal;
@@ -286,13 +287,20 @@ void RadiationEngine::ReplaceFilter(bool silent)
 // the player's biped state or mutating mask-condition state shared with the 4 Hz update.
 void RadiationEngine::OnPlayerHit()
 {
+    const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
+    if (generation == 0) return;
+
     if (!Hooks::IsGameMainThread())
     {
-        if (!Hooks::QueueMainThreadTask([]() { RadiationEngine::GetSingleton().OnPlayerHit(); }))
+        if (!Hooks::QueueMainThreadTask([generation]() {
+                if (!RadLifecycleDispatch::PlayerUpdatesReady(generation)) return;
+                RadiationEngine::GetSingleton().OnPlayerHit();
+            }))
             Log()->error("[Condition] Dropped player-hit mask damage because main-thread dispatch was unavailable.");
         return;
     }
 
+    if (!RadLifecycleDispatch::PlayerUpdatesReady(generation)) return;
     if (!_conditionEnabled) return;
     if (_maskCondition <= 0.0f) return;       // already broken
     if (!IsWearingGasMask()) return;          // only a worn mask takes damage

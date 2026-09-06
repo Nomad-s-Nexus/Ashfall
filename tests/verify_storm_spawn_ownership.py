@@ -9,6 +9,7 @@ weather_core = (SRC / "RadEngine_Weather.cpp").read_text(encoding="utf-8")
 dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
 storm = (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8")
 storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
+mask = (SRC / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
@@ -156,6 +157,23 @@ assert wave_play != -1 and wave_guard != -1
 assert atmosphere != -1 and atmosphere < wave_guard
 assert "without nuke detonation" in roll_in
 
+player_hit = mask.split("void RadiationEngine::OnPlayerHit()", 1)[1].split(
+    "int RadiationEngine::RepairKitCount()", 1
+)[0]
+for token in (
+    "RadLifecycleDispatch::ReadyPlayerUpdateGeneration()",
+    "if (generation == 0) return;",
+    "[generation]()",
+    "RadLifecycleDispatch::PlayerUpdatesReady(generation)",
+):
+    assert token in player_hit, f"mask hit dispatch generation guard is missing: {token}"
+assert player_hit.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < player_hit.find(
+    "RadiationEngine::GetSingleton().OnPlayerHit();"
+)
+assert player_hit.rfind("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < player_hit.find(
+    "_maskCondition = std::max"
+)
+
 producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(
     "bool InstallUpdateHook", 1
 )[0]
@@ -256,4 +274,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, new-game load isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, new-game load isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")
