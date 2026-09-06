@@ -4,6 +4,7 @@ root = Path(__file__).resolve().parents[1]
 views = root / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly"
 
 rad_hud = (root / "src" / "RadHud.cpp").read_text(encoding="utf-8")
+rad_hud_header = (root / "src" / "RadHud.h").read_text(encoding="utf-8")
 rad_debug = (root / "src" / "RadEngine_Debug.cpp").read_text(encoding="utf-8")
 rad_layout = (root / "src" / "RadHudLayout.cpp").read_text(encoding="utf-8")
 hooks_input = (root / "src" / "Hooks_Input.cpp").read_text(encoding="utf-8")
@@ -20,6 +21,15 @@ assert 'const bool fallback = !_toxicWidgetRegistered.load();' in rad_hud
 assert rad_hud.count('SyncLocalHudLayout();') >= 2
 assert 'HUD layout editor requires PrismaHUD_F4' not in rad_hud
 assert 'void RadHud::OpenHudLayoutEditor()' not in rad_hud
+
+views_ready = rad_hud_header.split('[[nodiscard]] bool ViewsReady() const', 1)[1].split('private:', 1)[0]
+for token in (
+    '_viewsReady.load()',
+    '_domReady.load()',
+    '_toxicDomReady.load()',
+    '_filterDomReady.load()',
+):
+    assert token in views_ready, f'HUD readiness must include replacement DOM state: {token}'
 
 assert 'a.rfind("hudlayout:", 0) == 0' in rad_debug
 assert 'ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")))' in rad_debug
@@ -71,4 +81,4 @@ assert not (views / 'rad_hud_local_widget.js').exists()
 assert '<script src="rad_hud_local_editor.js"></script>' in main_html
 assert "cmd('hud:open')" in main_html
 
-print("Rad native fallback HUD ownership and single debug-hotkey guard passed")
+print("Rad native fallback HUD ownership, readiness, and single debug-hotkey guard passed")
