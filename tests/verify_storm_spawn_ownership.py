@@ -6,6 +6,7 @@ SRC = ROOT / "src"
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
 dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
+storm = (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8")
 storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
@@ -78,6 +79,11 @@ clear_guard = force_clear.find("if (!_clearWeather) return;")
 assert release_override != -1
 assert clear_guard != -1
 assert release_override < clear_guard
+
+begin_storm = storm.split("void RadiationEngine::BeginStorm(int typeIndex)", 1)[1].split(
+    "void RadiationEngine::EnterWarningPhase()", 1
+)[0]
+assert "_stormRollInTicks  = 0;" in begin_storm
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
     "if (!_nextEmissionGlobal) return;", 1
@@ -214,4 +220,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, roll-in-reset, dome-follow, and HUD guards verified")

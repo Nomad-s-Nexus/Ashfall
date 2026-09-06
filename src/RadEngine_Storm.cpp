@@ -41,6 +41,7 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _stormFXVisible    = false;  // no screen FX until the storm hits (and only if exposed)
     _stormNukeFired    = false;  // re-arm the one-time firestorm nuke for this storm
     _firestormAwaitingNuke = false;  // set true at Active onset for a firestorm
+    _stormRollInTicks  = 0;
     _nukeAttempts      = 0;      // reset actual nuke submissions
     _nukeWaitTicks     = 0;      // reset the absolute nuke wait
     _shakeBurstRetries = 0;      // reset the bounded shake-burst retry counter
