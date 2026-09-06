@@ -12,6 +12,7 @@
 
 #include "RadiationEngine.h"
 #include "RadHud.h"
+#include "RadLifecycleDispatch.h"
 
 #ifdef MAX_PATH
 #undef MAX_PATH
@@ -321,6 +322,9 @@ namespace Hooks
 
     static void QueueInputPoll()
     {
+        const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
+        if (generation == 0) return;
+
         bool expected = false;
         if (!s_inputTaskQueued.compare_exchange_strong(expected, true))
             return;
@@ -328,10 +332,11 @@ namespace Hooks
         bool queued = false;
         try
         {
-            queued = QueueMainThreadTask([]() {
+            queued = QueueMainThreadTask([generation]() {
                 try
                 {
-                    RadiationEngine::GetSingleton().PollInput();
+                    if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
+                        RadiationEngine::GetSingleton().PollInput();
                 }
                 catch (...)
                 {
@@ -354,6 +359,9 @@ namespace Hooks
 
     static void QueueEngineUpdate()
     {
+        const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
+        if (generation == 0) return;
+
         bool expected = false;
         if (!s_updateTaskQueued.compare_exchange_strong(expected, true))
             return;
@@ -361,10 +369,11 @@ namespace Hooks
         bool queued = false;
         try
         {
-            queued = QueueMainThreadTask([]() {
+            queued = QueueMainThreadTask([generation]() {
                 try
                 {
-                    RadiationEngine::GetSingleton().Update();
+                    if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
+                        RadiationEngine::GetSingleton().Update();
                 }
                 catch (...)
                 {
@@ -396,6 +405,8 @@ namespace Hooks
             // authoritative identity check — no raw 0x14 FormID literal.
             if (!a_this || !a_this->IsPlayerRef())
                 return;
+
+            if (RadLifecycleDispatch::ReadyPlayerUpdateGeneration() == 0) return;
 
             // Preserve per-frame key responsiveness without touching engine state on this worker.
             QueueInputPoll();

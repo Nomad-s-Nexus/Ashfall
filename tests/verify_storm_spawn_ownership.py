@@ -6,6 +6,9 @@ SRC = ROOT / "src"
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
 dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
+hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
+dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
+lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 
 ghoul_spawn = actors.split("void RadiationEngine::SpawnStormGhouls()", 1)[1].split(
@@ -93,6 +96,78 @@ assert "ref->Update3DPosition(true);" in dome_move
 assert "IsValidDomeReference" not in dome_move
 assert "ref->Get3D()" not in dome_move
 
+producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(
+    "bool InstallUpdateHook", 1
+)[0]
+assert "RadLifecycleDispatch::ReadyPlayerUpdateGeneration() == 0" in producer
+assert producer.find("RadLifecycleDispatch::ReadyPlayerUpdateGeneration()") < producer.find("QueueInputPoll();")
+
+input_queue = hooks.split("static void QueueInputPoll()", 1)[1].split(
+    "static void QueueEngineUpdate()", 1
+)[0]
+engine_queue = hooks.split("static void QueueEngineUpdate()", 1)[1].split(
+    "void PlayerCharacter_Update_Hook", 1
+)[0]
+for body, action in (
+    (input_queue, "RadiationEngine::GetSingleton().PollInput();"),
+    (engine_queue, "RadiationEngine::GetSingleton().Update();"),
+):
+    assert "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();" in body
+    assert "[generation]()" in body
+    assert "RadLifecycleDispatch::PlayerUpdatesReady(generation)" in body
+    assert body.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < body.find(action)
+
+dome_queue = dome_hooks.split("void QueueDomeFollow()", 1)[1]
+for token in (
+    "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();",
+    "[generation]()",
+    "RadLifecycleDispatch::PlayerUpdatesReady(generation)",
+):
+    assert token in dome_queue, f"dome producer generation guard is missing: {token}"
+assert dome_queue.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < dome_queue.find(
+    "RadiationEngine::GetSingleton().UpdateStormDomeFollow();"
+)
+
+for token in (
+    "g_playerUpdateGeneration{ 0 }",
+    "g_playerUpdateReadyGeneration{ 0 }",
+    "std::uint64_t ReadyPlayerUpdateGeneration() noexcept",
+    "bool PlayerUpdatesReady(std::uint64_t expectedGeneration) noexcept",
+    "g_playerUpdateGeneration.load(std::memory_order_acquire) == expectedGeneration",
+    "g_playerUpdateReadyGeneration.load(std::memory_order_acquire) == expectedGeneration",
+    "std::chrono::minutes(10)",
+    "RadCorrectnessPolicy::IsCurrentLoadGeneration",
+    "std::this_thread::sleep_for(std::chrono::milliseconds(100));",
+    "TryQueue(task)",
+):
+    assert token in lifecycle_dispatch, f"lifecycle gate/retry is missing: {token}"
+
+post_load = main.split("case F4SE::MessagingInterface::kPostLoadGame:", 1)[1].split(
+    "case F4SE::MessagingInterface::kPostPostLoad:", 1
+)[0]
+new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
+    "case F4SE::MessagingInterface::kPreLoadGame:", 1
+)[0]
+pre_load = main.split("case F4SE::MessagingInterface::kPreLoadGame:", 1)[1].split("default:", 1)[0]
+
+for section, generation_token in (
+    (post_load, "g_radLoadGeneration.fetch_add"),
+    (new_game, "RadCorrectnessPolicy::BeginNewGameLoad"),
+    (pre_load, "g_radLoadGeneration.fetch_add"),
+):
+    block = section.find("RadLifecycleDispatch::BlockPlayerUpdates();")
+    generation_change = section.find(generation_token)
+    publish = section.find("RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);")
+    assert block != -1 and generation_change != -1 and publish != -1
+    assert block < generation_change < publish
+
+for section in (post_load, new_game):
+    assert "RadLifecycleDispatch::QueueWithRetry(" in section
+    assert "RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(loadGeneration);" in section
+    ready = section.find("RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(loadGeneration);")
+    reset = section.find("engine.ResetAppliedPenalties();")
+    assert reset != -1 and reset < ready
+
 hud_wait = main.split("void WaitThenCreateRadHud", 1)[1].split(
     "void StartRadHudWaitIfIdle", 1
 )[0]
@@ -104,4 +179,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, clear-release, dome-streaming, dome-follow, and HUD queue guards verified")
+print("storm ownership, handoff, dome-streaming, lifecycle, queued-generation, dome-follow, and HUD guards verified")

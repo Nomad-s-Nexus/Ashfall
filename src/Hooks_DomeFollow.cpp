@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Hooks.h"
 #include "RadiationEngine.h"
+#include "RadLifecycleDispatch.h"
 
 #include <atomic>
 #include <chrono>
@@ -27,6 +28,9 @@ namespace Hooks
         if (!s_domeFollowActive.load(std::memory_order_acquire) &&
             !s_stormImadFadeActive.load(std::memory_order_acquire)) return;
 
+        const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
+        if (generation == 0) return;
+
         static constexpr auto kDomeFollowInterval = std::chrono::milliseconds(33);
         static std::mutex throttleMutex;
         static std::chrono::steady_clock::time_point lastFollow;
@@ -46,11 +50,14 @@ namespace Hooks
         bool queued = false;
         try
         {
-            queued = QueueMainThreadTask([]() {
+            queued = QueueMainThreadTask([generation]() {
                 try
                 {
-                    RadiationEngine::GetSingleton().UpdateStormDomeFollow();
-                    RadiationEngine::GetSingleton().UpdateStormIMADFade();
+                    if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
+                    {
+                        RadiationEngine::GetSingleton().UpdateStormDomeFollow();
+                        RadiationEngine::GetSingleton().UpdateStormIMADFade();
+                    }
                 }
                 catch (...)
                 {

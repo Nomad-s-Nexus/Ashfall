@@ -4,6 +4,7 @@
 #include "RadHud.h"
 #include "RadCorrectnessPolicy.h"
 #include "RadLifecycle.h"
+#include "RadLifecycleDispatch.h"
 #include <RE/U/UI.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/C/ControlMap.h>
@@ -291,7 +292,9 @@ namespace
         case F4SE::MessagingInterface::kPostLoadGame:
         {
             logger->info("========== POST LOAD GAME EVENT ==========");
+            RadLifecycleDispatch::BlockPlayerUpdates();
             const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);
 
             // Reconfigure on every load so a dispatcher that was unavailable during GameDataReady can
             // recover. This is idempotent and does not reinstall the update producer.
@@ -305,7 +308,8 @@ namespace
             // task never completes (queued? entered? which sub-step?). One-shot per load — not spam.
             logger->info("[PostLoad] kPostLoadGame received on thread {}; queuing post-load task.",
                 ::GetCurrentThreadId());
-            if (Hooks::QueueMainThreadTask([loadGeneration]() {
+            RadLifecycleDispatch::QueueWithRetry(
+                &g_radLoadGeneration, loadGeneration, "PostLoad", [loadGeneration]() {
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration,
                             g_radLoadGeneration.load(std::memory_order_acquire)))
@@ -337,18 +341,14 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     StartRadHudWaitIfIdle(loadGeneration);
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(loadGeneration);
                     logger->info("[PostLoad] StartRadHudWaitIfIdle end; post-load task complete.");
                     logger->info("Game save loaded. Radiation Engine ACTIVE.");
                     logger->info("  - Load-state engine mutation completed on game-main thread");
                     logger->info("=========================================");
-                }))
-            {
-                logger->info("[PostLoad] post-load task queued on the verified game-main dispatcher.");
-            }
-            else
-            {
-                logger->critical("[PostLoad] Failed to queue verified game-main work; Radiation Engine remains INACTIVE for this load.");
-            }
+                });
             break;
         }
 
@@ -359,8 +359,10 @@ namespace
         case F4SE::MessagingInterface::kNewGame:
         {
             logger->info("New game started");
+            RadLifecycleDispatch::BlockPlayerUpdates();
             const auto loadGeneration = RadCorrectnessPolicy::BeginNewGameLoad(
                 g_radLoadGeneration, g_radWaiting);
+            RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);
 
             if (!Hooks::InstallMainThreadDispatcher())
             {
@@ -368,7 +370,8 @@ namespace
                 break;
             }
 
-            if (!Hooks::QueueMainThreadTask([loadGeneration]() {
+            RadLifecycleDispatch::QueueWithRetry(
+                &g_radLoadGeneration, loadGeneration, "NewGame", [loadGeneration]() {
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration,
                             g_radLoadGeneration.load(std::memory_order_acquire)))
@@ -399,22 +402,26 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     StartRadHudWaitIfIdle(loadGeneration);
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(loadGeneration);
                     logger->debug("  - New-game radiation state reset on game-main thread");
                     logger->debug("  - Update loop: RUNNING");
-                }))
-            {
-                logger->critical("[NewGame] Failed to queue verified game-main work; Radiation Engine remains INACTIVE.");
-            }
+                });
             break;
         }
 
         case F4SE::MessagingInterface::kPreLoadGame:
-            g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel);
+        {
+            RadLifecycleDispatch::BlockPlayerUpdates();
+            const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);
             // Invalidate the current detached waiter and every already-queued probe/CreateView from it
             // before the next load can start a fresh generation.
             g_radWaiting.store(false, std::memory_order_release);
             logger->info("Game loading...");
             break;
+        }
 
         default:
             logger->debug("Unhandled message type: {}", static_cast<int>(a_msg->type));
