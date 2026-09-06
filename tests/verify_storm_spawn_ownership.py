@@ -121,6 +121,16 @@ nuke_result = active_phase.split("_stormNukeFired = SpawnDistantNuke();", 1)[1].
 assert "if (_stormNukeFired)" in nuke_result
 assert "Play2DSound(kSndNukeImpact, boom)" in nuke_result
 
+roll_in = active_phase.split("if (_stormRollInTicks > 0)", 1)[1].split(
+    "ApplyStormExposure();", 1
+)[0]
+wave_play = roll_in.find("Play2DSound(kSndBlastWave, wave)")
+wave_guard = roll_in.rfind("if (_stormNukeFired)", 0, wave_play)
+atmosphere = roll_in.find("ApplyStormIMAD(_activeStormType);")
+assert wave_play != -1 and wave_guard != -1
+assert atmosphere != -1 and atmosphere < wave_guard
+assert "without nuke detonation" in roll_in
+
 producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(
     "bool InstallUpdateHook", 1
 )[0]
@@ -204,4 +214,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, new-game-clear, dome-streaming, lifecycle, queued-generation, nuke-audio, nuke-wave, dome-follow, and HUD guards verified")
