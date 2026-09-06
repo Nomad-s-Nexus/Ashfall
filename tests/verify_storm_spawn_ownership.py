@@ -75,6 +75,15 @@ assert release_override != -1
 assert clear_guard != -1
 assert release_override < clear_guard
 
+dome_lifecycle = dome.split("void RadiationEngine::UpdateStormDomeLifecycle()", 1)[1].split(
+    "void RadiationEngine::UpdateStormDomeFollow()", 1
+)[0]
+unresolved_owner = dome_lifecycle.split(
+    "if (!IsValidDomeOwner(player, playerCell, playerWorld))", 1
+)[1].split("if (!_stormDomeUp)", 1)[0]
+assert "ClearStormDome();" not in unresolved_owner
+assert "return;" in unresolved_owner
+
 dome_follow = dome.split("void RadiationEngine::UpdateStormDomeFollow()", 1)[1].split(
     "void RadiationEngine::UpdateDustMotes()", 1
 )[0]
@@ -95,4 +104,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, clear-release, dome-follow, and HUD queue guards verified")
+print("storm ownership, handoff, clear-release, dome-streaming, dome-follow, and HUD queue guards verified")

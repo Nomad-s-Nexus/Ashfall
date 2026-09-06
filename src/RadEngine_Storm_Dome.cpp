@@ -277,7 +277,6 @@ void RadiationEngine::UpdateStormDomeLifecycle()
     RE::TESWorldSpace* playerWorld = nullptr;
     if (!IsValidDomeOwner(player, playerCell, playerWorld))
     {
-        if (_stormDomeUp || !_stormDomeRefs.empty()) ClearStormDome();
         return;
     }
 
