@@ -180,14 +180,6 @@ void RadiationEngine::UpdateStorm()
             // fall-off; the per-storm ambient bed takes over from here.
             StopStormCue(kRadstormCueFalloffMs);
 
-            // Firestorm: the distant nuke detonates now (exposed player only — a one-shot impact).
-            if (st.themeId == 1 && !IsPlayerSheltered())
-            {
-                RE::BSSoundHandle boom{};
-                if (!Play2DSound(kSndNukeImpact, boom))  // fire-and-forget; short one-shot
-                    logger->warn("[StormAudio] nuke impact '{}' failed to load.", kSndNukeImpact);
-            }
-
             // The storm HITS now: force this storm's sky for the rest of the event. (Moved here
             // from BeginStorm so the Warning phase keeps a normal sky and reads as a real warning.)
             if (RE::TESWeather* w = _stormWeathers[_activeStormType])
@@ -287,6 +279,12 @@ void RadiationEngine::UpdateStorm()
             {
                 ++_nukeAttempts;
                 _stormNukeFired = SpawnDistantNuke();
+                if (_stormNukeFired)
+                {
+                    RE::BSSoundHandle boom{};
+                    if (!Play2DSound(kSndNukeImpact, boom))
+                        logger->warn("[StormAudio] nuke impact '{}' failed to load.", kSndNukeImpact);
+                }
             }
 
             if (_stormNukeFired || _nukeAttempts >= kFirestormNukeMaxAttempts ||

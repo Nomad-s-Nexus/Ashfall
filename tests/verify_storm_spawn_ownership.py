@@ -6,6 +6,7 @@ SRC = ROOT / "src"
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
 dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
+storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
@@ -96,6 +97,19 @@ assert "ref->Update3DPosition(true);" in dome_move
 assert "IsValidDomeReference" not in dome_move
 assert "ref->Get3D()" not in dome_move
 
+warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
+    "case StormPhase::Active:", 1
+)[0]
+assert "kSndNukeImpact" not in warning_phase
+active_phase = storm_update.split("case StormPhase::Active:", 1)[1].split(
+    "case StormPhase::Aftermath:", 1
+)[0]
+nuke_result = active_phase.split("_stormNukeFired = SpawnDistantNuke();", 1)[1].split(
+    "if (_stormNukeFired ||", 1
+)[0]
+assert "if (_stormNukeFired)" in nuke_result
+assert "Play2DSound(kSndNukeImpact, boom)" in nuke_result
+
 producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(
     "bool InstallUpdateHook", 1
 )[0]
@@ -179,4 +193,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, dome-streaming, lifecycle, queued-generation, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, dome-streaming, lifecycle, queued-generation, nuke-audio, dome-follow, and HUD guards verified")
