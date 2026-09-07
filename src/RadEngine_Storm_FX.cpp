@@ -298,7 +298,6 @@ void RadiationEngine::MakeNearbyNPCsFlee()
         if (!base || base->GetFormType() != RE::ENUM_FORM_ID::kNPC_) continue;
         auto* race = static_cast<RE::TESNPC*>(base)->GetFormRace();
         if (!race || !race->HasKeyword(humanKeyword)) continue;
-        if (actor->GetDistanceFromReference(player, false, true) > kFleeRadius) continue;
 
         // Engine flee: panic and run from the storm-stricken area (referenced to the player, who is
         // the storm's moving epicenter). Best-effort — FO4 flee AI is approximate.
