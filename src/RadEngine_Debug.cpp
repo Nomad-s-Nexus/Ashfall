@@ -150,6 +150,10 @@ void RadiationEngine::DrainDebugCommands()
             _filterSparesCache = 0;
             _filterCountTick = 0;
             _enclosedCheckTick = 0;
+            _weatherReturnTarget = nullptr;
+            _weatherReturnCaptured = false;
+            _releaseWeatherOverrideWhenSettled = false;
+            _weatherHandoffSettleTicks = 0;
             _pendingDebugCmds.clear();
             return;
         }
