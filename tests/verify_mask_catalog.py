@@ -171,8 +171,12 @@ def verify_source_contract():
             "RE::BIPED_OBJECT::kScalp",
             "armor->HasKeyword(powerKeyword)",
             "armor->FillsBipedSlot(kHelmetSlot)",
+            "kActorTypeHumanKeywordID = 0x0002CB72",
+            "kTemporaryNpcGasMaskID = 0x001184C1",
+            "actor->GetParentCell() != cell",
+            "race->HasKeyword(humanKeyword)",
         ),
-        "NPC hair/PA helper",
+        "NPC hair/PA/cell/human helper",
     )
 
     mask_policy = section(
@@ -184,20 +188,22 @@ def verify_source_contract():
     require_tokens(
         mask_policy,
         (
-            "if (_stormPhase == StormPhase::Active)",
-            "for (auto* weather : _stormWeathers)",
-            "EquipNearbyNpcMasks(false);",
-            "if (!actor->biped)",
-            "pending.insert(id);",
+            "IsHumanInCell(actor, playerCell, humanKeyword)",
             "WearsPowerArmorHelmet(actor, _armorTypePowerKeyword)",
-            "IsRecognizedGasMask(armor) && PreservesNpcHair(armor)",
+            "RadMaskOwnership::ClaimTemporary",
+            "actor->AddObjectToContainer(tempMask",
+            "RE::TESObjectREFR::RemoveItemData data(tempMask, 1)",
+            "entry.displacedFormIDs",
+            "cleanupEntry(actor, *entry)",
         ),
-        "NPC mask policy",
+        "NPC temporary mask policy",
     )
     if "if (IsActorInPowerArmor(actor)) continue;" in mask_policy:
         raise SystemExit("NPC mask policy regressed to full-PA exemption instead of PA-helmet exemption")
-    if mask_policy.find("if (!actor->biped)") > mask_policy.find("pending.insert(id);"):
-        raise SystemExit("unloaded NPC mask cleanup no longer preserves pending ownership")
+    if "if (_stormPhase == StormPhase::Active)" in mask_policy:
+        raise SystemExit("managed storms must not suppress NPC gas masks")
+    if "for (auto* weather : _stormWeathers)" in mask_policy:
+        raise SystemExit("managed storm weather must not force NPC gas-mask cleanup")
 
     active_policy = section(
         storm_source,
@@ -208,20 +214,20 @@ def verify_source_contract():
     require_tokens(
         active_policy,
         (
-            "if (!_autoMaskedNpcs.empty())",
-            "EquipNearbyNpcMasks(false);",
             "if (--_fleeTick <= 0)",
+            "EquipNearbyNpcMasks(true);",
             "MakeNearbyNPCsFlee();",
         ),
         "managed storm Active policy",
     )
     if "st.lethal && (--_fleeTick <= 0)" in active_policy:
         raise SystemExit("managed event fleeing regressed to lethal storms only")
-    cleanup_pos = active_policy.find("if (!_autoMaskedNpcs.empty())")
-    flee_pos = active_policy.find("if (--_fleeTick <= 0)")
+    if "EquipNearbyNpcMasks(false);" in active_policy:
+        raise SystemExit("managed Active storms must keep eligible human NPCs masked while they flee")
+    mask_pos = active_policy.find("EquipNearbyNpcMasks(true);")
     flee_call_pos = active_policy.find("MakeNearbyNPCsFlee();")
-    if not (0 <= cleanup_pos < flee_pos < flee_call_pos):
-        raise SystemExit("managed storm mask cleanup/flee ordering changed")
+    if not (0 <= mask_pos < flee_call_pos):
+        raise SystemExit("managed storm mask/flee ordering changed")
 
 
 def main(plugin_path):
@@ -280,7 +286,7 @@ def main(plugin_path):
         "NPC hair-safe gas masks:",
         ", ".join(f"{local_id:08X}:{master}" for master, local_id in sorted(hair_safe)),
     )
-    print("NPC weather response policy verified: normal rad masks preserve hair; managed events flee.")
+    print("NPC weather response policy verified: same-cell humans receive temporary hair-safe masks; managed events mask and flee.")
 
 
 if __name__ == "__main__":
