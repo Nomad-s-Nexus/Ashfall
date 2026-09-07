@@ -11,7 +11,6 @@
 
 namespace
 {
-    constexpr std::size_t kMaxOwnedMasks = 1024;
     std::mutex g_mutex;
     std::unordered_map<std::uint32_t, std::uint32_t> g_ownedMasks;
     bool g_sinkRegistered = false;
@@ -60,7 +59,7 @@ bool RadMaskOwnership::Claim(std::uint32_t actorFormID, std::uint32_t maskFormID
         it->second = maskFormID;
         return true;
     }
-    if (g_ownedMasks.size() >= kMaxOwnedMasks) return false;
+    if (g_ownedMasks.size() >= kMaxEntries) return false;
     g_ownedMasks.emplace(actorFormID, maskFormID);
     return true;
 }
@@ -91,15 +90,11 @@ std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
 
 bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
 {
-    if (entries.size() > kMaxOwnedMasks) return false;
+    if (!IsValidSnapshot(entries)) return false;
     std::unordered_map<std::uint32_t, std::uint32_t> restored;
     restored.reserve(entries.size());
     for (const auto& entry : entries)
-    {
-        if (entry.actorFormID == 0 || entry.maskFormID == 0 ||
-            !restored.emplace(entry.actorFormID, entry.maskFormID).second)
-            return false;
-    }
+        restored.emplace(entry.actorFormID, entry.maskFormID);
     std::scoped_lock lock(g_mutex);
     g_ownedMasks = std::move(restored);
     return true;
