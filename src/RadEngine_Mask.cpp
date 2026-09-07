@@ -12,6 +12,9 @@ using namespace RadInternal;
 
 namespace
 {
+    constexpr std::uint32_t kActorTypeHumanKeywordID = 0x0002CB72;
+    constexpr std::uint32_t kTemporaryNpcGasMaskID = 0x001184C1;
+
     bool PreservesNpcHair(const RE::TESObjectARMO* armor)
     {
         if (!armor) return false;
@@ -39,6 +42,54 @@ namespace
                 return true;
         }
         return false;
+    }
+
+    bool IsHumanInCell(RE::Actor* actor, RE::TESObjectCELL* cell, const RE::BGSKeyword* humanKeyword)
+    {
+        if (!actor || !cell || !humanKeyword || actor->GetParentCell() != cell) return false;
+        auto* base = actor->GetObjectReference();
+        if (!base || base->GetFormType() != RE::ENUM_FORM_ID::kNPC_) return false;
+        auto* race = static_cast<RE::TESNPC*>(base)->GetFormRace();
+        return race && race->HasKeyword(humanKeyword);
+    }
+
+    bool WearsExactArmor(RE::Actor* actor, std::uint32_t formID)
+    {
+        if (!actor || !actor->biped || formID == 0) return false;
+        auto& biped = *actor->biped;
+        for (std::size_t i = 0; i < std::size(biped.object); ++i)
+        {
+            auto* form = biped.object[i].parent.object;
+            if (form && form->GetFormID() == formID) return true;
+        }
+        return false;
+    }
+
+    bool CaptureDisplacedGear(
+        RE::Actor* actor,
+        const RE::TESObjectARMO* mask,
+        std::array<std::uint32_t, RadMaskOwnership::kMaxDisplacedGear>& displaced)
+    {
+        if (!actor || !actor->biped || !mask) return false;
+        const auto maskSlots = mask->bipedModelData.bipedObjectSlots;
+        std::size_t count = 0;
+        auto& biped = *actor->biped;
+        for (std::size_t i = 0; i < std::size(biped.object); ++i)
+        {
+            auto* form = biped.object[i].parent.object;
+            if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kARMO || form->GetFormID() == mask->GetFormID())
+                continue;
+            auto* armor = static_cast<RE::TESObjectARMO*>(form);
+            if ((armor->bipedModelData.bipedObjectSlots & maskSlots) == 0) continue;
+            const auto id = armor->GetFormID();
+            bool duplicate = false;
+            for (std::size_t j = 0; j < count; ++j)
+                if (displaced[j] == id) duplicate = true;
+            if (duplicate) continue;
+            if (count >= displaced.size()) return false;
+            displaced[count++] = id;
+        }
+        return true;
     }
 }
 
@@ -150,36 +201,74 @@ void RadiationEngine::SetMaskEquipped(RE::TESObjectARMO* mask, bool equip)
 void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 {
     int n = 0;
+    auto* eqMgr = RE::ActorEquipManager::GetSingleton();
+    if (!eqMgr) return;
 
-    if (equip)
-    {
-        if (_stormPhase == StormPhase::Active)
+    auto cleanupEntry = [this, eqMgr](RE::Actor* actor, const RadMaskOwnership::Entry& entry) -> bool {
+        if (!actor) return false;
+        if (!actor->biped) return false;
+        auto* maskForm = RE::TESForm::GetFormByID(entry.maskFormID);
+        auto* mask = maskForm && maskForm->GetFormType() == RE::ENUM_FORM_ID::kARMO
+            ? static_cast<RE::TESObjectARMO*>(maskForm) : nullptr;
+        if (!mask)
         {
-            EquipNearbyNpcMasks(false);
-            return;
+            RadMaskOwnership::Release(entry.actorFormID);
+            return true;
         }
-        auto* sky = RE::Sky::GetSingleton();
-        if (sky && sky->currentWeather)
+
+        if (!entry.IsTemporary())
         {
-            for (auto* weather : _stormWeathers)
+            if (WearsExactArmor(actor, entry.maskFormID))
             {
-                if (weather && weather == sky->currentWeather)
-                {
-                    EquipNearbyNpcMasks(false);
-                    return;
-                }
+                SetActorMaskEquipped(actor, mask, false);
+                if (RadMaskOwnership::Owns(entry.actorFormID, entry.maskFormID)) return false;
             }
+            else
+            {
+                RadMaskOwnership::Release(entry.actorFormID);
+            }
+            return true;
         }
-    }
+
+        if (WearsExactArmor(actor, entry.maskFormID))
+        {
+            RE::BGSObjectInstance instance(static_cast<RE::TESForm*>(mask), nullptr);
+            if (!eqMgr->UnequipObject(actor, &instance, 1, nullptr, 0, false, true, false, true, nullptr))
+                return false;
+        }
+
+        const auto before = actor->GetInventoryObjectCount(mask);
+        if (before > 0)
+        {
+            RE::TESObjectREFR::RemoveItemData data(mask, 1);
+            actor->RemoveItem(data);
+            if (actor->GetInventoryObjectCount(mask) >= before) return false;
+        }
+
+        bool restorePending = false;
+        for (const auto formID : entry.displacedFormIDs)
+        {
+            if (formID == 0) break;
+            auto* form = RE::TESForm::GetFormByID(formID);
+            if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kARMO) continue;
+            auto* armor = static_cast<RE::TESObjectARMO*>(form);
+            if (actor->GetInventoryObjectCount(armor) <= 0 || WearsExactArmor(actor, formID)) continue;
+            RE::BGSObjectInstance instance(static_cast<RE::TESForm*>(armor), nullptr);
+            if (!eqMgr->EquipObject(actor, instance, 0, 1, nullptr, false, true, false, true, false))
+                restorePending = true;
+        }
+        if (restorePending) return false;
+        RadMaskOwnership::Release(entry.actorFormID);
+        return true;
+    };
 
     if (!equip)
     {
         std::unordered_set<std::uint32_t> pending;
-        // Unmask by the TRACKED set, not the current high-process list: an NPC we masked who
-        // unloaded mid-storm (or wandered off) would otherwise keep the auto-equipped mask
-        // permanently. GetFormByID resolves the ACHR whether or not the actor is still loaded.
         for (const std::uint32_t id : _autoMaskedNpcs)
         {
+            auto entry = RadMaskOwnership::Lookup(id);
+            if (!entry) continue;
             RE::TESForm* form = RE::TESForm::GetFormByID(id);
             if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kACHR)
             {
@@ -187,41 +276,51 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
                 continue;
             }
             auto* actor = static_cast<RE::Actor*>(form);
-            if (actor->IsDead(false))
-            {
-                RadMaskOwnership::Release(id);
-                continue;
-            }
-            if (!actor->biped)
-            {
+            if (!cleanupEntry(actor, *entry))
                 pending.insert(id);
-                continue;
-            }
-            if (auto* worn = GetActorWornMask(actor))
-            {
-                const auto maskID = worn->GetFormID();
-                const bool owned = RadMaskOwnership::Owns(id, maskID);
-                SetActorMaskEquipped(actor, worn, false);
-                if (owned)
-                {
-                    if (RadMaskOwnership::Owns(id, maskID)) pending.insert(id);
-                    else ++n;
-                }
-                else
-                {
-                    RadMaskOwnership::Release(id);
-                }
-            }
             else
-            {
-                RadMaskOwnership::Release(id);
-            }
+                ++n;
         }
         _autoMaskedNpcs = std::move(pending);
         if (n > 0)
             Log()->info("[Mask] removed {} NPC mask(s) after rad weather.", n);
         return;
     }
+
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* playerCell = player ? player->GetParentCell() : nullptr;
+    auto* dh = RE::TESDataHandler::GetSingleton();
+    if (!player || !playerCell || !dh) return;
+
+    auto* humanForm = dh->LookupForm(kActorTypeHumanKeywordID, "Fallout4.esm");
+    auto* humanKeyword = humanForm && humanForm->GetFormType() == RE::ENUM_FORM_ID::kKYWD
+        ? static_cast<RE::BGSKeyword*>(humanForm) : nullptr;
+    auto* maskForm = dh->LookupForm(kTemporaryNpcGasMaskID, "Fallout4.esm");
+    auto* tempMask = maskForm && maskForm->GetFormType() == RE::ENUM_FORM_ID::kARMO
+        ? static_cast<RE::TESObjectARMO*>(maskForm) : nullptr;
+    if (!humanKeyword || !tempMask || !IsRecognizedGasMask(tempMask) || !PreservesNpcHair(tempMask)) return;
+
+    std::unordered_set<std::uint32_t> retained;
+    for (const auto id : _autoMaskedNpcs)
+    {
+        auto entry = RadMaskOwnership::Lookup(id);
+        if (!entry) continue;
+        auto* form = RE::TESForm::GetFormByID(id);
+        if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kACHR)
+        {
+            RadMaskOwnership::Release(id);
+            continue;
+        }
+        auto* actor = static_cast<RE::Actor*>(form);
+        const bool eligible = !actor->IsDead(false) &&
+            IsHumanInCell(actor, playerCell, humanKeyword) &&
+            !WearsPowerArmorHelmet(actor, _armorTypePowerKeyword);
+        if (eligible)
+            retained.insert(id);
+        else if (!cleanupEntry(actor, *entry))
+            retained.insert(id);
+    }
+    _autoMaskedNpcs = std::move(retained);
 
     auto* pl = RE::ProcessLists::GetSingleton();
     if (!pl) return;
@@ -231,36 +330,71 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
         auto actorPtr = handle.get();
         RE::Actor* actor = actorPtr.get();
         if (!actor || actor->IsDead(false) || actor->IsPlayerRef()) continue;
-        if (IsGhoulActor(actor)) continue;            // ghouls revel in rads — no mask
+        if (!IsHumanInCell(actor, playerCell, humanKeyword)) continue;
         if (WearsPowerArmorHelmet(actor, _armorTypePowerKeyword)) continue;
 
-        if (GetActorWornMask(actor)) continue;         // already masked (manually or by us)
-
-        RE::TESObjectARMO* mask = nullptr;
-        if (auto* inv = actor->inventoryList)
+        const auto actorID = actor->GetFormID();
+        if (auto entry = RadMaskOwnership::Lookup(actorID))
         {
-            inv->ForEachStack(
-                [this](RE::BGSInventoryItem& a_item) -> bool {
-                    auto* obj = a_item.object;
-                    if (!obj || obj->GetFormType() != RE::ENUM_FORM_ID::kARMO) return false;
-                    auto* armor = static_cast<RE::TESObjectARMO*>(obj);
-                    return IsRecognizedGasMask(armor) && PreservesNpcHair(armor);
-                },
-                [&mask](RE::BGSInventoryItem& a_item, RE::BGSInventoryItem::Stack&) -> bool {
-                    mask = static_cast<RE::TESObjectARMO*>(a_item.object);
-                    return false;
-                });
-        }
-
-        if (mask)
-        {
-            SetActorMaskEquipped(actor, mask, true);
-            if (RadMaskOwnership::Owns(actor->GetFormID(), mask->GetFormID()))
+            if (entry->IsTemporary())
             {
-                _autoMaskedNpcs.insert(actor->formID);
-                ++n;
+                if (WearsExactArmor(actor, entry->maskFormID))
+                {
+                    _autoMaskedNpcs.insert(actorID);
+                    continue;
+                }
+                if (GetActorWornMask(actor))
+                {
+                    if (!cleanupEntry(actor, *entry)) _autoMaskedNpcs.insert(actorID);
+                    continue;
+                }
+                auto* ownedForm = RE::TESForm::GetFormByID(entry->maskFormID);
+                auto* ownedMask = ownedForm && ownedForm->GetFormType() == RE::ENUM_FORM_ID::kARMO
+                    ? static_cast<RE::TESObjectARMO*>(ownedForm) : nullptr;
+                if (ownedMask && actor->GetInventoryObjectCount(ownedMask) > 0)
+                {
+                    RE::BGSObjectInstance instance(static_cast<RE::TESForm*>(ownedMask), nullptr);
+                    if (eqMgr->EquipObject(actor, instance, 0, 1, nullptr, false, true, false, true, false))
+                        _autoMaskedNpcs.insert(actorID);
+                    continue;
+                }
+                RadMaskOwnership::Release(actorID);
+            }
+            else
+            {
+                _autoMaskedNpcs.insert(actorID);
+                continue;
             }
         }
+
+        if (GetActorWornMask(actor)) continue;
+        if (!actor->biped) continue;
+
+        std::array<std::uint32_t, RadMaskOwnership::kMaxDisplacedGear> displaced{};
+        if (!CaptureDisplacedGear(actor, tempMask, displaced)) continue;
+
+        const auto before = actor->GetInventoryObjectCount(tempMask);
+        actor->AddObjectToContainer(tempMask, nullptr, 1, nullptr, RE::ITEM_REMOVE_REASON::kNone);
+        if (actor->GetInventoryObjectCount(tempMask) <= before) continue;
+
+        if (!RadMaskOwnership::ClaimTemporary(actorID, tempMask->GetFormID(), displaced))
+        {
+            RE::TESObjectREFR::RemoveItemData data(tempMask, 1);
+            actor->RemoveItem(data);
+            continue;
+        }
+
+        RE::BGSObjectInstance instance(static_cast<RE::TESForm*>(tempMask), nullptr);
+        if (!eqMgr->EquipObject(actor, instance, 0, 1, nullptr, false, true, false, true, false))
+        {
+            RadMaskOwnership::Release(actorID);
+            RE::TESObjectREFR::RemoveItemData data(tempMask, 1);
+            actor->RemoveItem(data);
+            continue;
+        }
+
+        _autoMaskedNpcs.insert(actorID);
+        ++n;
     }
     if (n > 0)
         Log()->info("[Mask] equipped {} NPC mask(s) for rad weather.", n);
