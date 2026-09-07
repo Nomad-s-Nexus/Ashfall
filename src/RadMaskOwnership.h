@@ -46,6 +46,7 @@ namespace RadMaskOwnership
         return CandidateDisposition::kRestore;
     }
 
+    bool Activate();
     bool Claim(std::uint32_t actorFormID, std::uint32_t maskFormID);
     bool Owns(std::uint32_t actorFormID, std::uint32_t maskFormID);
     void Release(std::uint32_t actorFormID);
