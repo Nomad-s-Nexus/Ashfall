@@ -201,6 +201,7 @@ def verify_source_contract():
         (
             "IsHumanInCell(actor, playerCell, humanKeyword)",
             "WearsPowerArmorHelmet(actor, _armorTypePowerKeyword)",
+            "if (!_armorTypePowerKeyword || !humanKeyword || !tempMask",
             "RadMaskOwnership::ClaimTemporary",
             "actor->AddObjectToContainer(tempMask",
             "RE::TESObjectREFR::RemoveItemData data(tempMask, 1)",
