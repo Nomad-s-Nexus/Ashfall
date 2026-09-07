@@ -85,10 +85,14 @@ for marker in (
     "kMaxOwnedActors = 128",
     "kMaxDisplacedGear = 4",
     "kTemporaryMaskFlag = 1u",
+    "kTemporaryNpcMaskFormID = 0x001184C1",
+    "kTemporaryMarkerFormID = 0x0002CB72",
     "HasLogicalMetadata",
     "IsValidLogicalEntry",
-    "frequency == 2",
+    "entry.maskFormID != kTemporaryNpcMaskFormID",
     "2 + kMaxDisplacedGear",
+    "hasMask",
+    "hasMarker",
 ):
     if marker not in ownership_header:
         raise SystemExit(f"missing encoded temporary ownership policy: {marker}")
@@ -96,9 +100,11 @@ for marker in (
 for marker in (
     "serialized.push_back({ entry.actorFormID, entry.maskFormID });",
     "if (!entry.IsTemporary()) continue;",
+    "serialized.push_back({ entry.actorFormID, kTemporaryMarkerFormID });",
     "std::array<std::uint32_t, kMaxDisplacedGear> displaced = entry.displacedFormIDs;",
-    "if (frequency == 2)",
-    "Entry restored{ entries[i].actorFormID, maskID, kTemporaryMaskFlag }",
+    "hasMask |= entries[a].maskFormID == kTemporaryNpcMaskFormID;",
+    "hasMarker |= entries[a].maskFormID == kTemporaryMarkerFormID;",
+    "Entry restored{ entries[i].actorFormID, kTemporaryNpcMaskFormID, kTemporaryMaskFlag }",
     "restored.displacedFormIDs = displaced;",
     "g_ownedMasks.size() >= kMaxOwnedActors",
 ):
@@ -108,8 +114,10 @@ for marker in (
 snapshot_start = ownership_source.index("std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()")
 snapshot_end = ownership_source.index("bool RadMaskOwnership::Restore", snapshot_start)
 snapshot = ownership_source[snapshot_start:snapshot_end]
-if snapshot.count("serialized.push_back({ entry.actorFormID, entry.maskFormID });") < 2:
-    raise SystemExit("temporary MOWN encoding must duplicate the mask pair as an order-independent marker")
+if snapshot.count("serialized.push_back({ entry.actorFormID, entry.maskFormID });") != 1:
+    raise SystemExit("temporary MOWN encoding must not duplicate legacy mask ownership pairs")
+if "serialized.push_back({ entry.actorFormID, kTemporaryMarkerFormID });" not in snapshot:
+    raise SystemExit("temporary MOWN encoding must carry the fixed marker form")
 
 if "RadMaskOwnership::Clear();" not in revert:
     raise SystemExit("mask ownership must clear on serialization revert")
