@@ -14,7 +14,7 @@
 namespace
 {
     std::mutex g_mutex;
-    std::unordered_map<std::uint32_t, std::uint32_t> g_ownedMasks;
+    std::unordered_map<std::uint32_t, RadMaskOwnership::Entry> g_ownedMasks;
     bool g_sinkRegistered = false;
 
     class EquipSink final : public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>
@@ -32,7 +32,7 @@ namespace
             const auto maskID = event.itemAffected->object->GetFormID();
             std::scoped_lock lock(g_mutex);
             const auto it = g_ownedMasks.find(actorID);
-            if (it != g_ownedMasks.end() && it->second == maskID)
+            if (it != g_ownedMasks.end() && it->second.maskFormID == maskID && !it->second.IsTemporary())
                 g_ownedMasks.erase(it);
             return RE::BSEventNotifyControl::kContinue;
         }
@@ -58,11 +58,30 @@ bool RadMaskOwnership::Claim(std::uint32_t actorFormID, std::uint32_t maskFormID
     const auto it = g_ownedMasks.find(actorFormID);
     if (it != g_ownedMasks.end())
     {
-        it->second = maskFormID;
+        if (it->second.IsTemporary()) return false;
+        it->second.maskFormID = maskFormID;
         return true;
     }
     if (g_ownedMasks.size() >= kMaxEntries) return false;
-    g_ownedMasks.emplace(actorFormID, maskFormID);
+    g_ownedMasks.emplace(actorFormID, Entry{ actorFormID, maskFormID });
+    return true;
+}
+
+bool RadMaskOwnership::ClaimTemporary(
+    std::uint32_t actorFormID,
+    std::uint32_t maskFormID,
+    const std::array<std::uint32_t, kMaxDisplacedGear>& displacedFormIDs)
+{
+    if (actorFormID == 0 || maskFormID == 0 || !Activate()) return false;
+    const Entry candidate{ actorFormID, maskFormID, kTemporaryMaskFlag, displacedFormIDs };
+    if (!IsValidSnapshot({ candidate })) return false;
+
+    std::scoped_lock lock(g_mutex);
+    const auto it = g_ownedMasks.find(actorFormID);
+    if (it != g_ownedMasks.end())
+        return it->second == candidate;
+    if (g_ownedMasks.size() >= kMaxEntries) return false;
+    g_ownedMasks.emplace(actorFormID, candidate);
     return true;
 }
 
@@ -70,7 +89,15 @@ bool RadMaskOwnership::Owns(std::uint32_t actorFormID, std::uint32_t maskFormID)
 {
     std::scoped_lock lock(g_mutex);
     const auto it = g_ownedMasks.find(actorFormID);
-    return it != g_ownedMasks.end() && it->second == maskFormID;
+    return it != g_ownedMasks.end() && it->second.maskFormID == maskFormID;
+}
+
+std::optional<RadMaskOwnership::Entry> RadMaskOwnership::Lookup(std::uint32_t actorFormID)
+{
+    std::scoped_lock lock(g_mutex);
+    const auto it = g_ownedMasks.find(actorFormID);
+    if (it == g_ownedMasks.end()) return std::nullopt;
+    return it->second;
 }
 
 void RadMaskOwnership::Release(std::uint32_t actorFormID)
@@ -84,8 +111,8 @@ std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
     std::scoped_lock lock(g_mutex);
     std::vector<Entry> entries;
     entries.reserve(g_ownedMasks.size());
-    for (const auto& [actorFormID, maskFormID] : g_ownedMasks)
-        entries.push_back({ actorFormID, maskFormID });
+    for (const auto& [actorFormID, entry] : g_ownedMasks)
+        entries.push_back(entry);
     std::ranges::sort(entries, {}, &Entry::actorFormID);
     return entries;
 }
@@ -93,10 +120,10 @@ std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
 bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
 {
     if (!IsValidSnapshot(entries)) return false;
-    std::unordered_map<std::uint32_t, std::uint32_t> restored;
+    std::unordered_map<std::uint32_t, Entry> restored;
     restored.reserve(entries.size());
     for (const auto& entry : entries)
-        restored.emplace(entry.actorFormID, entry.maskFormID);
+        restored.emplace(entry.actorFormID, entry);
     std::scoped_lock lock(g_mutex);
     g_ownedMasks = std::move(restored);
     return true;
