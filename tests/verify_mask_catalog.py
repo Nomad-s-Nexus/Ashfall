@@ -255,6 +255,8 @@ def verify_source_contract():
         ),
         "managed storm same-cell human flee policy",
     )
+    if "GetDistanceFromReference" in flee_policy:
+        raise SystemExit("managed storm flee must use the player cell as its only spatial eligibility boundary")
 
 
 def main(plugin_path):
