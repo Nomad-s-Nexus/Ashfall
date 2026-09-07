@@ -107,20 +107,26 @@ for marker in (
     if marker not in set_actor_mask:
         raise SystemExit(f"missing exact-mask equip ownership gate: {marker}")
 
-npc_cleanup = mask_source.split("if (!equip)", 1)[1].split("auto* pl = RE::ProcessLists::GetSingleton();", 1)[0]
+npc_policy = mask_source.split("void RadiationEngine::EquipNearbyNpcMasks", 1)[1].split(
+    "// ----------------------------------------------------------------------------- gas-mask filter", 1
+)[0]
 for marker in (
-    "const auto maskID = worn->GetFormID();",
-    "const bool owned = RadMaskOwnership::Owns(id, maskID);",
-    "if (RadMaskOwnership::Owns(id, maskID)) pending.insert(id);",
+    "RadMaskOwnership::Lookup(id)",
+    "RadMaskOwnership::ClaimTemporary",
+    "entry.displacedFormIDs",
+    "actor->AddObjectToContainer(tempMask",
+    "RE::TESObjectREFR::RemoveItemData data(tempMask, 1)",
+    "cleanupEntry(actor, *entry)",
 ):
-    if marker not in npc_cleanup:
-        raise SystemExit(f"missing exact NPC mask cleanup ownership gate: {marker}")
+    if marker not in npc_policy:
+        raise SystemExit(f"missing temporary NPC mask ownership contract: {marker}")
 
 for marker in (
     "event.changeType != RE::ActorEquipManagerEvent::Type::kUnequip",
     "const auto actorID = event.actorAffected->GetFormID();",
     "const auto maskID = event.itemAffected->object->GetFormID();",
-    "it->second == maskID",
+    "it->second.maskFormID == maskID",
+    "!it->second.IsTemporary()",
 ):
     if marker not in ownership_source:
         raise SystemExit(f"missing manual-unequip ownership release contract: {marker}")
