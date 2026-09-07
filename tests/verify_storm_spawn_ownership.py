@@ -10,6 +10,7 @@ dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
 storm = (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8")
 storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
 mask = (SRC / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
+debug = (SRC / "RadEngine_Debug.cpp").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
@@ -103,6 +104,7 @@ for token in (
 assert load_shelter_reset.find("_playerEnclosed = false;") < load_shelter_reset.find(
     "_playerEnclosed = ComputeEnclosedByStructure();"
 )
+assert "BeginSmoothWeather(revertTo, /*lockOverride=*/false);" in radstorm_warning
 
 smooth_weather = weather_core.split("void RadiationEngine::BeginSmoothWeather", 1)[1].split(
     "void RadiationEngine::CaptureWeatherReturnTarget", 1
@@ -299,6 +301,30 @@ new_game_penalties = new_game.find("engine.ResetAppliedPenalties();")
 assert post_reset != -1 and new_game_arm != -1 and new_game_penalties != -1
 assert post_reset < new_game_arm < new_game_penalties
 
+load_local_scrub = debug.split("void RadiationEngine::DrainDebugCommands()", 1)[1].split(
+    "if (_pendingDebugCmds.empty()) return;", 1
+)[0]
+for token in (
+    "if (_prevRads < 0.0f)",
+    "_filterSparesCache = 0;",
+    "_filterCountTick = 0;",
+    "_enclosedCheckTick = 0;",
+    "_weatherReturnTarget = nullptr;",
+    "_weatherReturnCaptured = false;",
+    "_releaseWeatherOverrideWhenSettled = false;",
+    "_weatherHandoffSettleTicks = 0;",
+):
+    assert token in load_local_scrub, f"first post-load transient scrub is missing: {token}"
+
+core_update = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
+    "void RadiationEngine::PollInput()", 1
+)[0]
+drain = core_update.find("DrainDebugCommands();")
+warning = core_update.find("CheckRadstormWarning();")
+storm_tick = core_update.find("UpdateStorm();")
+assert drain != -1 and warning != -1 and storm_tick != -1
+assert drain < warning < storm_tick
+
 hud_wait = main.split("void WaitThenCreateRadHud", 1)[1].split(
     "void StartRadHudWaitIfIdle", 1
 )[0]
@@ -310,4 +336,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, first-tick transient isolation, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
