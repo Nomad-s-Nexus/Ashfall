@@ -1,9 +1,11 @@
 #include "pch.h"
 #include "RadMaskOwnership.h"
 
+#include <RE/A/Actor.h>
 #include <RE/A/ActorEquipManager.h>
 #include <RE/A/ActorEquipManagerEvent.h>
 #include <RE/B/BGSObjectInstance.h>
+#include <RE/T/TESForm.h>
 
 #include <algorithm>
 #include <mutex>
