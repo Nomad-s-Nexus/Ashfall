@@ -183,6 +183,7 @@ def verify_source_contract():
             "armor->FillsBipedSlot(kHelmetSlot)",
             "kActorTypeHumanKeywordID = 0x0002CB72",
             "kTemporaryNpcGasMaskID = 0x001184C1",
+            "cell->IsInterior()",
             "actor->GetParentCell() != cell",
             "race->HasKeyword(humanKeyword)",
         ),
