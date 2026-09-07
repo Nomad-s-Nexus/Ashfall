@@ -3,6 +3,8 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 source = (root / "src" / "RadiationEngine.cpp").read_text(encoding="utf-8")
 lifecycle = (root / "src" / "RadLifecycle.cpp").read_text(encoding="utf-8")
+mask_source = (root / "src" / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
+ownership_source = (root / "src" / "RadMaskOwnership.cpp").read_text(encoding="utf-8")
 save = source.split("void RadiationEngine::SaveState", 1)[1].split("void RadiationEngine::LoadState", 1)[0]
 load = source.split("void RadiationEngine::LoadState", 1)[1].split("void RadiationEngine::RevertState", 1)[0]
 revert = source.split("void RadiationEngine::RevertState", 1)[1].split("void RadiationEngine::Notify", 1)[0]
@@ -96,4 +98,31 @@ activation = lifecycle.index("if (!RadMaskOwnership::Activate())")
 if activation < main_thread_guard:
     raise SystemExit("mask ownership event sink must activate only after the game-main-thread guard")
 
-print("filter and auto-mask ownership serialization policy verified")
+set_actor_mask = mask_source.split("void RadiationEngine::SetActorMaskEquipped", 1)[1].split("void RadiationEngine::SetMaskEquipped", 1)[0]
+for marker in (
+    "RadMaskOwnership::Claim(actorID, maskID)",
+    "if (!RadMaskOwnership::Owns(actorID, maskID)) return;",
+    "RadMaskOwnership::Release(actorID)",
+):
+    if marker not in set_actor_mask:
+        raise SystemExit(f"missing exact-mask equip ownership gate: {marker}")
+
+npc_cleanup = mask_source.split("if (!equip)", 1)[1].split("auto* pl = RE::ProcessLists::GetSingleton();", 1)[0]
+for marker in (
+    "const auto maskID = worn->GetFormID();",
+    "const bool owned = RadMaskOwnership::Owns(id, maskID);",
+    "if (RadMaskOwnership::Owns(id, maskID)) pending.insert(id);",
+):
+    if marker not in npc_cleanup:
+        raise SystemExit(f"missing exact NPC mask cleanup ownership gate: {marker}")
+
+for marker in (
+    "event.changeType != RE::ActorEquipManagerEvent::Type::kUnequip",
+    "const auto actorID = event.actorAffected->GetFormID();",
+    "const auto maskID = event.itemAffected->object->GetFormID();",
+    "it->second == maskID",
+):
+    if marker not in ownership_source:
+        raise SystemExit(f"missing manual-unequip ownership release contract: {marker}")
+
+print("filter and exact auto-mask ownership serialization policy verified")
