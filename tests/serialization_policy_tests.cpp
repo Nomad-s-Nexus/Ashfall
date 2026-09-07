@@ -66,13 +66,29 @@ int main()
 	using RadMaskOwnership::Entry;
 	const std::vector<Entry> ownedMasks{ { 0x14, 0x800 }, { 0x1234, 0x801 } };
 	const Entry temporaryMask{ 0x2000, 0x1184C1, RadMaskOwnership::kTemporaryMaskFlag, { 0x3000, 0x3001, 0, 0 } };
+	const Entry temporaryMaskNoGear{ 0x2000, 0x1184C1, RadMaskOwnership::kTemporaryMaskFlag, {} };
+	const std::vector<Entry> encodedTemporary{
+		{ 0x2000, 0x1184C1 },
+		{ 0x2000, 0x1184C1 },
+		{ 0x2000, 0x3000 },
+		{ 0x2000, 0x3001 },
+	};
+	const std::vector<Entry> encodedTemporaryNoGear{
+		{ 0x2000, 0x1184C1 },
+		{ 0x2000, 0x1184C1 },
+	};
 	Require(RadMaskOwnership::IsValidSnapshot({}));
 	Require(RadMaskOwnership::IsValidSnapshot(ownedMasks));
 	Require(RadMaskOwnership::IsValidSnapshot({ temporaryMask }));
+	Require(RadMaskOwnership::IsValidSnapshot({ temporaryMaskNoGear }));
+	Require(RadMaskOwnership::IsValidSnapshot(encodedTemporary));
+	Require(RadMaskOwnership::IsValidSnapshot(encodedTemporaryNoGear));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0, 0x800 } }));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x14, 0 } }));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x1234, 0x800 }, { 0x14, 0x801 } }));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x14, 0x800 }, { 0x14, 0x801 } }));
+	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x14, 0x800 }, { 0x14, 0x800 }, { 0x14, 0x800 } }));
+	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x14, 0x800 }, { 0x14, 0x800 }, { 0x14, 0x801 }, { 0x14, 0x801 } }));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x2000, 0x1184C1, 2, {} } }));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x2000, 0x1184C1, 0, { 0x3000, 0, 0, 0 } } }));
 	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x2000, 0x1184C1, RadMaskOwnership::kTemporaryMaskFlag,
@@ -89,6 +105,10 @@ int main()
 	Require(RadMaskOwnership::ClassifyCandidates({}) == RadMaskOwnership::CandidateDisposition::kAmbiguous);
 	Require(RadMaskOwnership::ClassifyCandidates({ ownedMasks }) == RadMaskOwnership::CandidateDisposition::kRestore);
 	Require(RadMaskOwnership::ClassifyCandidates({ ownedMasks, ownedMasks }) == RadMaskOwnership::CandidateDisposition::kRestore);
+	Require(RadMaskOwnership::ClassifyCandidates({ encodedTemporary, encodedTemporary }) ==
+		RadMaskOwnership::CandidateDisposition::kRestore);
+	Require(RadMaskOwnership::ClassifyCandidates({ encodedTemporary, encodedTemporaryNoGear }) ==
+		RadMaskOwnership::CandidateDisposition::kAmbiguous);
 	Require(RadMaskOwnership::ClassifyCandidates({ { temporaryMask }, { temporaryMask } }) ==
 		RadMaskOwnership::CandidateDisposition::kRestore);
 	Require(RadMaskOwnership::ClassifyCandidates({ { temporaryMask }, { Entry{ 0x2000, 0x1184C1 } } }) ==
