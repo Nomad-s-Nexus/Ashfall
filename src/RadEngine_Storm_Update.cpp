@@ -19,6 +19,13 @@ void RadiationEngine::UpdateStorm()
     UpdateWeatherHandoff();
     UpdateStormDomeLifecycle();
 
+    if (_stormPhase != StormPhase::Active && _wasInRadWeather == 0 &&
+        !_autoMaskedNpcs.empty() && --_npcMaskScanTick <= 0)
+    {
+        _npcMaskScanTick = kNpcMaskRescanTicks;
+        EquipNearbyNpcMasks(false);
+    }
+
     // New-game safety: the first time the player is outdoors after a new game, force the
     // Commonwealth clear weather so a vault exit / alt-start never opens straight into a rad storm
     // (vanilla radstorm, a stale forced sky, or anything else). Re-rolls the storm schedule from
