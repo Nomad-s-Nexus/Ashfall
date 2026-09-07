@@ -1,6 +1,8 @@
 #include "RadEngine_Internal.h"
 #include "SerializationPolicy.h"
+#include "RadMaskOwnership.h"
 
+#include <algorithm>
 #include <vector>
 
 using namespace RadInternal;
@@ -68,7 +70,7 @@ bool RadiationEngine::Initialize()
 
         if (!_config->LoadFromFile(dataPath))
         {
-            logger->error("  ✗ Failed to load config from {}", dataPath);
+            logger->error("✗ Failed to load config from {}", dataPath);
             logger->error("  Check logs above for specific parsing errors");
             return false;
         }
@@ -574,6 +576,10 @@ namespace
     constexpr std::uint32_t kStormClockVersion = 1;
     constexpr std::uint32_t kFilterRecord      = 'FILT';  // co-save: gas-mask filter charge + condition
     constexpr std::uint32_t kFilterVersion     = 2;       // v2 adds mask condition after charge
+    constexpr std::uint32_t kMaskOwnershipRecord = 'MOWN';
+    constexpr std::uint32_t kMaskOwnershipVersion = 1;
+    constexpr std::uint32_t kMaskOwnershipHeaderLen = sizeof(std::uint32_t);
+    constexpr std::uint32_t kMaskOwnershipEntryLen = sizeof(std::uint32_t) * 2;
 
     // Storm-clock record payload: three doubles (play, next, lastRadstorm) + one uint8 (scheduled).
     constexpr std::uint32_t kStormClockLen = sizeof(double) * 3 + sizeof(std::uint8_t);
@@ -1129,6 +1135,22 @@ void RadiationEngine::SaveState(const F4SE::SerializationInterface* a_intfc) con
         a_intfc->WriteRecordData(_filterCharge);
         a_intfc->WriteRecordData(_maskCondition);
     }
+
+    const auto ownership = RadMaskOwnership::Snapshot();
+    if (a_intfc->OpenRecord(kMaskOwnershipRecord, kMaskOwnershipVersion))
+    {
+        const auto count = static_cast<std::uint32_t>(ownership.size());
+        a_intfc->WriteRecordData(count);
+        for (const auto& entry : ownership)
+        {
+            a_intfc->WriteRecordData(entry.actorFormID);
+            a_intfc->WriteRecordData(entry.maskFormID);
+        }
+    }
+    else
+    {
+        logger->error("[Save] Could not open mask-ownership record.");
+    }
 }
 
 
@@ -1143,8 +1165,10 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     // the monotonic play clock backward or postponing storms by an unbounded amount.
     std::vector<RadiationSerialization::StormClockState> clockCandidates;
     std::vector<RadiationSerialization::FilterState> filterCandidates;
+    std::vector<std::vector<RadMaskOwnership::Entry>> ownershipCandidates;
     int clockSeen = 0, clockRejected = 0;
     int filterSeen = 0, filterRejected = 0;
+    int ownershipSeen = 0, ownershipRejected = 0;
 
     const auto readExact = [a_intfc]<class T>(T& a_value) {
         return a_intfc->ReadRecordData(a_value) == sizeof(T);
@@ -1152,6 +1176,56 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
 
     while (a_intfc->GetNextRecordInfo(type, version, length))
     {
+        if (type == kMaskOwnershipRecord)
+        {
+            ++ownershipSeen;
+            if (version != kMaskOwnershipVersion || length < kMaskOwnershipHeaderLen)
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} v{} len {} is unsupported — ignoring.",
+                    ownershipSeen, version, length);
+                continue;
+            }
+
+            std::uint32_t count = 0;
+            if (!readExact(count) || count > RadMaskOwnership::kMaxEntries)
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} has invalid count — ignoring.", ownershipSeen);
+                continue;
+            }
+
+            const auto expectedLength = kMaskOwnershipHeaderLen + count * kMaskOwnershipEntryLen;
+            if (length != expectedLength)
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} bad length {} (expected {}) — ignoring.",
+                    ownershipSeen, length, expectedLength);
+                continue;
+            }
+
+            std::vector<RadMaskOwnership::Entry> candidate;
+            candidate.reserve(count);
+            bool read = true;
+            for (std::uint32_t i = 0; i < count; ++i)
+            {
+                RadMaskOwnership::Entry entry{};
+                if (!readExact(entry.actorFormID) || !readExact(entry.maskFormID))
+                {
+                    read = false;
+                    break;
+                }
+                candidate.push_back(entry);
+            }
+            if (!read || !RadMaskOwnership::IsValidSnapshot(candidate))
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} is invalid or truncated — ignoring.", ownershipSeen);
+                continue;
+            }
+            ownershipCandidates.push_back(std::move(candidate));
+            continue;
+        }
         if (type == kFilterRecord)
         {
             ++filterSeen;
@@ -1250,6 +1324,42 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
         logger->warn("[Load] {} filter record(s) present but none valid ({} rejected) — keeping fresh defaults.",
             filterSeen, filterRejected);
     }
+
+    if (RadMaskOwnership::ClassifyCandidates(ownershipCandidates) == RadMaskOwnership::CandidateDisposition::kRestore)
+    {
+        std::vector<RadMaskOwnership::Entry> resolved;
+        resolved.reserve(ownershipCandidates.front().size());
+        for (const auto& entry : ownershipCandidates.front())
+        {
+            const auto actorID = a_intfc->ResolveFormID(entry.actorFormID);
+            const auto maskID = a_intfc->ResolveFormID(entry.maskFormID);
+            if (actorID && maskID)
+                resolved.push_back({ *actorID, *maskID });
+        }
+        std::ranges::sort(resolved, {}, &RadMaskOwnership::Entry::actorFormID);
+        if (RadMaskOwnership::Restore(resolved))
+        {
+            logger->info("[Load] Auto-mask ownership restored ({} of {} entries resolved).",
+                resolved.size(), ownershipCandidates.front().size());
+        }
+        else
+        {
+            RadMaskOwnership::Clear();
+            logger->warn("[Load] Resolved auto-mask ownership was ambiguous — ownership discarded.");
+        }
+    }
+    else if (!ownershipCandidates.empty())
+    {
+        RadMaskOwnership::Clear();
+        logger->warn("[Load] {} conflicting valid mask-ownership records — ownership discarded.",
+            ownershipCandidates.size());
+    }
+    else if (ownershipSeen > 0)
+    {
+        RadMaskOwnership::Clear();
+        logger->warn("[Load] {} mask-ownership record(s) present but none valid ({} rejected) — ownership discarded.",
+            ownershipSeen, ownershipRejected);
+    }
 }
 
 
@@ -1265,6 +1375,7 @@ void RadiationEngine::RevertState()
     _filterLowWarned  = 0;
     _maskCondition    = 100.0f;
     _conditionLowWarned = 0;
+    RadMaskOwnership::Clear();
     Log()->info("[Revert] Storm clock reset (new game / pre-load).");
 }
 
@@ -1325,6 +1436,20 @@ void RadiationEngine::OnPostLoad()
     _autoMaskEquipped = false;
     _npcMaskScanTick = 0;
     _autoMaskedNpcs.clear();
+    const auto ownership = RadMaskOwnership::Snapshot();
+    if (!ownership.empty())
+    {
+        _wasInRadWeather = 1;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        const auto playerID = player ? player->GetFormID() : 0;
+        for (const auto& entry : ownership)
+        {
+            if (playerID != 0 && entry.actorFormID == playerID)
+                _autoMaskEquipped = true;
+            else
+                _autoMaskedNpcs.insert(entry.actorFormID);
+        }
+    }
 
     // The engine clears kTemporary AV modifiers on load, but our trackers persist in the DLL singleton.
     // Reset them so the radiation SPECIAL penalty re-applies fresh next tick (ApplyClampedSpecial) — a
