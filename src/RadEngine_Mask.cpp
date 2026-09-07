@@ -298,7 +298,7 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
     auto* maskForm = dh->LookupForm(kTemporaryNpcGasMaskID, "Fallout4.esm");
     auto* tempMask = maskForm && maskForm->GetFormType() == RE::ENUM_FORM_ID::kARMO
         ? static_cast<RE::TESObjectARMO*>(maskForm) : nullptr;
-    if (!humanKeyword || !tempMask || !IsRecognizedGasMask(tempMask) || !PreservesNpcHair(tempMask)) return;
+    if (!_armorTypePowerKeyword || !humanKeyword || !tempMask || !IsRecognizedGasMask(tempMask) || !PreservesNpcHair(tempMask)) return;
 
     std::unordered_set<std::uint32_t> retained;
     for (const auto id : _autoMaskedNpcs)
