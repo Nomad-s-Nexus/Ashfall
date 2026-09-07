@@ -194,7 +194,7 @@ void RadiationEngine::UpdateStormFXVisibility()
     else
     {
         TriggerStormFX(false);                 // stop shake
-        ClearStormDome();                      // despawn the native dome indoors (it would clip walls)
+        ClearStormDome();                      // despawn the native cloud dome indoors (it would clip walls)
         FadeOutStormIMAD(1.0f);
     }
 }
@@ -241,7 +241,9 @@ void RadiationEngine::ApplyStormPeakToNPCs()
     // ProcessLists handle iteration below is safe without a lock.
     auto* pl = RE::ProcessLists::GetSingleton();
     auto* av = RE::ActorValue::GetSingleton();
-    if (!pl || !av) return;
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* playerCell = player ? player->GetParentCell() : nullptr;
+    if (!pl || !av || !playerCell) return;
 
     auto logger = Log();
     int healed = 0;
@@ -250,6 +252,7 @@ void RadiationEngine::ApplyStormPeakToNPCs()
         auto actorPtr = handle.get();
         RE::Actor* actor = actorPtr.get();
         if (!actor || actor->IsDead(false) || actor->IsPlayerRef()) continue;
+        if (actor->GetParentCell() != playerCell) continue;
 
         // Ghoul NPCs are rad-immune and HEAL in radiation (lore-accurate), so the storm peak mends
         // them. Every other NPC is left completely untouched — storms must NEVER wipe wandering NPCs
