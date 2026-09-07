@@ -10,6 +10,38 @@ using namespace RadInternal;
 // Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
 // RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
+namespace
+{
+    bool PreservesNpcHair(const RE::TESObjectARMO* armor)
+    {
+        if (!armor) return false;
+        constexpr std::int32_t kHairSlots[] = {
+            static_cast<std::int32_t>(RE::BIPED_OBJECT::kHairTop),
+            static_cast<std::int32_t>(RE::BIPED_OBJECT::kHairLong),
+            static_cast<std::int32_t>(RE::BIPED_OBJECT::kScalp),
+        };
+        for (const auto slot : kHairSlots)
+            if (armor->FillsBipedSlot(slot)) return false;
+        return true;
+    }
+
+    bool WearsPowerArmorHelmet(RE::Actor* actor, const RE::BGSKeyword* powerKeyword)
+    {
+        if (!actor || !actor->biped || !powerKeyword) return false;
+        constexpr auto kHelmetSlot = static_cast<std::int32_t>(RE::BIPED_OBJECT::kHairTop);
+        auto& biped = *actor->biped;
+        for (std::size_t i = 0; i < std::size(biped.object); ++i)
+        {
+            RE::TESForm* form = biped.object[i].parent.object;
+            if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kARMO) continue;
+            auto* armor = static_cast<RE::TESObjectARMO*>(form);
+            if (armor->HasKeyword(powerKeyword) && armor->FillsBipedSlot(kHelmetSlot))
+                return true;
+        }
+        return false;
+    }
+}
+
 
 bool RadiationEngine::IsRecognizedGasMask(const RE::TESObjectARMO* armor) const
 {
@@ -119,6 +151,22 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 {
     int n = 0;
 
+    if (equip)
+    {
+        auto* sky = RE::Sky::GetSingleton();
+        if (sky && sky->currentWeather)
+        {
+            for (auto* weather : _stormWeathers)
+            {
+                if (weather && weather == sky->currentWeather)
+                {
+                    EquipNearbyNpcMasks(false);
+                    return;
+                }
+            }
+        }
+    }
+
     if (!equip)
     {
         std::unordered_set<std::uint32_t> pending;
@@ -137,6 +185,11 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
             if (actor->IsDead(false))
             {
                 RadMaskOwnership::Release(id);
+                continue;
+            }
+            if (!actor->biped)
+            {
+                pending.insert(id);
                 continue;
             }
             if (auto* worn = GetActorWornMask(actor))
@@ -174,10 +227,27 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
         RE::Actor* actor = actorPtr.get();
         if (!actor || actor->IsDead(false) || actor->IsPlayerRef()) continue;
         if (IsGhoulActor(actor)) continue;            // ghouls revel in rads — no mask
-        if (IsActorInPowerArmor(actor)) continue;      // sealed in a PA frame
+        if (WearsPowerArmorHelmet(actor, _armorTypePowerKeyword)) continue;
 
         if (GetActorWornMask(actor)) continue;         // already masked (manually or by us)
-        if (auto* mask = FindActorInventoryMask(actor))
+
+        RE::TESObjectARMO* mask = nullptr;
+        if (auto* inv = actor->inventoryList)
+        {
+            inv->ForEachStack(
+                [this](RE::BGSInventoryItem& a_item) -> bool {
+                    auto* obj = a_item.object;
+                    if (!obj || obj->GetFormType() != RE::ENUM_FORM_ID::kARMO) return false;
+                    auto* armor = static_cast<RE::TESObjectARMO*>(obj);
+                    return IsRecognizedGasMask(armor) && PreservesNpcHair(armor);
+                },
+                [&mask](RE::BGSInventoryItem& a_item, RE::BGSInventoryItem::Stack&) -> bool {
+                    mask = static_cast<RE::TESObjectARMO*>(a_item.object);
+                    return false;
+                });
+        }
+
+        if (mask)
         {
             SetActorMaskEquipped(actor, mask, true);
             if (RadMaskOwnership::Owns(actor->GetFormID(), mask->GetFormID()))
@@ -268,7 +338,7 @@ void RadiationEngine::LoadFilterIni()
         "[Ambient] enabled={}, atten={} stormAtten={} | "
         "[Storm] enabled={}, gap={:.0f}-{:.0f} real min, vanillaRadstormGap={:.0f} min",
         _filterDurationSec, _filterReplaceKey, _filterAutoReplace, _filterChokeRads,
-        _conditionEnabled, _conditionHitDamage, _conditionRepairKey, _conditionAutoRepair,
+        _conditionEnabled, _conditionHitDamage, _filterReplaceKey, _conditionAutoRepair,
         _chokingEnabled, _chokeHealthPerSec, _chokeFailedFactor, _chokeSounds,
         _ambientEnabled, _ambientAtten, _stormBedAtten,
         _stormsEnabled, _stormMinRealMin, _stormMaxRealMin, _vanillaRadstormGapSec / 60.0);
