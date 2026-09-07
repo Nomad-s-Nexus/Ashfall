@@ -367,14 +367,12 @@ void RadiationEngine::UpdateStorm()
         // (mirrors UpdateAmbientAudio) so no fog/colour-grade bleeds into interiors mid-storm.
         UpdateStormFXVisibility();
 
-        if (!_autoMaskedNpcs.empty())
-            EquipNearbyNpcMasks(false);
-
         // Managed storms: nearby NPCs panic and flee. Throttled (the engine flee order only needs
         // re-issuing every few seconds to keep them running for the storm's duration).
         if (--_fleeTick <= 0)
         {
             _fleeTick = kFleeRecheckTicks;
+            EquipNearbyNpcMasks(true);
             MakeNearbyNPCsFlee();
         }
 
