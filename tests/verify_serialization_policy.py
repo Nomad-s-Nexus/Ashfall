@@ -4,6 +4,7 @@ root = Path(__file__).resolve().parents[1]
 source = (root / "src" / "RadiationEngine.cpp").read_text(encoding="utf-8")
 lifecycle = (root / "src" / "RadLifecycle.cpp").read_text(encoding="utf-8")
 mask_source = (root / "src" / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
+ownership_header = (root / "src" / "RadMaskOwnership.h").read_text(encoding="utf-8")
 ownership_source = (root / "src" / "RadMaskOwnership.cpp").read_text(encoding="utf-8")
 save = source.split("void RadiationEngine::SaveState", 1)[1].split("void RadiationEngine::LoadState", 1)[0]
 load = source.split("void RadiationEngine::LoadState", 1)[1].split("void RadiationEngine::RevertState", 1)[0]
@@ -41,6 +42,13 @@ if not (classification < charge_commit < condition_commit):
     raise SystemExit("filter candidate classification must precede both live-state assignments")
 
 for marker in (
+    "kMaskOwnershipVersion = 1",
+    "kMaskOwnershipEntryLen = sizeof(std::uint32_t) * 2",
+):
+    if marker not in source:
+        raise SystemExit(f"MOWN pair-format compatibility changed unexpectedly: {marker}")
+
+for marker in (
     "RadMaskOwnership::Snapshot()",
     "OpenRecord(kMaskOwnershipRecord, kMaskOwnershipVersion)",
     "entry.actorFormID",
@@ -72,6 +80,36 @@ ownership_classification = load.index("RadMaskOwnership::ClassifyCandidates(owne
 ownership_restore = load.index("RadMaskOwnership::Restore(resolved)")
 if ownership_restore < ownership_classification:
     raise SystemExit("mask ownership classification must precede live ownership restore")
+
+for marker in (
+    "kMaxOwnedActors = 128",
+    "kMaxDisplacedGear = 4",
+    "kTemporaryMaskFlag = 1u",
+    "HasLogicalMetadata",
+    "IsValidLogicalEntry",
+    "frequency == 2",
+    "2 + kMaxDisplacedGear",
+):
+    if marker not in ownership_header:
+        raise SystemExit(f"missing encoded temporary ownership policy: {marker}")
+
+for marker in (
+    "serialized.push_back({ entry.actorFormID, entry.maskFormID });",
+    "if (!entry.IsTemporary()) continue;",
+    "std::array<std::uint32_t, kMaxDisplacedGear> displaced = entry.displacedFormIDs;",
+    "if (frequency == 2)",
+    "Entry restored{ entries[i].actorFormID, maskID, kTemporaryMaskFlag }",
+    "restored.displacedFormIDs = displaced;",
+    "g_ownedMasks.size() >= kMaxOwnedActors",
+):
+    if marker not in ownership_source:
+        raise SystemExit(f"missing temporary ownership pair encoding/restore: {marker}")
+
+snapshot_start = ownership_source.index("std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()")
+snapshot_end = ownership_source.index("bool RadMaskOwnership::Restore", snapshot_start)
+snapshot = ownership_source[snapshot_start:snapshot_end]
+if snapshot.count("serialized.push_back({ entry.actorFormID, entry.maskFormID });") < 2:
+    raise SystemExit("temporary MOWN encoding must duplicate the mask pair as an order-independent marker")
 
 if "RadMaskOwnership::Clear();" not in revert:
     raise SystemExit("mask ownership must clear on serialization revert")
