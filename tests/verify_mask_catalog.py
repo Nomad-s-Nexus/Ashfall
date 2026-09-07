@@ -171,6 +171,7 @@ def verify_source_contract():
     root = Path(__file__).resolve().parents[1]
     mask_source = (root / "src" / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
     storm_source = (root / "src" / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
+    storm_fx_source = (root / "src" / "RadEngine_Storm_FX.cpp").read_text(encoding="utf-8")
 
     require_tokens(
         mask_source,
@@ -237,6 +238,22 @@ def verify_source_contract():
     flee_call_pos = active_policy.find("MakeNearbyNPCsFlee();")
     if not (0 <= mask_pos < flee_call_pos):
         raise SystemExit("managed storm mask/flee ordering changed")
+
+    flee_policy = storm_fx_source.split("void RadiationEngine::MakeNearbyNPCsFlee()", 1)[1]
+    require_tokens(
+        flee_policy,
+        (
+            "auto* playerCell = player ? player->GetParentCell() : nullptr;",
+            "playerCell->IsInterior()",
+            'dh->LookupForm(0x0002CB72, "Fallout4.esm")',
+            "if (cell != playerCell) continue;",
+            "base->GetFormType() != RE::ENUM_FORM_ID::kNPC_",
+            "static_cast<RE::TESNPC*>(base)->GetFormRace()",
+            "race->HasKeyword(humanKeyword)",
+            "actor->InitiateFlee(player",
+        ),
+        "managed storm same-cell human flee policy",
+    )
 
 
 def main(plugin_path):
