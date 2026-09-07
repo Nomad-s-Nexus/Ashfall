@@ -147,6 +147,9 @@ void RadiationEngine::DrainDebugCommands()
         {
             _maskOverride = -1;
             _debugShelter = false;
+            _filterSparesCache = 0;
+            _filterCountTick = 0;
+            _enclosedCheckTick = 0;
             _pendingDebugCmds.clear();
             return;
         }
