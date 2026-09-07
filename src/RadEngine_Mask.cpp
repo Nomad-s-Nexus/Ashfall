@@ -121,6 +121,7 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 
     if (!equip)
     {
+        std::unordered_set<std::uint32_t> pending;
         // Unmask by the TRACKED set, not the current high-process list: an NPC we masked who
         // unloaded mid-storm (or wandered off) would otherwise keep the auto-equipped mask
         // permanently. GetFormByID resolves the ACHR whether or not the actor is still loaded.
@@ -140,13 +141,25 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
             }
             if (auto* worn = GetActorWornMask(actor))
             {
-                const bool owned = RadMaskOwnership::Owns(id, worn->GetFormID());
+                const auto maskID = worn->GetFormID();
+                const bool owned = RadMaskOwnership::Owns(id, maskID);
                 SetActorMaskEquipped(actor, worn, false);
-                if (owned) ++n;
+                if (owned)
+                {
+                    if (RadMaskOwnership::Owns(id, maskID)) pending.insert(id);
+                    else ++n;
+                }
+                else
+                {
+                    RadMaskOwnership::Release(id);
+                }
             }
-            RadMaskOwnership::Release(id);
+            else
+            {
+                RadMaskOwnership::Release(id);
+            }
         }
-        _autoMaskedNpcs.clear();
+        _autoMaskedNpcs = std::move(pending);
         if (n > 0)
             Log()->info("[Mask] removed {} NPC mask(s) after rad weather.", n);
         return;
