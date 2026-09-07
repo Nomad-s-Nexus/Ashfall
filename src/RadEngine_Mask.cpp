@@ -2,6 +2,7 @@
 #include "RadCorrectnessPolicy.h"
 #include "RadLifecycleDispatch.h"
 #include "Hooks.h"
+#include "RadMaskOwnership.h"
 
 using namespace RadInternal;
 
@@ -85,15 +86,21 @@ void RadiationEngine::SetActorMaskEquipped(RE::Actor* actor, RE::TESObjectARMO* 
     if (!mask || !actor) return;
     auto* eqMgr = RE::ActorEquipManager::GetSingleton();
     if (!eqMgr) return;
+    const auto actorID = actor->GetFormID();
+    const auto maskID = mask->GetFormID();
     RE::BGSObjectInstance instance(static_cast<RE::TESForm*>(mask), nullptr);
     if (equip)
-        eqMgr->EquipObject(actor, instance, /*stackID*/ 0, /*number*/ 1, /*slot*/ nullptr,
-                           /*queueEquip*/ true, /*forceEquip*/ false, /*playSounds*/ false,
-                           /*applyNow*/ false, /*locked*/ false);
+    {
+        if (!RadMaskOwnership::Claim(actorID, maskID)) return;
+        if (!eqMgr->EquipObject(actor, instance, 0, 1, nullptr, true, false, false, false, false))
+            RadMaskOwnership::Release(actorID);
+    }
     else
-        eqMgr->UnequipObject(actor, &instance, /*number*/ 1, /*slot*/ nullptr, /*stackID*/ 0,
-                             /*queueEquip*/ true, /*forceEquip*/ false, /*playSounds*/ false,
-                             /*applyNow*/ false, /*slotBeingReplaced*/ nullptr);
+    {
+        if (!RadMaskOwnership::Owns(actorID, maskID)) return;
+        if (eqMgr->UnequipObject(actor, &instance, 1, nullptr, 0, true, false, false, false, nullptr))
+            RadMaskOwnership::Release(actorID);
+    }
 }
 
 
@@ -120,14 +127,24 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
         for (const std::uint32_t id : _autoMaskedNpcs)
         {
             RE::TESForm* form = RE::TESForm::GetFormByID(id);
-            if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kACHR) continue;
+            if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kACHR)
+            {
+                RadMaskOwnership::Release(id);
+                continue;
+            }
             auto* actor = static_cast<RE::Actor*>(form);
-            if (actor->IsDead(false)) continue;
+            if (actor->IsDead(false))
+            {
+                RadMaskOwnership::Release(id);
+                continue;
+            }
             if (auto* worn = GetActorWornMask(actor))
             {
+                const bool owned = RadMaskOwnership::Owns(id, worn->GetFormID());
                 SetActorMaskEquipped(actor, worn, false);
-                ++n;
+                if (owned) ++n;
             }
+            RadMaskOwnership::Release(id);
         }
         _autoMaskedNpcs.clear();
         if (n > 0)
@@ -150,8 +167,11 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
         if (auto* mask = FindActorInventoryMask(actor))
         {
             SetActorMaskEquipped(actor, mask, true);
-            _autoMaskedNpcs.insert(actor->formID);
-            ++n;
+            if (RadMaskOwnership::Owns(actor->GetFormID(), mask->GetFormID()))
+            {
+                _autoMaskedNpcs.insert(actor->formID);
+                ++n;
+            }
         }
     }
     if (n > 0)
