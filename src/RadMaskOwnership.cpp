@@ -62,7 +62,7 @@ bool RadMaskOwnership::Claim(std::uint32_t actorFormID, std::uint32_t maskFormID
         it->second.maskFormID = maskFormID;
         return true;
     }
-    if (g_ownedMasks.size() >= kMaxEntries) return false;
+    if (g_ownedMasks.size() >= kMaxOwnedActors) return false;
     g_ownedMasks.emplace(actorFormID, Entry{ actorFormID, maskFormID });
     return true;
 }
@@ -80,7 +80,7 @@ bool RadMaskOwnership::ClaimTemporary(
     const auto it = g_ownedMasks.find(actorFormID);
     if (it != g_ownedMasks.end())
         return it->second == candidate;
-    if (g_ownedMasks.size() >= kMaxEntries) return false;
+    if (g_ownedMasks.size() >= kMaxOwnedActors) return false;
     g_ownedMasks.emplace(actorFormID, candidate);
     return true;
 }
@@ -109,20 +109,94 @@ void RadMaskOwnership::Release(std::uint32_t actorFormID)
 std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
 {
     std::scoped_lock lock(g_mutex);
-    std::vector<Entry> entries;
-    entries.reserve(g_ownedMasks.size());
+    std::vector<Entry> logical;
+    logical.reserve(g_ownedMasks.size());
     for (const auto& [actorFormID, entry] : g_ownedMasks)
-        entries.push_back(entry);
-    std::ranges::sort(entries, {}, &Entry::actorFormID);
-    return entries;
+        logical.push_back(entry);
+    std::ranges::sort(logical, {}, &Entry::actorFormID);
+
+    std::vector<Entry> serialized;
+    serialized.reserve(logical.size() * 2);
+    for (const auto& entry : logical)
+    {
+        serialized.push_back({ entry.actorFormID, entry.maskFormID });
+        if (!entry.IsTemporary()) continue;
+
+        serialized.push_back({ entry.actorFormID, entry.maskFormID });
+        std::array<std::uint32_t, kMaxDisplacedGear> displaced = entry.displacedFormIDs;
+        std::ranges::sort(displaced);
+        for (const auto formID : displaced)
+            if (formID != 0)
+                serialized.push_back({ entry.actorFormID, formID });
+    }
+    return serialized;
 }
 
 bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
 {
     if (!IsValidSnapshot(entries)) return false;
-    std::unordered_map<std::uint32_t, Entry> restored;
-    restored.reserve(entries.size());
+
+    bool logicalInput = false;
     for (const auto& entry : entries)
+        if (HasLogicalMetadata(entry)) logicalInput = true;
+
+    std::vector<Entry> logical;
+    if (logicalInput)
+    {
+        logical = entries;
+    }
+    else
+    {
+        logical.reserve(entries.size());
+        std::size_t i = 0;
+        while (i < entries.size())
+        {
+            std::size_t end = i + 1;
+            while (end < entries.size() && entries[end].actorFormID == entries[i].actorFormID)
+                ++end;
+
+            if (end - i == 1)
+            {
+                logical.push_back({ entries[i].actorFormID, entries[i].maskFormID });
+                i = end;
+                continue;
+            }
+
+            std::uint32_t maskID = 0;
+            for (std::size_t a = i; a < end; ++a)
+            {
+                std::size_t frequency = 0;
+                for (std::size_t b = i; b < end; ++b)
+                    if (entries[a].maskFormID == entries[b].maskFormID) ++frequency;
+                if (frequency == 2)
+                {
+                    maskID = entries[a].maskFormID;
+                    break;
+                }
+            }
+            if (maskID == 0) return false;
+
+            Entry restored{ entries[i].actorFormID, maskID, kTemporaryMaskFlag };
+            std::array<std::uint32_t, kMaxDisplacedGear> displaced{};
+            std::size_t count = 0;
+            for (std::size_t a = i; a < end; ++a)
+            {
+                const auto formID = entries[a].maskFormID;
+                if (formID == maskID) continue;
+                if (count >= displaced.size()) return false;
+                displaced[count++] = formID;
+            }
+            std::ranges::sort(displaced.begin(), displaced.begin() + static_cast<std::ptrdiff_t>(count));
+            restored.displacedFormIDs = displaced;
+            logical.push_back(restored);
+            i = end;
+        }
+    }
+
+    if (!IsValidSnapshot(logical) || logical.size() > kMaxOwnedActors) return false;
+    std::unordered_map<std::uint32_t, Entry> restored;
+    restored.reserve(logical.size());
+    for (const auto& entry : logical)
         restored.emplace(entry.actorFormID, entry);
     std::scoped_lock lock(g_mutex);
     g_ownedMasks = std::move(restored);
