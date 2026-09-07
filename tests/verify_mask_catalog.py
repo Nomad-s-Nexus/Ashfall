@@ -13,17 +13,19 @@ EXPECTED_MASTERS = ("DLCCoast.esm", "DLCNukaWorld.esm", "Fallout4.esm")
 FALLOUT4 = "Fallout4.esm"
 SELF = "RadiationOverhaul.esp"
 EXPECTED_MASKS = {
-    (FALLOUT4, 0x000CEAC4),  # Armor_HazmatSuit
-    (FALLOUT4, 0x0018B214),  # Armor_HazmatSuitDamaged
-    (FALLOUT4, 0x00042565),  # Armor_FlightHelmet
-    (FALLOUT4, 0x0004322C),  # Armor_FlightHelmetRed
-    (FALLOUT4, 0x000D4166),  # Armor_FlightHelmetBrown
-    (FALLOUT4, 0x001184C1),  # Armor_Gasmask
-    (FALLOUT4, 0x000787D8),  # Armor_Raider_Gasmask
-    (FALLOUT4, 0x0007239E),  # Armor_Raider_GreenHoodGasmask
+    (FALLOUT4, 0x000CEAC4),
+    (FALLOUT4, 0x0018B214),
+    (FALLOUT4, 0x00042565),
+    (FALLOUT4, 0x0004322C),
+    (FALLOUT4, 0x000D4166),
+    (FALLOUT4, 0x001184C1),
+    (FALLOUT4, 0x000787D8),
+    (FALLOUT4, 0x0007239E),
 }
-SURGICAL_MASK = (FALLOUT4, 0x000787DA)  # Clothes_Raider_SurgicalMask
+SURGICAL_MASK = (FALLOUT4, 0x000787DA)
 GAS_MASK_KEYWORD = (SELF, 0x00000809)
+RAD_WEATHER_LIST = (SELF, 0x00000802)
+MANAGED_STORM_WEATHERS = {(SELF, form_id) for form_id in range(0x840, 0x845)}
 MOUTH_SLOT = 1 << 19
 HAIR_OCCLUSION_SLOTS = (1 << 0) | (1 << 1) | (1 << 22)
 REQUIRED_NPC_HAIR_SAFE_MASKS = {
@@ -138,8 +140,15 @@ def biped_slots(payload, flags):
     return 0
 
 
-def fills_mouth(payload, flags):
-    return bool(biped_slots(payload, flags) & MOUTH_SLOT)
+def form_list_items(payload, flags, masters):
+    items = []
+    for name, value in subrecords(payload, flags):
+        if name != b"LNAM":
+            continue
+        if len(value) != 4:
+            raise ValueError("invalid FLST LNAM payload")
+        items.append(form_key(u32(value, 0), masters))
+    return items
 
 
 def section(text, start, end, label):
@@ -250,6 +259,18 @@ def main(plugin_path):
     if keyword_form_keys != [GAS_MASK_KEYWORD]:
         raise SystemExit(f"expected exactly one FARO_GasMask keyword, found {keyword_form_keys!r}")
 
+    rad_weather_records = [
+        (flags, payload)
+        for kind, flags, form_id, payload in all_records
+        if kind == b"FLST" and form_key(form_id, masters) == RAD_WEATHER_LIST
+    ]
+    if len(rad_weather_records) != 1:
+        raise SystemExit(f"expected one RadWeatherList FLST, found {len(rad_weather_records)}")
+    rad_weather_items = set(form_list_items(rad_weather_records[0][1], rad_weather_records[0][0], masters))
+    missing_storms = sorted(MANAGED_STORM_WEATHERS - rad_weather_items)
+    if missing_storms:
+        raise SystemExit(f"managed storm weathers missing from RadWeatherList: {missing_storms!r}")
+
     tagged = set()
     missing_mouth_slot = []
     slot_masks = {}
@@ -286,6 +307,7 @@ def main(plugin_path):
         "NPC hair-safe gas masks:",
         ", ".join(f"{local_id:08X}:{master}" for master, local_id in sorted(hair_safe)),
     )
+    print("Managed storm weathers verified in RadWeatherList.")
     print("NPC weather response policy verified: same-cell humans receive temporary hair-safe masks; managed events mask and flee.")
 
 
