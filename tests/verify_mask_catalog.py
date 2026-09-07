@@ -25,6 +25,11 @@ EXPECTED_MASKS = {
 SURGICAL_MASK = (FALLOUT4, 0x000787DA)  # Clothes_Raider_SurgicalMask
 GAS_MASK_KEYWORD = (SELF, 0x00000809)
 MOUTH_SLOT = 1 << 19
+HAIR_OCCLUSION_SLOTS = (1 << 0) | (1 << 1) | (1 << 22)
+REQUIRED_NPC_HAIR_SAFE_MASKS = {
+    (FALLOUT4, 0x001184C1),
+    (FALLOUT4, 0x000787D8),
+}
 
 
 def u16(data, offset):
@@ -124,13 +129,17 @@ def editor_id(payload, flags):
     return ""
 
 
-def fills_mouth(payload, flags):
+def biped_slots(payload, flags):
     for name, value in subrecords(payload, flags):
         if name == b"BOD2":
             if len(value) < 4:
                 raise ValueError("invalid BOD2 payload")
-            return bool(u32(value, 0) & MOUTH_SLOT)
-    return False
+            return u32(value, 0)
+    return 0
+
+
+def fills_mouth(payload, flags):
+    return bool(biped_slots(payload, flags) & MOUTH_SLOT)
 
 
 def main(plugin_path):
@@ -153,12 +162,16 @@ def main(plugin_path):
 
     tagged = set()
     missing_mouth_slot = []
+    slot_masks = {}
     for kind, flags, form_id, payload in all_records:
         keyword_form_keys = {form_key(keyword_id, masters) for keyword_id in keyword_ids(payload, flags)}
         if kind == b"ARMO" and GAS_MASK_KEYWORD in keyword_form_keys:
-            tagged.add(form_key(form_id, masters))
-            if not fills_mouth(payload, flags):
-                missing_mouth_slot.append(form_key(form_id, masters))
+            key = form_key(form_id, masters)
+            slots = biped_slots(payload, flags)
+            tagged.add(key)
+            slot_masks[key] = slots
+            if not slots & MOUTH_SLOT:
+                missing_mouth_slot.append(key)
 
     if tagged != EXPECTED_MASKS:
         missing = sorted(EXPECTED_MASKS - tagged)
@@ -169,9 +182,19 @@ def main(plugin_path):
     if missing_mouth_slot:
         raise SystemExit(f"FARO_GasMask catalog has non-mouth armor: {missing_mouth_slot!r}")
 
+    hair_safe = {key for key, slots in slot_masks.items() if not slots & HAIR_OCCLUSION_SLOTS}
+    missing_hair_safe = sorted(REQUIRED_NPC_HAIR_SAFE_MASKS - hair_safe)
+    if missing_hair_safe:
+        details = {key: f"0x{slot_masks[key]:08X}" for key in missing_hair_safe}
+        raise SystemExit(f"plain gas masks no longer preserve NPC hair: {details!r}")
+
     print(
         "FARO_GasMask catalog verified:",
         ", ".join(f"{local_id:08X}:{master}" for master, local_id in sorted(tagged)),
+    )
+    print(
+        "NPC hair-safe gas masks:",
+        ", ".join(f"{local_id:08X}:{master}" for master, local_id in sorted(hair_safe)),
     )
 
 
