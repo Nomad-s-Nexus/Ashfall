@@ -37,21 +37,21 @@ namespace
     };
 
     EquipSink g_sink;
+}
 
-    bool EnsureSink()
-    {
-        if (g_sinkRegistered) return true;
-        auto* manager = RE::ActorEquipManager::GetSingleton();
-        if (!manager) return false;
-        manager->RegisterSink(&g_sink);
-        g_sinkRegistered = true;
-        return true;
-    }
+bool RadMaskOwnership::Activate()
+{
+    if (g_sinkRegistered) return true;
+    auto* manager = RE::ActorEquipManager::GetSingleton();
+    if (!manager) return false;
+    manager->RegisterSink(&g_sink);
+    g_sinkRegistered = true;
+    return true;
 }
 
 bool RadMaskOwnership::Claim(std::uint32_t actorFormID, std::uint32_t maskFormID)
 {
-    if (actorFormID == 0 || maskFormID == 0 || !EnsureSink()) return false;
+    if (actorFormID == 0 || maskFormID == 0 || !Activate()) return false;
     std::scoped_lock lock(g_mutex);
     const auto it = g_ownedMasks.find(actorFormID);
     if (it != g_ownedMasks.end())
@@ -90,7 +90,7 @@ std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
 
 bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
 {
-    if (!IsValidSnapshot(entries) || !EnsureSink()) return false;
+    if (!IsValidSnapshot(entries)) return false;
     std::unordered_map<std::uint32_t, std::uint32_t> restored;
     restored.reserve(entries.size());
     for (const auto& entry : entries)
