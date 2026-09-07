@@ -275,7 +275,14 @@ void RadiationEngine::MakeNearbyNPCsFlee()
     // Main-thread only (4Hz Update hook) — ProcessLists iteration without a lock is safe here.
     auto* pl     = RE::ProcessLists::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!pl || !player) return;
+    auto* dh     = RE::TESDataHandler::GetSingleton();
+    auto* playerCell = player ? player->GetParentCell() : nullptr;
+    if (!pl || !player || !dh || !playerCell || playerCell->IsInterior()) return;
+
+    auto* humanForm = dh->LookupForm(0x0002CB72, "Fallout4.esm");
+    auto* humanKeyword = humanForm && humanForm->GetFormType() == RE::ENUM_FORM_ID::kKYWD
+        ? static_cast<RE::BGSKeyword*>(humanForm) : nullptr;
+    if (!humanKeyword) return;
 
     int fled = 0;
     for (auto& handle : pl->highActorHandles)
@@ -286,7 +293,11 @@ void RadiationEngine::MakeNearbyNPCsFlee()
         if (IsGhoulActor(actor)) continue;                    // ghouls revel in the storm — no flee
 
         auto* cell = actor->GetParentCell();
-        if (!cell || cell->IsInterior()) continue;            // already inside
+        if (cell != playerCell) continue;
+        auto* base = actor->GetObjectReference();
+        if (!base || base->GetFormType() != RE::ENUM_FORM_ID::kNPC_) continue;
+        auto* race = static_cast<RE::TESNPC*>(base)->GetFormRace();
+        if (!race || !race->HasKeyword(humanKeyword)) continue;
         if (actor->GetDistanceFromReference(player, false, true) > kFleeRadius) continue;
 
         // Engine flee: panic and run from the storm-stricken area (referenced to the player, who is
