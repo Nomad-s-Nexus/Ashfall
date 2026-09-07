@@ -142,7 +142,91 @@ def fills_mouth(payload, flags):
     return bool(biped_slots(payload, flags) & MOUTH_SLOT)
 
 
+def section(text, start, end, label):
+    start_pos = text.find(start)
+    if start_pos < 0:
+        raise SystemExit(f"missing {label} start marker: {start!r}")
+    end_pos = text.find(end, start_pos + len(start))
+    if end_pos < 0:
+        raise SystemExit(f"missing {label} end marker: {end!r}")
+    return text[start_pos:end_pos]
+
+
+def require_tokens(text, tokens, label):
+    missing = [token for token in tokens if token not in text]
+    if missing:
+        raise SystemExit(f"{label} contract missing tokens: {missing!r}")
+
+
+def verify_source_contract():
+    root = Path(__file__).resolve().parents[1]
+    mask_source = (root / "src" / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
+    storm_source = (root / "src" / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
+
+    require_tokens(
+        mask_source,
+        (
+            "RE::BIPED_OBJECT::kHairTop",
+            "RE::BIPED_OBJECT::kHairLong",
+            "RE::BIPED_OBJECT::kScalp",
+            "armor->HasKeyword(powerKeyword)",
+            "armor->FillsBipedSlot(kHelmetSlot)",
+        ),
+        "NPC hair/PA helper",
+    )
+
+    mask_policy = section(
+        mask_source,
+        "void RadiationEngine::EquipNearbyNpcMasks(bool equip)",
+        "// ----------------------------------------------------------------------------- gas-mask filter",
+        "NPC mask policy",
+    )
+    require_tokens(
+        mask_policy,
+        (
+            "if (_stormPhase == StormPhase::Active)",
+            "for (auto* weather : _stormWeathers)",
+            "EquipNearbyNpcMasks(false);",
+            "if (!actor->biped)",
+            "pending.insert(id);",
+            "WearsPowerArmorHelmet(actor, _armorTypePowerKeyword)",
+            "IsRecognizedGasMask(armor) && PreservesNpcHair(armor)",
+        ),
+        "NPC mask policy",
+    )
+    if "if (IsActorInPowerArmor(actor)) continue;" in mask_policy:
+        raise SystemExit("NPC mask policy regressed to full-PA exemption instead of PA-helmet exemption")
+    if mask_policy.find("if (!actor->biped)") > mask_policy.find("pending.insert(id);"):
+        raise SystemExit("unloaded NPC mask cleanup no longer preserves pending ownership")
+
+    active_policy = section(
+        storm_source,
+        "case StormPhase::Active:",
+        "case StormPhase::Aftermath:",
+        "managed storm Active policy",
+    )
+    require_tokens(
+        active_policy,
+        (
+            "if (!_autoMaskedNpcs.empty())",
+            "EquipNearbyNpcMasks(false);",
+            "if (--_fleeTick <= 0)",
+            "MakeNearbyNPCsFlee();",
+        ),
+        "managed storm Active policy",
+    )
+    if "st.lethal && (--_fleeTick <= 0)" in active_policy:
+        raise SystemExit("managed event fleeing regressed to lethal storms only")
+    cleanup_pos = active_policy.find("if (!_autoMaskedNpcs.empty())")
+    flee_pos = active_policy.find("if (--_fleeTick <= 0)")
+    flee_call_pos = active_policy.find("MakeNearbyNPCsFlee();")
+    if not (0 <= cleanup_pos < flee_pos < flee_call_pos):
+        raise SystemExit("managed storm mask cleanup/flee ordering changed")
+
+
 def main(plugin_path):
+    verify_source_contract()
+
     data = Path(plugin_path).read_bytes()
     masters = master_names(data)
     if masters != EXPECTED_MASTERS:
@@ -196,6 +280,7 @@ def main(plugin_path):
         "NPC hair-safe gas masks:",
         ", ".join(f"{local_id:08X}:{master}" for master, local_id in sorted(hair_safe)),
     )
+    print("NPC weather response policy verified: normal rad masks preserve hair; managed events flee.")
 
 
 if __name__ == "__main__":
