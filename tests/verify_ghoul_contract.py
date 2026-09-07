@@ -34,6 +34,17 @@ required = {
 for name, (text, token) in required.items():
     assert token in text, f"missing required {name}: {token}"
 
+peak = fx.split("void RadiationEngine::ApplyStormPeakToNPCs()", 1)[1].split(
+    "void RadiationEngine::MakeNearbyNPCsFlee()", 1
+)[0]
+for token in (
+    "auto* player = RE::PlayerCharacter::GetSingleton();",
+    "auto* playerCell = player ? player->GetParentCell() : nullptr;",
+    "if (!pl || !av || !playerCell) return;",
+    "if (actor->GetParentCell() != playerCell) continue;",
+):
+    assert token in peak, f"ghoul peak effect must be player-cell scoped: {token}"
+
 forbidden_player = (
     "RadOverhaul_GhoulRace",
     "GhoulifyPlayer",
@@ -50,4 +61,4 @@ for token in forbidden_player:
 assert "Player-ghoulification (globals 0x854 / quest 0x870) was removed" in internal
 assert "RadOverhaul_GhoulRace.esp" not in readme
 
-print("ghoul contract verified: storm/NPC handling present, player ghoulification absent")
+print("ghoul contract verified: storm/NPC handling present, same-cell peak scope enforced, player ghoulification absent")
