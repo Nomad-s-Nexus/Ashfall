@@ -12,6 +12,8 @@ namespace RadMaskOwnership
     inline constexpr std::size_t kMaxOwnedActors = 128;
     inline constexpr std::size_t kMaxDisplacedGear = 4;
     inline constexpr std::uint32_t kTemporaryMaskFlag = 1u;
+    inline constexpr std::uint32_t kTemporaryNpcMaskFormID = 0x001184C1;
+    inline constexpr std::uint32_t kTemporaryMarkerFormID = 0x0002CB72;
 
     struct Entry
     {
@@ -42,6 +44,7 @@ namespace RadMaskOwnership
     {
         if (entry.actorFormID == 0 || entry.maskFormID == 0) return false;
         if ((entry.flags & ~kTemporaryMaskFlag) != 0) return false;
+        if (entry.IsTemporary() && entry.maskFormID != kTemporaryNpcMaskFormID) return false;
 
         bool sawZero = false;
         for (std::size_t i = 0; i < entry.displacedFormIDs.size(); ++i)
@@ -52,7 +55,7 @@ namespace RadMaskOwnership
                 sawZero = true;
                 continue;
             }
-            if (!entry.IsTemporary() || sawZero || formID == entry.maskFormID)
+            if (!entry.IsTemporary() || sawZero || formID == entry.maskFormID || formID == kTemporaryMarkerFormID)
                 return false;
             for (std::size_t j = 0; j < i; ++j)
                 if (entry.displacedFormIDs[j] == formID)
@@ -100,23 +103,18 @@ namespace RadMaskOwnership
             if (groupSize > 1)
             {
                 if (groupSize > 2 + kMaxDisplacedGear) return false;
-                std::uint32_t repeatedMask = 0;
+                bool hasMask = false;
+                bool hasMarker = false;
                 for (std::size_t a = i; a < end; ++a)
                 {
-                    std::size_t frequency = 0;
-                    for (std::size_t b = i; b < end; ++b)
-                        if (entries[a].maskFormID == entries[b].maskFormID) ++frequency;
-                    if (frequency == 2)
-                    {
-                        if (repeatedMask != 0 && repeatedMask != entries[a].maskFormID) return false;
-                        repeatedMask = entries[a].maskFormID;
-                    }
-                    else if (frequency != 1)
-                    {
-                        return false;
-                    }
+                    const auto formID = entries[a].maskFormID;
+                    if (formID == kTemporaryNpcMaskFormID) hasMask = true;
+                    if (formID == kTemporaryMarkerFormID) hasMarker = true;
+                    for (std::size_t b = i; b < a; ++b)
+                        if (entries[b].maskFormID == formID)
+                            return false;
                 }
-                if (repeatedMask == 0) return false;
+                if (!hasMask || !hasMarker) return false;
             }
 
             previousActor = actorID;
