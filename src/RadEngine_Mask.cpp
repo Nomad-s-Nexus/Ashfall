@@ -46,7 +46,7 @@ namespace
 
     bool IsHumanInCell(RE::Actor* actor, RE::TESObjectCELL* cell, const RE::BGSKeyword* humanKeyword)
     {
-        if (!actor || !cell || !humanKeyword || actor->GetParentCell() != cell) return false;
+        if (!actor || !cell || cell->IsInterior() || !humanKeyword || actor->GetParentCell() != cell) return false;
         auto* base = actor->GetObjectReference();
         if (!base || base->GetFormType() != RE::ENUM_FORM_ID::kNPC_) return false;
         auto* race = static_cast<RE::TESNPC*>(base)->GetFormRace();
