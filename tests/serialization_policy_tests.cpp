@@ -1,4 +1,5 @@
 #include "SerializationPolicy.h"
+#include "RadMaskOwnership.h"
 
 #include <cstdlib>
 #include <limits>
@@ -61,4 +62,23 @@ int main()
 	Require(ClassifyFilterCandidates({ wornFilter, fullFilter }) == FilterCandidateDisposition::kAmbiguous);
 	Require(ClassifyFilterCandidates({ legacyEffective, FilterState{ 35.0f, 100.0f } }) == FilterCandidateDisposition::kRestore);
 	Require(ClassifyFilterCandidates({ legacyEffective, wornFilter }) == FilterCandidateDisposition::kAmbiguous);
+
+	using RadMaskOwnership::Entry;
+	const std::vector<Entry> ownedMasks{ { 0x14, 0x800 }, { 0x1234, 0x801 } };
+	Require(RadMaskOwnership::IsValidSnapshot({}));
+	Require(RadMaskOwnership::IsValidSnapshot(ownedMasks));
+	Require(!RadMaskOwnership::IsValidSnapshot({ { 0, 0x800 } }));
+	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x14, 0 } }));
+	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x1234, 0x800 }, { 0x14, 0x801 } }));
+	Require(!RadMaskOwnership::IsValidSnapshot({ { 0x14, 0x800 }, { 0x14, 0x801 } }));
+	std::vector<Entry> tooMany;
+	tooMany.reserve(RadMaskOwnership::kMaxEntries + 1);
+	for (std::size_t i = 0; i <= RadMaskOwnership::kMaxEntries; ++i)
+		tooMany.push_back({ static_cast<std::uint32_t>(i + 1), 0x800 });
+	Require(!RadMaskOwnership::IsValidSnapshot(tooMany));
+	Require(RadMaskOwnership::ClassifyCandidates({}) == RadMaskOwnership::CandidateDisposition::kAmbiguous);
+	Require(RadMaskOwnership::ClassifyCandidates({ ownedMasks }) == RadMaskOwnership::CandidateDisposition::kRestore);
+	Require(RadMaskOwnership::ClassifyCandidates({ ownedMasks, ownedMasks }) == RadMaskOwnership::CandidateDisposition::kRestore);
+	Require(RadMaskOwnership::ClassifyCandidates({ ownedMasks, { { 0x14, 0x800 } } }) ==
+		RadMaskOwnership::CandidateDisposition::kAmbiguous);
 }
