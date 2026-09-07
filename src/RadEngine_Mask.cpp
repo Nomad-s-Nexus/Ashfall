@@ -338,7 +338,7 @@ void RadiationEngine::LoadFilterIni()
         "[Ambient] enabled={}, atten={} stormAtten={} | "
         "[Storm] enabled={}, gap={:.0f}-{:.0f} real min, vanillaRadstormGap={:.0f} min",
         _filterDurationSec, _filterReplaceKey, _filterAutoReplace, _filterChokeRads,
-        _conditionEnabled, _conditionHitDamage, _filterReplaceKey, _conditionAutoRepair,
+        _conditionEnabled, _conditionHitDamage, _conditionRepairKey, _conditionAutoRepair,
         _chokingEnabled, _chokeHealthPerSec, _chokeFailedFactor, _chokeSounds,
         _ambientEnabled, _ambientAtten, _stormBedAtten,
         _stormsEnabled, _stormMinRealMin, _stormMaxRealMin, _vanillaRadstormGapSec / 60.0);
