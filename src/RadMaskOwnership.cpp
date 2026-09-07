@@ -90,7 +90,7 @@ std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
 
 bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
 {
-    if (!IsValidSnapshot(entries)) return false;
+    if (!IsValidSnapshot(entries) || !EnsureSink()) return false;
     std::unordered_map<std::uint32_t, std::uint32_t> restored;
     restored.reserve(entries.size());
     for (const auto& entry : entries)
