@@ -122,7 +122,7 @@ std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
         serialized.push_back({ entry.actorFormID, entry.maskFormID });
         if (!entry.IsTemporary()) continue;
 
-        serialized.push_back({ entry.actorFormID, entry.maskFormID });
+        serialized.push_back({ entry.actorFormID, kTemporaryMarkerFormID });
         std::array<std::uint32_t, kMaxDisplacedGear> displaced = entry.displacedFormIDs;
         std::ranges::sort(displaced);
         for (const auto formID : displaced)
@@ -162,27 +162,22 @@ bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
                 continue;
             }
 
-            std::uint32_t maskID = 0;
+            bool hasMask = false;
+            bool hasMarker = false;
             for (std::size_t a = i; a < end; ++a)
             {
-                std::size_t frequency = 0;
-                for (std::size_t b = i; b < end; ++b)
-                    if (entries[a].maskFormID == entries[b].maskFormID) ++frequency;
-                if (frequency == 2)
-                {
-                    maskID = entries[a].maskFormID;
-                    break;
-                }
+                hasMask |= entries[a].maskFormID == kTemporaryNpcMaskFormID;
+                hasMarker |= entries[a].maskFormID == kTemporaryMarkerFormID;
             }
-            if (maskID == 0) return false;
+            if (!hasMask || !hasMarker) return false;
 
-            Entry restored{ entries[i].actorFormID, maskID, kTemporaryMaskFlag };
+            Entry restored{ entries[i].actorFormID, kTemporaryNpcMaskFormID, kTemporaryMaskFlag };
             std::array<std::uint32_t, kMaxDisplacedGear> displaced{};
             std::size_t count = 0;
             for (std::size_t a = i; a < end; ++a)
             {
                 const auto formID = entries[a].maskFormID;
-                if (formID == maskID) continue;
+                if (formID == kTemporaryNpcMaskFormID || formID == kTemporaryMarkerFormID) continue;
                 if (count >= displaced.size()) return false;
                 displaced[count++] = formID;
             }
