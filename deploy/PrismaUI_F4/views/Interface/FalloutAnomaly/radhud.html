@@ -168,6 +168,7 @@
     <div class="dbg-pane" id="tab-ghouls">
       <div class="dbg-sec">STORM GHOULS</div>
       <div class="dbg-help">Controls future storm rolls. Disable also clears any active hunter pack. Settings reset when the game restarts.</div>
+      <div class="ghoul-state" id="ghoulState">HUNTER PACKS: SYNCING...</div>
       <div class="dbg-row">
         <button class="warn" onclick="setGhoulEnabled(false)">DISABLE + CLEAR</button>
         <button onclick="setGhoulEnabled(true)">ENABLE</button>
@@ -182,17 +183,14 @@
         <output id="ghoulChanceValue">40%</output>
       </div>
       <div class="dbg-row">
-        <button onclick="setGhoulChance(0)">0%</button>
-        <button onclick="setGhoulChance(25)">25%</button>
-        <button onclick="setGhoulChance(40)">40%</button>
-        <button onclick="setGhoulChance(60)">60%</button>
-        <button onclick="setGhoulChance(100)">100%</button>
+        <button onclick="setGhoulChance(0)">0% NO SPAWN</button>
+        <button onclick="setGhoulChance(100)">100% TEST</button>
       </div>
       <div class="dbg-row">
         <button class="warn" onclick="cmd('ghouls:clear')">CLEAR CURRENT PACK</button>
         <button onclick="resetGhoulSettings()">RESET 40%</button>
       </div>
-      <div class="dbg-help" id="ghoulStatus">Chance applies once when each accepted storm begins.</div>
+      <div class="dbg-help">The state above is synchronized from the game. 0% prevents new packs; DISABLE + CLEAR also removes the current pack.</div>
     </div><!-- /tab-ghouls -->
 
     <div class="dbg-pane" id="tab-hud">

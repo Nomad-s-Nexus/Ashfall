@@ -35,6 +35,8 @@ public:
     // only while masked). No-op if PrismaUI is absent.
     void PushFilter(float charge, float condition, int spares, bool masked);
 
+    void PushGhoulSettings(bool enabled, float chance);
+
     // Show the SPECIAL-penalty diagnostic in a simple PrismaUI popup (the vanilla HUD corner truncates
     // long multi-line reports). Returns false if PrismaUI is unavailable (caller falls back to corner).
     bool ShowSpecialInfo(const std::vector<std::string>& lines);

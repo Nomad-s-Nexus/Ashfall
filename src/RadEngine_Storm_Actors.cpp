@@ -76,7 +76,7 @@ void RadiationEngine::SpawnStormGhouls()
     static std::mt19937 rng{ std::random_device{}() };
 
     std::uniform_real_distribution<float> chance(0.0f, 1.0f);
-    if (chance(rng) > _stormGhoulSpawnChance)
+    if (chance(rng) >= _stormGhoulSpawnChance)
     {
         logger->info("[Storm/Ghouls] No ghoul pack this storm (chance {:.0f}%).", _stormGhoulSpawnChance * 100.0f);
         return;

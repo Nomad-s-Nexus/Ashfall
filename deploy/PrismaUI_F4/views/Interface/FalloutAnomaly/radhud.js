@@ -95,31 +95,33 @@ function setGhoulChanceLabel(value) {
   var n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
   var output = document.getElementById("ghoulChanceValue");
   if (output) output.textContent = n + "%";
-  var status = document.getElementById("ghoulStatus");
-  if (status) status.textContent = "Chance set to " + n + "% for future storms.";
   return n;
 }
 
 function setGhoulChance(value) {
-  var n = setGhoulChanceLabel(value);
-  var input = document.getElementById("ghoulChance");
-  if (input) input.value = n;
-  cmd("ghouls:chance:" + n);
+  cmd("ghouls:chance:" + Math.max(0, Math.min(100, parseInt(value, 10) || 0)));
 }
 
 function setGhoulEnabled(enabled) {
   cmd(enabled ? "ghouls:on" : "ghouls:off");
-  var status = document.getElementById("ghoulStatus");
-  if (status) status.textContent = enabled ? "Enabled for future storms." : "Disabled; current pack cleared.";
 }
 
 function resetGhoulSettings() {
-  var input = document.getElementById("ghoulChance");
-  if (input) input.value = 40;
-  setGhoulChanceLabel(40);
   cmd("ghouls:reset");
-  var status = document.getElementById("ghoulStatus");
-  if (status) status.textContent = "Reset: enabled, 40% chance.";
+}
+
+function setGhoulSettings(state) {
+  var enabled = !!(state && state.enabled);
+  var n = Math.max(0, Math.min(100, Math.round(Number(state && state.chance) || 0)));
+  var input = document.getElementById("ghoulChance");
+  var output = document.getElementById("ghoulChanceValue");
+  var status = document.getElementById("ghoulState");
+  if (input) input.value = n;
+  if (output) output.textContent = n + "%";
+  if (status) {
+    status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+    status.classList.toggle("off", !enabled);
+  }
 }
 
 window.SetDebugMenu = function(on) {

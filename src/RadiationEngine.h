@@ -117,6 +117,7 @@ public:
     void DebugForceWeatherByForm(const std::string& spec);  // "Plugin.esp|1C8556" -> force ANY weather (debug WEATHER tab)
     void DebugScanWornMask();                         // log worn biped slots (mask detection = slot 44)
     void DebugClearWeather();                         // release any forced weather
+    void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
     void DispelNegativeSpecials();                    // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)

@@ -380,6 +380,18 @@ void RadHud::PushFilter(float charge, float condition, int spares, bool masked)
         api->InteropCall(_filterView, "updateFilter", json);
 }
 
+void RadHud::PushGhoulSettings(bool enabled, float chance)
+{
+    if (!_api || _view == 0 || !_domReady) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view)) return;
+
+    char json[96];
+    std::snprintf(json, sizeof(json), "{\"enabled\":%s,\"chance\":%.0f}",
+        enabled ? "true" : "false", chance * 100.0f);
+    api->InteropCall(_view, "setGhoulSettings", json);
+}
+
 bool RadHud::ShowSpecialInfo(const std::vector<std::string>& lines)
 {
     if (!_api || _view == 0 || !_domReady) return false;
@@ -548,6 +560,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugTogglePending = false;
             _debugNextFocusRetryMs = 0;
             api->InteropCall(_view, "SetDebugMenu", "1");
+            RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
         }
         else
         {

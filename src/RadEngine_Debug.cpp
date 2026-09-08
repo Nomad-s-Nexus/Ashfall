@@ -137,6 +137,11 @@ void RadiationEngine::HandleDebugCommand(const char* action)
     _pendingDebugCmds.emplace_back(action);
 }
 
+void RadiationEngine::PushGhoulSettingsToHud()
+{
+    RadHud::GetSingleton().PushGhoulSettings(_stormGhoulsEnabled, _stormGhoulSpawnChance);
+}
+
 
 void RadiationEngine::DrainDebugCommands()
 {
@@ -208,12 +213,14 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "ghouls:on")
     {
         _stormGhoulsEnabled = true;
+        PushGhoulSettingsToHud();
         Notify("[DEBUG] Storm ghoul packs enabled for future storms.", false);
     }
     else if (a == "ghouls:off")
     {
         _stormGhoulsEnabled = false;
         ClearStormGhouls();
+        PushGhoulSettingsToHud();
         Notify("[DEBUG] Storm ghoul packs disabled and the current pack cleared.", false);
     }
     else if (a == "ghouls:clear")
@@ -225,12 +232,14 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     {
         _stormGhoulsEnabled = true;
         _stormGhoulSpawnChance = kDefaultStormGhoulSpawnChance;
+        PushGhoulSettingsToHud();
         Notify("[DEBUG] Storm ghoul packs reset: enabled, 40% chance.", false);
     }
     else if (a.rfind("ghouls:chance:", 0) == 0)
     {
         const float percent = std::clamp(numAfter("ghouls:chance:"), 0.0f, 100.0f);
         _stormGhoulSpawnChance = percent / 100.0f;
+        PushGhoulSettingsToHud();
         char m[96];
         std::snprintf(m, sizeof(m), "[DEBUG] Storm ghoul spawn chance = %.0f%%.", percent);
         Notify(m, false);

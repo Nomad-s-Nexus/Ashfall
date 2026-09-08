@@ -32,7 +32,9 @@ required = {
     "ghoul debug controls": (debug, 'a.rfind("ghouls:chance:", 0) == 0'),
     "ghoul controls tab": (hud, 'id="tabbtn-ghouls"'),
     "ghoul chance slider": (hud, 'id="ghoulChance"'),
+    "ghoul state display": (hud, 'id="ghoulState"'),
     "ghoul tab routing": (hud_js, '"ghouls"'),
+    "ghoul state sync": (hud_js, "function setGhoulSettings(state)"),
     "feral leveled-list lookup": (engine, "LookupForm(0x0758AE"),
     "glowing-one lookup": (engine, "LookupForm(0x0D39EE"),
     "ghoul keyword lookup": (engine, "LookupForm(kActorTypeGhoulKeyword"),
@@ -51,7 +53,7 @@ assert "SpawnStormGhouls();" in accepted_spawn
 
 for token in (
     "if (!_stormGhoulsEnabled) return;",
-    "chance(rng) > _stormGhoulSpawnChance",
+    "chance(rng) >= _stormGhoulSpawnChance",
 ):
     assert token in actors, f"storm ghoul setting is not applied: {token}"
 
