@@ -91,6 +91,37 @@ window.stormPhase = function(json) {
 
 function cmd(action) { try { if (window.radDebug) window.radDebug(action); } catch (e) {} }
 
+function setGhoulChanceLabel(value) {
+  var n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+  var output = document.getElementById("ghoulChanceValue");
+  if (output) output.textContent = n + "%";
+  var status = document.getElementById("ghoulStatus");
+  if (status) status.textContent = "Chance set to " + n + "% for future storms.";
+  return n;
+}
+
+function setGhoulChance(value) {
+  var n = setGhoulChanceLabel(value);
+  var input = document.getElementById("ghoulChance");
+  if (input) input.value = n;
+  cmd("ghouls:chance:" + n);
+}
+
+function setGhoulEnabled(enabled) {
+  cmd(enabled ? "ghouls:on" : "ghouls:off");
+  var status = document.getElementById("ghoulStatus");
+  if (status) status.textContent = enabled ? "Enabled for future storms." : "Disabled; current pack cleared.";
+}
+
+function resetGhoulSettings() {
+  var input = document.getElementById("ghoulChance");
+  if (input) input.value = 40;
+  setGhoulChanceLabel(40);
+  cmd("ghouls:reset");
+  var status = document.getElementById("ghoulStatus");
+  if (status) status.textContent = "Reset: enabled, 40% chance.";
+}
+
 window.SetDebugMenu = function(on) {
   var panel = document.getElementById("debugPanel");
   var show  = ((""+on)==="1" || on===true);
@@ -100,7 +131,7 @@ window.SetDebugMenu = function(on) {
 };
 
 function showTab(which) {
-  var tabs = ["rad", "wthr", "hud"];
+  var tabs = ["rad", "wthr", "ghouls", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);

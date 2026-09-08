@@ -205,6 +205,36 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "weather:clear")        DebugClearWeather();
     else if (a.rfind("forceweather:", 0) == 0) DebugForceWeatherByForm(a.substr(std::strlen("forceweather:")));
     else if (a.rfind("weather:", 0) == 0) DebugPreviewWeather(static_cast<int>(numAfter("weather:")));
+    else if (a == "ghouls:on")
+    {
+        _stormGhoulsEnabled = true;
+        Notify("[DEBUG] Storm ghoul packs enabled for future storms.", false);
+    }
+    else if (a == "ghouls:off")
+    {
+        _stormGhoulsEnabled = false;
+        ClearStormGhouls();
+        Notify("[DEBUG] Storm ghoul packs disabled and the current pack cleared.", false);
+    }
+    else if (a == "ghouls:clear")
+    {
+        ClearStormGhouls();
+        Notify("[DEBUG] Current storm ghoul pack cleared.", false);
+    }
+    else if (a == "ghouls:reset")
+    {
+        _stormGhoulsEnabled = true;
+        _stormGhoulSpawnChance = kDefaultStormGhoulSpawnChance;
+        Notify("[DEBUG] Storm ghoul packs reset: enabled, 40% chance.", false);
+    }
+    else if (a.rfind("ghouls:chance:", 0) == 0)
+    {
+        const float percent = std::clamp(numAfter("ghouls:chance:"), 0.0f, 100.0f);
+        _stormGhoulSpawnChance = percent / 100.0f;
+        char m[96];
+        std::snprintf(m, sizeof(m), "[DEBUG] Storm ghoul spawn chance = %.0f%%.", percent);
+        Notify(m, false);
+    }
     else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
     else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
     else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);

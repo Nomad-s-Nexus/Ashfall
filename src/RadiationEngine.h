@@ -486,9 +486,12 @@ private:
 
     // Feral ghoul spawns — ghouls emerge from the radiation during lethal storms.
     // Leveled lists from Fallout4.esm (LCharFeralGhoul 0x0758AE, Glowing One 0x0D39EE).
+    static constexpr float kDefaultStormGhoulSpawnChance = 0.40f;
     RE::TESBoundObject* _stormGhoulForm = nullptr;
     RE::TESBoundObject* _stormGlowingOneForm = nullptr;
     std::vector<RE::ObjectRefHandle> _stormGhoulRefs;
+    bool _stormGhoulsEnabled = true;
+    float _stormGhoulSpawnChance = kDefaultStormGhoulSpawnChance;
     void SpawnStormGhouls();   // % chance to unleash a 5-20 strong persistent hunter pack (lethal storms)
     void ClearStormGhouls();   // disable + delete all spawned ghoul refs
     void CheckGhoulPackCleanup();  // despawn the pack once the player leaves the area

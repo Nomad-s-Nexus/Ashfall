@@ -152,6 +152,10 @@ html, body {
 #debugPanel .dbg-pane { display: none; }
 #debugPanel .dbg-pane.on { display: block; }
 #debugPanel .dbg-help { color: #a8c8a8; font-size: 10px; line-height: 1.45; letter-spacing: .5px; margin: 7px 0; }
+#debugPanel .ghoul-range { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+#debugPanel .ghoul-range label { width: 48px; flex: none; color: #b6ffb6; font-size: 10px; letter-spacing: 1px; }
+#debugPanel .ghoul-range input[type=range] { flex: 1; accent-color: #5cbe60; cursor: pointer; }
+#debugPanel .ghoul-range output { width: 42px; flex: none; text-align: right; color: #efffdc; font-weight: bold; }
 
 /* Weather tab: two-column list of force buttons */
 #debugPanel .wthr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px; }

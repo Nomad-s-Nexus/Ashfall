@@ -356,7 +356,6 @@ namespace RadInternal
 
     // Storm ghoul HUNT: a lethal storm has a chance to unleash a PERSISTENT pack of feral ghouls that
     // hunt the player and do NOT despawn when the storm ends (they remain in the world until killed).
-    constexpr float kStormGhoulSpawnChance = 0.40f;   // chance per lethal storm (0..1)
     constexpr int   kStormGhoulMinCount    = 5;
     constexpr int   kStormGhoulMaxCount    = 20;
     constexpr float kStormGhoulMinRadius   = 800.0f;  // spawn ring around the player (game units)
