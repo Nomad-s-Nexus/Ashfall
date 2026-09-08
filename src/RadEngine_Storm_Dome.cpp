@@ -29,9 +29,6 @@ namespace
     }
 }
 
-// Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
-// Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
-// RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
 
 void RadiationEngine::SpawnStormDome()
@@ -47,9 +44,6 @@ void RadiationEngine::SpawnStormDome()
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player || !player->cachedWorldspace) return;
 
-    // Clear any leftover refs first, mirroring SpawnFireRing. _stormDomeUp only latches on placed dome
-    // ACTI layers (below); if those fail to resolve but the arena lights do, _stormDomeUp stays false
-    // and every re-exposure would otherwise append another light pair, leaking the previous ones.
     ClearStormDome();
 
     const RE::NiPoint3 base = player->GetPosition();
@@ -83,15 +77,6 @@ void RadiationEngine::SpawnStormDome()
     }
     _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
 
-    // Arena lights: the cloud shapes are effect-LIT, so these lights ARE the glowing-vortex look (bright at
-    // the eye, falling off outward). Mirror KORs' PlaceAtNode exactly: ArenaLight01 at TopLightNode and
-    // ArenaLight02 (lens flare) at LensFlareNode, both UNROTATED (the nodes carry translation only).
-    // Tracked in _stormDomeRefs so ClearStormDome tears them down with the dome.
-    //
-    // Gate the lights on a successful dome (placed > 0): they only illuminate the cloud shapes, so lights
-    // without a dome are pointless — and, critically, if the dome ACTIs never resolve, _stormDomeUp stays
-    // false and an exposed player re-enters SpawnStormDome every tick. Placing the lights here regardless
-    // would then create them and (via the ClearStormDome above) destroy them every tick — retry churn.
     bool lit = false, flare = false;
     if (placed > 0)
     {
@@ -126,12 +111,9 @@ bool RadiationEngine::NativeShakeCamera(float strength, float duration)
     if (strength <= 0.0f) return true;          // valid state, nothing to shake — not a failure
 
     const RE::NiPoint3 pos = player->data.location;
-    // Authoritative commonlib_NonVR wrapper; distanceMult defaults to 1.0 ("no distance scaling").
     RE::ShakeCamera(strength, pos, duration);
     return true;
 }
-// Per-tick shake driver for an ACTIVE lethal storm: a decaying burst on the hit, then a low
-// sustained rumble. Mirrors RadStormFX._StartShake/_kRumbleTimer, which never actually ran.
 void RadiationEngine::UpdateStormShake()
 {
     if (_shakeBurstStep < 0 && _shakeRumbleTick < 0) return;
@@ -143,7 +125,6 @@ void RadiationEngine::UpdateStormShake()
                         static_cast<float>(kStormShakeBurstSteps);
         if (NativeShakeCamera(kStormShakeBurstStrength * t, kStormShakeBurstDuration))
         {
-            // Submitted — advance the decaying burst.
             _shakeBurstRetries = 0;
             if (++_shakeBurstStep >= kStormShakeBurstSteps)
             {
@@ -153,14 +134,10 @@ void RadiationEngine::UpdateStormShake()
         }
         else if (++_shakeBurstRetries >= kStormShakeBurstMaxRetries)
         {
-            // Player 3D/cell stayed invalid too long (e.g. long streaming stall): don't burn the burst
-            // steps against a state where the native can't run. Abandon the burst and hand over to the
-            // sustained rumble, which self-retries safely once the player is valid again.
             _shakeBurstRetries = 0;
             _shakeBurstStep    = -1;
             _shakeRumbleTick   = 0;
         }
-        // else: transient failure this tick — keep the same step and retry next tick (bounded above).
         return;
     }
 
@@ -170,10 +147,6 @@ void RadiationEngine::UpdateStormShake()
         NativeShakeCamera(kStormShakeRumbleStrength, kStormShakeRumbleDuration);
     }
 }
-// The dome NIFs are animated (rotation + a shader-float on the clouds), but a natively-placed ACTI ref
-// doesn't auto-start its NiController the way KORs' STATIC records do — so it renders frozen (no rotation)
-// with the shader float stuck at its initial value. Force-activate every layer's controller sequence once
-// its 3D has attached (async, so poll). Idempotent + one-shot per dome via _stormDomeAnimStarted.
 void RadiationEngine::UpdateDomeAnimation()
 {
     if (!_stormDomeUp || _stormDomeAnimStarted || _stormDomeRefs.empty()) return;
@@ -201,10 +174,6 @@ void RadiationEngine::UpdateDomeAnimation()
         _stormDomeAnimStarted = true;
         Log()->info("[StormFX] Dome animation activated on {} layer(s).", animated);
 
-        // DOME STATE DUMP (one-shot per dome): the dome has never been confirmed to actually RENDER, and
-        // every fix so far patched a link we never measured. Dump each ref's real runtime state so the
-        // break is located from evidence instead of inferred: does it have 3D, is it in the player's cell,
-        // and is it where we think it is (player z + kStormDomeZOffset)?
         auto* pl = RE::PlayerCharacter::GetSingleton();
         const RE::NiPoint3 ppos = pl ? pl->GetPosition() : RE::NiPoint3{};
         auto* pcell = pl ? pl->GetParentCell() : nullptr;
@@ -280,9 +249,6 @@ void RadiationEngine::UpdateStormDomeLifecycle()
         return;
     }
 
-    // A transition can briefly leave the worldspace unresolved, or a target cell can reject all
-    // placements. Keep retrying on the normal 4 Hz engine lifecycle cadence through every dome-bearing phase instead
-    // of leaving the storm permanently dome-less after one failed recreation.
     if (!_stormDomeUp)
     {
         if (RadCorrectnessPolicy::ShouldRetryDomeSpawn(
@@ -366,10 +332,6 @@ void RadiationEngine::UpdateStormDomeFollow()
     }
 }
 
-// Continuous camera dust for the Dust Storm. The weather referenceEffect (FXCameraAttachExplosionDustVE)
-// attaches but produced no visible motes in practice, so we drive the blowing dust the reliable way:
-// re-apply the heavy dust ArtObject to the camera slightly faster than it expires, so it overlaps into a
-// steady effect. Same ApplyArtObject path as the wall-arrival burst, which DOES render.
 void RadiationEngine::UpdateDustMotes()
 {
     if (_activeStormType != kDustStormIndex || !_dustBurstArt ||
@@ -385,5 +347,5 @@ void RadiationEngine::UpdateDustMotes()
     _dustMoteTick = kDustMoteReapplyTicks;
     if (auto* player = RE::PlayerCharacter::GetSingleton())
         player->ApplyArtObject(_dustBurstArt, kDustMoteSec, nullptr, /*attachToCamera=*/true,
-            /*inheritRotation=*/true);
+            true);
 }

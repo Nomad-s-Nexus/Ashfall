@@ -62,8 +62,6 @@ public:
     void Update();
     // Called EVERY frame (not the 4Hz tick) so hotkeys are never missed between ticks.
     void PollInput();
-    // Cheap per-frame main-thread transform pump for already-spawned storm dome refs. Spawn/retry,
-    // shelter visibility, and worldspace ownership stay on the 4 Hz engine lifecycle path.
     void UpdateStormDomeFollow();
     void UpdateStormIMADFade();
     void ApplyDebuffs(uint32_t radLevel);

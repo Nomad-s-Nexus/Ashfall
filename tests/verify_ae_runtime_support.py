@@ -10,10 +10,10 @@ storm_cpp = (root / "src" / "RadEngine_Storm_Weather.cpp").read_text(encoding="u
 assert "if (ver == F4SE::RUNTIME_1_10_163)" in main_cpp
 assert "ver >= F4SE::RUNTIME_1_10_162" not in main_cpp
 assert "ver < F4SE::RUNTIME_1_10_980" not in main_cpp
-assert "if (ver > F4SE::RUNTIME_1_10_984)" in main_cpp
+assert "if (ver == F4SE::RUNTIME_1_11_240)" in main_cpp
+assert "if (ver > F4SE::RUNTIME_1_10_984)" not in main_cpp
 assert "if (ver >= F4SE::RUNTIME_1_11_137)" not in main_cpp
 assert "ver <= F4SE::RUNTIME_1_11_240" not in main_cpp
-assert "ver == F4SE::RUNTIME_1_11_240" not in main_cpp
 assert "return GameVersion::AE;" in main_cpp
 assert "g_gameVersion != GameVersion::OG && g_gameVersion != GameVersion::AE" in main_cpp
 assert "world->cellMap" not in storm_cpp

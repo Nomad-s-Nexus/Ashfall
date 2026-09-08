@@ -37,13 +37,12 @@ namespace
             return GameVersion::OG;
         }
 
-        // Next-gen: 1.10.980 - 1.10.984. CommonLib classifies 1.10.984 and below as NG.
         if (ver >= F4SE::RUNTIME_1_10_980 && ver <= F4SE::RUNTIME_1_10_984)
         {
             return GameVersion::NewGen;
         }
 
-        if (ver > F4SE::RUNTIME_1_10_984)
+        if (ver == F4SE::RUNTIME_1_11_240)
         {
             return GameVersion::AE;
         }
@@ -60,7 +59,7 @@ namespace
         case GameVersion::NewGen:
             return "Next Generation (1.10.980-1.10.984)";
         case GameVersion::AE:
-            return "Anniversary Edition (all post-NG versions)";
+            return "Anniversary Edition (1.11.240)";
         case GameVersion::Unknown:
         default:
             return "UNKNOWN";
@@ -176,9 +175,6 @@ namespace
             bool expectedProbe = false;
             if (probeQueued->compare_exchange_strong(expectedProbe, true, std::memory_order_acq_rel))
             {
-                // Runtime probing proved F4SE AddTask is not a game-main-thread marshal on this setup.
-                // Reset pessimistically only when a fresh probe is accepted: at most one probe remains
-                // queued while the dispatcher is backlogged, so a long load cannot build a closure pile.
                 free->store(false, std::memory_order_release);
                 if (!Hooks::QueueMainThreadTask([free, probeQueued, generation]() {
                         probeQueued->store(false, std::memory_order_release);
@@ -436,7 +432,6 @@ namespace
 
 // ---------------------------------------------------------------------------
 // Modern plugin declaration is retained because modern F4SE loaders inspect this
-// export before F4SEPlugin_Load. Runtime support covers OG and AE; NG remains unsupported.
 // Legacy F4SEPlugin_Query is retained for OG F4SE.
 // ---------------------------------------------------------------------------
 F4SE_PLUGIN_VERSION = []() noexcept {
@@ -472,7 +467,6 @@ F4SEPlugin_Query(const F4SE::QueryInterface* a_f4se, F4SE::PluginInfo* a_info)
             return false;
         }
 
-        // Reject NG and unknown runtimes before installing hooks.
         g_gameVersion = DetectGameVersion(skse);
         return g_gameVersion == GameVersion::OG || g_gameVersion == GameVersion::AE;
 }
@@ -486,7 +480,6 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         // InitializeLogger below). One DLL, one authoritative log.
         F4SE::Init(a_f4se, { .log = false });
 
-        // Some loaders do not call F4SEPlugin_Query — detect the runtime here as well.
         if (g_gameVersion == GameVersion::Unknown)
         {
             g_gameVersion = DetectGameVersion(a_f4se);
@@ -497,7 +490,7 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         if (g_gameVersion != GameVersion::OG && g_gameVersion != GameVersion::AE)
         {
             logger->critical(
-                "Unsupported Fallout 4 runtime: {}. Supported runtime families are OG and AE; "
+                "Unsupported Fallout 4 runtime: {}. Supported runtimes are OG 1.10.163 and AE 1.11.240; "
                 "NG 1.10.980-1.10.984 remains unsupported.",
                 GameVersionString(g_gameVersion));
             return false;

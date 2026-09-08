@@ -411,7 +411,6 @@ namespace Hooks
             // Preserve per-frame key responsiveness without touching engine state on this worker.
             QueueInputPoll();
 
-            // Dome motion is visual and must not inherit the 4 Hz radiation-engine cadence.
             QueueDomeFollow();
 
             // Wall-clock throttle: actor delta-time can be zero in fullscreen menus. At most one engine

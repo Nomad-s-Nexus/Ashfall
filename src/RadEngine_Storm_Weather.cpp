@@ -69,9 +69,6 @@ namespace
     }
 }
 
-// Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
-// Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
-// RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
 
 void RadiationEngine::ReleaseStormWeather()
@@ -225,14 +222,6 @@ void RadiationEngine::SpawnFireRing()
     logger->info("[Storm/Fire] Spawned {} fire hazard refs around player (radius {:.0f}).",
         spawned, kRingRadius);
 }
-// One distant, purely cinematic firestorm detonation. The 4 Hz engine tick (RadiationEngine::Update and
-// everything it calls, this included) is marshaled to the verified Fallout 4 game-main thread by
-// Hooks.cpp's dispatcher — this does NOT run on the worker Update hook. The EXPL record
-// Returns true iff the explosion actually detonated (valid handle). false = a TRANSIENT failure the
-// caller should retry within its bounded window: unsupported runtime, player 3D/worldspace not up,
-// sheltered, or the target cell not yet streamed (engine returns a null handle). The one-shot latch
-// (_stormNukeFired) must only be set on a true return, so a streaming stall can't consume the storm's
-// single nuke.
 bool RadiationEngine::SpawnDistantNuke()
 {
     if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE()) return false;
@@ -272,9 +261,6 @@ bool RadiationEngine::SpawnDistantNuke()
     const RE::NiPoint3 pos{ targetXY.x, targetXY.y, groundZ + kNukeGroundClearance };
     const RE::NiPoint3 rot{ 0.0f, 0.0f, nuke.facingYaw };
 
-    // DETONATE (not place) via the authoritative commonlib_NonVR wrapper. Cell is passed null on
-    // purpose: with a worldspace supplied the engine resolves the cell from the position and returns a
-    // null handle if it is not loaded, instead of faulting.
     auto handle = dh->CreateExplosionAtLocation(
         static_cast<RE::TESBoundObject*>(_nukeExplosionForm),
         pos, rot, nullptr, player->cachedWorldspace);

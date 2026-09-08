@@ -195,7 +195,6 @@ void RadiationEngine::SetMaskEquipped(RE::TESObjectARMO* mask, bool equip)
 
 // Mask up (or unmask) nearby NPCs for a rad weather. Scans the high-process actor list and, for each
 // eligible NPC, equips the first gas mask it OWNS (mask-agnostic, mouth slot). Ghouls (rad-immune) and
-// power-armor-helmet NPCs are skipped. Only NPCs we equipped are unmasked on the way out (tracked by formID),
 // so an NPC that was already wearing a mask is left alone. Main-thread only: ProcessLists iteration,
 // inventory reads, worn-biped reads, and native equip calls all stay on the verified dispatcher path.
 void RadiationEngine::EquipNearbyNpcMasks(bool equip)

@@ -496,8 +496,6 @@ void RadiationEngine::DebugScanWornMask()
 
 void RadiationEngine::DebugClearWeather()
 {
-    // Restore the pre-debug/pre-storm weather smoothly and silence lingering storm/radstorm audio.
-    // Commonwealth clear is only a fallback when no valid return weather was captured. (Uses
     // ForceWeather, which is interior-safe — NOT Sky::ResetWeather, which CTDs in interiors.)
     _debugWeatherHold = false;   // release the veto hold — the region system takes back over
     ForceClearAndSilence();

@@ -1,6 +1,6 @@
 # Fallout Anomaly - Radiation Overhaul
 
-A radiation overhaul for Fallout 4 supporting OG and the full AE runtime family; NG 1.10.980-1.10.984 is intentionally unsupported. The package includes an F4SE DLL +
+A radiation overhaul for Fallout 4 supporting OG 1.10.163 and AE 1.11.240; NG 1.10.980-1.10.984 and other unverified runtimes are intentionally unsupported. The package includes an F4SE DLL +
 `RadiationOverhaul.esp` + optional PrismaUI HUD. The core ESP references `Fallout4.esm`
 (plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The native storm-dome lighting
 currently still resolves two LIGH forms from `KORsAnomaly Stripped.esp`; making those records

@@ -8,9 +8,6 @@
 
 using namespace RadInternal;
 
-// Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
-// Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
-// RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
 
 void RadiationEngine::UpdateStorm()
@@ -26,12 +23,6 @@ void RadiationEngine::UpdateStorm()
         EquipNearbyNpcMasks(false);
     }
 
-    // New-game safety: the first time the player is outdoors after a new game, force the
-    // Commonwealth clear weather so a vault exit / alt-start never opens straight into a rad storm
-    // (vanilla radstorm, a stale forced sky, or anything else). Re-rolls the storm schedule from
-    // here so the first managed storm is a full gap away. Runs before the gate so it always applies.
-    // Invariant: _forceClearOnEntry is armed ONLY by OnNewGame() — never by save-load — so the rad
-    // refund below cannot wipe legitimate rads from an existing save.
     if (_forceClearOnEntry)
     {
         auto* player = RE::PlayerCharacter::GetSingleton();
@@ -45,16 +36,11 @@ void RadiationEngine::UpdateStorm()
             year = cal->gameYear->GetValue();
         const bool postwar = year > kPostwarMinYear;            // 2287, not the 2077 prewar intro
 
-        // Did we spawn straight into a storm/dust/rain sky? Year-INDEPENDENT — alt-start mods skip the
-        // vault's 2077->2287 calendar jump, so 'postwar' can read false even in the real Commonwealth.
-        // Treating "current weather is a storm/dust/rain weather" as the trigger covers that case too.
         RE::TESWeather* cur = sky ? sky->currentWeather : nullptr;
         const bool spawnedInStorm = cur && (IsRadstormWeather(cur->GetFormID())
                                             || _dustWeathers.contains(cur->GetFormID())
                                             || IsRainyWeather(cur));
 
-        // Fire on the first outdoor in-game tick once we're either confirmed postwar OR clearly
-        // sitting in a storm. Prewar intro (benign weather, year < 2100) leaves us armed for later.
         if (exterior && inGame && (postwar || spawnedInStorm))
         {
             if (sky)
@@ -62,12 +48,7 @@ void RadiationEngine::UpdateStorm()
                 sky->ReleaseWeatherOverride();              // drop any stale forced sky first
                 if (_clearWeather) sky->ForceWeather(_clearWeather, false);
             }
-            // Silence the incoming-storm siren that may have started as we spawned into the storm.
             StopStormCue(kRadstormCueFalloffMs);
-            // Refund any rads the spawn storm dealt before we intercepted it: we're suppressing the
-            // storm, so it shouldn't punish the player. A fresh new-game spawn should be at 0 rads
-            // anyway, so zeroing here is safe. (ForceWeather stops the weather-conditioned rad effect
-            // going forward; this clears what already landed in the moments before the clear.)
             if (auto* av = RE::ActorValue::GetSingleton(); av && av->rads)
             {
                 auto* pc = RE::PlayerCharacter::GetSingleton();
@@ -88,12 +69,8 @@ void RadiationEngine::UpdateStorm()
         }
     }
 
-    // Need the gate global to run the system at all.
     if (!_nextEmissionGlobal) return;
 
-    // Script/xEdit debug trigger: a quest/script can set RadOverhaul_ForceStorm to 1-4.
-    // (The in-game console `set` by EditorID does NOT work in FO4 — use the
-    // Shift+F8 debug menu.)
     if (_forceStormGlobal)
     {
         const int v = static_cast<int>(_forceStormGlobal->GetValue());
@@ -105,9 +82,6 @@ void RadiationEngine::UpdateStorm()
         }
     }
 
-    // Defensive: every non-Idle phase indexes kStormTypes[_activeStormType]. If state ever desyncs
-    // (a future path leaving the phase non-Idle with an invalid type), reset to Idle rather than
-    // read out of bounds.
     if (_stormPhase != StormPhase::Idle &&
         (_activeStormType < 0 || _activeStormType >= kStormTypeTableSize))
     {
@@ -121,7 +95,6 @@ void RadiationEngine::UpdateStorm()
     {
     case StormPhase::Idle:
     {
-        // Debug-forced storm fires immediately, bypassing the schedule.
         if (_forceStormNow)
         {
             _forceStormNow = false;
@@ -129,18 +102,13 @@ void RadiationEngine::UpdateStorm()
             _forcedStormType = -1;
             break;
         }
-        // [Storm] Enabled=0 turns the mod's own storms off entirely (players who only want the
-        // radiation/mask systems, or who find storms too frequent even at the longest gap). The
-        // debug-force above still works, and vanilla radstorm thinning is unaffected.
         if (!_stormsEnabled)
             break;
-        // First run / after a storm: pick the next time.
         if (!_stormScheduled)
         {
             ScheduleNextStorm();
             break;
         }
-        // Natural trigger once enough REAL play-time has elapsed.
         if (_playSeconds >= _nextStormPlaySec)
             BeginStorm(RollStormType());
         break;
@@ -148,9 +116,6 @@ void RadiationEngine::UpdateStorm()
 
     case StormPhase::Approach:
     {
-        // Dome-only SILENT lead. Keep the dome tracking the player's exposure (spawn outside, clear when
-        // sheltered) but fire NOTHING else — no siren, no alert, no weather. When the lead elapses, the
-        // storm commits: EnterWarningPhase() fires the alarm and starts the dust-sky roll-in.
         const bool exposed = !IsPlayerSheltered();
         if (!exposed && _stormDomeUp) ClearStormDome();
 
@@ -164,7 +129,6 @@ void RadiationEngine::UpdateStorm()
 
     case StormPhase::Warning:
     {
-        // (Dome + siren + alert fired at EnterWarningPhase when the APPROACH lead elapsed.)
         UpdateStormFXVisibility();
         if (--_stormTicksLeft <= 0)
         {
@@ -183,33 +147,20 @@ void RadiationEngine::UpdateStorm()
             _stormPeakTick  = st.activeTicks / 2;  // lethal NPC burst fires at the midpoint
             _stormPeakFired = false;               // arm the one-time peak burst
 
-            // The incoming-storm siren has done its job (the storm is here) — fade it out with a short
-            // fall-off; the per-storm ambient bed takes over from here.
             StopStormCue(kRadstormCueFalloffMs);
 
-            // The storm HITS now: force this storm's sky for the rest of the event. (Moved here
-            // from BeginStorm so the Warning phase keeps a normal sky and reads as a real warning.)
             if (RE::TESWeather* w = _stormWeathers[_activeStormType])
             {
                 if (auto* sky = RE::Sky::GetSingleton())
                 {
                     if (sky->currentWeather == w)
                     {
-                        // The storm sky is ALREADY current — the dust warning build-up transitioned it in
-                        // (and with a fast Trans-Delta that transition often finishes BEFORE the warning
-                        // ends, so _dustBuildupActive is already false by now — that is why this used to be
-                        // gated on _dustBuildupActive and mis-fell-through). Re-forcing here would start a
-                        // redundant dust->dust transition that resets pct AND, via the camera-VE end
-                        // threshold, tears down the blowing-dust VE mid-storm (the "dust vanished after a
-                        // second" bug). Do NOT re-force — the sky is right, just mark it.
                         sky->overrideWeather = w;
                         _weatherForced = true;
                         logger->info("[StormFog] '{}' sky already current at Active — no re-transition.", st.name);
                     }
                     else
                     {
-                        // No build-up (non-dust storm, or dust loaded mid-storm): begin the storm sky via the
-                        // engine's OWN smooth transition (vanilla path) — no jarring snap, no purple flash.
                         RE::TESWeather* prev = sky->currentWeather;
                         CaptureWeatherReturnTarget();
                         BeginSmoothWeather(w);
@@ -224,22 +175,12 @@ void RadiationEngine::UpdateStorm()
                 }
             }
 
-            // The storm ambient bed is owned by UpdateAmbientAudio() (driven by current weather): now
-            // that this storm's weather is current, it starts the bed on the next tick while exposed.
 
-            // Screen FX are EXTERIOR-only: an exposed player gets the cloud dome (lethal storms also
-            // shake; the firestorm detonates the distant nuke first and defers its dome + fog/IMAD to
-            // the roll-in). A sheltered player gets NOTHING on-screen — TriggerStormFX/ApplyStormIMAD
-            // no-op while sheltered, and UpdateStormFXVisibility restores them if they step outside.
             _stormFXVisible = !IsPlayerSheltered();
             TriggerStormFX(true);
 
             if (st.themeId == 1)
             {
-                // Firestorm: HOLD the atmosphere roll-in until the distant nuke actually detonates (or
-                // its bounded retry window expires). The Active tick drives SpawnDistantNuke and starts
-                // the fixed roll-in only once the nuke resolves — so a transient streaming failure can't
-                // let the fog/fire/dome roll in as though the nuke had fired.
                 _firestormAwaitingNuke = true;
                 _stormRollInTicks      = 0;   // not started yet; armed when the nuke resolves
             }
@@ -253,7 +194,6 @@ void RadiationEngine::UpdateStorm()
             if (_firestormAwaitingNuke)
                 logger->info("[Storm] {} — awaiting distant nuke detonation before atmosphere roll-in.", st.name);
 
-            // Lethal storms: spawn feral ghouls that emerge from the radiation.
             if (st.lethal)
                 SpawnStormGhouls();
         }
@@ -264,9 +204,6 @@ void RadiationEngine::UpdateStorm()
     {
         const StormType& st = kStormTypes[_activeStormType];
 
-        // Camera shake for lethal storms, driven natively per tick. Papyrus used to own this via
-        // quest stages 10/11, which never fired (SetStage always false). Armed on the first Active
-        // tick; UpdateStormShake self-gates on shelter and tears down in EnterStormPhase(Idle).
         if (st.lethal && _shakeBurstStep < 0 && _shakeRumbleTick < 0)
         {
             _shakeBurstStep    = 0;
@@ -274,12 +211,6 @@ void RadiationEngine::UpdateStorm()
         }
         UpdateStormShake();
 
-        // Firestorm distant nuke: fire it here with a bounded retry, and HOLD the atmosphere roll-in
-        // until it resolves. _stormNukeFired latches only on a successful detonation, so a transient
-        // streaming failure (target cell not yet loaded) cannot consume the storm's one shot. The
-        // Actual submission attempts only advance when SpawnDistantNuke is called. A separate absolute
-        // wait advances every awaiting tick, including shelter, so an invalid state cannot hold Active
-        // forever without claiming that it made native attempts.
         if (_firestormAwaitingNuke)
         {
             ++_nukeWaitTicks;
@@ -306,8 +237,6 @@ void RadiationEngine::UpdateStorm()
             }
             else
             {
-                // Still awaiting the nuke: hold the atmosphere exactly like the roll-in-hold below —
-                // if the player ducked inside, drop the exterior FX; tick the storm clock; skip exposure.
                 if (_stormFXVisible && IsPlayerSheltered())
                 {
                     TriggerStormFX(false);
@@ -319,15 +248,10 @@ void RadiationEngine::UpdateStorm()
             }
         }
 
-        // Firestorm roll-in: hold off the fog/fire/IMAD + exposure for a few seconds after the
-        // nuke so the blast clearly precedes the atmosphere. When the timer elapses, roll it in.
         if (_stormRollInTicks > 0)
         {
             if (--_stormRollInTicks == 0)
             {
-                // The atmosphere rolls in with the blast wave — but only for an EXPOSED player, so the
-                // fog/fire/dome never appear inside. If sheltered, leave it hidden; UpdateStormFXVisibility
-                // rolls it in the moment they step outside. (SpawnFireRing already self-gates on shelter.)
                 if (!IsPlayerSheltered())
                 {
                     ApplyStormIMAD(_activeStormType);
@@ -344,31 +268,20 @@ void RadiationEngine::UpdateStorm()
                 logger->info("[Storm] {} — atmosphere rolling in{}.",
                     st.name, _stormNukeFired ? " after the blast wave" : " without nuke detonation");
             }
-            // The nuke's camera shake / dome are exterior-only during the inbound-wave window too. If
-            // the player ducks inside while the blast is still rolling in, stop them now so the rumble
-            // doesn't keep shaking the camera indoors. We only ever turn FX OFF here — turning them back
-            // on is left to the arrival rollout / UpdateStormFXVisibility so the deferred fog can't
-            // appear before the wave lands. (Only meaningful on non-arrival ticks; the arrival block
-            // above already self-gates on shelter.)
             else if (_stormFXVisible && IsPlayerSheltered())
             {
                 TriggerStormFX(false);
                 ClearStormDome();
                 _stormFXVisible = false;
             }
-            // Tick the storm clock but skip exposure/peak FX until the wave arrives.
             --_stormTicksLeft;
             break;
         }
 
         ApplyStormExposure();
 
-        // Keep the storm dome + IMAD exterior-only as the player moves between cover and the open
-        // (mirrors UpdateAmbientAudio) so no fog/colour-grade bleeds into interiors mid-storm.
         UpdateStormFXVisibility();
 
-        // Managed storms: nearby NPCs panic and flee. Throttled (the engine flee order only needs
-        // re-issuing every few seconds to keep them running for the storm's duration).
         if (--_fleeTick <= 0)
         {
             _fleeTick = kFleeRecheckTicks;
@@ -376,17 +289,12 @@ void RadiationEngine::UpdateStorm()
             MakeNearbyNPCsFlee();
         }
 
-        // One-time pulse at the peak (lethal storms only): heals exterior ghoul NPCs, leaves every
-        // other NPC unharmed. Fired-flag + "<=" rather than exact-tick equality so it still fires if
-        // the exact peak tick is ever skipped (e.g. a short storm whose peak lands in the firestorm roll-in).
         if (st.lethal && !_stormPeakFired && _stormTicksLeft <= _stormPeakTick)
         {
             ApplyStormPeakToNPCs();
             _stormPeakFired = true;
         }
 
-        // Re-warn an EXPOSED player during a lethal storm every few seconds; reset the
-        // nag the moment they reach cover so the next exposure warns again promptly.
         if (st.lethal)
         {
             if (IsPlayerSheltered())
@@ -404,19 +312,12 @@ void RadiationEngine::UpdateStorm()
         if (--_stormTicksLeft <= 0)
         {
             logger->info("[Storm] {} fading (aftermath).", st.name);
-            // Inform the player the storm is ending, for ALL storm types (not just lethal) —
-            // ambient storms previously gave no "passing" cue at all.
             Notify("The radiation storm is passing.", false);
             ClearFireRefs();        // remove any spawned fire hazards
-            // NOTE: hunter ghouls are NOT cleared here — they persist past the storm and keep hunting,
-            // despawning only when the player leaves the area (CheckGhoulPackCleanup).
             FadeOutStormIMAD(3.0f);
             TriggerStormFX(false);  // stop shake (Papyrus, if it ever works)
             ClearStormDome();       // despawn the native cloud dome
             _stormFXVisible = false;
-            // Storm bed: ReleaseStormWeather (below) hands the sky back, so once the weather is no
-            // longer this storm's, UpdateAmbientAudio fades the bed out and returns to the general
-            // ambient — no explicit fade needed here.
             EnterStormPhase(StormPhase::Aftermath, st.aftermathTicks);
             ReleaseStormWeather();  // hand the sky back to the vanilla system
         }
@@ -437,8 +338,6 @@ void RadiationEngine::UpdateStorm()
     }
     }
 
-    // Drive the HUD storm overlay (no-op if PrismaUI absent). Pushes the theme so the
-    // overlay reskins per storm type; intensity 0..1; sheltered dims it.
     float intensity = 0.0f;
     switch (_stormPhase)
     {
@@ -455,11 +354,8 @@ void RadiationEngine::UpdateStorm()
     }
     int theme  = (_activeStormType >= 0) ? kStormTypes[_activeStormType].themeId : 0;
     const bool lethal = (_activeStormType >= 0) ? kStormTypes[_activeStormType].lethal : false;
-    // During the firestorm roll-in window, force theme 0 so the HUD clears the fog/fire
-    // overlay — only the distant nuke flash shows until the blast wave arrives.
     if (_stormRollInTicks > 0)
         theme = 0;
-    // APPROACH is a SILENT dome-only lead — no HUD storm banner at all until the alarm (Warning).
     if (_stormPhase == StormPhase::Approach)
         theme = 0;
     RadHud::GetSingleton().PushStorm(static_cast<int>(_stormPhase), theme, intensity,

@@ -12,9 +12,6 @@
 
 using namespace RadInternal;
 
-// Storm lifecycle: scheduling, phases, FX (fire ring / ghouls / IMAD / quest stages), NPC effects, exposure.
-// Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
-// RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
 
 void RadiationEngine::ClearFireRefs()
@@ -77,7 +74,6 @@ void RadiationEngine::SpawnStormGhouls()
     auto logger = Log();
     static std::mt19937 rng{ std::random_device{}() };
 
-    // % chance per lethal storm — most storms pass without a pack.
     std::uniform_real_distribution<float> chance(0.0f, 1.0f);
     if (chance(rng) > kStormGhoulSpawnChance)
     {
@@ -98,7 +94,6 @@ void RadiationEngine::SpawnStormGhouls()
     {
         const float angle  = angleDist(rng);
         const float radius = radiusDist(rng);
-        // Every ~6th is a Glowing One if available — adds menace to the pack.
         RE::TESBoundObject* form = (i % 6 == 0 && _stormGlowingOneForm) ? _stormGlowingOneForm : _stormGhoulForm;
 
         RE::NEW_REFR_DATA data;
@@ -110,8 +105,6 @@ void RadiationEngine::SpawnStormGhouls()
         data.interior  = nullptr;
         data.world     = world;
 
-        // Tracked so we can despawn the pack once the player leaves the area (see CheckGhoulPackCleanup).
-        // They are NOT cleared at storm end, so they persist and hunt the player meanwhile.
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
         {
@@ -119,14 +112,11 @@ void RadiationEngine::SpawnStormGhouls()
             ++spawned;
         }
     }
-    // Remember where/when the pack was unleashed so cleanup can fire when the player moves on.
     _ghoulPackCenter = base;
     _ghoulPackWorldID = world->GetFormID();
     _ghoulPackInterior = false;
     logger->warn("[Storm/Ghouls] HUNT — unleashed {} feral ghoul(s); they hunt until killed or you leave the area.", spawned);
 }
-// Despawn the storm ghoul pack once the player has clearly left the area: traveled far from the
-// spawn center, changed worldspace, or gone indoors. Keeps persistent hunters from accumulating.
 void RadiationEngine::CheckGhoulPackCleanup()
 {
     if (_stormGhoulRefs.empty()) return;

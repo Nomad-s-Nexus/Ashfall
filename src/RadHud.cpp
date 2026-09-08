@@ -522,8 +522,6 @@ void RadHud::SetDebugMenu(bool open)
     {
         if (open)
         {
-            // Focus first. Showing the panel before a rejected focus request leaves a visible
-            // menu that cannot receive the mouse, which looks like a stuck/blocked cursor.
             api->Show(_view);
             const bool focusAccepted = api->Focus(_view, false, false);
             if (!focusAccepted)
@@ -549,8 +547,6 @@ void RadHud::SetDebugMenu(bool open)
             _debugOpen = true;
             _debugTogglePending = false;
             _debugNextFocusRetryMs = 0;
-            // Toggle the debug + HUD-layout panel (both baked into radhud.html) only after the
-            // view has accepted focus, so every visible menu has a working mouse target.
             api->InteropCall(_view, "SetDebugMenu", "1");
         }
         else
@@ -560,7 +556,6 @@ void RadHud::SetDebugMenu(bool open)
             _debugDesiredOpen = false;
             _debugNextFocusRetryMs = 0;
             SetLocalHudEditorPreview(false);
-            // Never Hide here — the view must keep rendering the rad bars while the menu is shut.
             api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
         }

@@ -301,8 +301,6 @@ void RadiationEngine::UpdateWeatherHandoff()
         return;
     }
 
-    // Hold the fully returned sky steady for ~2 seconds before releasing the temporary override.
-    // That gives Fallout a stable source state for whatever the region system chooses next.
     if (++_weatherHandoffSettleTicks < 8) return;
 
     const std::uint32_t targetId = target->GetFormID();
