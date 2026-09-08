@@ -51,6 +51,18 @@ radstorm_warning = weather.split("void RadiationEngine::CheckRadstormWarning()",
 accepted_spawn = radstorm_warning.split("_radstormWarned  = true;", 1)[1]
 assert "SpawnStormGhouls();" in accepted_spawn
 
+ghoul_state = hud_js.split("function setGhoulSettings(state)", 1)[1].split(
+    "window.SetDebugMenu", 1
+)[0]
+for token in (
+    'var d = (typeof state === "string") ? JSON.parse(state) : state;',
+    "var enabled = !!(d && d.enabled);",
+    "Number(d && d.chance)",
+    'enabled ? "ON" : "OFF"',
+):
+    assert token in ghoul_state, f"ghoul state payload handling is incomplete: {token}"
+assert "enabled = !!(d && d.chance)" not in ghoul_state
+
 for token in (
     "if (!_stormGhoulsEnabled) return;",
     "chance(rng) >= _stormGhoulSpawnChance",

@@ -111,17 +111,20 @@ function resetGhoulSettings() {
 }
 
 function setGhoulSettings(state) {
-  var enabled = !!(state && state.enabled);
-  var n = Math.max(0, Math.min(100, Math.round(Number(state && state.chance) || 0)));
-  var input = document.getElementById("ghoulChance");
-  var output = document.getElementById("ghoulChanceValue");
-  var status = document.getElementById("ghoulState");
-  if (input) input.value = n;
-  if (output) output.textContent = n + "%";
-  if (status) {
-    status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
-    status.classList.toggle("off", !enabled);
-  }
+  try {
+    var d = (typeof state === "string") ? JSON.parse(state) : state;
+    var enabled = !!(d && d.enabled);
+    var n = Math.max(0, Math.min(100, Math.round(Number(d && d.chance) || 0)));
+    var input = document.getElementById("ghoulChance");
+    var output = document.getElementById("ghoulChanceValue");
+    var status = document.getElementById("ghoulState");
+    if (input) input.value = n;
+    if (output) output.textContent = n + "%";
+    if (status) {
+      status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+      status.classList.toggle("off", !enabled);
+    }
+  } catch (e) {}
 }
 
 window.SetDebugMenu = function(on) {
