@@ -26,7 +26,8 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;
 #filterBars{display:flex;flex-direction:column;gap:3px}
 .fbrow{display:flex;align-items:center;gap:6px}
 .flab{width:38px;flex:none;font-size:8px;font-weight:bold;letter-spacing:1px;
-  color:#9aa79a;text-shadow:0 0 3px #000}
+  color:#efffdc;background:rgba(0,0,0,.72);padding:2px 3px;border-radius:2px;
+  text-shadow:0 1px 2px #000,0 0 4px #000}
 .fbg{
   width:100px;height:9px;background:rgba(0,0,0,.7);
   box-shadow:inset 0 0 4px rgba(0,0,0,.85);position:relative;
@@ -34,10 +35,12 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;
   -webkit-clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
 }
 .fbar{height:100%;width:100%;background:#5c9e3a;transition:width .3s linear,background .3s}
-.fpct{width:30px;flex:none;text-align:right;font-size:9px;color:#cdd6cd;
-  text-shadow:0 0 3px #000,0 1px 2px #000}
-#filterFoot{font-size:8px;letter-spacing:.5px;color:#9aa79a;text-align:right;
-  text-shadow:0 0 3px #000;padding-right:30px}
+.fpct{width:30px;flex:none;text-align:right;font-size:9px;color:#f4ffe8;
+  background:rgba(0,0,0,.72);padding:2px 3px;border-radius:2px;
+  text-shadow:0 1px 2px #000,0 0 4px #000}
+#filterFoot{font-size:8px;letter-spacing:.5px;color:#efffdc;text-align:right;
+  background:rgba(0,0,0,.72);padding:2px 30px 2px 3px;border-radius:2px;
+  text-shadow:0 1px 2px #000,0 0 4px #000}
 </style>
 </head>
 <body>
