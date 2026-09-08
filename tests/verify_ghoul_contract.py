@@ -6,6 +6,7 @@ SRC = ROOT / "src"
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 fx = (SRC / "RadEngine_Storm_FX.cpp").read_text(encoding="utf-8")
 update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
+weather = (SRC / "RadEngine_Weather.cpp").read_text(encoding="utf-8")
 engine = (SRC / "RadiationEngine.cpp").read_text(encoding="utf-8")
 header = (SRC / "RadiationEngine.h").read_text(encoding="utf-8")
 internal = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
@@ -24,6 +25,7 @@ required = {
     "ghoul peak healing": (fx, "void RadiationEngine::ApplyStormPeakToNPCs()"),
     "ghoul flee exemption": (fx, "if (IsGhoulActor(actor)) continue;"),
     "lethal storm spawn call": (update, "SpawnStormGhouls();"),
+    "vanilla radstorm classification": (weather, "void RadiationEngine::CheckRadstormWarning()"),
     "feral leveled-list lookup": (engine, "LookupForm(0x0758AE"),
     "glowing-one lookup": (engine, "LookupForm(0x0D39EE"),
     "ghoul keyword lookup": (engine, "LookupForm(kActorTypeGhoulKeyword"),
@@ -33,6 +35,12 @@ required = {
 
 for name, (text, token) in required.items():
     assert token in text, f"missing required {name}: {token}"
+
+radstorm_warning = weather.split("void RadiationEngine::CheckRadstormWarning()", 1)[1].split(
+    "void RadiationEngine::BeginSmoothWeather", 1
+)[0]
+accepted_spawn = radstorm_warning.split("_radstormWarned  = true;", 1)[1]
+assert "SpawnStormGhouls();" in accepted_spawn
 
 peak = fx.split("void RadiationEngine::ApplyStormPeakToNPCs()", 1)[1].split(
     "void RadiationEngine::MakeNearbyNPCsFlee()", 1

@@ -138,6 +138,7 @@ void RadiationEngine::CheckRadstormWarning()
 
     logger->info("[Radstorm] Incoming vanilla radstorm (weather 0x{:06X}) — soft ambient cue.", wid);
     PlayStormCue();
+    SpawnStormGhouls();
 }
 
 
