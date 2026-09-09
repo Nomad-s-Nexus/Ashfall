@@ -37,6 +37,10 @@ int main()
         kRainPenaltyC));
     Require(Near(AmbientTemperatureC(true, true, afternoonDays), kIndoorAmbientC));
     Require(std::isfinite(AmbientTemperatureC(false, false, std::numeric_limits<float>::quiet_NaN())));
+    Require(Near(WindProxyMps(0), 0.0f));
+    Require(Near(WindProxyMps(static_cast<std::int8_t>(-1)), kMaximumWindProxyMps));
+    const float midWind = WindProxyMps(127);
+    Require(midWind > 9.0f && midWind < 11.0f);
 
     using namespace RadClimateSerialization;
     using namespace RadClimatePolicy;
