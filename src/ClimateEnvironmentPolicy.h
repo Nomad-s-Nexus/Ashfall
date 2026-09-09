@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 
 namespace RadClimateEnvironmentPolicy
 {
@@ -8,6 +9,7 @@ namespace RadClimateEnvironmentPolicy
     inline constexpr float kOutdoorBaseC = 10.0f;
     inline constexpr float kDiurnalAmplitudeC = 3.0f;
     inline constexpr float kRainPenaltyC = 4.0f;
+    inline constexpr float kMaximumWindProxyMps = 20.0f;
 
     [[nodiscard]] inline float HourOfDay(float gameDays) noexcept
     {
@@ -26,5 +28,11 @@ namespace RadClimateEnvironmentPolicy
         const float hour = HourOfDay(gameDays);
         const float diurnal = kDiurnalAmplitudeC * std::cos((hour - 14.0f) * (2.0f * pi / 24.0f));
         return kOutdoorBaseC + diurnal - (rainy ? kRainPenaltyC : 0.0f);
+    }
+
+    [[nodiscard]] inline float WindProxyMps(std::int8_t weatherWindByte) noexcept
+    {
+        const auto raw = static_cast<std::uint8_t>(weatherWindByte);
+        return kMaximumWindProxyMps * static_cast<float>(raw) / 255.0f;
     }
 }
