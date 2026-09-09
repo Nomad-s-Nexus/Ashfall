@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ClimateRuntime.h"
 #include "ClimateEnvironmentPolicy.h"
+#include "ClimateStagePolicy.h"
 
 #include <RE/C/Calendar.h>
 #include <RE/P/PlayerCharacter.h>
@@ -67,7 +68,9 @@ void ClimateRuntime::Update()
 
     RadClimatePolicy::ProtectionSample protection{};
     const auto result = RadClimatePolicy::Step(_state, environment, protection, 0.25f);
-    _state = result.state;
+    auto nextState = result.state;
+    nextState.stage = RadClimateStagePolicy::NextStage(_state.stage, nextState.coreC);
+    _state = nextState;
     _lastAmbientC = environment.ambientC;
     _lastRainy = rainy;
     _lastIndoors = indoors;
