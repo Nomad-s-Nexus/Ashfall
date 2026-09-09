@@ -1,6 +1,7 @@
 #include "ClimateEnvironmentPolicy.h"
 #include "ClimateInsulationPolicy.h"
 #include "ClimateSerializationPolicy.h"
+#include "ClimateStagePolicy.h"
 
 #include <array>
 #include <cmath>
@@ -99,6 +100,19 @@ int main()
 
     std::array<PieceSample, 1> oneLayer{ torsoPiece };
     Require(Near(CombinedInsulation(oneLayer), PieceInsulation(torsoPiece)));
+
+    using namespace RadClimateStagePolicy;
+
+    Require(NextStage(HypothermiaStage::kNormal, 36.49f) == HypothermiaStage::kChilled);
+    Require(NextStage(HypothermiaStage::kChilled, 36.55f) == HypothermiaStage::kChilled);
+    Require(NextStage(HypothermiaStage::kChilled, 36.65f) == HypothermiaStage::kNormal);
+    Require(NextStage(HypothermiaStage::kMild, 35.60f) == HypothermiaStage::kMild);
+    Require(NextStage(HypothermiaStage::kMild, 35.66f) == HypothermiaStage::kChilled);
+    Require(NextStage(HypothermiaStage::kModerate, 34.60f) == HypothermiaStage::kModerate);
+    Require(NextStage(HypothermiaStage::kSevere, 33.10f) == HypothermiaStage::kSevere);
+    Require(NextStage(HypothermiaStage::kCritical, 30.10f) == HypothermiaStage::kCritical);
+    Require(NextStage(HypothermiaStage::kMild, 32.0f) == HypothermiaStage::kSevere);
+    Require(NextStage(static_cast<HypothermiaStage>(255), 36.0f) == HypothermiaStage::kChilled);
 
     return 0;
 }
