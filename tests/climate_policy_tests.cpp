@@ -1,6 +1,8 @@
 #include "ClimateEnvironmentPolicy.h"
+#include "ClimateInsulationPolicy.h"
 #include "ClimateSerializationPolicy.h"
 
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -63,6 +65,40 @@ int main()
     Require(Near(invalidRestored.wetness01, 0.0f));
     Require(invalidRestored.stage == HypothermiaStage::kNormal);
     Require(kPayloadSize == sizeof(float) * 2);
+
+    using namespace RadClimateInsulationPolicy;
+
+    Coverage fullCoverage{ true, true, true, true, true, true };
+    Coverage torsoCoverage{};
+    torsoCoverage.torso = true;
+    Require(Near(CoverageFraction(fullCoverage), 1.0f));
+    Require(Near(CoverageFraction(torsoCoverage), 0.35f));
+
+    PieceSample torsoPiece{};
+    torsoPiece.coverage = torsoCoverage;
+    const float plainTorso = PieceInsulation(torsoPiece);
+    torsoPiece.radiationResistance = 500.0f;
+    torsoPiece.energyResistance = 125.0f;
+    const float resistantTorso = PieceInsulation(torsoPiece);
+    Require(resistantTorso > plainTorso);
+
+    PieceSample invalidPiece{};
+    invalidPiece.coverage = torsoCoverage;
+    invalidPiece.radiationResistance = std::numeric_limits<float>::quiet_NaN();
+    invalidPiece.energyResistance = std::numeric_limits<float>::infinity();
+    Require(std::isfinite(PieceInsulation(invalidPiece)));
+
+    PieceSample headPiece{};
+    headPiece.coverage.head = true;
+    PieceSample legPiece{};
+    legPiece.coverage.leftLeg = true;
+    std::array<PieceSample, 3> layered{ torsoPiece, headPiece, legPiece };
+    const float combined = CombinedInsulation(layered);
+    Require(combined > PieceInsulation(torsoPiece));
+    Require(combined <= 0.95f);
+
+    std::array<PieceSample, 1> oneLayer{ torsoPiece };
+    Require(Near(CombinedInsulation(oneLayer), PieceInsulation(torsoPiece)));
 
     return 0;
 }
