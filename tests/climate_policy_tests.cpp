@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <limits>
+#include <vector>
 
 namespace
 {
@@ -88,6 +89,12 @@ int main()
     const float resistantTorso = PieceInsulation(torsoPiece);
     Require(resistantTorso > plainTorso);
 
+    PieceSample overriddenTorso = torsoPiece;
+    overriddenTorso.overrideInsulation01 = 0.82f;
+    Require(Near(PieceInsulation(overriddenTorso), 0.82f));
+    overriddenTorso.overrideInsulation01 = 5.0f;
+    Require(Near(PieceInsulation(overriddenTorso), 1.0f));
+
     PieceSample invalidPiece{};
     invalidPiece.coverage = torsoCoverage;
     invalidPiece.radiationResistance = std::numeric_limits<float>::quiet_NaN();
@@ -105,6 +112,8 @@ int main()
 
     std::array<PieceSample, 1> oneLayer{ torsoPiece };
     Require(Near(CombinedInsulation(oneLayer), PieceInsulation(torsoPiece)));
+    std::vector<PieceSample> dynamicLayers{ torsoPiece, headPiece };
+    Require(CombinedInsulation(std::span<const PieceSample>{ dynamicLayers }) > PieceInsulation(torsoPiece));
 
     using namespace RadClimateStagePolicy;
 
