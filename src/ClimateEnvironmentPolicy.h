@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 
@@ -15,6 +16,10 @@ namespace RadClimateEnvironmentPolicy
     inline constexpr float kSnowPenaltyC = 10.0f;
     inline constexpr float kSnowWetnessIntensity = 0.35f;
     inline constexpr float kMaximumWindProxyMps = 20.0f;
+    inline constexpr std::array<float, 12> kSeasonalOffsetC{
+        -7.0f, -6.0f, -3.0f, 0.0f, 3.0f, 5.0f,
+         6.0f,  5.0f,  2.0f, 0.0f, -3.0f, -6.0f
+    };
 
     struct WeatherClass
     {
@@ -31,6 +36,11 @@ namespace RadClimateEnvironmentPolicy
         if (fraction < 0.0f)
             fraction += 1.0f;
         return fraction * 24.0f;
+    }
+
+    [[nodiscard]] constexpr float SeasonalOffsetC(std::uint32_t month) noexcept
+    {
+        return kSeasonalOffsetC[month % kSeasonalOffsetC.size()];
     }
 
     [[nodiscard]] inline float WeatherTemperatureAdjustmentC(const WeatherClass& weather) noexcept
@@ -58,21 +68,26 @@ namespace RadClimateEnvironmentPolicy
     [[nodiscard]] inline float AmbientTemperatureC(
         bool indoors,
         const WeatherClass& weather,
-        float gameDays) noexcept
+        float gameDays,
+        std::uint32_t month = 9) noexcept
     {
         if (indoors)
             return kIndoorAmbientC;
         constexpr float pi = 3.14159265358979323846f;
         const float hour = HourOfDay(gameDays);
         const float diurnal = kDiurnalAmplitudeC * std::cos((hour - 14.0f) * (2.0f * pi / 24.0f));
-        return kOutdoorBaseC + diurnal + WeatherTemperatureAdjustmentC(weather);
+        return kOutdoorBaseC + diurnal + SeasonalOffsetC(month) + WeatherTemperatureAdjustmentC(weather);
     }
 
-    [[nodiscard]] inline float AmbientTemperatureC(bool indoors, bool rainy, float gameDays) noexcept
+    [[nodiscard]] inline float AmbientTemperatureC(
+        bool indoors,
+        bool rainy,
+        float gameDays,
+        std::uint32_t month = 9) noexcept
     {
         WeatherClass weather{};
         weather.rainy = rainy;
-        return AmbientTemperatureC(indoors, weather, gameDays);
+        return AmbientTemperatureC(indoors, weather, gameDays, month);
     }
 
     [[nodiscard]] inline float WindProxyMps(std::int8_t weatherWindByte) noexcept
