@@ -74,7 +74,7 @@ void ClimateRuntime::Update()
     environment.windMps = indoors ? 0.0f : RadClimateEnvironmentPolicy::WindProxyMps(WindByte(weather));
     environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, rainy, GameDays());
 
-    RadClimatePolicy::ProtectionSample protection{};
+    const auto protection = _protection.Sample(player);
     const auto result = RadClimatePolicy::Step(_state, environment, protection, 0.25f);
     auto nextState = result.state;
     nextState.stage = RadClimateStagePolicy::NextStage(_state.stage, nextState.coreC);
@@ -86,8 +86,9 @@ void ClimateRuntime::Update()
     if (_state.stage != _lastLoggedStage)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f}",
-                StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps);
+            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}%",
+                StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
+                environment.windMps, protection.insulation01 * 100.0f);
         _lastLoggedStage = _state.stage;
     }
 
@@ -95,15 +96,17 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} indoors={} rainy={} swimming={} stage={}",
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% indoors={} rainy={} swimming={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
-                _lastIndoors, _lastRainy, environment.submerged, StageName(_state.stage));
+                protection.insulation01 * 100.0f, _lastIndoors, _lastRainy,
+                environment.submerged, StageName(_state.stage));
     }
 }
 
 void ClimateRuntime::Reset()
 {
     _state = {};
+    _protection.Reset();
     _lastLoggedStage = RadClimatePolicy::HypothermiaStage::kNormal;
     _lastAmbientC = RadClimatePolicy::kNeutralAmbientC;
     _lastRainy = false;
