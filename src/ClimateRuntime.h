@@ -3,6 +3,7 @@
 #include "ClimateHeatRuntime.h"
 #include "ClimatePolicy.h"
 #include "ClimateProtectionRuntime.h"
+#include "ClimateSerializationPolicy.h"
 #include "ClimateShelterRuntime.h"
 
 class ClimateRuntime
@@ -16,6 +17,8 @@ public:
 
     void Update();
     void Reset();
+    [[nodiscard]] RadClimateSerialization::PersistedState SnapshotForSave() const noexcept;
+    void RestoreFromSave(const RadClimateSerialization::PersistedState& state) noexcept;
 
     [[nodiscard]] const RadClimatePolicy::ClimateState& State() const noexcept { return _state; }
     [[nodiscard]] float LastAmbientC() const noexcept { return _lastAmbientC; }
