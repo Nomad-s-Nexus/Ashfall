@@ -75,14 +75,17 @@ The default path is automatic:
 2. deduplicate armor records by runtime FormID
 3. read each armor record's authored biped-slot mask
 4. translate head/torso/arm/leg coverage into the tested insulation policy
-5. combine multiple pieces with diminishing returns
-6. cache the result and rescan approximately once per second
+5. calculate warmth independently for each body region
+6. combine overlapping layers on the same region with diminishing returns
+7. cache the result and rescan approximately once per second
 
-This means ordinary modded armor participates without a compatibility patch or hand-maintained list.
+The region model means one full-body garment and equivalent separate pieces with the same warmth coefficient produce the same whole-body insulation. Splitting an outfit into more records does not change the score by itself.
+
+This lets ordinary modded armor participate without a compatibility patch or hand-maintained list.
 
 ### Why JSON overrides instead of FormLists
 
-A FormList would require plugin-record maintenance and normally represents only membership. Climate needs a numeric insulation strength and the user does not want climate compatibility to require plugin edits.
+A FormList would require plugin-record maintenance and normally represents only membership. Climate needs a numeric warmth strength and the user does not want climate compatibility to require plugin edits.
 
 `F4SE/Plugins/FalloutAnomaly/climate_protection.json` therefore acts only as an exception layer. The automatic result remains authoritative unless a specific armor has an override.
 
@@ -103,17 +106,35 @@ Example:
 }
 ```
 
-`insulation` is an exact 0-100 piece insulation override. `form` may be a decimal JSON integer or a decimal/hex string. Invalid individual entries are rejected without discarding valid entries. A missing file is valid and simply leaves automatic insulation in control.
+`insulation` is a 0-100 regional warmth coefficient for the regions that armor covers. It is not an unconditional whole-body percentage. An 80% torso-only item contributes up to 28% whole-body insulation because torso weight is 35%; an 80% true full-body outfit can contribute 80% before layering/caps.
+
+`form` may be a decimal JSON integer or a decimal/hex string. Invalid individual entries are rejected without discarding valid entries. A missing file is valid and simply leaves automatic insulation in control.
 
 The shipped file is intentionally empty. It is not a database of every supported armor.
 
 Keyword/category rules may be added later if real compatibility data proves they are useful, but exact item overrides are the smallest deterministic exception mechanism.
 
+### Gear audit logging
+
+The worn-equipment scan logs only when the unique worn armor set changes. For file-backed armor it reports:
+
+- plugin filename
+- local FormID
+- runtime FormID
+- automatic and effective regional warmth
+- automatic and effective whole-body contribution
+- override state
+- authored head/torso/arm/leg coverage
+
+The `Plugin.esp|0xLocalFormID` value can be copied directly into an override entry without calculating the load-order-dependent runtime FormID.
+
 ## Power Armor
 
-`ClimatePolicy.h` already defines a strong Power Armor insulation floor. The existing Rad shelter subsystem owns the authoritative complete-suit test: helmet plus all six distinct ArmorTypePower pieces.
+`ClimatePowerArmorPolicy.h` mirrors the existing Rad sealed-suit contract: the vanilla `ArmorTypePower` keyword must identify at least six distinct worn PA armor records and a PA helmet must be present.
 
-Climate will reuse that result rather than create a different definition of a sealed Power Armor suit. The bridge is still pending.
+The Power Armor keyword is resolved once from `Fallout4.esm`. A complete suit sets `ProtectionSample::powerArmor`, which activates the existing 85% minimum insulation floor in `ClimatePolicy.h`. Missing keyword resolution fails closed and leaves the special PA floor disabled rather than guessing.
+
+The gear-change log and aggregate climate status both expose the detected PA state for runtime acceptance.
 
 ## Heat policy
 
@@ -143,9 +164,9 @@ The record contract is tested, but the existing Rad F4SE serialization loop has 
 - weather `kRainy` classification
 - weather `kWindSpeed` byte through the bounded wind policy
 - `Calendar::gameDaysPassed`
-- cached worn-armor protection from `ClimateProtectionRuntime`
+- cached worn-armor and Power Armor protection from `ClimateProtectionRuntime`
 
-It prepares environment/protection samples, runs the tested climate policy, and emits stage/status diagnostics including insulation.
+It prepares environment/protection samples, runs the tested climate policy, and emits stage/status diagnostics including insulation and PA state.
 
 The runtime is invoked immediately after `RadiationEngine::Update()` inside the existing marshaled game-main 4 Hz task. It is not called directly from the worker-thread `PlayerCharacter::Update` producer.
 
@@ -169,8 +190,10 @@ The Rad correctness tests and dedicated climate policy tests cover:
 - swimming saturation
 - drying indoors and near heat
 - wet/windy cooling
-- insulation effectiveness and exact overrides
-- Power Armor insulation floor policy
+- region-based insulation and exact overrides
+- equality of equivalent full-body versus split-piece coverage
+- diminishing returns for overlapping layers
+- complete Power Armor requirements and the 85% floor
 - heat recovery and heat-source falloff
 - critical exposure
 - comfortable recovery toward 37 C
@@ -178,7 +201,6 @@ The Rad correctness tests and dedicated climate policy tests cover:
 - rainy ambient penalty
 - weather wind-byte conversion
 - climate serialization validation and safe restore
-- weighted equipment coverage and diminishing insulation combination
 
 Source-contract guards additionally enforce:
 
@@ -190,17 +212,18 @@ Source-contract guards additionally enforce:
 - deduplication by armor FormID
 - authored biped-mask coverage
 - JSON override resolution to runtime armor FormIDs
+- change-only pasteable gear audit logging
+- complete Power Armor detection from the vanilla keyword
 - no FormList/plugin mutation APIs in the protection configuration path
 
 ## Still required before gameplay penalties
 
 1. write/read the versioned `CLIM` record through the existing Rad serialization loop
 2. share exterior roof/shelter coverage with a climate-safe cadence
-3. feed the existing complete Power Armor result into climate protection
-4. discover nearby heat sources safely with bounded work
-5. evaluate whether automatic material/resistance signals need more evidence or whether coverage plus overrides is sufficient
-6. apply/remove hypothermia effects idempotently
-7. add PrismaUI temperature/wetness/insulation HUD and debug controls
+3. discover nearby heat sources safely with bounded work
+4. evaluate whether automatic material/resistance signals need more evidence or whether coverage plus overrides is sufficient
+5. apply/remove hypothermia effects idempotently
+6. add PrismaUI temperature/wetness/insulation HUD and debug controls
 
 No guessed relocation or unverified setter should be added to complete those steps.
 
@@ -215,8 +238,10 @@ Before gameplay penalties are enabled, an in-game session must prove:
 - swimming rapidly raises wetness
 - entering an interior reports 20 C and accelerates drying
 - changing worn armor changes reported insulation after the bounded refresh interval
-- a JSON override changes only the intended armor's insulation
+- gear-change logs report correct plugin/local FormIDs and authored coverage
+- a JSON override changes only the intended armor's regional warmth
+- incomplete Power Armor does not set `PA=true`; a full helmet + six-piece suit does
 - loading another save/new game starts from clean transient climate state while persistence is absent
 - the new observation work does not disturb the existing Rad update cadence or produce queue growth
 
-Later acceptance must additionally prove Power Armor, exterior shelter, heat sources, persistent climate state, hypothermia effects, and HUD behavior.
+Later acceptance must additionally prove exterior shelter, heat sources, persistent climate state, hypothermia effects, and HUD behavior.
