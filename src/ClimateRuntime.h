@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ClimatePolicy.h"
+#include "ClimateProtectionRuntime.h"
 
 class ClimateRuntime
 {
@@ -18,11 +19,13 @@ public:
     [[nodiscard]] float LastAmbientC() const noexcept { return _lastAmbientC; }
     [[nodiscard]] bool LastRainy() const noexcept { return _lastRainy; }
     [[nodiscard]] bool LastIndoors() const noexcept { return _lastIndoors; }
+    [[nodiscard]] float LastInsulation01() const noexcept { return _protection.LastInsulation01(); }
 
 private:
     ClimateRuntime() = default;
 
     RadClimatePolicy::ClimateState _state{};
+    ClimateProtectionRuntime _protection;
     RadClimatePolicy::HypothermiaStage _lastLoggedStage{ RadClimatePolicy::HypothermiaStage::kNormal };
     float _lastAmbientC{ RadClimatePolicy::kNeutralAmbientC };
     bool _lastRainy{ false };
