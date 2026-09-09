@@ -77,8 +77,10 @@ jobs:
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
           xmake build climate_policy_tests
+          xmake build serialization_policy_tests
           ./build/tests/rad_correctness_policy_tests
           ./build/tests/climate_policy_tests
+          ./build/tests/serialization_policy_tests
 
       - name: Verify xwin toolchain
         shell: bash
