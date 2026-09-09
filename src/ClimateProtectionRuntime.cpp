@@ -4,6 +4,7 @@
 #include "ClimatePowerArmorPolicy.h"
 
 #include <RE/A/ActorEquipManager.h>
+#include <RE/A/ActorEquipManagerEvent.h>
 #include <RE/B/BGSKeyword.h>
 #include <RE/B/BGSObjectInstance.h>
 #include <RE/B/BIPED_OBJECT.h>
@@ -39,6 +40,27 @@ namespace
         RE::TESObjectARMO* armor{ nullptr };
         RadClimateInsulationPolicy::PieceSample sample{};
     };
+
+    class ClimateEquipSink final : public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>
+    {
+    public:
+        explicit ClimateEquipSink(ClimateProtectionRuntime* runtime) : _runtime(runtime) {}
+
+        RE::BSEventNotifyControl ProcessEvent(
+            const RE::ActorEquipManagerEvent::Event& event,
+            RE::BSTEventSource<RE::ActorEquipManagerEvent::Event>*) override
+        {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (player && event.actorAffected == player && event.itemAffected && event.itemAffected->object &&
+                event.itemAffected->object->GetFormType() == RE::ENUM_FORM_ID::kARMO)
+                _runtime->Invalidate();
+
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+    private:
+        ClimateProtectionRuntime* _runtime;
+    };
 }
 
 void ClimateProtectionRuntime::Reset() noexcept
@@ -48,21 +70,12 @@ void ClimateProtectionRuntime::Reset() noexcept
     _lastWornForms.clear();
     _powerArmorKeyword = nullptr;
     _configLoaded = false;
-    _dirty.store(true, std::memory_order_release);
+    Invalidate();
 }
 
-RE::BSEventNotifyControl ClimateProtectionRuntime::ProcessEvent(
-    const RE::ActorEquipManagerEvent::Event& event,
-    RE::BSTEventSource<RE::ActorEquipManagerEvent::Event>*)
+void ClimateProtectionRuntime::Invalidate() noexcept
 {
-    auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player || event.actorAffected != player || !event.itemAffected || !event.itemAffected->object)
-        return RE::BSEventNotifyControl::kContinue;
-
-    if (event.itemAffected->object->GetFormType() == RE::ENUM_FORM_ID::kARMO)
-        _dirty.store(true, std::memory_order_release);
-
-    return RE::BSEventNotifyControl::kContinue;
+    _dirty.store(true, std::memory_order_release);
 }
 
 RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Sample(RE::PlayerCharacter* player)
@@ -75,7 +88,7 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Sample(RE::PlayerCh
 
     if (!player || !player->biped)
     {
-        _dirty.store(true, std::memory_order_release);
+        Invalidate();
         return _cached;
     }
 
@@ -110,7 +123,8 @@ void ClimateProtectionRuntime::EnsureEventRegistration()
 
     if (auto* equipManager = RE::ActorEquipManager::GetSingleton())
     {
-        equipManager->RegisterSink(this);
+        static ClimateEquipSink sink(this);
+        equipManager->RegisterSink(&sink);
         _eventsRegistered = true;
     }
 }
