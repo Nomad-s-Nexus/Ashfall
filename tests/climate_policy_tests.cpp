@@ -197,6 +197,10 @@ int main()
 
     closeFire.active = false;
     Require(Near(Contribution(closeFire), 0.0f));
+    Require(ShouldRefresh(false, 10, 10, 0.0f, 0.0f, 0.0f));
+    Require(ShouldRefresh(true, 11, 10, 0.0f, 0.0f, 0.0f));
+    Require(!ShouldRefresh(true, 10, 10, kDiscoveryMoveDistance - 1.0f, 0.0f, 0.0f));
+    Require(ShouldRefresh(true, 10, 10, kDiscoveryMoveDistance, 0.0f, 0.0f));
 
     using namespace RadClimateShelterPolicy;
 
@@ -209,7 +213,7 @@ int main()
     Require(ShouldProbe(false, 10, 10, 0.0f, 0.0f, 0.0f));
     Require(ShouldProbe(true, 11, 10, 0.0f, 0.0f, 0.0f));
     Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));
-    Require(ShouldProbe(true, 10, 10, kProbeMoveDistance, 0.0f, 0.0f));
+    Require(ShouldProbe(true, 10, 10, kProbeMoveDistance, 0.0f, 0.0f, 0.0f));
 
     return 0;
 }
