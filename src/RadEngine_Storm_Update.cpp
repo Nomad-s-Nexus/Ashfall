@@ -194,8 +194,6 @@ void RadiationEngine::UpdateStorm()
             if (_firestormAwaitingNuke)
                 logger->info("[Storm] {} — awaiting distant nuke detonation before atmosphere roll-in.", st.name);
 
-            if (st.lethal)
-                SpawnStormGhouls();
         }
         break;
     }

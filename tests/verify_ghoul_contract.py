@@ -27,7 +27,7 @@ required = {
     "ghoul actor classification": (fx, "bool RadiationEngine::IsGhoulActor"),
     "ghoul peak healing": (fx, "void RadiationEngine::ApplyStormPeakToNPCs()"),
     "ghoul flee exemption": (fx, "if (IsGhoulActor(actor)) continue;"),
-    "lethal storm spawn call": (update, "SpawnStormGhouls();"),
+    "rad-weather spawn call": (engine, "if (enteredRadWeather &&"),
     "vanilla radstorm classification": (weather, "void RadiationEngine::CheckRadstormWarning()"),
     "ghoul debug controls": (debug, 'a.rfind("ghouls:chance:", 0) == 0'),
     "ghoul controls tab": (hud, 'id="tabbtn-ghouls"'),
@@ -68,6 +68,16 @@ for token in (
     "chance(rng) >= _stormGhoulSpawnChance",
 ):
     assert token in actors, f"storm ghoul setting is not applied: {token}"
+
+for token in (
+    "_lastRadWeatherFormID",
+    "_radWeatherList->ContainsItem(sky->currentWeather)",
+    "enteredRadWeather",
+    "!vanillaRadstorm || _debugWeatherHold",
+):
+    assert token in engine or token in header, f"rad-weather ghoul ownership is incomplete: {token}"
+
+assert "SpawnStormGhouls();" not in update
 
 for token in ("ghouls:on", "ghouls:off", "ghouls:clear", "ghouls:reset"):
     assert token in debug, f"missing ghoul debug command: {token}"

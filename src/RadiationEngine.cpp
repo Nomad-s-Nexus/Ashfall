@@ -169,6 +169,9 @@ void RadiationEngine::Update()
         bool inRadWeather = false;
         if (_radWeatherList && sky && sky->currentWeather)
             inRadWeather = _radWeatherList->ContainsItem(sky->currentWeather);
+        const std::uint32_t currentWeatherID = sky && sky->currentWeather
+            ? sky->currentWeather->GetFormID() : 0;
+        bool enteredRadWeather = false;
 
         // Dust horizon build-up: during the WARNING phase we only fade the dust sky in on the horizon —
         // the storm hasn't HIT yet, so suppress the FLST-driven choke / CHOKING health / gas-mask
@@ -469,9 +472,11 @@ void RadiationEngine::Update()
             if (_wasInRadWeather == -1)
             {
                 _wasInRadWeather = inRadNow;   // first eval after load: sync silently
+                _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
             }
             else if (inRadNow != _wasInRadWeather)
             {
+                enteredRadWeather = inRadWeather;
                 if (inRadWeather)
                 {
                     // Player: don an owned mask if not already masked.
@@ -495,6 +500,11 @@ void RadiationEngine::Update()
                 }
                 _wasInRadWeather = inRadNow;
             }
+            else if (inRadWeather && _lastRadWeatherFormID != 0 &&
+                     _lastRadWeatherFormID != currentWeatherID)
+            {
+                enteredRadWeather = true;
+            }
             else if (inRadWeather && --_npcMaskScanTick <= 0)
             {
                 // Still in rad weather: re-scan so NPCs that loaded in mid-storm also mask up
@@ -502,7 +512,10 @@ void RadiationEngine::Update()
                 _npcMaskScanTick = kNpcMaskRescanTicks;
                 EquipNearbyNpcMasks(true);
             }
+            _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
         }
+        if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold))
+            SpawnStormGhouls();
 
         // Apply debuffs based on EFFECTIVE radiation (drives stage perks -> SPECIAL + Pipboy + IMAD).
         ApplyDebuffs(static_cast<uint32_t>(effectiveRads));
@@ -1370,6 +1383,7 @@ void RadiationEngine::RevertState()
     _playSeconds      = 0.0;
     _nextStormPlaySec = 0.0;
     _lastRadstormSec  = -1.0e30;
+    _lastRadWeatherFormID = 0;
     _stormScheduled   = false;
     _filterCharge     = 100.0f;   // fresh full filter for a new game / co-saveless load
     _filterLowWarned  = 0;
@@ -1433,6 +1447,7 @@ void RadiationEngine::OnPostLoad()
     // auto-equip on load); we only act on weather transitions during play. Clear the NPC mask set
     // too — actor pointers/handles do not carry across loads, and the re-scan will repopulate it.
     _wasInRadWeather = -1;
+    _lastRadWeatherFormID = 0;
     _autoMaskEquipped = false;
     _npcMaskScanTick = 0;
     _autoMaskedNpcs.clear();

@@ -350,6 +350,7 @@ private:
     void EquipNearbyNpcMasks(bool equip);                              // mask/unmask high-process NPCs
     RE::BGSListForm* _radWeatherList = nullptr;                    // ESL 0x802 — weathers that count as "rad"
     int  _wasInRadWeather   = -1;       // -1 = just loaded (sync silently), 0 = no, 1 = yes
+    std::uint32_t _lastRadWeatherFormID = 0;
     bool _autoMaskEquipped  = false;    // we auto-donned the PLAYER's mask (so we may auto-remove it)
     int  _npcMaskScanTick   = 0;        // throttle countdown for the mid-storm NPC re-scan
     std::unordered_set<std::uint32_t> _autoMaskedNpcs;  // NPC formIDs we auto-masked (to remove on clear)
