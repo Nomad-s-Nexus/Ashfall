@@ -74,10 +74,12 @@ jobs:
           xmake build rad_correctness_policy_tests
           xmake build climate_policy_tests
           xmake build climate_weather_policy_tests
+          xmake build climate_wetness_policy_tests
           xmake build serialization_policy_tests
           ./build/tests/rad_correctness_policy_tests
           ./build/tests/climate_policy_tests
           ./build/tests/climate_weather_policy_tests
+          ./build/tests/climate_wetness_policy_tests
           ./build/tests/serialization_policy_tests
 
       - name: Verify xwin toolchain
