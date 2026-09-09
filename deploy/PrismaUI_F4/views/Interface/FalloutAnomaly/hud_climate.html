@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Environmental Climate</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none}
+#root{position:fixed;left:0;top:0;width:250px;height:58px;transform-origin:top left;transform:rotate(var(--r,0deg)) scale(var(--s,1));font-family:Consolas,"Courier New",monospace;color:#eef3ee;text-shadow:0 1px 3px #000;opacity:0;transition:opacity .2s}
+#root.visible{opacity:1}
+.panel{width:100%;height:100%;padding:7px 10px;background:rgba(7,11,9,.72);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);-webkit-clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);border-left:2px solid rgba(174,193,177,.8)}
+.top{height:25px;display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.core{font-size:19px;font-weight:700;letter-spacing:.2px}
+.stage{font-size:10px;font-weight:700;letter-spacing:1px;color:#cfd8cf}
+.bottom{height:19px;display:flex;align-items:center;gap:11px;font-size:9px;white-space:nowrap;color:#c9d1c9}
+.metric b{font-size:10px;color:#f3f6f3}
+#root.s1 .panel{border-left-color:#a9c6cc}
+#root.s2 .panel{border-left-color:#b6c7d9}
+#root.s3 .panel{border-left-color:#d8c18f}
+#root.s4 .panel{border-left-color:#d39a6d}
+#root.s5 .panel{border-left-color:#cf6e62}
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="panel">
+    <div class="top"><div class="core" id="core">37.0°C</div><div class="stage" id="stage">NORMAL</div></div>
+    <div class="bottom">
+      <span class="metric">AIR <b id="air">10.0°</b></span>
+      <span class="metric">WET <b id="wet">0%</b></span>
+      <span class="metric">WARM <b id="warm">0%</b></span>
+      <span class="metric" id="heatWrap">HEAT <b id="heat">0%</b></span>
+    </div>
+  </div>
+</div>
+<script>
+var root=document.getElementById('root');
+var core=document.getElementById('core');
+var stage=document.getElementById('stage');
+var air=document.getElementById('air');
+var wet=document.getElementById('wet');
+var warm=document.getElementById('warm');
+var heat=document.getElementById('heat');
+var heatWrap=document.getElementById('heatWrap');
+var names=['NORMAL','CHILLED','MILD','MODERATE','SEVERE','CRITICAL'];
+var _preview=false,_hasData=false;
+
+window.updateClimate=function(json){
+  try{
+    var d=(typeof json==='string')?JSON.parse(json):json;
+    var s=Math.max(0,Math.min(5,Math.round(+d.stage||0)));
+    core.textContent=(+d.core||0).toFixed(1)+'°C';
+    stage.textContent=names[s];
+    air.textContent=(+d.ambient||0).toFixed(1)+'°';
+    wet.textContent=Math.max(0,Math.min(100,Math.round(+d.wetness||0)))+'%';
+    warm.textContent=Math.max(0,Math.min(100,Math.round(+d.insulation||0)))+'%';
+    var h=Math.max(0,Math.min(100,Math.round(+d.heat||0)));
+    heat.textContent=h+'%';
+    heatWrap.style.display=h>0?'':'none';
+    root.className='visible s'+s;
+    _hasData=true;
+    window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));
+  }catch(e){}
+};
+
+window.setEditorPreview=function(json){
+  _preview=(json==='1'||json===1||json===true);
+  if(_preview){
+    core.textContent='35.8°C';stage.textContent='CHILLED';air.textContent='-4.0°';wet.textContent='62%';warm.textContent='48%';heat.textContent='30%';heatWrap.style.display='';root.className='visible s1';
+  }else if(!_hasData){root.className='';}
+};
+
+var WIDGET_ID='rad_climate';
+var DEF={xf:22/1920,yf:944/1080,wf:250/1920,hf:58/1080};
+var _want=null,_lastW=0,_lastH=0;
+function flushPos(){
+  if(!_want)return;
+  var W=window.innerWidth,H=window.innerHeight;
+  if(!(W>1)||!(H>1))return;
+  if(W===_lastW&&H===_lastH)return;
+  root.style.left=(_want.xf*W)+'px';root.style.top=(_want.yf*H)+'px';
+  root.style.setProperty('--s',_want.s);root.style.setProperty('--r',(_want.r||0)+'deg');
+  window.reportPosition(JSON.stringify({id:WIDGET_ID,x:_want.xf,y:_want.yf,s:_want.s,r:_want.r||0}));
+  _lastW=W;_lastH=H;
+}
+function applyPos(xf,yf,s,rot){_want={xf:xf,yf:yf,s:s,r:rot||0};_lastW=0;_lastH=0;flushPos();}
+try{new ResizeObserver(function(){flushPos();}).observe(document.documentElement);}catch(e){}
+var _posSet=false;
+window.setHUDPosition=function(json){
+  _posSet=true;
+  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0));}catch(e){}
+};
+window.reportPosition=window.reportPosition||function(){};
+window.reportVisibility=window.reportVisibility||function(){};
+setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0);},50);
+</script>
+</body>
+</html>
