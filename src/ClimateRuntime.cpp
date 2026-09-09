@@ -21,6 +21,13 @@ namespace
         return 0.0f;
     }
 
+    std::uint32_t GameMonth() noexcept
+    {
+        if (auto* cal = RE::Calendar::GetSingleton())
+            return cal->GetMonth();
+        return 9;
+    }
+
     RadClimateEnvironmentPolicy::WeatherClass ClassifyWeather(RE::TESWeather* weather) noexcept
     {
         RadClimateEnvironmentPolicy::WeatherClass result{};
@@ -88,6 +95,7 @@ void ClimateRuntime::Update()
         ? _weatherConfig.Override(weather->GetFormID())
         : std::nullopt;
     const auto shelter = _shelter.Sample(player);
+    const auto gameMonth = GameMonth();
 
     RadClimatePolicy::EnvironmentSample environment{};
     environment.indoors = indoors;
@@ -100,7 +108,7 @@ void ClimateRuntime::Update()
         environment.precipitation01 = *weatherOverride->precipitation01;
     environment.submerged = player->IsSwimming();
     environment.windMps = indoors ? 0.0f : RadClimateEnvironmentPolicy::WindProxyMps(WindByte(weather));
-    environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, weatherClass, GameDays());
+    environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, weatherClass, GameDays(), gameMonth);
     if (weatherOverride)
         environment.ambientC += weatherOverride->temperatureOffsetC;
     environment.heat01 = _heat.Sample(player);
@@ -126,11 +134,11 @@ void ClimateRuntime::Update()
     if (_state.stage != _lastLoggedStage)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% heat={:.0f}% roofed={} sprinting={} snow={} weatherOverride={}",
+            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% heat={:.0f}% roofed={} sprinting={} snow={} month={} weatherOverride={}",
                 StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
                 environment.windMps, protection.insulation01 * 100.0f, protection.powerArmor,
                 environment.shelter01 * 100.0f, environment.heat01 * 100.0f, _shelter.LastRoofed(),
-                environment.activity01 > 0.0f, weatherClass.snow, weatherOverride.has_value());
+                environment.activity01 > 0.0f, weatherClass.snow, gameMonth, weatherOverride.has_value());
         _lastLoggedStage = _state.stage;
     }
 
@@ -138,13 +146,14 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% heat={:.0f}% roofed={} indoors={} pleasant={} cloudy={} rainy={} snow={} swimming={} sprinting={} weatherOverride={} stage={}",
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% heat={:.0f}% roofed={} indoors={} pleasant={} cloudy={} rainy={} snow={} swimming={} sprinting={} month={} weatherOverride={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
                 protection.insulation01 * 100.0f, protection.powerArmor,
                 environment.shelter01 * 100.0f, environment.precipitationShelter01 * 100.0f,
                 environment.heat01 * 100.0f, _shelter.LastRoofed(), _lastIndoors,
                 weatherClass.pleasant, weatherClass.cloudy, weatherClass.rainy, weatherClass.snow,
-                environment.submerged, environment.activity01 > 0.0f, weatherOverride.has_value(), StageName(_state.stage));
+                environment.submerged, environment.activity01 > 0.0f, gameMonth,
+                weatherOverride.has_value(), StageName(_state.stage));
     }
 }
 
