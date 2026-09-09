@@ -42,6 +42,14 @@ for token in (
 ):
     assert token in ghoul_spawn, f"storm ghoul pack bound is missing: {token}"
 
+for token in (
+    "data.initiallyDisabled = true;",
+    "data.clearStillLoadingFlag = true;",
+    "actor->Enable(true);",
+    "actor->ClampToGround();",
+):
+    assert token in ghoul_spawn, f"storm ghoul placement activation is missing: {token}"
+
 assert "ref->As<RE::Actor>()" not in ghoul_spawn
 assert "_stormGhoulRefs.erase" not in ghoul_spawn
 

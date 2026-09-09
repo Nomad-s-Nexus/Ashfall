@@ -105,12 +105,23 @@ void RadiationEngine::SpawnStormGhouls()
         data.direction = { 0.0f, 0.0f, 0.0f };
         data.interior  = nullptr;
         data.world     = world;
+        data.initiallyDisabled = true;
+        data.clearStillLoadingFlag = true;
 
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
         {
-            _stormGhoulRefs.push_back(handle);
-            ++spawned;
+            auto ptr = handle.get();
+            auto* ref = ptr.get();
+            auto* actor = ref && ref->GetFormType() == RE::ENUM_FORM_ID::kACHR
+                ? static_cast<RE::Actor*>(ref) : nullptr;
+            if (actor)
+            {
+                actor->Enable(true);
+                actor->ClampToGround();
+                _stormGhoulRefs.push_back(handle);
+                ++spawned;
+            }
         }
     }
     _ghoulPackCenter = base;
