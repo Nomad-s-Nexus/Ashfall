@@ -1,6 +1,6 @@
 # Fallout Anomaly - Radiation Overhaul
 
-A radiation overhaul for Fallout 4 (OG / 1.10.163): F4SE DLL +
+A radiation and environmental survival overhaul for Fallout 4 (OG / 1.10.163): F4SE DLL +
 `RadiationOverhaul.esp` + optional PrismaUI HUD. The core ESP references `Fallout4.esm`
 (plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The native storm-dome lighting
 currently still resolves two LIGH forms from `KORsAnomaly Stripped.esp`; making those records
@@ -19,6 +19,10 @@ Author: NomadsReach
 - **STALKER-style storms.** Ash Fallout and Rad Firestorm (lethal, shelter-or-die) plus Toxic
   Sulfur Storm, Acid Rain, and Dust Storm, with APPROACH / WARNING / ACTIVE / AFTERMATH phases,
   siren audio, shelter detection, storm atmosphere, and native storm FX.
+- **Environmental survival expansion.** The native cold-survival policy core models body
+  temperature, wetness, insulation, shelter, heat, activity, and reversible hypothermia stages.
+  Runtime acquisition of weather, water exposure, armor insulation, and heat sources is being
+  added behind verified engine inputs rather than guessed native calls.
 - **Cures.** Sleep/wait/fast-travel can regress reducible tissue over elapsed game time. RadAway
   and the craftable **Radiation Chelation Compound** do not currently change tissue damage: their
   item-triggered effects are disabled fail-closed pending a verified source-identifying item-use adapter.
@@ -72,6 +76,7 @@ The historical `tooling/` tree referenced by older notes is not part of the curr
 
 - [docs/STATUS.md](docs/STATUS.md) - current release status, verification gates, and known work
 - [docs/PROGRESS.md](docs/PROGRESS.md) - implemented systems, pending ideas, FormID contract
+- [docs/code-notes/COLD_SURVIVAL.md](docs/code-notes/COLD_SURVIVAL.md) - clean-room climate model and integration plan
 - [docs/ESP_BUILD_PIPELINE.md](docs/ESP_BUILD_PIPELINE.md) - ESP/Spriggit build pipeline
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - dated change history
 - [docs/ISSUES_FIXED.md](docs/ISSUES_FIXED.md) - storm-system bug root-cause log
