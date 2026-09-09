@@ -7,6 +7,7 @@ runtime = (SRC / "ClimateRuntime.cpp").read_text(encoding="utf-8")
 header = (SRC / "ClimateRuntime.h").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
+radiation_engine = (SRC / "RadiationEngine.cpp").read_text(encoding="utf-8")
 shelter_runtime = (SRC / "ClimateShelterRuntime.cpp").read_text(encoding="utf-8")
 shelter_header = (SRC / "ClimateShelterRuntime.h").read_text(encoding="utf-8")
 heat_runtime = (SRC / "ClimateHeatRuntime.cpp").read_text(encoding="utf-8")
@@ -135,7 +136,16 @@ post_load = main.split("case F4SE::MessagingInterface::kPostLoadGame:", 1)[1].sp
 new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
     "case F4SE::MessagingInterface::kPreLoadGame:", 1
 )[0]
-assert "ClimateRuntime::GetSingleton().Reset();" in post_load
+save_callback = main.split("void SaveCallback", 1)[1].split(
+    "void LoadCallback", 1
+)[0]
+assert "ClimateRuntime::GetSingleton().Reset();" not in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
+
+assert "OpenRecord(RadClimateSerialization::kRecord" in save_callback
+assert "SnapshotForSave" in save_callback
+assert "type == RadClimateSerialization::kRecord" in radiation_engine
+assert "RadClimateSerialization::ClassifyCandidates" in radiation_engine
+assert "ClimateRuntime::GetSingleton().RestoreFromSave" in radiation_engine
 
 print("climate runtime contract verified: event-driven protection/heat, movement-cached shelter, weather+season inputs, sprint activity, save boundary, game-main tick, no gameplay mutation")

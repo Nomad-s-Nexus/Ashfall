@@ -123,6 +123,18 @@ namespace
     void SaveCallback(const F4SE::SerializationInterface* a_intfc)
     {
         RadiationEngine::GetSingleton().SaveState(a_intfc);
+        const auto climate = ClimateRuntime::GetSingleton().SnapshotForSave();
+        if (!a_intfc->OpenRecord(RadClimateSerialization::kRecord, RadClimateSerialization::kVersion))
+        {
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->error("[Save] Could not open climate record — temperature and wetness will not persist.");
+            return;
+        }
+        if (!a_intfc->WriteRecordData(climate.coreC) || !a_intfc->WriteRecordData(climate.wetness01))
+        {
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->error("[Save] Climate record write failed — temperature and wetness may not persist.");
+        }
     }
 
     void LoadCallback(const F4SE::SerializationInterface* a_intfc)
@@ -317,7 +329,6 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnPostLoad();
-                    ClimateRuntime::GetSingleton().Reset();
                     logger->info("[PostLoad] OnPostLoad end; ResetAppliedPenalties begin.");
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;

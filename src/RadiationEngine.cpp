@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "ClimateRuntime.h"
 #include "SerializationPolicy.h"
 
 #include <vector>
@@ -1137,6 +1138,7 @@ void RadiationEngine::SaveState(const F4SE::SerializationInterface* a_intfc) con
 void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
 {
     auto logger = Log();
+    ClimateRuntime::GetSingleton().Reset();
     std::uint32_t type = 0, version = 0, length = 0;
 
     // SaveState writes one SCLK record. Older co-saves can carry duplicates, but their ordering does not
@@ -1145,6 +1147,8 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     // the monotonic play clock backward or postponing storms by an unbounded amount.
     std::vector<RadiationSerialization::StormClockState> clockCandidates;
     int    clockSeen = 0, clockRejected = 0;
+    std::vector<RadClimateSerialization::PersistedState> climateCandidates;
+    int climateSeen = 0, climateRejected = 0;
 
     const auto readExact = [a_intfc]<class T>(T& a_value) {
         return a_intfc->ReadRecordData(a_value) == sizeof(T);
@@ -1152,6 +1156,30 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
 
     while (a_intfc->GetNextRecordInfo(type, version, length))
     {
+        if (type == RadClimateSerialization::kRecord)
+        {
+            ++climateSeen;
+            if (version != RadClimateSerialization::kVersion || length != RadClimateSerialization::kPayloadSize)
+            {
+                ++climateRejected;
+                logger->warn("[Load] Climate record #{} has unsupported version {} or length {} — ignoring.",
+                    climateSeen, version, length);
+                continue;
+            }
+            float coreC = 0.0f;
+            float wetness01 = 0.0f;
+            const bool read = readExact(coreC) && readExact(wetness01);
+            const RadClimateSerialization::PersistedState candidate{ coreC, wetness01 };
+            if (!read || !RadClimateSerialization::IsValid(candidate))
+            {
+                ++climateRejected;
+                logger->warn("[Load] Climate record #{} is invalid or truncated (core={}, wet={}) — ignoring.",
+                    climateSeen, coreC, wetness01);
+                continue;
+            }
+            climateCandidates.push_back(candidate);
+            continue;
+        }
         if (type == kFilterRecord)
         {
             float charge = 100.0f;
@@ -1204,6 +1232,25 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
             continue;
         }
         clockCandidates.push_back(candidate);
+    }
+
+    if (climateCandidates.size() == 1 ||
+        (climateCandidates.size() > 1 && RadClimateSerialization::ClassifyCandidates(climateCandidates) ==
+            RadClimateSerialization::CandidateDisposition::kRestore))
+    {
+        ClimateRuntime::GetSingleton().RestoreFromSave(climateCandidates.front());
+        logger->info("[Load] Climate state restored (core={:.2f}C, wet={:.0f}%){}.",
+            climateCandidates.front().coreC, climateCandidates.front().wetness01 * 100.0f,
+            climateCandidates.size() > 1 ? " [identical duplicates]" : "");
+    }
+    else if (!climateCandidates.empty())
+    {
+        logger->warn("[Load] {} conflicting valid climate records — keeping defaults.", climateCandidates.size());
+    }
+    else if (climateSeen > 0)
+    {
+        logger->warn("[Load] {} climate record(s) present but none valid ({} rejected) — keeping defaults.",
+            climateSeen, climateRejected);
     }
 
     if (clockCandidates.size() == 1 ||
