@@ -1,0 +1,101 @@
+#include "pch.h"
+#include "ClimateShelterRuntime.h"
+
+#include <RE/B/bhkPickData.h>
+#include <RE/P/PlayerCharacter.h>
+#include <RE/T/TESObjectCELL.h>
+
+namespace
+{
+    constexpr float kHeadZ = 96.0f;
+    constexpr float kRayDistance = 768.0f;
+    constexpr float kHorizontal = 0.342f;
+    constexpr float kVertical = 0.940f;
+    constexpr int kMinimumHits = 3;
+
+    bool RayHits(RE::TESObjectCELL* cell, const RE::NiPoint3& from, const RE::NiPoint3& to)
+    {
+        if (!cell)
+            return false;
+        RE::bhkPickData pick;
+        pick.SetStartEnd(from, to);
+        return cell->Pick(pick) != nullptr || pick.HasHit();
+    }
+}
+
+void ClimateShelterRuntime::Reset() noexcept
+{
+    _cached = {};
+    _lastCellID = 0;
+    _lastRoofed = false;
+    _roofStateKnown = false;
+    _refreshTick = 0;
+}
+
+RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharacter* player)
+{
+    if (!player)
+        return RadClimateShelterPolicy::FromState(false, false, true);
+
+    auto* cell = player->GetParentCell();
+    if (!cell)
+        return RadClimateShelterPolicy::FromState(false, false, true);
+
+    if (cell->IsInterior())
+    {
+        _cached = RadClimateShelterPolicy::FromState(true, false, false);
+        _lastCellID = cell->GetFormID();
+        _lastRoofed = false;
+        _roofStateKnown = true;
+        _refreshTick = 0;
+        return _cached;
+    }
+
+    if (!cell->IsExterior() || !cell->IsAttached())
+        return RadClimateShelterPolicy::FromState(false, false, true);
+
+    const auto cellID = cell->GetFormID();
+    if (cellID != _lastCellID)
+    {
+        _lastCellID = cellID;
+        _refreshTick = 0;
+    }
+
+    if (_refreshTick > 0)
+    {
+        --_refreshTick;
+        return _cached;
+    }
+
+    const bool roofed = ProbeRoof(player, cell);
+    _cached = RadClimateShelterPolicy::FromState(false, roofed, false);
+    _refreshTick = 3;
+
+    if (!_roofStateKnown || roofed != _lastRoofed)
+    {
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+            logger->info("[Climate] Exterior roof cover changed: roofed={} thermal={:.0f}% rainCover={:.0f}%.",
+                roofed, _cached.thermal01 * 100.0f, _cached.precipitation01 * 100.0f);
+        _lastRoofed = roofed;
+        _roofStateKnown = true;
+    }
+
+    return _cached;
+}
+
+bool ClimateShelterRuntime::ProbeRoof(RE::PlayerCharacter* player, RE::TESObjectCELL* cell) const
+{
+    const auto p = player->GetPosition();
+    const RE::NiPoint3 head{ p.x, p.y, p.z + kHeadZ };
+    const float horizontal = kRayDistance * kHorizontal;
+    const float vertical = kRayDistance * kVertical;
+
+    const bool up = RayHits(cell, head, { head.x, head.y, head.z + kRayDistance });
+    const bool px = RayHits(cell, head, { head.x + horizontal, head.y, head.z + vertical });
+    const bool nx = RayHits(cell, head, { head.x - horizontal, head.y, head.z + vertical });
+    const bool py = RayHits(cell, head, { head.x, head.y + horizontal, head.z + vertical });
+    const bool ny = RayHits(cell, head, { head.x, head.y - horizontal, head.z + vertical });
+    const int hits = static_cast<int>(up) + static_cast<int>(px) + static_cast<int>(nx) +
+        static_cast<int>(py) + static_cast<int>(ny);
+    return up && hits >= kMinimumHits;
+}
