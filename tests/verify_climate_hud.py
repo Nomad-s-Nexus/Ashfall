@@ -26,7 +26,6 @@ for token in (
     "hudApi->ApplyLayout(_climateView);",
     'api->InteropCall(_climateView, "updateClimate", payload);',
     "if (coreTenth == _climateCoreTenth",
-    "if (!ClimateWorldReady())",
     "api->Hide(_climateView);",
     "api->Show(_climateView);",
 ):

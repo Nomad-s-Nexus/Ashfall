@@ -1,9 +1,7 @@
 #include "pch.h"
 #include "RadHud.h"
 
-#include <RE/C/Calendar.h>
 #include <RE/P/PlayerCharacter.h>
-#include <RE/T/TESGlobal.h>
 
 #include "PrismaUI_F4_API.h"
 #include "PrismaHUD_F4_API.h"
@@ -31,18 +29,6 @@ namespace
     std::atomic<std::atomic<bool>*> g_climateWidgetRegisteredFlag{ nullptr };
     std::atomic<PRISMA_UI_API::IVPrismaUI2*> g_climateApiForCb{ nullptr };
     std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_climateHudApiForCb{ nullptr };
-
-    bool ClimateWorldReady()
-    {
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!player || !player->GetParentCell())
-            return false;
-
-        if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->gameYear)
-            return cal->gameYear->GetValue() > 2100.0f;
-
-        return player->GetCurrentLocation() != nullptr;
-    }
 
     int TempTenth(float value) noexcept
     {
@@ -139,12 +125,6 @@ void RadHud::PushClimate(
     if (_climateView == 0 || !api->IsValid(_climateView) ||
         !_climateDomReady.load(std::memory_order_acquire))
         return;
-
-    if (!ClimateWorldReady())
-    {
-        api->Hide(_climateView);
-        return;
-    }
 
     const int coreTenth = TempTenth(coreC);
     const int ambientTenth = TempTenth(ambientC);
