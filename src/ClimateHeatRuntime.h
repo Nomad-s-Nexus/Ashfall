@@ -1,8 +1,11 @@
 #pragma once
 
+#include "ClimateHeatConfig.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace RE
 {
@@ -25,10 +28,12 @@ private:
     };
 
     void EnsureSourcesResolved();
-    [[nodiscard]] const SourceProfile* ProfileFor(std::uint32_t runtimeFormID) const noexcept;
+    [[nodiscard]] std::optional<SourceProfile> ProfileFor(std::uint32_t runtimeFormID) const noexcept;
 
+    ClimateHeatConfig _config;
     std::array<SourceProfile, 4> _sources{};
     std::size_t _sourceCount{ 0 };
+    float _searchRadius{ 0.0f };
     std::uint32_t _lastCellID{ 0 };
     float _lastX{ 0.0f };
     float _lastY{ 0.0f };
