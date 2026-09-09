@@ -1,11 +1,15 @@
 #include "pch.h"
 #include "ClimateProtectionRuntime.h"
 #include "ClimateInsulationPolicy.h"
+#include "ClimatePowerArmorPolicy.h"
 
+#include <RE/B/BGSKeyword.h>
 #include <RE/B/BIPED_OBJECT.h>
 #include <RE/B/BipedAnim.h>
 #include <RE/P/PlayerCharacter.h>
+#include <RE/T/TESDataHandler.h>
 #include <RE/T/TESFile.h>
+#include <RE/T/TESForm.h>
 #include <RE/T/TESObjectARMO.h>
 
 namespace
@@ -40,6 +44,7 @@ void ClimateProtectionRuntime::Reset() noexcept
     _config.Reset();
     _cached = {};
     _lastWornForms.clear();
+    _powerArmorKeyword = nullptr;
     _configLoaded = false;
     _refreshTick = 0;
 }
@@ -62,7 +67,19 @@ void ClimateProtectionRuntime::EnsureConfigLoaded()
 {
     if (_configLoaded)
         return;
+
     _config.Load("Data/F4SE/Plugins/FalloutAnomaly/climate_protection.json");
+    if (auto* dataHandler = RE::TESDataHandler::GetSingleton())
+    {
+        auto* form = dataHandler->LookupForm(0x0004D8A1, "Fallout4.esm");
+        if (form && form->GetFormType() == RE::ENUM_FORM_ID::kKYWD)
+            _powerArmorKeyword = static_cast<RE::BGSKeyword*>(form);
+    }
+    if (!_powerArmorKeyword)
+    {
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+            logger->warn("[Climate] ArmorTypePower keyword unresolved; Power Armor climate floor disabled this session.");
+    }
     _configLoaded = true;
 }
 
@@ -73,6 +90,8 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
         return result;
 
     std::unordered_map<std::uint32_t, WornArmor> piecesByForm;
+    std::size_t powerArmorPieces = 0;
+    bool powerArmorHelmet = false;
     auto& biped = *player->biped;
     for (std::size_t i = 0; i < std::size(biped.object); ++i)
     {
@@ -87,10 +106,18 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
         {
             worn.armor = armor;
             worn.sample.coverage = AuthoredCoverage(armor);
+            if (_powerArmorKeyword && armor->HasKeyword(_powerArmorKeyword))
+            {
+                ++powerArmorPieces;
+                if (Fills(armor, RE::BIPED_OBJECT::kHairTop))
+                    powerArmorHelmet = true;
+            }
         }
         if (const auto overrideValue = _config.ArmorOverride(armor->GetFormID()))
             worn.sample.overrideInsulation01 = *overrideValue;
     }
+
+    result.powerArmor = RadClimatePowerArmorPolicy::IsCompleteSuit(powerArmorHelmet, powerArmorPieces);
 
     std::vector<WornArmor> worn;
     worn.reserve(piecesByForm.size());
@@ -117,7 +144,8 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
         {
-            logger->info("[Climate] Worn armor changed: {} unique armor record(s).", worn.size());
+            logger->info("[Climate] Worn armor changed: {} unique armor record(s), powerArmor={}.",
+                worn.size(), result.powerArmor);
             for (const auto& piece : worn)
             {
                 auto automatic = piece.sample;
