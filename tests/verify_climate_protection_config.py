@@ -17,8 +17,12 @@ for token in (
     "RE::TESDataHandler::GetSingleton()",
     "dataHandler->LookupForm(*localFormID, plugin)",
     "form->GetFormType() != RE::ENUM_FORM_ID::kARMO",
-    "_armorOverrides[form->GetFormID()] = insulation / 100.0f;",
-    "insulation < 0.0f || insulation > 100.0f",
+    "entry[\"plugin\"].is_string()",
+    "entry[\"insulation\"].is_number()",
+    "rawInsulation < 0.0 || rawInsulation > 100.0",
+    "static_cast<float>(rawInsulation / 100.0)",
+    "value.is_number_unsigned()",
+    "value.is_number_integer()",
     "automatic insulation remains authoritative",
 ):
     assert token in loader, f"climate protection loader contract missing: {token}"
@@ -38,4 +42,4 @@ forbidden = (
 for token in forbidden:
     assert token not in loader
 
-print("climate protection config verified: JSON overrides resolve once to runtime armor FormIDs")
+print("climate protection config verified: fail-soft JSON overrides resolve once to runtime armor FormIDs without plugin mutation")
