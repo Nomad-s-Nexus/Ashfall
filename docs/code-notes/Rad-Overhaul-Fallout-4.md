@@ -66,6 +66,8 @@ The GHOULS debug tab adjusts the chance used by future managed or accepted vanil
 
 `src/RadEngine_Storm_Actors.cpp:RadiationEngine::SpawnStormGhouls` creates hunter actors initially disabled, enables each actor after the reference is created, clamps the actor to ground before tracking it, and logs final position, ground-clamp result, parent ownership, and 3D attachment. Unresolved tracked handles defer pack replacement during streaming; non-actor references are deleted instead of being silently lost.
 
+`src/RadEngine_Storm_Actors.cpp:RadiationEngine::RetryPendingStormGhouls` retries unresolved handles on the main update path, activates actors after streaming resolves them, and promotes them into the live pack. `RadiationEngine::ClearStormGhouls` retains unresolved ownership until deletion is possible; normal unresolved-spawn retries retire after the bounded timeout so a stale handle cannot suppress future packs indefinitely.
+
 `src/PrismaUI_F4_API.h:PRISMA_UI_API::IVPrismaUI2::InteropCall` accepts its payload as `const char*`. Existing JSON callbacks such as `radhud.js:window.stormPhase`, `radhud.js:window.updateFilter`, and `radhud.js:window.showSpecialInfo` therefore accept both JSON text and object input. `radhud.js:setGhoulSettings` follows the same string-or-object parsing contract so native `InteropCall` state remains authoritative for both enabled state and chance.
 
 ## Transition and queue hardening

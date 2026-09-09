@@ -198,6 +198,8 @@ void RadiationEngine::Update()
             _playerEnclosed    = ComputeEnclosedByStructure();
         }
 
+        RetryPendingStormGhouls();
+
         // Hunter ghoul pack: persists past the storm, so check (throttled) whether the player has
         // left the area and the pack should despawn. Runs every tick regardless of storm/ghoul state.
         if (--_ghoulCleanupTick <= 0)

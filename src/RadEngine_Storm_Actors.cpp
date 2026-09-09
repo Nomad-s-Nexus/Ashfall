@@ -32,6 +32,77 @@ void RadiationEngine::ClearFireRefs()
     _fireRefs.clear();
     logger->info("[Storm/Fire] Cleared {} fire hazard refs.", cleared);
 }
+void RadiationEngine::RetryPendingStormGhouls()
+{
+    if (_stormGhoulPendingRefs.empty()) return;
+
+    auto logger = Log();
+    std::vector<RE::ObjectRefHandle> stillPending;
+    stillPending.reserve(_stormGhoulPendingRefs.size());
+    std::size_t promoted = 0;
+    std::size_t cleared = 0;
+
+    for (auto& handle : _stormGhoulPendingRefs)
+    {
+        auto ptr = handle.get();
+        auto* ref = ptr.get();
+        if (!ref)
+        {
+            stillPending.push_back(handle);
+            continue;
+        }
+
+        auto* actor = ref->GetFormType() == RE::ENUM_FORM_ID::kACHR
+            ? static_cast<RE::Actor*>(ref) : nullptr;
+        if (!actor || _stormGhoulClearPending || !_stormGhoulsEnabled)
+        {
+            ref->Disable();
+            ref->SetDelete(true);
+            ++cleared;
+            continue;
+        }
+
+        actor->Enable(true);
+        const bool clamped = actor->ClampToGround();
+        const auto finalPos = actor->GetPosition();
+        auto* actorCell = actor->GetParentCell();
+        const auto actorCellID = actorCell ? actorCell->GetFormID() : 0;
+        const auto actorWorldID = actorCell && actorCell->worldSpace
+            ? actorCell->worldSpace->GetFormID() : 0;
+        const bool has3D = actor->Get3D() != nullptr;
+        logger->debug(
+            "[Storm/Ghouls] pending actor pos=({:.0f},{:.0f},{:.0f}) grounded={} 3D={} cell=0x{:08X} world=0x{:08X}",
+            finalPos.x, finalPos.y, finalPos.z, clamped, has3D, actorCellID, actorWorldID);
+        _stormGhoulRefs.push_back(handle);
+        ++promoted;
+    }
+
+    _stormGhoulPendingRefs.swap(stillPending);
+    if (_stormGhoulPendingRefs.empty())
+    {
+        _stormGhoulPendingTicks = 0;
+        if (_stormGhoulClearPending && _stormGhoulRefs.empty())
+        {
+            _stormGhoulClearPending = false;
+            _ghoulPackWorldID = 0;
+        }
+    }
+    else if (!_stormGhoulClearPending && ++_stormGhoulPendingTicks >= kStormGhoulPendingTimeoutTicks)
+    {
+        logger->warn(
+            "[Storm/Ghouls] Retiring {} unresolved pending ref(s) after {} ticks; allowing future pack rolls.",
+            _stormGhoulPendingRefs.size(), _stormGhoulPendingTicks);
+        _stormGhoulPendingRefs.clear();
+        _stormGhoulPendingTicks = 0;
+        if (_stormGhoulRefs.empty())
+            _ghoulPackWorldID = 0;
+    }
+
+    if (promoted || cleared)
+    {
+        logger->info("[Storm/Ghouls] Pending refs processed: activated {}, cleared {}.", promoted, cleared);
+    }
+}
 void RadiationEngine::SpawnStormGhouls()
 {
     if (!_stormGhoulsEnabled) return;
@@ -46,6 +117,13 @@ void RadiationEngine::SpawnStormGhouls()
     auto* world = player->cachedWorldspace;
     if (!cell || !cell->IsExterior() || !cell->IsAttached() || !world || cell->worldSpace != world)
         return;
+
+    if (!_stormGhoulPendingRefs.empty())
+    {
+        Log()->debug("[Storm/Ghouls] {} pending hunter ref(s) unresolved; deferring pack replacement.",
+            _stormGhoulPendingRefs.size());
+        return;
+    }
 
     std::size_t liveHunters = 0;
     std::size_t unresolvedHunters = 0;
@@ -80,6 +158,12 @@ void RadiationEngine::SpawnStormGhouls()
         Log()->info("[Storm/Ghouls] Previous hunter pack defeated; cleaning {} tracked ref(s) before the next pack roll.",
             _stormGhoulRefs.size());
         ClearStormGhouls();
+        if (!_stormGhoulPendingRefs.empty())
+        {
+            Log()->debug("[Storm/Ghouls] Previous pack cleanup still has {} pending ref(s); deferring replacement.",
+                _stormGhoulPendingRefs.size());
+            return;
+        }
     }
     _ghoulPackWorldID = 0;
     _ghoulPackInterior = false;
@@ -158,7 +242,7 @@ void RadiationEngine::SpawnStormGhouls()
             }
             else
             {
-                _stormGhoulRefs.push_back(handle);
+                _stormGhoulPendingRefs.push_back(handle);
                 ++pending;
             }
         }
@@ -172,7 +256,7 @@ void RadiationEngine::SpawnStormGhouls()
 }
 void RadiationEngine::CheckGhoulPackCleanup()
 {
-    if (_stormGhoulRefs.empty()) return;
+    if (_stormGhoulRefs.empty() && _stormGhoulPendingRefs.empty()) return;
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
@@ -207,9 +291,14 @@ void RadiationEngine::CheckGhoulPackCleanup()
 }
 void RadiationEngine::ClearStormGhouls()
 {
-    if (_stormGhoulRefs.empty()) return;
+    if (_stormGhoulRefs.empty() && _stormGhoulPendingRefs.empty()) return;
     auto logger = Log();
+    _stormGhoulClearPending = true;
+    RetryPendingStormGhouls();
     int cleared = 0;
+    std::size_t pending = _stormGhoulPendingRefs.size();
+    std::vector<RE::ObjectRefHandle> unresolved;
+    unresolved.reserve(_stormGhoulRefs.size());
     for (auto& handle : _stormGhoulRefs)
     {
         auto ptr = handle.get();
@@ -219,10 +308,25 @@ void RadiationEngine::ClearStormGhouls()
             ref->SetDelete(true);
             ++cleared;
         }
+        else
+        {
+            unresolved.push_back(handle);
+        }
     }
+    _stormGhoulPendingRefs.insert(_stormGhoulPendingRefs.end(), unresolved.begin(), unresolved.end());
     _stormGhoulRefs.clear();
-    _ghoulPackWorldID = 0;   // pack gone — clear its area trackers so stale state can't mislead the next check
-    logger->info("[Storm/Ghouls] Cleared {} storm ghoul ref(s).", cleared);
+    if (_stormGhoulPendingRefs.empty())
+    {
+        _stormGhoulClearPending = false;
+        _stormGhoulPendingTicks = 0;
+        _ghoulPackWorldID = 0;
+    }
+    else
+    {
+        logger->warn("[Storm/Ghouls] Retaining {} pending ref(s) until they resolve for deletion.",
+            _stormGhoulPendingRefs.size());
+    }
+    logger->info("[Storm/Ghouls] Cleared {} storm ghoul ref(s); {} were already pending.", cleared, pending);
 }
 void RadiationEngine::ApplyStormIMAD(int typeIndex)
 {

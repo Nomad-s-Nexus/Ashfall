@@ -58,6 +58,43 @@ for token in (
 assert "ref->As<RE::Actor>()" not in ghoul_spawn
 assert "_stormGhoulRefs.erase" not in ghoul_spawn
 
+pending_retry = actors.split("void RadiationEngine::RetryPendingStormGhouls()", 1)[1].split(
+    "void RadiationEngine::SpawnStormGhouls()", 1
+)[0]
+for token in (
+    "_stormGhoulPendingRefs",
+    "handle.get()",
+    "actor->Enable(true);",
+    "actor->ClampToGround();",
+    "_stormGhoulRefs.push_back(handle);",
+    "_stormGhoulClearPending",
+    "kStormGhoulPendingTimeoutTicks",
+):
+    assert token in pending_retry, f"pending storm ghoul retry is missing: {token}"
+assert "_stormGhoulPendingRefs.clear();" in pending_retry
+assert "allowing future pack rolls" in pending_retry
+assert "_stormGhoulPendingRefs.push_back(handle);" in ghoul_spawn
+assert "Previous pack cleanup still has" in ghoul_spawn
+
+update_body = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
+    "void RadiationEngine::PollInput()", 1
+)[0]
+assert "RetryPendingStormGhouls();" in update_body
+assert update_body.find("RetryPendingStormGhouls();") < update_body.find("CheckGhoulPackCleanup();")
+
+clear_ghouls = actors.split("void RadiationEngine::ClearStormGhouls()", 1)[1].split(
+    "void RadiationEngine::ApplyStormIMAD", 1
+)[0]
+for token in (
+    "_stormGhoulClearPending = true;",
+    "RetryPendingStormGhouls();",
+    "unresolved.push_back(handle);",
+    "_stormGhoulPendingRefs.insert",
+    "Retaining {} pending ref(s) until they resolve for deletion.",
+):
+    assert token in clear_ghouls, f"pending storm ghoul cleanup is missing: {token}"
+assert "if (_stormGhoulRefs.empty() && _stormGhoulPendingRefs.empty()) return;" in clear_ghouls
+
 ghoul_cleanup = actors.split("void RadiationEngine::CheckGhoulPackCleanup()", 1)[1].split(
     "void RadiationEngine::ClearStormGhouls()", 1
 )[0]
