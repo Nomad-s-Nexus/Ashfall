@@ -469,7 +469,7 @@ void RadHud::PushArmor(
         });
     }
 
-    const serialized = payload.dump();
+    const std::string serialized = payload.dump();
     if (serialized == _armorPayload)
         return;
     _armorPayload = serialized;
