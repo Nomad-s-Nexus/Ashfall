@@ -38,13 +38,7 @@ jobs:
           COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
         run: |
           set -euo pipefail
-          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
-          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to the commit that adds the
-          # Rad natives (CreateExplosionAtLocation / ShakeCamera / VTABLE_INDEX::Actor::Update). Bump this
-          # SHA deliberately, or repoint at commonlib_NonVR main once that commit is merged there.
-          # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
-          # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"   # commonlib_NonVR main: merged guarded OG-only Rad natives (+ MagicTarget fix)
+          COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"
@@ -72,6 +66,7 @@ jobs:
           python3 tests/verify_climate_protection_config.py
           python3 tests/verify_climate_protection_runtime.py
           python3 tests/verify_climate_heat_config.py
+          python3 tests/verify_rad_shelter_cache.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
