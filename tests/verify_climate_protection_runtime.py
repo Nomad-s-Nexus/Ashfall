@@ -26,17 +26,19 @@ for token in (
     "armor->HasKeyword(_powerArmorKeyword)",
     "RadClimatePowerArmorPolicy::IsCompleteSuit",
     "result.powerArmor",
+    "class ClimateEquipSink final : public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>",
     "RE::ActorEquipManager::GetSingleton()",
-    "equipManager->RegisterSink(this);",
-    "event.actorAffected != player",
+    "equipManager->RegisterSink(&sink);",
+    "event.actorAffected == player",
     "event.itemAffected->object->GetFormType() == RE::ENUM_FORM_ID::kARMO",
+    "_runtime->Invalidate();",
     "_dirty.store(true, std::memory_order_release);",
     "_dirty.exchange(false, std::memory_order_acq_rel)",
 ):
     assert token in runtime, f"climate protection runtime contract missing: {token}"
 
 for token in (
-    "public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>",
+    "void Invalidate() noexcept;",
     "ClimateProtectionConfig _config;",
     "RadClimatePolicy::ProtectionSample _cached{};",
     "std::vector<std::uint32_t> _lastWornForms;",
@@ -50,6 +52,8 @@ for token in (
 
 assert "_refreshTick" not in runtime
 assert "_refreshTick" not in header
+assert "BSTEvent.h" not in header
+assert "ActorEquipManagerEvent.h" not in header
 assert "const auto protection = _protection.Sample(player);" in climate
 assert "_protection.Reset();" in climate
 
@@ -63,4 +67,4 @@ for token in (
 ):
     assert token not in runtime, f"climate protection scan must remain read-only: {token}"
 
-print("climate worn protection verified: event-driven armor invalidation, authored-coverage scan, exact overrides, complete Power Armor detection")
+print("climate worn protection verified: event-driven armor invalidation with isolated event sink, authored-coverage scan, exact overrides, complete Power Armor detection")
