@@ -9,38 +9,22 @@
 
 namespace
 {
-    void AddSlotCoverage(RadClimateInsulationPolicy::Coverage& coverage, RE::BIPED_OBJECT slot) noexcept
+    bool Fills(RE::TESObjectARMO* armor, RE::BIPED_OBJECT slot) noexcept
+    {
+        return armor && armor->FillsBipedSlot(static_cast<std::int32_t>(slot));
+    }
+
+    RadClimateInsulationPolicy::Coverage AuthoredCoverage(RE::TESObjectARMO* armor) noexcept
     {
         using enum RE::BIPED_OBJECT;
-        switch (slot)
-        {
-        case kHairTop:
-            coverage.head = true;
-            break;
-        case kBody:
-        case kUnderTorso:
-        case kAboveTorso:
-            coverage.torso = true;
-            break;
-        case kUnderLeftArm:
-        case kAboveLeftArm:
-            coverage.leftArm = true;
-            break;
-        case kUnderRightArm:
-        case kAboveRightArm:
-            coverage.rightArm = true;
-            break;
-        case kUnderLeftLeg:
-        case kAboveLeftLeg:
-            coverage.leftLeg = true;
-            break;
-        case kUnderRightLeg:
-        case kAboveRightLeg:
-            coverage.rightLeg = true;
-            break;
-        default:
-            break;
-        }
+        RadClimateInsulationPolicy::Coverage coverage{};
+        coverage.head = Fills(armor, kHairTop);
+        coverage.torso = Fills(armor, kBody) || Fills(armor, kUnderTorso) || Fills(armor, kAboveTorso);
+        coverage.leftArm = Fills(armor, kUnderLeftArm) || Fills(armor, kAboveLeftArm);
+        coverage.rightArm = Fills(armor, kUnderRightArm) || Fills(armor, kAboveRightArm);
+        coverage.leftLeg = Fills(armor, kUnderLeftLeg) || Fills(armor, kAboveLeftLeg);
+        coverage.rightLeg = Fills(armor, kUnderRightLeg) || Fills(armor, kAboveRightLeg);
+        return coverage;
     }
 }
 
@@ -89,8 +73,10 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
             continue;
 
         auto* armor = static_cast<RE::TESObjectARMO*>(form);
-        auto& piece = piecesByForm[armor->GetFormID()];
-        AddSlotCoverage(piece.coverage, static_cast<RE::BIPED_OBJECT>(i));
+        auto [it, inserted] = piecesByForm.try_emplace(armor->GetFormID());
+        auto& piece = it->second;
+        if (inserted)
+            piece.coverage = AuthoredCoverage(armor);
         if (const auto overrideValue = _config.ArmorOverride(armor->GetFormID()))
             piece.overrideInsulation01 = *overrideValue;
     }
