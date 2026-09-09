@@ -11,6 +11,22 @@ namespace
 {
     std::optional<std::uint32_t> ParseLocalFormID(const json& value)
     {
+        if (value.is_number_unsigned())
+        {
+            const auto raw = value.get<std::uint64_t>();
+            if (raw <= std::numeric_limits<std::uint32_t>::max())
+                return static_cast<std::uint32_t>(raw);
+            return std::nullopt;
+        }
+
+        if (value.is_number_integer())
+        {
+            const auto raw = value.get<std::int64_t>();
+            if (raw >= 0 && static_cast<std::uint64_t>(raw) <= std::numeric_limits<std::uint32_t>::max())
+                return static_cast<std::uint32_t>(raw);
+            return std::nullopt;
+        }
+
         if (!value.is_string())
             return std::nullopt;
 
@@ -49,7 +65,8 @@ bool ClimateProtectionConfig::Load(const std::string& path)
     {
         json root;
         file >> root;
-        if (!root.is_object() || root.value("version", 0) != 1)
+        if (!root.is_object() || !root.contains("version") || !root["version"].is_number_integer() ||
+            root["version"].get<int>() != 1)
         {
             if (logger)
                 logger->error("[Climate] climate_protection.json requires object version 1; ignoring overrides.");
@@ -75,16 +92,18 @@ bool ClimateProtectionConfig::Load(const std::string& path)
         std::size_t rejected = 0;
         for (const auto& entry : overrides)
         {
-            if (!entry.is_object())
+            if (!entry.is_object() || !entry.contains("plugin") || !entry["plugin"].is_string() ||
+                !entry.contains("form") || !entry.contains("insulation") || !entry["insulation"].is_number())
             {
                 ++rejected;
                 continue;
             }
 
-            const auto plugin = entry.value("plugin", std::string{});
-            const auto localFormID = entry.contains("form") ? ParseLocalFormID(entry["form"]) : std::nullopt;
-            const float insulation = entry.value("insulation", -1.0f);
-            if (plugin.empty() || !localFormID || !std::isfinite(insulation) || insulation < 0.0f || insulation > 100.0f)
+            const auto plugin = entry["plugin"].get<std::string>();
+            const auto localFormID = ParseLocalFormID(entry["form"]);
+            const double rawInsulation = entry["insulation"].get<double>();
+            if (plugin.empty() || !localFormID || !std::isfinite(rawInsulation) ||
+                rawInsulation < 0.0 || rawInsulation > 100.0)
             {
                 ++rejected;
                 continue;
@@ -97,7 +116,7 @@ bool ClimateProtectionConfig::Load(const std::string& path)
                 continue;
             }
 
-            _armorOverrides[form->GetFormID()] = insulation / 100.0f;
+            _armorOverrides[form->GetFormID()] = static_cast<float>(rawInsulation / 100.0);
         }
 
         if (logger)
