@@ -17,6 +17,7 @@ for token in (
     "player->GetParentCell()",
     "cell->IsInterior()",
     "player->IsSwimming()",
+    "player->DoGetSprinting()",
     "RE::Sky::GetSingleton()",
     "sky->currentWeather",
     "RE::TESWeather::WeatherDataFlags::kRainy",
@@ -34,10 +35,13 @@ for token in (
     "environment.shelter01 = shelter.thermal01;",
     "environment.precipitationShelter01 = shelter.precipitation01;",
     "environment.heat01 = _heat.Sample(player);",
+    "environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;",
     "const auto shelter = _shelter.Sample(player);",
     "ClimateRuntime::Reset()",
     "_shelter.Reset();",
     "_heat.Reset();",
+    "RadClimateSerialization::Snapshot(_state)",
+    "RadClimateSerialization::Restore(state)",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
 
@@ -57,6 +61,8 @@ for token in (
 for token in (
     "void Update();",
     "void Reset();",
+    "SnapshotForSave() const noexcept",
+    "RestoreFromSave(const RadClimateSerialization::PersistedState& state) noexcept",
     "RadClimatePolicy::ClimateState _state{};",
     "ClimateShelterRuntime _shelter;",
     "ClimateHeatRuntime _heat;",
@@ -76,12 +82,13 @@ for token in (
 
 for token in (
     "RE::TES::GetSingleton()",
-    "world->ForEachReferenceInRange(player, kMaximumSearchRadius",
+    "world->ForEachReferenceInRange(player, _searchRadius",
     "RadClimateHeatPolicy::ShouldRefresh",
     "ref->GetObjectReference()",
     "ref->Get3D()",
     "ProfileFor(base->GetFormID())",
     "RadClimateHeatPolicy::Contribution(sample)",
+    "_config.Load(\"Data/F4SE/Plugins/FalloutAnomaly/climate_heat.json\")",
     "add(0x002476B7",
     "add(0x00048280",
     "add(0x00048281",
@@ -123,4 +130,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: event-driven protection, movement-cached shelter and heat discovery, trusted environment inputs, game-main tick, load-safe reset, no gameplay mutation")
+print("climate runtime contract verified: event-driven protection, movement-cached shelter/heat, verified sprint activity, save boundary, game-main tick, no gameplay mutation")
