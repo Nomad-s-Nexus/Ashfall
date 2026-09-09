@@ -144,7 +144,7 @@ namespace RadClimatePolicy
             ? 1.0f
             : Clamp01(environment.precipitationShelter01);
         const float rainExposure =
-            Clamp01(environment.precipitation01) * (1.0f - 0.95f * precipitationShelter);
+            Clamp01(environment.precipitation01) * (1.0f - precipitationShelter);
         const float rainGainPerSecond = 0.0045f * rainExposure;
         const float dryPerSecond =
             0.0012f *
