@@ -20,11 +20,16 @@ for token in (
     "player->DoGetSprinting()",
     "RE::Sky::GetSingleton()",
     "sky->currentWeather",
+    "RE::TESWeather::WeatherDataFlags::kPleasant",
+    "RE::TESWeather::WeatherDataFlags::kCloudy",
     "RE::TESWeather::WeatherDataFlags::kRainy",
+    "RE::TESWeather::WeatherDataFlags::kSnow",
     "RE::TESWeather::WeatherData::kWindSpeed",
     "RE::Calendar::GetSingleton()",
     "cal->gameDaysPassed->GetValue()",
+    "ClassifyWeather(weather)",
     "RadClimateEnvironmentPolicy::AmbientTemperatureC",
+    "RadClimateEnvironmentPolicy::PrecipitationIntensity01",
     "RadClimateEnvironmentPolicy::WindProxyMps",
     "RadClimatePolicy::Step",
     "RadClimateStagePolicy::NextStage",
@@ -89,6 +94,8 @@ for token in (
     "ProfileFor(base->GetFormID())",
     "RadClimateHeatPolicy::Contribution(sample)",
     "_config.Load(\"Data/F4SE/Plugins/FalloutAnomaly/climate_heat.json\")",
+    "RE::TESObjectLoadedEvent::GetEventSource()",
+    "_runtime->Invalidate();",
     "add(0x002476B7",
     "add(0x00048280",
     "add(0x00048281",
@@ -130,4 +137,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: event-driven protection, movement-cached shelter/heat, verified sprint activity, save boundary, game-main tick, no gameplay mutation")
+print("climate runtime contract verified: event-driven protection/heat, movement-cached shelter, weather classes, sprint activity, save boundary, game-main tick, no gameplay mutation")
