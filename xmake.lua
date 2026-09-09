@@ -118,6 +118,12 @@ target("climate_wetness_policy_tests")
     add_includedirs("src")
     set_targetdir("build/tests")
 
+target("needs_policy_tests")
+    set_kind("binary")
+    add_files("tests/needs_policy_tests.cpp")
+    add_includedirs("src")
+    set_targetdir("build/tests")
+
 target("serialization_policy_tests")
     set_kind("binary")
     add_files("tests/serialization_policy_tests.cpp")
