@@ -72,6 +72,7 @@ jobs:
           python3 tests/verify_climate_runtime.py
           python3 tests/verify_climate_protection_config.py
           python3 tests/verify_climate_protection_runtime.py
+          python3 tests/verify_climate_heat_config.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
