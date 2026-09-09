@@ -7,6 +7,8 @@ runtime = (SRC / "ClimateRuntime.cpp").read_text(encoding="utf-8")
 header = (SRC / "ClimateRuntime.h").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
+shelter_runtime = (SRC / "ClimateShelterRuntime.cpp").read_text(encoding="utf-8")
+shelter_header = (SRC / "ClimateShelterRuntime.h").read_text(encoding="utf-8")
 
 for token in (
     "RE::PlayerCharacter::GetSingleton()",
@@ -27,8 +29,11 @@ for token in (
     "environment.submerged",
     "environment.windMps",
     "environment.indoors",
-    "environment.shelter01",
+    "environment.shelter01 = shelter.thermal01;",
+    "environment.precipitationShelter01 = shelter.precipitation01;",
+    "const auto shelter = _shelter.Sample(player);",
     "ClimateRuntime::Reset()",
+    "_shelter.Reset();",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
 
@@ -49,8 +54,23 @@ for token in (
     "void Update();",
     "void Reset();",
     "RadClimatePolicy::ClimateState _state{};",
+    "ClimateShelterRuntime _shelter;",
 ):
     assert token in header, f"climate runtime state contract missing: {token}"
+
+for token in (
+    "cell->IsInterior()",
+    "cell->IsExterior()",
+    "cell->IsAttached()",
+    "RadClimateShelterPolicy::ShouldProbe",
+    "player->GetPosition()",
+    "ProbeRoof(player, cell)",
+    "cell->Pick(pick)",
+):
+    assert token in shelter_runtime, f"climate shelter runtime contract missing: {token}"
+
+assert "_refreshTick" not in shelter_runtime
+assert "_refreshTick" not in shelter_header
 
 engine_queue = hooks.split("static void QueueEngineUpdate()", 1)[1].split(
     "void PlayerCharacter_Update_Hook", 1
@@ -80,4 +100,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: trusted cell/weather/time/swimming/wind inputs, tested ambient/stage policy, game-main tick, load-safe reset, no gameplay mutation")
+print("climate runtime contract verified: event-driven protection, movement-cached shelter, trusted weather/time/swimming inputs, game-main tick, load-safe reset, no gameplay mutation")
