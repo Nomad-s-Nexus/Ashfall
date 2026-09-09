@@ -15,6 +15,7 @@ def main() -> None:
     assert 'InteropCall(view, "setLocalHUDLayout", payload);' in native
     assert 'InteropCall(view, "setEditorPreview", preview ? "1" : "0");' in native
     assert 'InteropCall(_view, "OpenLocalHudEditor", LocalHudLayoutJson().c_str());' in native
+    assert 'widget == "rad_climate" ? &_climateLayout' in native
     assert 'window.radHudLayout(JSON.stringify(command));' in editor
     assert 'rad_climate' in editor
     assert 'temperatureUnit' in native

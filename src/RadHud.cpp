@@ -544,7 +544,8 @@ void RadHud::HandleHudLayoutCommand(const std::string& command)
     if (widgetIt == data.end() || !widgetIt->is_string()) return;
     const std::string widget = widgetIt->get<std::string>();
     LocalLayout* layout = widget == "rad_toxic" ? &_toxicLayout :
-                          widget == "rad_filter" ? &_filterLayout : nullptr;
+                          widget == "rad_filter" ? &_filterLayout :
+                          widget == "rad_climate" ? &_climateLayout : nullptr;
     if (!layout) return;
     const auto number = [&data](const char* key, float lo, float hi, float& out) {
         const auto it = data.find(key);
