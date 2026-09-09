@@ -14,7 +14,7 @@ for token in (
     "piecesByForm.try_emplace(armor->GetFormID())",
     "armor->FillsBipedSlot",
     "AuthoredCoverage(armor)",
-    "_config.ArmorOverride(armor->GetFormID())",
+    "_config.ArmorOverride(armor)",
     "RadClimateInsulationPolicy::CombinedInsulation",
     "Data/F4SE/Plugins/FalloutAnomaly/climate_protection.json",
     "piece.armor->GetFile(0)",
@@ -67,4 +67,4 @@ for token in (
 ):
     assert token not in runtime, f"climate protection scan must remain read-only: {token}"
 
-print("climate worn protection verified: event-driven armor invalidation with isolated event sink, authored-coverage scan, exact overrides, complete Power Armor detection")
+print("climate worn protection verified: event-driven armor invalidation, exact/keyword overrides, authored coverage, complete Power Armor detection")
