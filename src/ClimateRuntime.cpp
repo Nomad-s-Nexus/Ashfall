@@ -28,6 +28,13 @@ namespace
         return (flags & static_cast<std::int8_t>(RE::TESWeather::WeatherDataFlags::kRainy)) != 0;
     }
 
+    std::int8_t WindByte(RE::TESWeather* weather) noexcept
+    {
+        if (!weather)
+            return 0;
+        return weather->weatherData[static_cast<int>(RE::TESWeather::WeatherData::kWindSpeed)];
+    }
+
     const char* StageName(RadClimatePolicy::HypothermiaStage stage) noexcept
     {
         using enum RadClimatePolicy::HypothermiaStage;
@@ -64,6 +71,7 @@ void ClimateRuntime::Update()
     environment.shelter01 = indoors ? 1.0f : 0.0f;
     environment.precipitation01 = rainy ? 1.0f : 0.0f;
     environment.submerged = player->IsSwimming();
+    environment.windMps = indoors ? 0.0f : RadClimateEnvironmentPolicy::WindProxyMps(WindByte(weather));
     environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, rainy, GameDays());
 
     RadClimatePolicy::ProtectionSample protection{};
@@ -78,8 +86,8 @@ void ClimateRuntime::Update()
     if (_state.stage != _lastLoggedStage)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}%",
-                StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f);
+            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f}",
+                StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps);
         _lastLoggedStage = _state.stage;
     }
 
@@ -87,8 +95,8 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% indoors={} rainy={} swimming={} stage={}",
-                _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} indoors={} rainy={} swimming={} stage={}",
+                _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
                 _lastIndoors, _lastRainy, environment.submerged, StageName(_state.stage));
     }
 }
