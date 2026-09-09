@@ -43,6 +43,16 @@ int main()
     Require(Near(saturated.thirst01, 1.0f));
     Require(Near(saturated.sleepDebt01, 1.0f));
 
+    const HourlyRates extremeRates{
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max()
+    };
+    const auto extreme = Advance({}, std::numeric_limits<float>::max(), extremeRates);
+    Require(Near(extreme.hunger01, 1.0f));
+    Require(Near(extreme.thirst01, 1.0f));
+    Require(Near(extreme.sleepDebt01, 1.0f));
+
     Relief relief{};
     relief.hunger01 = 0.04f;
     relief.thirst01 = 0.15f;

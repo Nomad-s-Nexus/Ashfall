@@ -60,9 +60,14 @@ namespace RadNeedsPolicy
             ? std::max(0.0f, rates.sleepDebtPerHour)
             : 0.0f;
 
-        state.hunger01 = Clamp01(state.hunger01 + hungerRate * hours);
-        state.thirst01 = Clamp01(state.thirst01 + thirstRate * hours);
-        state.sleepDebt01 = Clamp01(state.sleepDebt01 + sleepRate * hours);
+        const auto advanceNeed = [hours](float value, float rate) {
+            if (hours <= 0.0f || rate <= 0.0f || value >= 1.0f)
+                return Clamp01(value);
+            return rate > (1.0f - value) / hours ? 1.0f : Clamp01(value + rate * hours);
+        };
+        state.hunger01 = advanceNeed(state.hunger01, hungerRate);
+        state.thirst01 = advanceNeed(state.thirst01, thirstRate);
+        state.sleepDebt01 = advanceNeed(state.sleepDebt01, sleepRate);
         return state;
     }
 
