@@ -92,9 +92,11 @@ int main()
 
     PieceSample overriddenTorso = torsoPiece;
     overriddenTorso.overrideInsulation01 = 0.82f;
-    Require(Near(PieceInsulation(overriddenTorso), 0.82f));
+    Require(Near(PieceWarmth(overriddenTorso), 0.82f));
+    Require(Near(PieceInsulation(overriddenTorso), kTorsoWeight * 0.82f));
     overriddenTorso.overrideInsulation01 = 5.0f;
-    Require(Near(PieceInsulation(overriddenTorso), 1.0f));
+    Require(Near(PieceWarmth(overriddenTorso), 1.0f));
+    Require(Near(PieceInsulation(overriddenTorso), kTorsoWeight));
 
     PieceSample invalidPiece{};
     invalidPiece.coverage = torsoCoverage;
@@ -102,19 +104,37 @@ int main()
     invalidPiece.energyResistance = std::numeric_limits<float>::infinity();
     Require(std::isfinite(PieceInsulation(invalidPiece)));
 
+    PieceSample fullBody{};
+    fullBody.coverage = fullCoverage;
+    std::array<PieceSample, 1> fullBodySet{ fullBody };
+
     PieceSample headPiece{};
     headPiece.coverage.head = true;
-    PieceSample legPiece{};
-    legPiece.coverage.leftLeg = true;
-    std::array<PieceSample, 3> layered{ torsoPiece, headPiece, legPiece };
-    const float combined = CombinedInsulation(layered);
-    Require(combined > PieceInsulation(torsoPiece));
-    Require(combined <= 0.95f);
+    PieceSample torsoOnly{};
+    torsoOnly.coverage.torso = true;
+    PieceSample leftArm{};
+    leftArm.coverage.leftArm = true;
+    PieceSample rightArm{};
+    rightArm.coverage.rightArm = true;
+    PieceSample leftLeg{};
+    leftLeg.coverage.leftLeg = true;
+    PieceSample rightLeg{};
+    rightLeg.coverage.rightLeg = true;
+    std::array<PieceSample, 6> splitBody{ headPiece, torsoOnly, leftArm, rightArm, leftLeg, rightLeg };
+    Require(Near(CombinedInsulation(fullBodySet), CombinedInsulation(splitBody)));
+    Require(Near(CombinedInsulation(fullBodySet), PieceWarmth(fullBody)));
 
-    std::array<PieceSample, 1> oneLayer{ torsoPiece };
-    Require(Near(CombinedInsulation(oneLayer), PieceInsulation(torsoPiece)));
-    std::vector<PieceSample> dynamicLayers{ torsoPiece, headPiece };
-    Require(CombinedInsulation(std::span<const PieceSample>{ dynamicLayers }) > PieceInsulation(torsoPiece));
+    PieceSample torsoLayerA{};
+    torsoLayerA.coverage.torso = true;
+    torsoLayerA.overrideInsulation01 = 0.60f;
+    PieceSample torsoLayerB = torsoLayerA;
+    std::array<PieceSample, 1> oneTorsoLayer{ torsoLayerA };
+    std::array<PieceSample, 2> twoTorsoLayers{ torsoLayerA, torsoLayerB };
+    Require(CombinedInsulation(twoTorsoLayers) > CombinedInsulation(oneTorsoLayer));
+    Require(CombinedInsulation(twoTorsoLayers) < kTorsoWeight);
+
+    std::vector<PieceSample> dynamicLayers{ torsoOnly, headPiece };
+    Require(CombinedInsulation(std::span<const PieceSample>{ dynamicLayers }) > PieceInsulation(torsoOnly));
 
     using namespace RadClimatePowerArmorPolicy;
 
