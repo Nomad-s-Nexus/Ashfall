@@ -85,11 +85,8 @@ int main()
 
     PieceSample torsoPiece{};
     torsoPiece.coverage = torsoCoverage;
-    const float plainTorso = PieceInsulation(torsoPiece);
-    torsoPiece.radiationResistance = 500.0f;
-    torsoPiece.energyResistance = 125.0f;
-    const float resistantTorso = PieceInsulation(torsoPiece);
-    Require(resistantTorso > plainTorso);
+    Require(Near(PieceWarmth(torsoPiece), kDefaultPieceWarmth));
+    Require(Near(PieceInsulation(torsoPiece), kTorsoWeight * kDefaultPieceWarmth));
 
     PieceSample overriddenTorso = torsoPiece;
     overriddenTorso.overrideInsulation01 = 0.82f;
@@ -99,11 +96,10 @@ int main()
     Require(Near(PieceWarmth(overriddenTorso), 1.0f));
     Require(Near(PieceInsulation(overriddenTorso), kTorsoWeight));
 
-    PieceSample invalidPiece{};
-    invalidPiece.coverage = torsoCoverage;
-    invalidPiece.radiationResistance = std::numeric_limits<float>::quiet_NaN();
-    invalidPiece.energyResistance = std::numeric_limits<float>::infinity();
-    Require(std::isfinite(PieceInsulation(invalidPiece)));
+    PieceSample invalidOverride = torsoPiece;
+    invalidOverride.overrideInsulation01 = std::numeric_limits<float>::quiet_NaN();
+    Require(Near(PieceWarmth(invalidOverride), kDefaultPieceWarmth));
+    Require(std::isfinite(PieceInsulation(invalidOverride)));
 
     PieceSample fullBody{};
     fullBody.coverage = fullCoverage;
