@@ -288,6 +288,9 @@ void RadHud::CreateView()
     {
         static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_filterView, kFilterDesc);
     }
+
+    EnsureClimateView();
+
     _viewsReady.store(_view != 0 && api->IsValid(_view) &&
                       _toxicView != 0 && api->IsValid(_toxicView) &&
                       _filterView != 0 && api->IsValid(_filterView));
