@@ -4,30 +4,30 @@
 
 Radiation Overhaul is expanding into a broader environmental-survival system. The cold-survival work lives inside the existing `Rad-Overhaul-Fallout-4` plugin rather than as a separate DLL so storms, shelter, HUD ownership, serialization, and player exposure can share one lifecycle.
 
-The implementation is proof-first. Deterministic temperature, wetness, insulation, heat, and hypothermia behavior is separated from Fallout 4 acquisition and mutation. The first CommonLib-facing adapter is read-only and is compiled before it is allowed onto the live 4 Hz runtime path.
+The implementation is proof-first. Deterministic temperature, wetness, ambient mapping, insulation, persistence validation, and hypothermia behavior are separated from Fallout 4 acquisition and gameplay mutation.
 
 ## Clean-room boundary
 
-Fallout 2287 - Nuclear Winter is used only as a public gameplay reference for the idea of cold exposure, wetness, insulation, heat sources, hypothermia, and temperature feedback.
+Fallout 2287 - Nuclear Winter is used only as a public gameplay reference for the ideas of cold exposure, wetness, insulation, heat sources, hypothermia, and temperature feedback.
 
 No Nuclear Winter source code, Papyrus scripts, plugin records, SWF files, sounds, textures, meshes, BA2 content, configuration files, or other assets are copied into this repository. Runtime behavior is implemented independently from documented Fallout 4/CommonLib interfaces and original policy code in this project.
 
-## Policy state
+## Core policy
 
-`src/ClimatePolicy.h` owns deterministic state and transition rules that do not depend on Fallout 4:
+`src/ClimatePolicy.h` owns deterministic body-state transitions:
 
-- core body temperature, bounded to 28-37 C for the cold-only model
+- core body temperature bounded to 28-37 C
 - wetness from 0-100%
-- ambient temperature
-- wind exposure
-- precipitation
-- submerged state
-- shelter
-- nearby heat
-- player activity
-- armor insulation
+- ambient temperature input
+- wind exposure input
+- precipitation input
+- swimming/submersion input
+- shelter input
+- nearby heat input
+- player activity input
+- armor insulation input
 - Power Armor insulation floor
-- reversible hypothermia stages and stage-effect targets
+- reversible hypothermia stages and desired effect targets
 
 The cold-only model never raises core temperature above 37 C. Heat-exhaustion mechanics are intentionally outside this slice.
 
@@ -42,108 +42,123 @@ The cold-only model never raises core temperature above 37 C. Heat-exhaustion me
 | 30.0-32.99 C | Severe |
 | Below 30.0 C | Critical |
 
-Stage effects are returned as desired multipliers/deltas instead of accumulated mutations. Runtime integration must apply the current desired stage idempotently and remove old-stage effects when the stage changes.
+Stage effects are returned as desired multipliers/deltas rather than accumulated mutations. Future gameplay integration must apply the current desired stage idempotently and remove the old stage cleanly when state changes.
 
 ## Wetness model
 
-Submersion saturates wetness quickly. Precipitation increases wetness according to exposure. Shelter suppresses most rain gain. Drying accelerates indoors, near heat, and with activity.
+Swimming saturates wetness quickly. Rain increases wetness while exposed. Shelter suppresses most precipitation gain. Drying accelerates indoors, near heat, and with activity.
 
-Wetness increases cooling rather than directly damaging the player.
+Wetness increases cooling instead of directly damaging the player.
 
-## Thermal model
+## Ambient mapping
 
-The policy computes separate cooling and warming rates.
+`src/ClimateEnvironmentPolicy.h` owns the original deterministic ambient mapping used by the runtime adapter:
 
-Cooling increases with:
+- interiors use a 20 C baseline
+- exterior baseline is 10 C
+- a 3 C day/night curve peaks around 14:00 and bottoms around 02:00
+- rainy weather subtracts 4 C
+- invalid game-time input resolves to a finite safe result
 
-- colder ambient temperature
-- exposed wind
+The mapping is tested separately from Fallout 4 acquisition so runtime code cannot silently drift from the verified model.
+
+## Insulation policy
+
+`src/ClimateInsulationPolicy.h` defines the first automatic equipment-side policy without walking Fallout inventory yet.
+
+Coverage is weighted across head, torso, arms, and legs. Radiation and energy resistance are bounded secondary signals rather than hard item lists, allowing modded armor to participate without mandatory patches. Multiple pieces combine with diminishing returns and cap below perfect insulation.
+
+The existing Rad Power Armor implementation remains authoritative for full-suit detection. Climate does not duplicate that six-piece/helmet scan.
+
+## Serialization contract
+
+`src/ClimateSerializationPolicy.h` reserves version 1 of a `CLIM` co-save record containing exactly:
+
+- core temperature
 - wetness
 
-Cooling decreases with:
+Only finite values inside the policy bounds are accepted. Invalid records restore to a clean normal/dry state. Hypothermia stage is derived from restored core temperature rather than serialized independently.
 
-- armor insulation
-- Power Armor
-- shelter
+The record contract is tested now, but the existing Rad F4SE serialization loop has not yet been changed to write/read `CLIM`.
 
-Warming increases with:
+## Live observation runtime
 
-- nearby heat
-- player activity
-- warm ambient temperature
-- homeostatic recovery toward 37 C
-
-The rates are deliberately isolated from game-engine acquisition so the model can be tested without Fallout 4.
-
-## Verified runtime adapter
-
-`src/ClimateRuntime.cpp` contains the first CommonLib-facing acquisition layer. It reads only interfaces already used and trusted by the Rad plugin or pinned CommonLib:
+`src/ClimateRuntime.cpp` reads only interfaces already trusted by the Rad plugin or pinned `commonlib_NonVR`:
 
 - `PlayerCharacter::GetSingleton()` and the player's parent cell
 - `TESObjectCELL::IsInterior()`
 - `ActorState::IsSwimming()`
 - `Sky::GetSingleton()` and the current weather
-- the weather record's `kRainy` classification flag
+- weather `kRainy` classification
 - `Calendar::gameDaysPassed`
 
-The adapter derives a simple original day/night ambient curve and rainy-weather penalty, then prepares a `RadClimatePolicy::EnvironmentSample` and steps the deterministic policy. Swimming feeds the policy's submerged exposure input so it can saturate wetness once the adapter is live.
+It prepares an `EnvironmentSample`, runs the tested climate policy, and emits stage/status diagnostics.
 
-This adapter does not mutate gameplay. It does not modify actor values, health, inventory, weather, references, position, or forms. `tests/verify_climate_runtime.py` enforces that boundary and is run by the Rad build workflow.
+The runtime is now invoked immediately after `RadiationEngine::Update()` inside the existing marshaled game-main 4 Hz task. It is not called directly from the worker-thread `PlayerCharacter::Update` producer.
 
-The adapter is not yet invoked from the live 4 Hz engine path. It exists now so the pinned Windows/CommonLib build can prove the acquisition code compiles before lifecycle wiring is added.
+Climate state is reset on:
+
+- F4SE serialization revert
+- post-load main-thread lifecycle work
+- new-game main-thread lifecycle work
+
+This prevents one character's transient body temperature from leaking into another save while persistent `CLIM` record wiring is still pending.
+
+The observation runtime does not modify actor values, health, inventory, weather, references, position, or forms.
 
 ## Verification
 
-The existing `rad_correctness_policy_tests` target covers the climate policy alongside the current Rad correctness policies.
+The Rad correctness tests and dedicated climate policy tests cover:
 
-The climate checks prove:
+- exact hypothermia boundaries
+- invalid-state sanitization
+- rain wetness
+- swimming saturation
+- drying indoors and near heat
+- wet/windy cooling
+- insulation effectiveness
+- Power Armor insulation floor
+- heat recovery
+- critical exposure
+- monotonic stage-effect targets
+- comfortable recovery toward 37 C
+- day/night ambient mapping
+- rainy ambient penalty
+- climate serialization validation and safe restore
+- weighted equipment coverage and diminishing insulation combination
 
-- exact stage boundaries
-- invalid serialized values sanitize safely
-- rain raises wetness
-- submersion saturates wetness
-- indoor and heat-assisted drying
-- wet/windy cold cools faster than dry/calm cold
-- insulation reduces cooling
-- Power Armor provides a strong insulation floor
-- nearby heat can restore a chilled player
-- extreme exposure reaches critical hypothermia
-- stage penalties are monotonic and normal-state effects return to neutral
-- comfortable conditions recover toward, but never exceed, 37 C
+`tests/verify_climate_runtime.py` additionally enforces:
 
-The source-contract guard additionally proves that the first CommonLib-facing runtime slice remains observation-only and continues to acquire parent-cell, weather/rain, game-time, and swimming state through the verified interfaces above.
+- verified cell/weather/calendar/swimming acquisition only
+- use of the tested ambient policy
+- climate execution inside the verified game-main queued update
+- no climate update in the worker producer
+- reset on revert/post-load/new-game
+- no gameplay mutation in the observation slice
 
-## Runtime integration still required
+## Still required before gameplay penalties
 
-This PR does not claim an active in-game cold system yet.
-
-The first acquisition adapter exists, but live integration remains pending. Before a gameplay mutation is added, each remaining source or action must be verified against the supported Fallout 4/CommonLib contract:
-
-1. call the climate adapter from the verified 4 Hz game-main path
-2. reset climate runtime state across save/load/new-game boundaries
-3. persist core temperature and wetness in a versioned co-save record
-4. share exterior roof/shelter coverage with the existing Rad shelter system
-5. verify a wind magnitude or safe derived wind proxy
-6. classify equipped armor insulation
-7. integrate the existing full Power Armor result
-8. discover nearby heat sources safely and with bounded work
-9. apply/remove hypothermia effects idempotently
-10. add PrismaUI temperature/wetness HUD and debug controls
+1. write/read the versioned `CLIM` record through the existing Rad serialization loop
+2. share exterior roof/shelter coverage with the existing Rad shelter result
+3. verify a wind source or bounded derived proxy
+4. acquire worn armor data and feed the tested insulation policy
+5. feed the existing full Power Armor result into climate protection
+6. discover nearby heat sources safely with bounded work
+7. apply/remove hypothermia effects idempotently
+8. add PrismaUI temperature/wetness HUD and debug controls
 
 No guessed relocation or unverified setter should be added to complete those steps.
 
-## Planned runtime acceptance
+## Observation runtime acceptance
 
-When the engine integration lands, runtime acceptance must prove:
+Before gameplay penalties are enabled, an in-game session must prove:
 
-- exterior weather changes ambient temperature
-- interiors and shelter materially reduce exposure
-- rain/swimming change wetness
-- wet characters cool faster than dry characters
-- insulation and Power Armor materially reduce cooling
-- heat sources warm and dry the player
-- hypothermia penalties enter and leave cleanly
-- save/load restores only the current save's climate state
-- new game does not inherit prior climate state
-- PrismaUI absence remains fail-safe
-- sustained play does not add unbounded per-frame work
+- `[Climate]` status lines appear at the expected cadence
+- exterior ambient changes by time of day
+- rainy weather lowers ambient and raises wetness
+- swimming rapidly raises wetness
+- entering an interior reports 20 C and accelerates drying
+- loading another save/new game starts from clean transient climate state while persistence is absent
+- the new observation work does not disturb the existing Rad update cadence or produce queue growth
+
+Later acceptance must additionally prove insulation, Power Armor, heat sources, persistent climate state, hypothermia effects, and HUD behavior.
