@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "RadiationEngine.h"
+#include "ClimateRuntime.h"
 #include "Hooks.h"
 #include "RadHud.h"
 #include "RadCorrectnessPolicy.h"
@@ -132,6 +133,7 @@ namespace
     void RevertCallback(const F4SE::SerializationInterface* /*a_intfc*/)
     {
         RadiationEngine::GetSingleton().RevertState();
+        ClimateRuntime::GetSingleton().Reset();
     }
 
     std::atomic<bool> g_radWaiting{ false };
@@ -315,6 +317,7 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnPostLoad();
+                    ClimateRuntime::GetSingleton().Reset();
                     logger->info("[PostLoad] OnPostLoad end; ResetAppliedPenalties begin.");
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
@@ -376,6 +379,7 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnPostLoad();   // reset per-load tracking
+                    ClimateRuntime::GetSingleton().Reset();
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnNewGame();    // arm clear-weather-on-first-exterior
