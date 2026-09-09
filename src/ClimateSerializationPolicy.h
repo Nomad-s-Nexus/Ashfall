@@ -4,6 +4,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
+#include <span>
 
 namespace RadClimateSerialization
 {
@@ -15,6 +17,12 @@ namespace RadClimateSerialization
     {
         float coreC{ RadClimatePolicy::kNormalCoreC };
         float wetness01{ 0.0f };
+    };
+
+    enum class CandidateDisposition
+    {
+        kRestore,
+        kAmbiguous
     };
 
     [[nodiscard]] inline bool IsValid(const PersistedState& state) noexcept
@@ -38,5 +46,26 @@ namespace RadClimateSerialization
         if (!IsValid(state))
             return {};
         return RadClimatePolicy::SanitizeState({ state.coreC, state.wetness01, RadClimatePolicy::HypothermiaStage::kNormal });
+    }
+
+    [[nodiscard]] inline CandidateDisposition ClassifyCandidates(
+        std::span<const PersistedState> candidates) noexcept
+    {
+        if (candidates.empty())
+            return CandidateDisposition::kAmbiguous;
+
+        const auto& first = candidates.front();
+        for (const auto& candidate : candidates)
+        {
+            if (candidate.coreC != first.coreC || candidate.wetness01 != first.wetness01)
+                return CandidateDisposition::kAmbiguous;
+        }
+        return CandidateDisposition::kRestore;
+    }
+
+    [[nodiscard]] inline CandidateDisposition ClassifyCandidates(
+        std::initializer_list<PersistedState> candidates) noexcept
+    {
+        return ClassifyCandidates(std::span<const PersistedState>{ candidates.begin(), candidates.size() });
     }
 }
