@@ -40,6 +40,8 @@ int main()
     Require(ShouldFollowDomeOnTick(4));
     Require(!ShouldRecreateDomeForOwner(false, false, false));
     Require(!ShouldRecreateDomeForOwner(true, true, true));
+    // Exterior parent-cell changes are normal streaming inside one worldspace. Keep the existing
+    // dome references alive so the follow path moves them without a destructive clear/respawn snap.
     Require(!ShouldRecreateDomeForOwner(true, false, true));
     Require(ShouldRecreateDomeForOwner(true, true, false));
     Require(ShouldRecreateDomeForOwner(true, false, false));
@@ -59,6 +61,7 @@ int main()
     Require(!ArmsRadAwayHealing(CureSignal::kVerifiedChelationUse));
     Require(ArmsRadAwayHealing(CureSignal::kVerifiedRadAwayUse));
 
+    // Load/new-game state mutation is legal only when both activation gates succeeded.
     Require(!IsEngineActive(false, false));
     Require(!IsEngineActive(true, false));
     Require(!IsEngineActive(false, true));
