@@ -198,7 +198,9 @@ void RadiationEngine::Update()
             _playerEnclosed    = ComputeEnclosedByStructure();
         }
 
+        RetryStormGhoulCleanup();
         RetryPendingStormGhouls();
+        RetireUnresolvedStormGhouls();
 
         // Hunter ghoul pack: persists past the storm, so check (throttled) whether the player has
         // left the area and the pack should despawn. Runs every tick regardless of storm/ghoul state.
@@ -1387,6 +1389,7 @@ void RadiationEngine::RevertState()
     _lastRadstormSec  = -1.0e30;
     _lastRadWeatherFormID = 0;
     _stormScheduled   = false;
+    ResetStormGhoulStateForLoad();
     _filterCharge     = 100.0f;   // fresh full filter for a new game / co-saveless load
     _filterLowWarned  = 0;
     _maskCondition    = 100.0f;
@@ -1414,6 +1417,7 @@ void RadiationEngine::OnNewGame()
 void RadiationEngine::OnPostLoad()
 {
     auto logger = Log();
+    ResetStormGhoulStateForLoad();
     _forceClearOnEntry = false;
     _spawnRadBlockTicks = 0;
 

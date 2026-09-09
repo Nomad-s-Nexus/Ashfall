@@ -59,7 +59,7 @@ assert "ref->As<RE::Actor>()" not in ghoul_spawn
 assert "_stormGhoulRefs.erase" not in ghoul_spawn
 
 pending_retry = actors.split("void RadiationEngine::RetryPendingStormGhouls()", 1)[1].split(
-    "void RadiationEngine::SpawnStormGhouls()", 1
+    "void RadiationEngine::RetryStormGhoulCleanup()", 1
 )[0]
 for token in (
     "_stormGhoulPendingRefs",
@@ -67,33 +67,79 @@ for token in (
     "actor->Enable(true);",
     "actor->ClampToGround();",
     "_stormGhoulRefs.push_back(handle);",
-    "_stormGhoulClearPending",
     "kStormGhoulPendingTimeoutTicks",
 ):
     assert token in pending_retry, f"pending storm ghoul retry is missing: {token}"
-assert "_stormGhoulPendingRefs.clear();" in pending_retry
+assert "_stormGhoulCleanupRefs.insert" in pending_retry
 assert "allowing future pack rolls" in pending_retry
 assert "_stormGhoulPendingRefs.push_back(handle);" in ghoul_spawn
-assert "Previous pack cleanup still has" in ghoul_spawn
+
+cleanup_retry = actors.split("void RadiationEngine::RetryStormGhoulCleanup()", 1)[1].split(
+    "void RadiationEngine::RetireUnresolvedStormGhouls()", 1
+)[0]
+for token in (
+    "_stormGhoulCleanupRefs",
+    "ref->Disable();",
+    "ref->SetDelete(true);",
+    "stillPending.push_back(handle);",
+):
+    assert token in cleanup_retry, f"storm ghoul cleanup queue is missing: {token}"
+
+live_retirement = actors.split("void RadiationEngine::RetireUnresolvedStormGhouls()", 1)[1].split(
+    "void RadiationEngine::ResetStormGhoulStateForLoad()", 1
+)[0]
+for token in (
+    "_stormGhoulRefs",
+    "_stormGhoulUnresolvedTicks",
+    "kStormGhoulPendingTimeoutTicks",
+    "_stormGhoulCleanupRefs.push_back(handle);",
+    "pack replacement is no longer blocked",
+):
+    assert token in live_retirement, f"unresolved live ghoul retirement is missing: {token}"
+
+load_reset = actors.split("void RadiationEngine::ResetStormGhoulStateForLoad()", 1)[1].split(
+    "void RadiationEngine::SpawnStormGhouls()", 1
+)[0]
+for token in (
+    "_stormGhoulRefs.clear();",
+    "_stormGhoulPendingRefs.clear();",
+    "_stormGhoulCleanupRefs.clear();",
+    "_stormGhoulPendingTicks = 0;",
+    "_stormGhoulUnresolvedTicks = 0;",
+    "_ghoulPackWorldID = 0;",
+):
+    assert token in load_reset, f"load ghoul state reset is missing: {token}"
 
 update_body = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
     "void RadiationEngine::PollInput()", 1
 )[0]
+assert "RetryStormGhoulCleanup();" in update_body
 assert "RetryPendingStormGhouls();" in update_body
+assert "RetireUnresolvedStormGhouls();" in update_body
+assert update_body.find("RetryStormGhoulCleanup();") < update_body.find("CheckGhoulPackCleanup();")
 assert update_body.find("RetryPendingStormGhouls();") < update_body.find("CheckGhoulPackCleanup();")
+assert update_body.find("RetireUnresolvedStormGhouls();") < update_body.find("CheckGhoulPackCleanup();")
+
+revert_state = radiation_engine.split("void RadiationEngine::RevertState()", 1)[1].split(
+    "void RadiationEngine::Notify", 1
+)[0]
+assert "ResetStormGhoulStateForLoad();" in revert_state
+
+postload = radiation_engine.split("void RadiationEngine::OnPostLoad()", 1)[1]
+assert "ResetStormGhoulStateForLoad();" in postload
 
 clear_ghouls = actors.split("void RadiationEngine::ClearStormGhouls()", 1)[1].split(
     "void RadiationEngine::ApplyStormIMAD", 1
 )[0]
 for token in (
-    "_stormGhoulClearPending = true;",
-    "RetryPendingStormGhouls();",
-    "unresolved.push_back(handle);",
-    "_stormGhoulPendingRefs.insert",
-    "Retaining {} pending ref(s) until they resolve for deletion.",
+    "_stormGhoulCleanupRefs.push_back(handle);",
+    "_stormGhoulPendingRefs.clear();",
+    "_stormGhoulUnresolvedTicks = 0;",
+    "moved to cleanup ownership",
 ):
     assert token in clear_ghouls, f"pending storm ghoul cleanup is missing: {token}"
 assert "if (_stormGhoulRefs.empty() && _stormGhoulPendingRefs.empty()) return;" in clear_ghouls
+assert "_stormGhoulClearPending" not in actors
 
 ghoul_cleanup = actors.split("void RadiationEngine::CheckGhoulPackCleanup()", 1)[1].split(
     "void RadiationEngine::ClearStormGhouls()", 1
