@@ -9,6 +9,8 @@ hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 shelter_runtime = (SRC / "ClimateShelterRuntime.cpp").read_text(encoding="utf-8")
 shelter_header = (SRC / "ClimateShelterRuntime.h").read_text(encoding="utf-8")
+heat_runtime = (SRC / "ClimateHeatRuntime.cpp").read_text(encoding="utf-8")
+heat_header = (SRC / "ClimateHeatRuntime.h").read_text(encoding="utf-8")
 
 for token in (
     "RE::PlayerCharacter::GetSingleton()",
@@ -31,9 +33,11 @@ for token in (
     "environment.indoors",
     "environment.shelter01 = shelter.thermal01;",
     "environment.precipitationShelter01 = shelter.precipitation01;",
+    "environment.heat01 = _heat.Sample(player);",
     "const auto shelter = _shelter.Sample(player);",
     "ClimateRuntime::Reset()",
     "_shelter.Reset();",
+    "_heat.Reset();",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
 
@@ -55,6 +59,7 @@ for token in (
     "void Reset();",
     "RadClimatePolicy::ClimateState _state{};",
     "ClimateShelterRuntime _shelter;",
+    "ClimateHeatRuntime _heat;",
 ):
     assert token in header, f"climate runtime state contract missing: {token}"
 
@@ -69,8 +74,26 @@ for token in (
 ):
     assert token in shelter_runtime, f"climate shelter runtime contract missing: {token}"
 
+for token in (
+    "RE::TES::GetSingleton()",
+    "world->ForEachReferenceInRange(player, kMaximumSearchRadius",
+    "RadClimateHeatPolicy::ShouldRefresh",
+    "ref->GetObjectReference()",
+    "ref->Get3D()",
+    "ProfileFor(base->GetFormID())",
+    "RadClimateHeatPolicy::Contribution(sample)",
+    "add(0x002476B7",
+    "add(0x00048280",
+    "add(0x00048281",
+    "add(0x00048282",
+):
+    assert token in heat_runtime, f"climate heat runtime contract missing: {token}"
+
+assert "0x0010C3B6" not in heat_runtime
 assert "_refreshTick" not in shelter_runtime
 assert "_refreshTick" not in shelter_header
+assert "_refreshTick" not in heat_runtime
+assert "_refreshTick" not in heat_header
 
 engine_queue = hooks.split("static void QueueEngineUpdate()", 1)[1].split(
     "void PlayerCharacter_Update_Hook", 1
@@ -100,4 +123,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: event-driven protection, movement-cached shelter, trusted weather/time/swimming inputs, game-main tick, load-safe reset, no gameplay mutation")
+print("climate runtime contract verified: event-driven protection, movement-cached shelter and heat discovery, trusted environment inputs, game-main tick, load-safe reset, no gameplay mutation")
