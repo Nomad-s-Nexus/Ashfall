@@ -5,6 +5,7 @@
 #include <RE/B/BIPED_OBJECT.h>
 #include <RE/B/BipedAnim.h>
 #include <RE/P/PlayerCharacter.h>
+#include <RE/T/TESFile.h>
 #include <RE/T/TESObjectARMO.h>
 
 namespace
@@ -26,12 +27,19 @@ namespace
         coverage.rightLeg = Fills(armor, kUnderRightLeg) || Fills(armor, kAboveRightLeg);
         return coverage;
     }
+
+    struct WornArmor
+    {
+        RE::TESObjectARMO* armor{ nullptr };
+        RadClimateInsulationPolicy::PieceSample sample{};
+    };
 }
 
 void ClimateProtectionRuntime::Reset() noexcept
 {
     _config.Reset();
     _cached = {};
+    _lastWornForms.clear();
     _configLoaded = false;
     _refreshTick = 0;
 }
@@ -58,13 +66,13 @@ void ClimateProtectionRuntime::EnsureConfigLoaded()
     _configLoaded = true;
 }
 
-RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerCharacter* player) const
+RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerCharacter* player)
 {
     RadClimatePolicy::ProtectionSample result{};
     if (!player || !player->biped)
         return result;
 
-    std::unordered_map<std::uint32_t, RadClimateInsulationPolicy::PieceSample> piecesByForm;
+    std::unordered_map<std::uint32_t, WornArmor> piecesByForm;
     auto& biped = *player->biped;
     for (std::size_t i = 0; i < std::size(biped.object); ++i)
     {
@@ -74,22 +82,75 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
 
         auto* armor = static_cast<RE::TESObjectARMO*>(form);
         auto [it, inserted] = piecesByForm.try_emplace(armor->GetFormID());
-        auto& piece = it->second;
+        auto& worn = it->second;
         if (inserted)
-            piece.coverage = AuthoredCoverage(armor);
+        {
+            worn.armor = armor;
+            worn.sample.coverage = AuthoredCoverage(armor);
+        }
         if (const auto overrideValue = _config.ArmorOverride(armor->GetFormID()))
-            piece.overrideInsulation01 = *overrideValue;
+            worn.sample.overrideInsulation01 = *overrideValue;
     }
 
-    std::vector<RadClimateInsulationPolicy::PieceSample> pieces;
-    pieces.reserve(piecesByForm.size());
+    std::vector<WornArmor> worn;
+    worn.reserve(piecesByForm.size());
     for (const auto& [formID, piece] : piecesByForm)
     {
         (void)formID;
-        pieces.push_back(piece);
+        worn.push_back(piece);
+    }
+    std::sort(worn.begin(), worn.end(), [](const WornArmor& lhs, const WornArmor& rhs) {
+        return lhs.armor->GetFormID() < rhs.armor->GetFormID();
+    });
+
+    std::vector<std::uint32_t> wornForms;
+    std::vector<RadClimateInsulationPolicy::PieceSample> samples;
+    wornForms.reserve(worn.size());
+    samples.reserve(worn.size());
+    for (const auto& piece : worn)
+    {
+        wornForms.push_back(piece.armor->GetFormID());
+        samples.push_back(piece.sample);
+    }
+
+    if (wornForms != _lastWornForms)
+    {
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+        {
+            logger->info("[Climate] Worn armor changed: {} unique armor record(s).", worn.size());
+            for (const auto& piece : worn)
+            {
+                auto automatic = piece.sample;
+                automatic.overrideInsulation01 = -1.0f;
+                const float automatic01 = RadClimateInsulationPolicy::PieceInsulation(automatic);
+                const float effective01 = RadClimateInsulationPolicy::PieceInsulation(piece.sample);
+                const bool overridden = piece.sample.overrideInsulation01 >= 0.0f;
+                auto* file = piece.armor->GetFile(0);
+                if (file)
+                {
+                    logger->info(
+                        "[Climate] armor {}|0x{:X} runtime=0x{:08X} auto={:.0f}% effective={:.0f}% override={} coverage=H{} T{} LA{} RA{} LL{} RL{}",
+                        file->GetFilename(), piece.armor->GetLocalFormID(), piece.armor->GetFormID(),
+                        automatic01 * 100.0f, effective01 * 100.0f, overridden,
+                        piece.sample.coverage.head, piece.sample.coverage.torso,
+                        piece.sample.coverage.leftArm, piece.sample.coverage.rightArm,
+                        piece.sample.coverage.leftLeg, piece.sample.coverage.rightLeg);
+                }
+                else
+                {
+                    logger->info(
+                        "[Climate] armor runtime=0x{:08X} auto={:.0f}% effective={:.0f}% override={} coverage=H{} T{} LA{} RA{} LL{} RL{}",
+                        piece.armor->GetFormID(), automatic01 * 100.0f, effective01 * 100.0f, overridden,
+                        piece.sample.coverage.head, piece.sample.coverage.torso,
+                        piece.sample.coverage.leftArm, piece.sample.coverage.rightArm,
+                        piece.sample.coverage.leftLeg, piece.sample.coverage.rightLeg);
+                }
+            }
+        }
+        _lastWornForms = wornForms;
     }
 
     result.insulation01 = RadClimateInsulationPolicy::CombinedInsulation(
-        std::span<const RadClimateInsulationPolicy::PieceSample>{ pieces });
+        std::span<const RadClimateInsulationPolicy::PieceSample>{ samples });
     return result;
 }
