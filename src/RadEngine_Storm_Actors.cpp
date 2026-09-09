@@ -48,14 +48,26 @@ void RadiationEngine::SpawnStormGhouls()
         return;
 
     std::size_t liveHunters = 0;
+    std::size_t unresolvedHunters = 0;
     for (auto& handle : _stormGhoulRefs)
     {
         auto ptr = handle.get();
         auto* ref = ptr.get();
+        if (!ref)
+        {
+            ++unresolvedHunters;
+            continue;
+        }
         auto* actor = ref && ref->GetFormType() == RE::ENUM_FORM_ID::kACHR
             ? static_cast<RE::Actor*>(ref) : nullptr;
         if (actor && !actor->IsDead(false))
             ++liveHunters;
+    }
+    if (unresolvedHunters > 0)
+    {
+        Log()->debug("[Storm/Ghouls] {} hunter ref(s) unresolved during streaming; deferring pack replacement.",
+            unresolvedHunters);
+        return;
     }
     if (liveHunters > 0)
     {
@@ -90,6 +102,10 @@ void RadiationEngine::SpawnStormGhouls()
     const int          count = countDist(rng);
     const RE::NiPoint3 base  = player->GetPosition();
     int spawned = 0;
+    int grounded = 0;
+    int visible3D = 0;
+    int pending = 0;
+    int rejected = 0;
 
     for (int i = 0; i < count; ++i)
     {
@@ -118,16 +134,41 @@ void RadiationEngine::SpawnStormGhouls()
             if (actor)
             {
                 actor->Enable(true);
-                actor->ClampToGround();
+                const bool clamped = actor->ClampToGround();
+                const auto finalPos = actor->GetPosition();
+                auto* actorCell = actor->GetParentCell();
+                const auto actorCellID = actorCell ? actorCell->GetFormID() : 0;
+                const auto actorWorldID = actorCell && actorCell->worldSpace
+                    ? actorCell->worldSpace->GetFormID() : 0;
+                const bool has3D = actor->Get3D() != nullptr;
+                logger->debug(
+                    "[Storm/Ghouls] actor {} pos=({:.0f},{:.0f},{:.0f}) grounded={} 3D={} cell=0x{:08X} world=0x{:08X}",
+                    spawned + 1, finalPos.x, finalPos.y, finalPos.z, clamped, has3D,
+                    actorCellID, actorWorldID);
+                if (clamped) ++grounded;
+                if (has3D) ++visible3D;
                 _stormGhoulRefs.push_back(handle);
                 ++spawned;
+            }
+            else if (ref)
+            {
+                ref->Disable();
+                ref->SetDelete(true);
+                ++rejected;
+            }
+            else
+            {
+                _stormGhoulRefs.push_back(handle);
+                ++pending;
             }
         }
     }
     _ghoulPackCenter = base;
     _ghoulPackWorldID = world->GetFormID();
     _ghoulPackInterior = false;
-    logger->warn("[Storm/Ghouls] HUNT — unleashed {} feral ghoul(s); they hunt until killed or you leave the area.", spawned);
+    logger->warn(
+        "[Storm/Ghouls] HUNT — unleashed {} feral ghoul(s); grounded {}/{}, 3D {}/{}, pending {}, rejected {}; they hunt until killed or you leave the area.",
+        spawned, grounded, spawned, visible3D, spawned, pending, rejected);
 }
 void RadiationEngine::CheckGhoulPackCleanup()
 {

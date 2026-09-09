@@ -33,6 +33,8 @@ for token in (
 
 for token in (
     "std::size_t liveHunters = 0;",
+    "std::size_t unresolvedHunters = 0;",
+    "unresolved during streaming; deferring pack replacement",
     "ref->GetFormType() == RE::ENUM_FORM_ID::kACHR",
     "static_cast<RE::Actor*>(ref)",
     "actor && !actor->IsDead(false)",
@@ -47,6 +49,9 @@ for token in (
     "data.clearStillLoadingFlag = true;",
     "actor->Enable(true);",
     "actor->ClampToGround();",
+    "actor->GetPosition();",
+    "actor->Get3D() != nullptr",
+    "ref->SetDelete(true);",
 ):
     assert token in ghoul_spawn, f"storm ghoul placement activation is missing: {token}"
 
