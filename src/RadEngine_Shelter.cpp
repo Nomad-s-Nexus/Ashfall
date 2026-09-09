@@ -1,10 +1,58 @@
 #include "RadEngine_Internal.h"
+#include "ClimateShelterPolicy.h"
+
+#include <RE/B/BSTEvent.h>
+#include <RE/T/TESObjectLoadedEvent.h>
+
+#include <atomic>
 
 using namespace RadInternal;
 
 // Shelter and cover: the overhead roof-fan raycast, powered Pulowski shelters, sealed power armour.
 // Split out of RadiationEngine.cpp (was ~4,300 lines). Shared constants/helpers live in
 // RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
+
+namespace
+{
+    struct ShelterProbeCache
+    {
+        std::atomic<bool> dirty{ true };
+        std::uint32_t cellID{ 0 };
+        float x{ 0.0f };
+        float y{ 0.0f };
+        float z{ 0.0f };
+        bool covered{ false };
+        bool known{ false };
+        bool debugWasEnabled{ false };
+    };
+
+    ShelterProbeCache g_shelterProbeCache;
+
+    class ShelterLoadSink final : public RE::BSTEventSink<RE::TESObjectLoadedEvent>
+    {
+    public:
+        RE::BSEventNotifyControl ProcessEvent(
+            const RE::TESObjectLoadedEvent&,
+            RE::BSTEventSource<RE::TESObjectLoadedEvent>*) override
+        {
+            g_shelterProbeCache.dirty.store(true, std::memory_order_release);
+            return RE::BSEventNotifyControl::kContinue;
+        }
+    };
+
+    void EnsureShelterLoadSink()
+    {
+        static bool registered = false;
+        static ShelterLoadSink sink;
+        if (registered)
+            return;
+        if (auto* source = RE::TESObjectLoadedEvent::GetEventSource())
+        {
+            source->RegisterSink(&sink);
+            registered = true;
+        }
+    }
+}
 
 
 // Power Armor SEALED-suit detection. Scans the actor's biped slots for armor carrying the vanilla
@@ -59,38 +107,56 @@ bool RadiationEngine::IsPlayerInPoweredShelter() const
 }
 
 
-// Raycast the player's surroundings to decide if a player-built structure encloses them. Throttled
-// by the caller (UpdateStorm path) — do NOT call every tick. Const: only reads world state.
 bool RadiationEngine::ComputeEnclosedByStructure() const
 {
+    EnsureShelterLoadSink();
+
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player) return false;
+    if (!player) return true;
     auto* cell = player->GetParentCell();
-    if (!cell) return false;
+    if (!cell) return true;
+    if (cell->IsInterior()) return true;
+    if (!cell->IsAttached()) return true;
 
     const RE::NiPoint3 p = player->GetPosition();
+    const auto cellID = cell->GetFormID();
+    const bool debugJustEnabled = _debugShelter && !g_shelterProbeCache.debugWasEnabled;
+    g_shelterProbeCache.debugWasEnabled = _debugShelter;
+    const bool eventDirty = g_shelterProbeCache.dirty.exchange(false, std::memory_order_acq_rel);
+
+    if (!debugJustEnabled && !eventDirty && !RadClimateShelterPolicy::ShouldProbe(
+            g_shelterProbeCache.known,
+            cellID,
+            g_shelterProbeCache.cellID,
+            p.x - g_shelterProbeCache.x,
+            p.y - g_shelterProbeCache.y,
+            p.z - g_shelterProbeCache.z))
+        return g_shelterProbeCache.covered;
+
     const RE::NiPoint3 head{ p.x, p.y, p.z + kShelterHeadZ };
 
-    // Upward fan: one ray straight up + four angled ~30 deg off vertical (N/E/S/W). Count how many
-    // hit overhead structure; the fan tolerates roof edges/gaps a single up-ray would miss.
-    const float h = kRoofRayDist * kRoofFanHoriz;   // horizontal offset of the angled rays
-    const float v = kRoofRayDist * kRoofFanVert;    // their vertical component
+    const float h = kRoofRayDist * kRoofFanHoriz;
+    const float v = kRoofRayDist * kRoofFanVert;
 
-    const bool up =     RayHitsStructure(cell, head, { head.x,     head.y,     head.z + kRoofRayDist });  // straight up
-    const bool px =     RayHitsStructure(cell, head, { head.x + h, head.y,     head.z + v });             // +X
-    const bool nx =     RayHitsStructure(cell, head, { head.x - h, head.y,     head.z + v });             // -X
-    const bool py =     RayHitsStructure(cell, head, { head.x,     head.y + h, head.z + v });             // +Y
-    const bool ny =     RayHitsStructure(cell, head, { head.x,     head.y - h, head.z + v });             // -Y
+    const bool up = RayHitsStructure(cell, head, { head.x, head.y, head.z + kRoofRayDist });
+    const bool px = RayHitsStructure(cell, head, { head.x + h, head.y, head.z + v });
+    const bool nx = RayHitsStructure(cell, head, { head.x - h, head.y, head.z + v });
+    const bool py = RayHitsStructure(cell, head, { head.x, head.y + h, head.z + v });
+    const bool ny = RayHitsStructure(cell, head, { head.x, head.y - h, head.z + v });
 
-    const int  hits    = (up ? 1 : 0) + (px ? 1 : 0) + (nx ? 1 : 0) + (py ? 1 : 0) + (ny ? 1 : 0);
-    // The straight-up ray is MANDATORY: sky radiation needs something directly overhead. Without this
-    // the angled rays clipping a nearby building's wall counted as a "roof" out in the open street.
+    const int hits = (up ? 1 : 0) + (px ? 1 : 0) + (nx ? 1 : 0) + (py ? 1 : 0) + (ny ? 1 : 0);
     const bool covered = up && hits >= kRoofFanMinHits;
+
+    g_shelterProbeCache.cellID = cellID;
+    g_shelterProbeCache.x = p.x;
+    g_shelterProbeCache.y = p.y;
+    g_shelterProbeCache.z = p.z;
+    g_shelterProbeCache.covered = covered;
+    g_shelterProbeCache.known = true;
+
     Log()->debug("[Shelter] roof-fan {}/5 (up={}, need up + {} total) -> covered={}",
         hits, up, kRoofFanMinHits, covered);
 
-    // Debug overlay: live on-screen readout so the player can walk their base and see exactly which
-    // overhead rays connect (toggle with the "shelter" debug command / Shelter Debug button).
     if (_debugShelter)
     {
         char msg[128];
@@ -99,7 +165,7 @@ bool RadiationEngine::ComputeEnclosedByStructure() const
             hits, covered ? "COVERED" : "EXPOSED",
             up ? 'Y' : '-', up ? "" : " NO ROOF OVERHEAD",
             px ? 'Y' : '-', nx ? 'Y' : '-', py ? 'Y' : '-', ny ? 'Y' : '-');
-        Notify(msg, !covered);  // warning style when exposed so it stands out
+        Notify(msg, !covered);
     }
     return covered;
 }
@@ -108,10 +174,10 @@ bool RadiationEngine::ComputeEnclosedByStructure() const
 bool RadiationEngine::IsPlayerSheltered() const
 {
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player) return true;  // fail-safe: never punish on unknown state
+    if (!player) return true;
     auto* cell = player->GetParentCell();
     if (cell && cell->IsInterior()) return true;
-    if (IsPlayerInPoweredShelter()) return true;  // powered Pulowski shelter
-    if (_playerEnclosed) return true;             // player-built 4-walls + roof (raycast, see Update)
+    if (IsPlayerInPoweredShelter()) return true;
+    if (_playerEnclosed) return true;
     return false;
 }
