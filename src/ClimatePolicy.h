@@ -30,6 +30,7 @@ namespace RadClimatePolicy
         bool submerged{ false };
         bool indoors{ false };
         float shelter01{ 0.0f };
+        float precipitationShelter01{ 0.0f };
         float heat01{ 0.0f };
         float activity01{ 0.0f };
     };
@@ -139,8 +140,11 @@ namespace RadClimatePolicy
         if (environment.submerged)
             return Clamp01(wetness + 0.50f * dt);
 
-        const float shelter = environment.indoors ? 1.0f : Clamp01(environment.shelter01);
-        const float rainExposure = Clamp01(environment.precipitation01) * (1.0f - 0.95f * shelter);
+        const float precipitationShelter = environment.indoors
+            ? 1.0f
+            : Clamp01(environment.precipitationShelter01);
+        const float rainExposure =
+            Clamp01(environment.precipitation01) * (1.0f - 0.95f * precipitationShelter);
         const float rainGainPerSecond = 0.0045f * rainExposure;
         const float dryPerSecond =
             0.0012f *
