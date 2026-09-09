@@ -22,7 +22,9 @@ private:
 
     RadClimateShelterPolicy::Factors _cached{};
     std::uint32_t _lastCellID{ 0 };
+    float _lastX{ 0.0f };
+    float _lastY{ 0.0f };
+    float _lastZ{ 0.0f };
     bool _lastRoofed{ false };
     bool _roofStateKnown{ false };
-    int _refreshTick{ 0 };
 };
