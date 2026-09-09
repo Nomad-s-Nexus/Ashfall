@@ -47,13 +47,12 @@ jobs:
           COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"   # commonlib_NonVR main: merged guarded OG-only Rad natives (+ MagicTarget fix)
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
-          rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
+          rm -rf "$commonLib" "$root/CommonLibF4"
           git init -q "$commonLib"
           git -C "$commonLib" remote add origin "https://x-access-token:${COMMONLIB_READ_TOKEN}@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
           git -C "$commonLib" fetch -q --depth 1 origin "$COMMONLIB_SHA"
           git -C "$commonLib" checkout -q FETCH_HEAD
           git -C "$commonLib" submodule update --init --recursive --depth 1
-          # Fail loud if this is somehow not commonlib_NonVR (RE-Work/ is unique to our fork).
           test -d "$commonLib/RE-Work" || { echo "ERROR: RE-Work marker missing — checkout is not commonlib_NonVR" >&2; exit 1; }
           echo "COMMONLIBF4_PATH=$commonLib" >> "$GITHUB_ENV"
 
@@ -77,9 +76,11 @@ jobs:
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
           xmake build climate_policy_tests
+          xmake build climate_weather_policy_tests
           xmake build serialization_policy_tests
           ./build/tests/rad_correctness_policy_tests
           ./build/tests/climate_policy_tests
+          ./build/tests/climate_weather_policy_tests
           ./build/tests/serialization_policy_tests
 
       - name: Verify xwin toolchain
