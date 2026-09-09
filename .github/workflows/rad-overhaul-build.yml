@@ -38,7 +38,7 @@ jobs:
           COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
         run: |
           set -euo pipefail
-          COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"
+          COMMONLIB_SHA="db36d54ef6bf85d78f26a7a188fe2849fc12752a"
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"
