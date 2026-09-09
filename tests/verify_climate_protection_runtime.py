@@ -18,12 +18,18 @@ for token in (
     "RadClimateInsulationPolicy::CombinedInsulation",
     "_refreshTick = 3;",
     "Data/F4SE/Plugins/FalloutAnomaly/climate_protection.json",
+    "piece.armor->GetFile(0)",
+    "piece.armor->GetLocalFormID()",
+    "file->GetFilename()",
+    "if (wornForms != _lastWornForms)",
+    "_lastWornForms = wornForms;",
 ):
     assert token in runtime, f"climate protection runtime contract missing: {token}"
 
 for token in (
     "ClimateProtectionConfig _config;",
     "RadClimatePolicy::ProtectionSample _cached{};",
+    "std::vector<std::uint32_t> _lastWornForms;",
     "float LastInsulation01() const noexcept",
 ):
     assert token in header, f"climate protection cache contract missing: {token}"
@@ -41,4 +47,4 @@ for token in (
 ):
     assert token not in runtime, f"climate protection scan must remain read-only: {token}"
 
-print("climate worn protection verified: bounded biped scan, deduped authored coverage, cached automatic insulation plus exact JSON overrides")
+print("climate worn protection verified: bounded authored-coverage scan, cached insulation, exact JSON overrides, change-only pasteable gear audit")
