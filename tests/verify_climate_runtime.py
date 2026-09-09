@@ -5,6 +5,8 @@ SRC = ROOT / "src"
 
 runtime = (SRC / "ClimateRuntime.cpp").read_text(encoding="utf-8")
 header = (SRC / "ClimateRuntime.h").read_text(encoding="utf-8")
+hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
+main = (SRC / "main.cpp").read_text(encoding="utf-8")
 
 for token in (
     "RE::PlayerCharacter::GetSingleton()",
@@ -46,4 +48,32 @@ for token in (
 ):
     assert token in header, f"climate runtime state contract missing: {token}"
 
-print("climate runtime contract verified: trusted inputs only, tested ambient policy, no gameplay mutation")
+engine_queue = hooks.split("static void QueueEngineUpdate()", 1)[1].split(
+    "void PlayerCharacter_Update_Hook", 1
+)[0]
+assert "RadiationEngine::GetSingleton().Update();" in engine_queue
+assert "ClimateRuntime::GetSingleton().Update();" in engine_queue
+assert engine_queue.find("RadiationEngine::GetSingleton().Update();") < engine_queue.find(
+    "ClimateRuntime::GetSingleton().Update();"
+)
+
+worker_producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(
+    "bool InstallUpdateHook()", 1
+)[0]
+assert "ClimateRuntime::GetSingleton().Update();" not in worker_producer
+
+revert_callback = main.split("void RevertCallback", 1)[1].split(
+    "std::atomic<bool> g_radWaiting", 1
+)[0]
+assert "ClimateRuntime::GetSingleton().Reset();" in revert_callback
+
+post_load = main.split("case F4SE::MessagingInterface::kPostLoadGame:", 1)[1].split(
+    "case F4SE::MessagingInterface::kPostPostLoad:", 1
+)[0]
+new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
+    "case F4SE::MessagingInterface::kPreLoadGame:", 1
+)[0]
+assert "ClimateRuntime::GetSingleton().Reset();" in post_load
+assert "ClimateRuntime::GetSingleton().Reset();" in new_game
+
+print("climate runtime contract verified: trusted inputs, tested ambient policy, game-main tick, load-safe reset, no gameplay mutation")
