@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <span>
 
 namespace RadClimateInsulationPolicy
 {
@@ -21,6 +22,7 @@ namespace RadClimateInsulationPolicy
         Coverage coverage{};
         float radiationResistance{ 0.0f };
         float energyResistance{ 0.0f };
+        float overrideInsulation01{ -1.0f };
     };
 
     [[nodiscard]] inline float CoverageFraction(const Coverage& coverage) noexcept
@@ -37,6 +39,9 @@ namespace RadClimateInsulationPolicy
 
     [[nodiscard]] inline float PieceInsulation(const PieceSample& piece) noexcept
     {
+        if (std::isfinite(piece.overrideInsulation01) && piece.overrideInsulation01 >= 0.0f)
+            return std::clamp(piece.overrideInsulation01, 0.0f, 1.0f);
+
         const float coverage = CoverageFraction(piece.coverage);
         const float rad = std::isfinite(piece.radiationResistance)
             ? std::clamp(piece.radiationResistance / 1000.0f, 0.0f, 1.0f)
@@ -47,12 +52,17 @@ namespace RadClimateInsulationPolicy
         return coverage * (0.65f + 0.20f * rad + 0.15f * energy);
     }
 
-    template <std::size_t N>
-    [[nodiscard]] inline float CombinedInsulation(const std::array<PieceSample, N>& pieces) noexcept
+    [[nodiscard]] inline float CombinedInsulation(std::span<const PieceSample> pieces) noexcept
     {
         float retainedExposure = 1.0f;
         for (const auto& piece : pieces)
             retainedExposure *= 1.0f - std::clamp(PieceInsulation(piece), 0.0f, 0.95f);
         return std::clamp(1.0f - retainedExposure, 0.0f, 0.95f);
+    }
+
+    template <std::size_t N>
+    [[nodiscard]] inline float CombinedInsulation(const std::array<PieceSample, N>& pieces) noexcept
+    {
+        return CombinedInsulation(std::span<const PieceSample>{ pieces });
     }
 }
