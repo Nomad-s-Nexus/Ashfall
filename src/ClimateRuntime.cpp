@@ -121,3 +121,14 @@ void ClimateRuntime::Reset()
     _lastIndoors = false;
     _statusTick = 0;
 }
+
+RadClimateSerialization::PersistedState ClimateRuntime::SnapshotForSave() const noexcept
+{
+    return RadClimateSerialization::Snapshot(_state);
+}
+
+void ClimateRuntime::RestoreFromSave(const RadClimateSerialization::PersistedState& state) noexcept
+{
+    _state = RadClimateSerialization::Restore(state);
+    _lastLoggedStage = _state.stage;
+}
