@@ -20,6 +20,7 @@ for token in (
     "cal->gameDaysPassed->GetValue()",
     "RadClimateEnvironmentPolicy::AmbientTemperatureC",
     "RadClimatePolicy::Step",
+    "RadClimateStagePolicy::NextStage",
     "environment.precipitation01",
     "environment.submerged",
     "environment.indoors",
@@ -76,4 +77,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: trusted inputs, tested ambient policy, game-main tick, load-safe reset, no gameplay mutation")
+print("climate runtime contract verified: trusted inputs, tested ambient/stage policy, game-main tick, load-safe reset, no gameplay mutation")
