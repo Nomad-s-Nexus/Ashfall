@@ -116,6 +116,8 @@ public:
     // the actual engine work runs on the main thread in Update() via DispatchDebugCommand,
     // because engine calls (weather/VM/spawns) crash if made off the main thread.
     void HandleDebugCommand(const char* action);
+    [[nodiscard]] bool StormGhoulsEnabled() const noexcept { return _stormGhoulsEnabled; }
+    [[nodiscard]] int StormGhoulChancePercent() const noexcept;
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();

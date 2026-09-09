@@ -129,6 +129,11 @@ function setGhoulSettings(state) {
   } catch (e) {}
 }
 
+window.setHudLayoutStatus = function(ok) {
+  var status = document.getElementById("radLocalStatus");
+  if (status) status.textContent = (("" + ok) === "1" || ok === true) ? "SAVED" : "SAVE FAILED";
+};
+
 window.SetDebugMenu = function(on) {
   var panel = document.getElementById("debugPanel");
   var show  = ((""+on)==="1" || on===true);

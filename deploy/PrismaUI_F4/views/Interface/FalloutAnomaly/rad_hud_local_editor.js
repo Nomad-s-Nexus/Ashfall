@@ -41,7 +41,7 @@
       hidden: !!cfg.hidden,
       save: !!save
     });
-    if (status) status.textContent = save ? "SAVED" : "LIVE PREVIEW";
+    if (status) status.textContent = save ? "SAVING..." : "LIVE PREVIEW";
   }
 
   function setPreview(on) {

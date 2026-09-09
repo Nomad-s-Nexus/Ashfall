@@ -22,6 +22,7 @@ public:
     void PushClimate(float coreC, float ambientC, float wetness01, float insulation01, float heat01, int stage);
     void PushGhoulSettings(bool enabled, int chancePercent);
     void OpenHudEditor();
+    void HandleHudLayoutCommand(const std::string& command);
     void ResetClimateForSession() noexcept;
 
     bool ShowSpecialInfo(const std::vector<std::string>& lines);
@@ -74,4 +75,21 @@ private:
     bool _debugOpen = false;
     bool _debugTogglePending = false;
     bool _debugDesiredOpen = false;
+
+    struct LocalLayout {
+        float x;
+        float y;
+        float s;
+        float r;
+        bool hidden;
+    };
+    LocalLayout _toxicLayout{ 30.0f / 1920.0f, 882.0f / 1080.0f, 1.0f, 0.0f, false };
+    LocalLayout _filterLayout{ 22.0f / 1920.0f, 1014.0f / 1080.0f, 1.0f, 0.0f, false };
+    bool _localLayoutLoaded = false;
+    bool _localLayoutApplied = false;
+
+    void LoadLocalHudLayout();
+    bool SaveLocalHudLayout();
+    void ApplyLocalHudLayout(bool preview);
+    std::string LocalHudLayoutJson() const;
 };

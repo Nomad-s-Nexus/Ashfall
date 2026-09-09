@@ -137,6 +137,11 @@ void RadiationEngine::HandleDebugCommand(const char* action)
     _pendingDebugCmds.emplace_back(action);
 }
 
+int RadiationEngine::StormGhoulChancePercent() const noexcept
+{
+    return static_cast<int>(std::lround(std::clamp(_stormGhoulSpawnChance, 0.0f, 1.0f) * 100.0f));
+}
+
 
 void RadiationEngine::DrainDebugCommands()
 {
@@ -231,6 +236,10 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "hud:open")
     {
         RadHud::GetSingleton().OpenHudEditor();
+    }
+    else if (a.rfind("hud:layout:", 0) == 0)
+    {
+        RadHud::GetSingleton().HandleHudLayoutCommand(a.substr(std::strlen("hud:layout:")));
     }
     else if (a == "shelter")
     {

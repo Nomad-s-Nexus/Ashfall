@@ -123,6 +123,13 @@ namespace
         RadiationEngine::GetSingleton().HandleDebugCommand(arg ? arg : "");
     }
 
+    void OnRadHudLayoutCommand(const char* arg)
+    {
+        std::string command = "hud:layout:";
+        command += arg ? arg : "";
+        RadiationEngine::GetSingleton().HandleDebugCommand(command.c_str());
+    }
+
     // Closes the rad debug menu when a blocking modal opens. The debug menu focuses the PrismaUI
     // view (which captures input for its cursor); without this, the still-focused view eats the
     // cursor and the player is locked out of the modal:
@@ -222,6 +229,7 @@ void RadHud::CreateView()
             if (auto* a = g_apiForCb.load(std::memory_order_acquire))
             {
                 a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
+                a->RegisterJSListener(v, "radHudLayout", OnRadHudLayoutCommand);
                 a->Show(v);
             }
             // Flag LAST: a Push seeing _domReady=true must find the listener already registered.
@@ -291,6 +299,10 @@ void RadHud::CreateView()
 
     EnsureClimateView();
 
+    LoadLocalHudLayout();
+    _localLayoutApplied = false;
+    ApplyLocalHudLayout(false);
+
     _viewsReady.store(_view != 0 && api->IsValid(_view) &&
                       _toxicView != 0 && api->IsValid(_toxicView) &&
                       _filterView != 0 && api->IsValid(_filterView));
@@ -300,6 +312,7 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
 {
     if (!_api) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!_hudApi && !_localLayoutApplied) ApplyLocalHudLayout(false);
     if (_view == 0 || !api->IsValid(_view) ||
         _toxicView == 0 || !api->IsValid(_toxicView) ||
         _filterView == 0 || !api->IsValid(_filterView))
@@ -412,12 +425,125 @@ void RadHud::PushGhoulSettings(bool enabled, int chancePercent)
     api->InteropCall(_view, "setGhoulSettings", json);
 }
 
+std::string RadHud::LocalHudLayoutJson() const
+{
+    json out;
+    const auto add = [&out](const char* id, const LocalLayout& layout) {
+        out[id] = { { "x", layout.x }, { "y", layout.y }, { "s", layout.s },
+                    { "r", layout.r }, { "hidden", layout.hidden } };
+    };
+    add("rad_toxic", _toxicLayout);
+    add("rad_filter", _filterLayout);
+    return out.dump();
+}
+
+void RadHud::LoadLocalHudLayout()
+{
+    if (_localLayoutLoaded) return;
+    _localLayoutLoaded = true;
+    std::ifstream file(".\\Data\\F4SE\\Plugins\\FalloutAnomaly\\hud-layout.json");
+    if (!file.is_open()) return;
+    const json data = json::parse(file, nullptr, false);
+    if (!data.is_object()) return;
+    const auto load = [&data](const char* id, LocalLayout& layout) {
+        const auto it = data.find(id);
+        if (it == data.end() || !it->is_object()) return;
+        const auto read = [&it](const char* key, float& value, float lo, float hi) {
+            const auto field = it->find(key);
+            if (field != it->end() && field->is_number() && std::isfinite(field->get<double>()))
+                value = std::clamp(static_cast<float>(field->get<double>()), lo, hi);
+        };
+        read("x", layout.x, 0.0f, 0.95f);
+        read("y", layout.y, 0.0f, 0.95f);
+        read("s", layout.s, 0.5f, 2.5f);
+        read("r", layout.r, -180.0f, 180.0f);
+        const auto hidden = it->find("hidden");
+        if (hidden != it->end() && hidden->is_boolean()) layout.hidden = hidden->get<bool>();
+    };
+    load("rad_toxic", _toxicLayout);
+    load("rad_filter", _filterLayout);
+}
+
+bool RadHud::SaveLocalHudLayout()
+{
+    const std::string payload = LocalHudLayoutJson();
+    std::ofstream file(".\\Data\\F4SE\\Plugins\\FalloutAnomaly\\hud-layout.json.tmp", std::ios::trunc);
+    if (!file.is_open()) return false;
+    file << payload;
+    file.flush();
+    if (!file.good()) return false;
+    file.close();
+    return ::MoveFileExW(L".\\Data\\F4SE\\Plugins\\FalloutAnomaly\\hud-layout.json.tmp",
+                         L".\\Data\\F4SE\\Plugins\\FalloutAnomaly\\hud-layout.json",
+                         MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE;
+}
+
+void RadHud::ApplyLocalHudLayout(bool preview)
+{
+    if (!_api || _hudApi) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    const auto apply = [api, preview](uint64_t view, bool ready, const LocalLayout& layout) {
+        if (!ready || view == 0 || !api->IsValid(view)) return;
+        char payload[160];
+        std::snprintf(payload, sizeof(payload),
+            "{\"x\":%.6f,\"y\":%.6f,\"s\":%.3f,\"r\":%.1f,\"hidden\":%s}",
+            layout.x, layout.y, layout.s, layout.r, layout.hidden ? "true" : "false");
+        api->InteropCall(view, "setLocalHUDLayout", payload);
+        api->InteropCall(view, "setEditorPreview", preview ? "1" : "0");
+    };
+    const bool toxicApplied = _toxicView != 0 && _toxicDomReady && api->IsValid(_toxicView);
+    const bool filterApplied = _filterView != 0 && _filterDomReady && api->IsValid(_filterView);
+    if (toxicApplied) apply(_toxicView, true, _toxicLayout);
+    if (filterApplied) apply(_filterView, true, _filterLayout);
+    _localLayoutApplied = toxicApplied && filterApplied;
+}
+
+void RadHud::HandleHudLayoutCommand(const std::string& command)
+{
+    LoadLocalHudLayout();
+    const json data = json::parse(command, nullptr, false);
+    if (!data.is_object()) return;
+    const std::string action = data.value("action", "");
+    if (action == "preview")
+    {
+        if (data.contains("on") && data["on"].is_boolean()) ApplyLocalHudLayout(data["on"].get<bool>());
+        return;
+    }
+    if (action != "update") return;
+    const std::string widget = data.value("widget", "");
+    LocalLayout* layout = widget == "rad_toxic" ? &_toxicLayout :
+                          widget == "rad_filter" ? &_filterLayout : nullptr;
+    if (!layout) return;
+    const auto number = [&data](const char* key, float lo, float hi, float& out) {
+        const auto it = data.find(key);
+        if (it == data.end() || !it->is_number() || !std::isfinite(it->get<double>())) return false;
+        out = std::clamp(static_cast<float>(it->get<double>()), lo, hi);
+        return true;
+    };
+    if (!number("x", 0.0f, 0.95f, layout->x) || !number("y", 0.0f, 0.95f, layout->y) ||
+        !number("s", 0.5f, 2.5f, layout->s) || !number("r", -180.0f, 180.0f, layout->r) ||
+        !data.contains("hidden") || !data["hidden"].is_boolean()) return;
+    layout->hidden = data["hidden"].get<bool>();
+    ApplyLocalHudLayout(true);
+    const auto save = data.find("save");
+    if (save != data.end() && save->is_boolean() && save->get<bool>())
+    {
+        const bool saved = SaveLocalHudLayout();
+        if (_view != 0 && _domReady) {
+            auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+            if (api->IsValid(_view)) api->InteropCall(_view, "setHudLayoutStatus", saved ? "1" : "0");
+        }
+    }
+}
+
 void RadHud::OpenHudEditor()
 {
-    if (!_api || _view == 0 || !_domReady) return;
+    if (!_api || _view == 0 || !_domReady || _hudApi) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
-    if (api->IsValid(_view))
-        api->InteropCall(_view, "OpenLocalHudEditor", "{}");
+    if (!api->IsValid(_view)) return;
+    LoadLocalHudLayout();
+    api->InteropCall(_view, "OpenLocalHudEditor", LocalHudLayoutJson().c_str());
+    ApplyLocalHudLayout(true);
 }
 
 void RadHud::ResetDebugMenuForSession()
@@ -425,6 +551,7 @@ void RadHud::ResetDebugMenuForSession()
     _debugOpen = false;
     _debugTogglePending = false;
     _debugDesiredOpen = false;
+    ApplyLocalHudLayout(false);
 }
 
 void RadHud::ToggleDebugMenu()
@@ -511,6 +638,8 @@ void RadHud::SetDebugMenu(bool open)
         api->InteropCall(_view, "SetDebugMenu", open ? "1" : "0");
         if (open)
         {
+            auto& engine = RadiationEngine::GetSingleton();
+            PushGhoulSettings(engine.StormGhoulsEnabled(), engine.StormGhoulChancePercent());
             api->Show(_view);
             // disableFocusMenu=false (default): the game FocusMenu provides the mouse cursor. This
             // menu opens during normal gameplay (no pause menu underneath), so it's the only cursor
@@ -524,6 +653,7 @@ void RadHud::SetDebugMenu(bool open)
         else
         {
             api->Unfocus(_view);
+            ApplyLocalHudLayout(false);
         }
     }
 
