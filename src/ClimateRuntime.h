@@ -5,6 +5,7 @@
 #include "ClimateProtectionRuntime.h"
 #include "ClimateSerializationPolicy.h"
 #include "ClimateShelterRuntime.h"
+#include "ClimateWeatherConfig.h"
 
 class ClimateRuntime
 {
@@ -35,9 +36,11 @@ private:
     ClimateProtectionRuntime _protection;
     ClimateShelterRuntime _shelter;
     ClimateHeatRuntime _heat;
+    ClimateWeatherConfig _weatherConfig;
     RadClimatePolicy::HypothermiaStage _lastLoggedStage{ RadClimatePolicy::HypothermiaStage::kNormal };
     float _lastAmbientC{ RadClimatePolicy::kNeutralAmbientC };
     bool _lastRainy{ false };
     bool _lastIndoors{ false };
+    bool _weatherConfigLoaded{ false };
     int _statusTick{ 0 };
 };
