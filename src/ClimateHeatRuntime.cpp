@@ -6,6 +6,7 @@
 #include <RE/B/BSTEvent.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/T/TES.h>
+#include <RE/T/TESBoundObject.h>
 #include <RE/T/TESDataHandler.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESObjectLoadedEvent.h>
