@@ -150,16 +150,19 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
             {
                 auto automatic = piece.sample;
                 automatic.overrideInsulation01 = -1.0f;
-                const float automatic01 = RadClimateInsulationPolicy::PieceInsulation(automatic);
-                const float effective01 = RadClimateInsulationPolicy::PieceInsulation(piece.sample);
+                const float automaticWarmth01 = RadClimateInsulationPolicy::PieceWarmth(automatic);
+                const float effectiveWarmth01 = RadClimateInsulationPolicy::PieceWarmth(piece.sample);
+                const float automaticContribution01 = RadClimateInsulationPolicy::PieceInsulation(automatic);
+                const float effectiveContribution01 = RadClimateInsulationPolicy::PieceInsulation(piece.sample);
                 const bool overridden = piece.sample.overrideInsulation01 >= 0.0f;
                 auto* file = piece.armor->GetFile(0);
                 if (file)
                 {
                     logger->info(
-                        "[Climate] armor {}|0x{:X} runtime=0x{:08X} auto={:.0f}% effective={:.0f}% override={} coverage=H{} T{} LA{} RA{} LL{} RL{}",
+                        "[Climate] armor {}|0x{:X} runtime=0x{:08X} warmth={:.0f}%->{:.0f}% contribution={:.0f}%->{:.0f}% override={} coverage=H{} T{} LA{} RA{} LL{} RL{}",
                         file->GetFilename(), piece.armor->GetLocalFormID(), piece.armor->GetFormID(),
-                        automatic01 * 100.0f, effective01 * 100.0f, overridden,
+                        automaticWarmth01 * 100.0f, effectiveWarmth01 * 100.0f,
+                        automaticContribution01 * 100.0f, effectiveContribution01 * 100.0f, overridden,
                         piece.sample.coverage.head, piece.sample.coverage.torso,
                         piece.sample.coverage.leftArm, piece.sample.coverage.rightArm,
                         piece.sample.coverage.leftLeg, piece.sample.coverage.rightLeg);
@@ -167,8 +170,9 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
                 else
                 {
                     logger->info(
-                        "[Climate] armor runtime=0x{:08X} auto={:.0f}% effective={:.0f}% override={} coverage=H{} T{} LA{} RA{} LL{} RL{}",
-                        piece.armor->GetFormID(), automatic01 * 100.0f, effective01 * 100.0f, overridden,
+                        "[Climate] armor runtime=0x{:08X} warmth={:.0f}%->{:.0f}% contribution={:.0f}%->{:.0f}% override={} coverage=H{} T{} LA{} RA{} LL{} RL{}",
+                        piece.armor->GetFormID(), automaticWarmth01 * 100.0f, effectiveWarmth01 * 100.0f,
+                        automaticContribution01 * 100.0f, effectiveContribution01 * 100.0f, overridden,
                         piece.sample.coverage.head, piece.sample.coverage.torso,
                         piece.sample.coverage.leftArm, piece.sample.coverage.rightArm,
                         piece.sample.coverage.leftLeg, piece.sample.coverage.rightLeg);
