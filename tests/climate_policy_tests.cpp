@@ -3,6 +3,7 @@
 #include "ClimateInsulationPolicy.h"
 #include "ClimatePowerArmorPolicy.h"
 #include "ClimateSerializationPolicy.h"
+#include "ClimateShelterPolicy.h"
 #include "ClimateStagePolicy.h"
 
 #include <array>
@@ -196,6 +197,19 @@ int main()
 
     closeFire.active = false;
     Require(Near(Contribution(closeFire), 0.0f));
+
+    using namespace RadClimateShelterPolicy;
+
+    const auto indoorShelter = FromState(true, false, false);
+    Require(Near(indoorShelter.thermal01, 1.0f));
+    Require(Near(indoorShelter.precipitation01, 1.0f));
+    const auto roofShelter = FromState(false, true, false);
+    Require(Near(roofShelter.thermal01, 0.25f));
+    Require(Near(roofShelter.precipitation01, 1.0f));
+    Require(ShouldProbe(false, 10, 10, 0.0f, 0.0f, 0.0f));
+    Require(ShouldProbe(true, 11, 10, 0.0f, 0.0f, 0.0f));
+    Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));
+    Require(ShouldProbe(true, 10, 10, kProbeMoveDistance, 0.0f, 0.0f));
 
     return 0;
 }
