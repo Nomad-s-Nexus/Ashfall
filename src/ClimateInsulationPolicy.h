@@ -11,6 +11,7 @@ namespace RadClimateInsulationPolicy
     inline constexpr float kTorsoWeight = 0.35f;
     inline constexpr float kArmWeight = 0.10f;
     inline constexpr float kLegWeight = 0.175f;
+    inline constexpr float kDefaultPieceWarmth = 0.45f;
 
     struct Coverage
     {
@@ -25,8 +26,6 @@ namespace RadClimateInsulationPolicy
     struct PieceSample
     {
         Coverage coverage{};
-        float radiationResistance{ 0.0f };
-        float energyResistance{ 0.0f };
         float overrideInsulation01{ -1.0f };
     };
 
@@ -46,14 +45,7 @@ namespace RadClimateInsulationPolicy
     {
         if (std::isfinite(piece.overrideInsulation01) && piece.overrideInsulation01 >= 0.0f)
             return std::clamp(piece.overrideInsulation01, 0.0f, 1.0f);
-
-        const float rad = std::isfinite(piece.radiationResistance)
-            ? std::clamp(piece.radiationResistance / 1000.0f, 0.0f, 1.0f)
-            : 0.0f;
-        const float energy = std::isfinite(piece.energyResistance)
-            ? std::clamp(piece.energyResistance / 250.0f, 0.0f, 1.0f)
-            : 0.0f;
-        return std::clamp(0.65f + 0.20f * rad + 0.15f * energy, 0.0f, 1.0f);
+        return kDefaultPieceWarmth;
     }
 
     [[nodiscard]] inline float PieceInsulation(const PieceSample& piece) noexcept
