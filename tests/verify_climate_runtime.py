@@ -27,8 +27,9 @@ for token in (
     "RE::TESWeather::WeatherData::kWindSpeed",
     "RE::Calendar::GetSingleton()",
     "cal->gameDaysPassed->GetValue()",
+    "cal->GetMonth()",
     "ClassifyWeather(weather)",
-    "RadClimateEnvironmentPolicy::AmbientTemperatureC",
+    "RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, weatherClass, GameDays(), gameMonth)",
     "RadClimateEnvironmentPolicy::PrecipitationIntensity01",
     "RadClimateEnvironmentPolicy::WindProxyMps",
     "RadClimatePolicy::Step",
@@ -137,4 +138,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: event-driven protection/heat, movement-cached shelter, weather classes, sprint activity, save boundary, game-main tick, no gameplay mutation")
+print("climate runtime contract verified: event-driven protection/heat, movement-cached shelter, weather+season inputs, sprint activity, save boundary, game-main tick, no gameplay mutation")
