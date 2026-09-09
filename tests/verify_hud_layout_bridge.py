@@ -22,6 +22,11 @@ def main() -> None:
     assert 'rad-local-unit-row' in editor
     assert 'id="radLocalUnit"' not in editor
     assert 'setUnit(temperatureUnit === "F" ? "C" : "F", true)' in editor
+    assert 'setArmorInfo' in view
+    assert 'id="tabbtn-armor"' in (ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.html").read_text(encoding="utf-8")
+    assert 'id="tab-armor"' in (ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.html").read_text(encoding="utf-8")
+    assert 'PushArmor' in (ROOT / "src" / "RadHud.h").read_text(encoding="utf-8")
+    assert 'InteropCall(_view, "setArmorInfo"' in (ROOT / "src" / "RadHud.cpp").read_text(encoding="utf-8")
     assert 'temperatureUnit' in native
     assert 'setClimateUnit' in (ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "hud_climate.html").read_text(encoding="utf-8")
     assert 'window.setHudLayoutStatus' in view

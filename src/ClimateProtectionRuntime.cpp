@@ -67,6 +67,7 @@ void ClimateProtectionRuntime::Reset() noexcept
 {
     _config.Reset();
     _cached = {};
+    _armorInfo.clear();
     _lastWornForms.clear();
     _powerArmorKeyword = nullptr;
     _configLoaded = false;
@@ -180,10 +181,28 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
     std::vector<RadClimateInsulationPolicy::PieceSample> samples;
     wornForms.reserve(worn.size());
     samples.reserve(worn.size());
+    _armorInfo.clear();
+    _armorInfo.reserve(worn.size());
     for (const auto& piece : worn)
     {
         wornForms.push_back(piece.armor->GetFormID());
         samples.push_back(piece.sample);
+
+        ArmorInfo info;
+        info.formID = piece.armor->GetFormID();
+        const char* name = piece.armor->GetFullName();
+        info.name = name && name[0] ? name : "<unnamed>";
+        info.warmth01 = RadClimateInsulationPolicy::PieceWarmth(piece.sample);
+        info.insulation01 = RadClimateInsulationPolicy::PieceInsulation(piece.sample);
+        info.overridden = std::isfinite(piece.sample.overrideInsulation01) &&
+                          piece.sample.overrideInsulation01 >= 0.0f;
+        info.head = piece.sample.coverage.head;
+        info.torso = piece.sample.coverage.torso;
+        info.leftArm = piece.sample.coverage.leftArm;
+        info.rightArm = piece.sample.coverage.rightArm;
+        info.leftLeg = piece.sample.coverage.leftLeg;
+        info.rightLeg = piece.sample.coverage.rightLeg;
+        _armorInfo.push_back(info);
     }
 
     if (wornForms != _lastWornForms)

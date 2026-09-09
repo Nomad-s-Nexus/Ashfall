@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "RadHud.h"
 #include "RadiationEngine.h"
+#include "ClimateRuntime.h"
 
 // RE headers BEFORE PrismaUI_F4_API.h: the API header pulls in Windows.h, whose macros clobber
 // engine struct layouts (e.g. TESFile) if the RE headers are parsed afterwards.
@@ -27,7 +28,9 @@
 #include "PrismaUI_F4_API.h"
 #include "PrismaHUD_F4_API.h"
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 
 #include <cstdio>
 
@@ -425,6 +428,54 @@ void RadHud::PushGhoulSettings(bool enabled, int chancePercent)
     api->InteropCall(_view, "setGhoulSettings", json);
 }
 
+void RadHud::PushArmor(
+    float insulation01,
+    float effectiveInsulation01,
+    bool powerArmor,
+    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor)
+{
+    if (!_api || !_debugOpen || _view == 0 || !_domReady)
+        return;
+
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view))
+        return;
+
+    const auto percent = [](float value) {
+        if (!std::isfinite(value)) return 0;
+        return static_cast<int>(std::lround(std::clamp(value, 0.0f, 1.0f) * 100.0f));
+    };
+
+    json payload{
+        { "insulation", percent(insulation01) },
+        { "effectiveInsulation", percent(effectiveInsulation01) },
+        { "powerArmor", powerArmor },
+        { "pieces", json::array() }
+    };
+    for (const auto& piece : armor)
+    {
+        payload["pieces"].push_back({
+            { "formID", piece.formID },
+            { "name", piece.name },
+            { "warmth", percent(piece.warmth01) },
+            { "insulation", percent(piece.insulation01) },
+            { "override", piece.overridden },
+            { "head", piece.head },
+            { "torso", piece.torso },
+            { "leftArm", piece.leftArm },
+            { "rightArm", piece.rightArm },
+            { "leftLeg", piece.leftLeg },
+            { "rightLeg", piece.rightLeg }
+        });
+    }
+
+    const serialized = payload.dump();
+    if (serialized == _armorPayload)
+        return;
+    _armorPayload = serialized;
+    api->InteropCall(_view, "setArmorInfo", _armorPayload.c_str());
+}
+
 std::string RadHud::LocalHudLayoutJson() const
 {
     json out;
@@ -584,6 +635,7 @@ void RadHud::ResetDebugMenuForSession()
     _debugOpen = false;
     _debugTogglePending = false;
     _debugDesiredOpen = false;
+    _armorPayload.clear();
     ApplyLocalHudLayout(false);
 }
 
@@ -673,6 +725,9 @@ void RadHud::SetDebugMenu(bool open)
         {
             auto& engine = RadiationEngine::GetSingleton();
             PushGhoulSettings(engine.StormGhoulsEnabled(), engine.StormGhoulChancePercent());
+            auto& climate = ClimateRuntime::GetSingleton();
+            PushArmor(climate.LastInsulation01(), climate.LastEffectiveInsulation01(),
+                climate.LastPowerArmor(), climate.LastArmor());
             api->Show(_view);
             // disableFocusMenu=false (default): the game FocusMenu provides the mouse cursor. This
             // menu opens during normal gameplay (no pause menu underneath), so it's the only cursor
@@ -686,6 +741,7 @@ void RadHud::SetDebugMenu(bool open)
         else
         {
             api->Unfocus(_view);
+            _armorPayload.clear();
             ApplyLocalHudLayout(false);
         }
     }

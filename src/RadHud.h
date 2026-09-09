@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ClimateProtectionRuntime.h"
+
 #include <atomic>
 #include <string>
 #include <vector>
@@ -20,6 +22,8 @@ public:
     void PushMask(bool on);
     void PushFilter(float charge, float condition, int spares, bool masked);
     void PushClimate(float coreC, float ambientC, float wetness01, float insulation01, float heat01, int stage);
+    void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
+                   const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
     void PushGhoulSettings(bool enabled, int chancePercent);
     void OpenHudEditor();
     void HandleHudLayoutCommand(const std::string& command);
@@ -69,6 +73,7 @@ private:
     int _climateInsulationPercent = -1;
     int _climateHeatPercent = -1;
     int _climateStage = -1;
+    std::string _armorPayload;
 
     int _maskPushed = -1;
 

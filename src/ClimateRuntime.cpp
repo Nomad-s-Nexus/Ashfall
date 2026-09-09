@@ -120,6 +120,7 @@ void ClimateRuntime::Update()
     nextState.stage = RadClimateStagePolicy::NextStage(_state.stage, nextState.coreC);
     _state = nextState;
     _lastAmbientC = environment.ambientC;
+    _lastEffectiveInsulation01 = result.effectiveInsulation01;
     _lastRainy = weatherClass.rainy;
     _lastIndoors = indoors;
 
@@ -130,6 +131,11 @@ void ClimateRuntime::Update()
         result.effectiveInsulation01,
         environment.heat01,
         static_cast<int>(_state.stage));
+    RadHud::GetSingleton().PushArmor(
+        protection.insulation01,
+        result.effectiveInsulation01,
+        protection.powerArmor,
+        _protection.LastArmor());
 
     if (_state.stage != _lastLoggedStage)
     {
@@ -165,6 +171,7 @@ void ClimateRuntime::Reset()
     _heat.Reset();
     _lastLoggedStage = RadClimatePolicy::HypothermiaStage::kNormal;
     _lastAmbientC = RadClimatePolicy::kNeutralAmbientC;
+    _lastEffectiveInsulation01 = 0.0f;
     _lastRainy = false;
     _lastIndoors = false;
     _statusTick = 0;

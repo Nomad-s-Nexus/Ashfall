@@ -147,6 +147,17 @@ html, body {
 }
 #debugPanel .dbg-pane { display: none; }
 #debugPanel .dbg-pane.on { display: block; }
+#debugPanel .armor-summary {
+  margin: 7px 0; padding: 7px; border: 1px solid rgba(120,200,120,.3);
+  background: rgba(12,30,14,.75); color: #d9ffd9; font-size: 10px; line-height: 1.4;
+}
+#debugPanel .armor-row {
+  margin: 5px 0; padding: 6px 7px; border-left: 2px solid rgba(120,200,120,.45);
+  background: rgba(12,30,14,.6);
+}
+#debugPanel .armor-name { color: #cdfbcf; font-size: 10px; }
+#debugPanel .armor-detail { margin-top: 3px; color: #9fc7a0; font-size: 9px; letter-spacing: .5px; }
+#debugPanel .armor-empty { padding: 8px 4px; color: #7fd07f; font-size: 9px; letter-spacing: 1px; }
 
 /* Weather tab: two-column list of force buttons */
 #debugPanel .wthr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px; }

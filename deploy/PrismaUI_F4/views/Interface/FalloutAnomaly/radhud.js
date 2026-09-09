@@ -129,6 +129,45 @@ function setGhoulSettings(state) {
   } catch (e) {}
 }
 
+window.setArmorInfo = function(json) {
+  try {
+    var d = (typeof json === "string") ? JSON.parse(json) : json;
+    var summary = document.getElementById("armorSummary");
+    var list = document.getElementById("armorList");
+    if (!summary || !list) return;
+    var pieces = Array.isArray(d && d.pieces) ? d.pieces : [];
+    summary.textContent = "ARMOR INSULATION: " + (+d.insulation || 0) + "% | EFFECTIVE THERMAL: " +
+      (+d.effectiveInsulation || 0) + "% | POWER ARMOR: " + (d.powerArmor ? "SEALED" : "NO");
+    list.textContent = "";
+    if (!pieces.length) {
+      var empty = document.createElement("div");
+      empty.className = "armor-empty";
+      empty.textContent = "NO WORN ARMOR";
+      list.appendChild(empty);
+      return;
+    }
+    pieces.forEach(function(piece) {
+      var row = document.createElement("div");
+      row.className = "armor-row";
+      var name = document.createElement("div");
+      name.className = "armor-name";
+      name.textContent = (piece.name || "<unnamed>") + (piece.override ? "  [OVERRIDE]" : "");
+      var detail = document.createElement("div");
+      detail.className = "armor-detail";
+      var coverage = [];
+      if (piece.head) coverage.push("HEAD");
+      if (piece.torso) coverage.push("TORSO");
+      if (piece.leftArm || piece.rightArm) coverage.push("ARMS");
+      if (piece.leftLeg || piece.rightLeg) coverage.push("LEGS");
+      detail.textContent = "WARMTH " + (+piece.warmth || 0) + "% | INSULATION " +
+        (+piece.insulation || 0) + "% | COVER " + (coverage.join("/") || "NONE");
+      row.appendChild(name);
+      row.appendChild(detail);
+      list.appendChild(row);
+    });
+  } catch (e) {}
+};
+
 window.setHudLayoutStatus = function(ok) {
   var status = document.getElementById("radLocalStatus");
   if (status) status.textContent = (("" + ok) === "1" || ok === true) ? "SAVED" : "SAVE FAILED";
@@ -142,9 +181,9 @@ window.SetDebugMenu = function(on) {
   }
 };
 
-// Debug-menu tabs: "rad" (Rad Mod controls) | "wthr" (force-weather list).
+// Debug-menu tabs: "rad" (Rad Mod controls) | "wthr" (force-weather list) | "armor" (climate gear).
 function showTab(which) {
-  var tabs = ["rad", "wthr", "ghouls", "hud"];
+  var tabs = ["rad", "wthr", "ghouls", "armor", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);

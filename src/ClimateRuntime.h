@@ -26,6 +26,9 @@ public:
     [[nodiscard]] bool LastRainy() const noexcept { return _lastRainy; }
     [[nodiscard]] bool LastIndoors() const noexcept { return _lastIndoors; }
     [[nodiscard]] float LastInsulation01() const noexcept { return _protection.LastInsulation01(); }
+    [[nodiscard]] float LastEffectiveInsulation01() const noexcept { return _lastEffectiveInsulation01; }
+    [[nodiscard]] bool LastPowerArmor() const noexcept { return _protection.LastPowerArmor(); }
+    [[nodiscard]] const std::vector<ClimateProtectionRuntime::ArmorInfo>& LastArmor() const noexcept { return _protection.LastArmor(); }
     [[nodiscard]] bool LastRoofed() const noexcept { return _shelter.LastRoofed(); }
     [[nodiscard]] float LastHeat01() const noexcept { return _heat.LastHeat01(); }
 
@@ -39,6 +42,7 @@ private:
     ClimateWeatherConfig _weatherConfig;
     RadClimatePolicy::HypothermiaStage _lastLoggedStage{ RadClimatePolicy::HypothermiaStage::kNormal };
     float _lastAmbientC{ RadClimatePolicy::kNeutralAmbientC };
+    float _lastEffectiveInsulation01{ 0.0f };
     bool _lastRainy{ false };
     bool _lastIndoors{ false };
     bool _weatherConfigLoaded{ false };
