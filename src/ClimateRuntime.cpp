@@ -20,12 +20,22 @@ namespace
         return 0.0f;
     }
 
-    bool IsRainy(RE::TESWeather* weather) noexcept
+    RadClimateEnvironmentPolicy::WeatherClass ClassifyWeather(RE::TESWeather* weather) noexcept
     {
+        RadClimateEnvironmentPolicy::WeatherClass result{};
         if (!weather)
-            return false;
-        const auto flags = weather->weatherData[static_cast<int>(RE::TESWeather::WeatherData::kFlags)];
-        return (flags & static_cast<std::int8_t>(RE::TESWeather::WeatherDataFlags::kRainy)) != 0;
+            return result;
+
+        const auto raw = static_cast<std::uint8_t>(
+            weather->weatherData[static_cast<int>(RE::TESWeather::WeatherData::kFlags)]);
+        const auto has = [raw](RE::TESWeather::WeatherDataFlags flag) {
+            return (raw & static_cast<std::uint8_t>(flag)) != 0;
+        };
+        result.pleasant = has(RE::TESWeather::WeatherDataFlags::kPleasant);
+        result.cloudy = has(RE::TESWeather::WeatherDataFlags::kCloudy);
+        result.rainy = has(RE::TESWeather::WeatherDataFlags::kRainy);
+        result.snow = has(RE::TESWeather::WeatherDataFlags::kSnow);
+        return result;
     }
 
     std::int8_t WindByte(RE::TESWeather* weather) noexcept
@@ -64,17 +74,21 @@ void ClimateRuntime::Update()
     auto* sky = RE::Sky::GetSingleton();
     auto* weather = sky ? sky->currentWeather : nullptr;
     const bool indoors = cell->IsInterior();
-    const bool rainy = !indoors && IsRainy(weather);
+    const auto weatherClass = indoors
+        ? RadClimateEnvironmentPolicy::WeatherClass{}
+        : ClassifyWeather(weather);
     const auto shelter = _shelter.Sample(player);
 
     RadClimatePolicy::EnvironmentSample environment{};
     environment.indoors = indoors;
     environment.shelter01 = shelter.thermal01;
     environment.precipitationShelter01 = shelter.precipitation01;
-    environment.precipitation01 = rainy ? 1.0f : 0.0f;
+    environment.precipitation01 = indoors
+        ? 0.0f
+        : RadClimateEnvironmentPolicy::PrecipitationIntensity01(weatherClass);
     environment.submerged = player->IsSwimming();
     environment.windMps = indoors ? 0.0f : RadClimateEnvironmentPolicy::WindProxyMps(WindByte(weather));
-    environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, rainy, GameDays());
+    environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, weatherClass, GameDays());
     environment.heat01 = _heat.Sample(player);
     environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;
 
@@ -84,17 +98,17 @@ void ClimateRuntime::Update()
     nextState.stage = RadClimateStagePolicy::NextStage(_state.stage, nextState.coreC);
     _state = nextState;
     _lastAmbientC = environment.ambientC;
-    _lastRainy = rainy;
+    _lastRainy = weatherClass.rainy;
     _lastIndoors = indoors;
 
     if (_state.stage != _lastLoggedStage)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% heat={:.0f}% roofed={} sprinting={}",
+            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% heat={:.0f}% roofed={} sprinting={} snow={}",
                 StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
                 environment.windMps, protection.insulation01 * 100.0f, protection.powerArmor,
                 environment.shelter01 * 100.0f, environment.heat01 * 100.0f, _shelter.LastRoofed(),
-                environment.activity01 > 0.0f);
+                environment.activity01 > 0.0f, weatherClass.snow);
         _lastLoggedStage = _state.stage;
     }
 
@@ -102,11 +116,12 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% heat={:.0f}% roofed={} indoors={} rainy={} swimming={} sprinting={} stage={}",
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% heat={:.0f}% roofed={} indoors={} pleasant={} cloudy={} rainy={} snow={} swimming={} sprinting={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
                 protection.insulation01 * 100.0f, protection.powerArmor,
                 environment.shelter01 * 100.0f, environment.precipitationShelter01 * 100.0f,
-                environment.heat01 * 100.0f, _shelter.LastRoofed(), _lastIndoors, _lastRainy,
+                environment.heat01 * 100.0f, _shelter.LastRoofed(), _lastIndoors,
+                weatherClass.pleasant, weatherClass.cloudy, weatherClass.rainy, weatherClass.snow,
                 environment.submerged, environment.activity01 > 0.0f, StageName(_state.stage));
     }
 }
