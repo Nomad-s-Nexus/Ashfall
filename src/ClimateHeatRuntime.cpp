@@ -15,7 +15,7 @@ namespace
     constexpr float kCookingFireStrength = 0.70f;
     constexpr float kBonfireBarrelRadius = 650.0f;
     constexpr float kBonfireBarrelStrength = 0.50f;
-    constexpr float kMaximumSearchRadius = kCookingFireRadius;
+    constexpr float kBuiltInMaximumSearchRadius = kCookingFireRadius;
 
     float Distance(const RE::NiPoint3& lhs, const RE::NiPoint3& rhs) noexcept
     {
@@ -28,8 +28,10 @@ namespace
 
 void ClimateHeatRuntime::Reset() noexcept
 {
+    _config.Reset();
     _sources = {};
     _sourceCount = 0;
+    _searchRadius = 0.0f;
     _lastCellID = 0;
     _lastX = 0.0f;
     _lastY = 0.0f;
@@ -60,27 +62,34 @@ void ClimateHeatRuntime::EnsureSourcesResolved()
     add(0x00048280, kBonfireBarrelRadius, kBonfireBarrelStrength);
     add(0x00048281, kBonfireBarrelRadius, kBonfireBarrelStrength);
     add(0x00048282, kBonfireBarrelRadius, kBonfireBarrelStrength);
+
+    _config.Load("Data/F4SE/Plugins/FalloutAnomaly/climate_heat.json");
+    _searchRadius = std::max(kBuiltInMaximumSearchRadius, _config.MaxRadius());
     _sourcesResolved = true;
 
     if (auto logger = spdlog::get("FalloutAnomaly"))
-        logger->info("[Climate] Heat source forms resolved: {}.", _sourceCount);
+        logger->info("[Climate] Heat source forms resolved: {} built-in, {} override(s), search radius {:.0f}.",
+            _sourceCount, _config.OverrideCount(), _searchRadius);
 }
 
-const ClimateHeatRuntime::SourceProfile* ClimateHeatRuntime::ProfileFor(
+std::optional<ClimateHeatRuntime::SourceProfile> ClimateHeatRuntime::ProfileFor(
     std::uint32_t runtimeFormID) const noexcept
 {
+    if (const auto overrideProfile = _config.Override(runtimeFormID))
+        return SourceProfile{ runtimeFormID, overrideProfile->radius, overrideProfile->strength01 };
+
     for (std::size_t i = 0; i < _sourceCount; ++i)
     {
         if (_sources[i].runtimeFormID == runtimeFormID)
-            return &_sources[i];
+            return _sources[i];
     }
-    return nullptr;
+    return std::nullopt;
 }
 
 float ClimateHeatRuntime::Sample(RE::PlayerCharacter* player)
 {
     EnsureSourcesResolved();
-    if (!player || !_sourcesResolved)
+    if (!player || !_sourcesResolved || _searchRadius <= 0.0f)
     {
         _sampleKnown = false;
         return 0.0f;
@@ -112,7 +121,7 @@ float ClimateHeatRuntime::Sample(RE::PlayerCharacter* player)
     }
 
     float remaining = 1.0f;
-    world->ForEachReferenceInRange(player, kMaximumSearchRadius, [&](RE::TESObjectREFR* ref) {
+    world->ForEachReferenceInRange(player, _searchRadius, [&](RE::TESObjectREFR* ref) {
         if (!ref || ref == player || !ref->Get3D())
             return RE::BSContainer::ForEachResult::kContinue;
 
@@ -120,7 +129,7 @@ float ClimateHeatRuntime::Sample(RE::PlayerCharacter* player)
         if (!base)
             return RE::BSContainer::ForEachResult::kContinue;
 
-        const auto* profile = ProfileFor(base->GetFormID());
+        const auto profile = ProfileFor(base->GetFormID());
         if (!profile)
             return RE::BSContainer::ForEachResult::kContinue;
 
