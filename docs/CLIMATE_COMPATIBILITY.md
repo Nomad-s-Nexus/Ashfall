@@ -77,7 +77,7 @@ Heat discovery is cache-driven. Nearby references are rescanned after entering/c
 
 ## Weather behavior
 
-Weather temperature uses the weather record's authored classification flags before any future exact-record override layer:
+Automatic weather temperature comes from the WTHR record's authored flags:
 
 - Pleasant: small warmth bonus.
 - Cloudy: mild cooling.
@@ -85,6 +85,32 @@ Weather temperature uses the weather record's authored classification flags befo
 - Snow: strongest cooling and reduced-rate precipitation wetness.
 
 Interiors ignore exterior weather temperature and precipitation.
+
+Exact weather exceptions can be registered without a compatibility plugin.
+
+Configuration file:
+
+`Data/F4SE/Plugins/FalloutAnomaly/climate_weather.json`
+
+Example:
+
+```json
+{
+  "version": 1,
+  "weatherOverrides": [
+    {
+      "plugin": "ExampleWeather.esp",
+      "form": "0x1234",
+      "temperatureOffsetC": -8,
+      "precipitation": 100
+    }
+  ]
+}
+```
+
+`temperatureOffsetC` adds or subtracts from the automatic temperature for that exact weather and is bounded to -50..50 C. `precipitation` optionally replaces the automatic precipitation intensity for that weather and is 0..100.
+
+Overrides are resolved once to runtime WTHR FormIDs. The automatic Pleasant/Cloudy/Rainy/Snow classification remains the default when no exact override exists.
 
 ## Runtime rules
 
