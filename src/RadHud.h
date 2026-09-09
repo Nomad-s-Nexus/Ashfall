@@ -20,6 +20,7 @@ public:
     void PushMask(bool on);
     void PushFilter(float charge, float condition, int spares, bool masked);
     void PushClimate(float coreC, float ambientC, float wetness01, float insulation01, float heat01, int stage);
+    void ResetClimateForSession() noexcept;
 
     bool ShowSpecialInfo(const std::vector<std::string>& lines);
     void PushStorm(int phase, int theme, float intensity, bool sheltered, bool lethal);
