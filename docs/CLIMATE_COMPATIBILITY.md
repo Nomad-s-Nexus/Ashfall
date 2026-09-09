@@ -7,7 +7,7 @@ The climate system does not require FormLists and does not modify ESP/ESL record
 Default armor protection is automatic:
 
 1. Read the worn armor's authored biped coverage.
-2. Apply the default regional warmth.
+2. Apply the default 45% regional warmth.
 3. Combine overlapping layers with diminishing returns.
 4. Apply JSON overrides only when the automatic result needs correction.
 
@@ -45,7 +45,7 @@ Example:
 
 Use exact armor overrides for one-off exceptions. Use keyword overrides when a mod already marks a family of armor with a useful keyword. Keyword rules are evaluated in file order, so put more specific categories before broader categories.
 
-All plugin/local FormIDs are resolved once when the climate protection configuration loads. The 4 Hz climate update does not parse JSON or search the load order.
+All plugin/local FormIDs are resolved once when the climate protection configuration loads. The 4 Hz climate update does not parse JSON or search the load order. Worn armor itself is rescanned only after a player armor equip/unequip event invalidates the cache.
 
 ## Heat sources
 
@@ -73,7 +73,18 @@ Example:
 
 `radius` is in Fallout 4 game units. `strength` is 0 to 100.
 
-Heat discovery is movement-driven. Nearby references are scanned after entering a cell or moving at least 96 game units from the previous heat sample. A stationary player does not trigger periodic heat scans.
+Heat discovery is cache-driven. Nearby references are rescanned after entering/changing cells, moving at least 96 game units, or an object load/unload event invalidates the cache. A stable stationary scene does not trigger periodic heat scans.
+
+## Weather behavior
+
+Weather temperature uses the weather record's authored classification flags before any future exact-record override layer:
+
+- Pleasant: small warmth bonus.
+- Cloudy: mild cooling.
+- Rainy: stronger cooling and full precipitation wetness.
+- Snow: strongest cooling and reduced-rate precipitation wetness.
+
+Interiors ignore exterior weather temperature and precipitation.
 
 ## Runtime rules
 
