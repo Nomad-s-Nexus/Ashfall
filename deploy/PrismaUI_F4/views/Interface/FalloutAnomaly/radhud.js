@@ -181,7 +181,6 @@ window.SetDebugMenu = function(on) {
   }
 };
 
-// Debug-menu tabs: "rad" (Rad Mod controls) | "wthr" (force-weather list) | "armor" (climate gear).
 function showTab(which) {
   var tabs = ["rad", "wthr", "ghouls", "armor", "hud"];
   for (var i = 0; i < tabs.length; i++) {
