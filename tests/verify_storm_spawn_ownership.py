@@ -70,7 +70,7 @@ for token in (
 ):
     assert token in pending_retry, f"pending storm ghoul retry is missing: {token}"
 assert "stillPending.push_back(handle);" in pending_retry
-assert "ref->Enable(true);" in pending_retry
+assert "ref->Enable(true);" not in pending_retry
 assert "ref->SetDelete(true);" in pending_retry
 assert "_stormGhoulCleanupRefs.insert" in pending_retry
 assert "allowing future pack rolls" in pending_retry

@@ -64,7 +64,6 @@ void RadiationEngine::RetryPendingStormGhouls()
             }
             else
             {
-                ref->Enable(true);
                 stillPending.push_back(handle);
             }
             continue;
