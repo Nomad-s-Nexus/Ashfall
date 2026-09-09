@@ -16,6 +16,7 @@ for token in (
     "RE::TESWeather::WeatherDataFlags::kRainy",
     "RE::Calendar::GetSingleton()",
     "cal->gameDaysPassed->GetValue()",
+    "RadClimateEnvironmentPolicy::AmbientTemperatureC",
     "RadClimatePolicy::Step",
     "environment.precipitation01",
     "environment.submerged",
@@ -45,4 +46,4 @@ for token in (
 ):
     assert token in header, f"climate runtime state contract missing: {token}"
 
-print("climate runtime contract verified: trusted inputs only, no gameplay mutation")
+print("climate runtime contract verified: trusted inputs only, tested ambient policy, no gameplay mutation")
