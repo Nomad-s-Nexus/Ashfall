@@ -77,6 +77,7 @@ void ClimateRuntime::Update()
     environment.indoors = indoors;
     environment.shelter01 = indoors ? 1.0f : 0.0f;
     environment.precipitation01 = rainy ? 1.0f : 0.0f;
+    environment.submerged = player->IsSwimming();
     environment.ambientC = AmbientTemperatureC(indoors, rainy, GameDays());
 
     RadClimatePolicy::ProtectionSample protection{};
@@ -98,9 +99,9 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% indoors={} rainy={} stage={}",
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% indoors={} rainy={} swimming={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
-                _lastIndoors, _lastRainy, StageName(_state.stage));
+                _lastIndoors, _lastRainy, environment.submerged, StageName(_state.stage));
     }
 }
 
