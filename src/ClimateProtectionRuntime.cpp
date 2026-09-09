@@ -3,7 +3,9 @@
 #include "ClimateInsulationPolicy.h"
 #include "ClimatePowerArmorPolicy.h"
 
+#include <RE/A/ActorEquipManager.h>
 #include <RE/B/BGSKeyword.h>
+#include <RE/B/BGSObjectInstance.h>
 #include <RE/B/BIPED_OBJECT.h>
 #include <RE/B/BipedAnim.h>
 #include <RE/P/PlayerCharacter.h>
@@ -46,20 +48,38 @@ void ClimateProtectionRuntime::Reset() noexcept
     _lastWornForms.clear();
     _powerArmorKeyword = nullptr;
     _configLoaded = false;
-    _refreshTick = 0;
+    _dirty.store(true, std::memory_order_release);
+}
+
+RE::BSEventNotifyControl ClimateProtectionRuntime::ProcessEvent(
+    const RE::ActorEquipManagerEvent::Event& event,
+    RE::BSTEventSource<RE::ActorEquipManagerEvent::Event>*)
+{
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    if (!player || event.actorAffected != player || !event.itemAffected || !event.itemAffected->object)
+        return RE::BSEventNotifyControl::kContinue;
+
+    if (event.itemAffected->object->GetFormType() == RE::ENUM_FORM_ID::kARMO)
+        _dirty.store(true, std::memory_order_release);
+
+    return RE::BSEventNotifyControl::kContinue;
 }
 
 RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Sample(RE::PlayerCharacter* player)
 {
     EnsureConfigLoaded();
-    if (_refreshTick > 0)
+    EnsureEventRegistration();
+
+    if (!_dirty.exchange(false, std::memory_order_acq_rel))
+        return _cached;
+
+    if (!player || !player->biped)
     {
-        --_refreshTick;
+        _dirty.store(true, std::memory_order_release);
         return _cached;
     }
 
     _cached = Scan(player);
-    _refreshTick = 3;
     return _cached;
 }
 
@@ -81,6 +101,18 @@ void ClimateProtectionRuntime::EnsureConfigLoaded()
             logger->warn("[Climate] ArmorTypePower keyword unresolved; Power Armor climate floor disabled this session.");
     }
     _configLoaded = true;
+}
+
+void ClimateProtectionRuntime::EnsureEventRegistration()
+{
+    if (_eventsRegistered)
+        return;
+
+    if (auto* equipManager = RE::ActorEquipManager::GetSingleton())
+    {
+        equipManager->RegisterSink(this);
+        _eventsRegistered = true;
+    }
 }
 
 RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerCharacter* player)
