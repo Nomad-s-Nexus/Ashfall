@@ -59,6 +59,16 @@ namespace
     }
 }
 
+void RadHud::ResetClimateForSession() noexcept
+{
+    _climateCoreTenth = -100000;
+    _climateAmbientTenth = -100000;
+    _climateWetPercent = -1;
+    _climateInsulationPercent = -1;
+    _climateHeatPercent = -1;
+    _climateStage = -1;
+}
+
 void RadHud::EnsureClimateView()
 {
     if (!_api)
@@ -106,12 +116,7 @@ void RadHud::EnsureClimateView()
         api->SetOrder(_climateView, kHudViewOrder);
         if (!_climateDomReady.load(std::memory_order_acquire))
             api->Hide(_climateView);
-        _climateCoreTenth = -100000;
-        _climateAmbientTenth = -100000;
-        _climateWetPercent = -1;
-        _climateInsulationPercent = -1;
-        _climateHeatPercent = -1;
-        _climateStage = -1;
+        ResetClimateForSession();
         if (auto logger = spdlog::get("FalloutAnomaly"))
             logger->info("[HUD] Climate widget view created (handle {}).", _climateView);
     }
