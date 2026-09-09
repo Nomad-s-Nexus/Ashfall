@@ -16,7 +16,6 @@ for token in (
     "AuthoredCoverage(armor)",
     "_config.ArmorOverride(armor->GetFormID())",
     "RadClimateInsulationPolicy::CombinedInsulation",
-    "_refreshTick = 3;",
     "Data/F4SE/Plugins/FalloutAnomaly/climate_protection.json",
     "piece.armor->GetFile(0)",
     "piece.armor->GetLocalFormID()",
@@ -27,25 +26,36 @@ for token in (
     "armor->HasKeyword(_powerArmorKeyword)",
     "RadClimatePowerArmorPolicy::IsCompleteSuit",
     "result.powerArmor",
+    "RE::ActorEquipManager::GetSingleton()",
+    "equipManager->RegisterSink(this);",
+    "event.actorAffected != player",
+    "event.itemAffected->object->GetFormType() == RE::ENUM_FORM_ID::kARMO",
+    "_dirty.store(true, std::memory_order_release);",
+    "_dirty.exchange(false, std::memory_order_acq_rel)",
 ):
     assert token in runtime, f"climate protection runtime contract missing: {token}"
 
 for token in (
+    "public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>",
     "ClimateProtectionConfig _config;",
     "RadClimatePolicy::ProtectionSample _cached{};",
     "std::vector<std::uint32_t> _lastWornForms;",
     "RE::BGSKeyword* _powerArmorKeyword{ nullptr };",
+    "std::atomic<bool> _dirty{ true };",
+    "bool _eventsRegistered{ false };",
     "float LastInsulation01() const noexcept",
     "bool LastPowerArmor() const noexcept",
 ):
     assert token in header, f"climate protection cache contract missing: {token}"
 
+assert "_refreshTick" not in runtime
+assert "_refreshTick" not in header
 assert "const auto protection = _protection.Sample(player);" in climate
 assert "_protection.Reset();" in climate
 
 for token in (
-    "EquipObject",
-    "UnequipObject",
+    "EquipObject(",
+    "UnequipObject(",
     "AddItem",
     "RemoveItem",
     "ModActorValue",
@@ -53,4 +63,4 @@ for token in (
 ):
     assert token not in runtime, f"climate protection scan must remain read-only: {token}"
 
-print("climate worn protection verified: bounded authored-coverage scan, exact JSON overrides, complete Power Armor detection, change-only pasteable gear audit")
+print("climate worn protection verified: event-driven armor invalidation, authored-coverage scan, exact overrides, complete Power Armor detection")
