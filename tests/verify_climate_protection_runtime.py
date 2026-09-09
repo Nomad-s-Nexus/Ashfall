@@ -11,8 +11,9 @@ for token in (
     "player->biped",
     "std::size(biped.object)",
     "form->GetFormType() != RE::ENUM_FORM_ID::kARMO",
-    "piecesByForm[armor->GetFormID()]",
-    "AddSlotCoverage",
+    "piecesByForm.try_emplace(armor->GetFormID())",
+    "armor->FillsBipedSlot",
+    "AuthoredCoverage(armor)",
     "_config.ArmorOverride(armor->GetFormID())",
     "RadClimateInsulationPolicy::CombinedInsulation",
     "_refreshTick = 3;",
@@ -40,4 +41,4 @@ for token in (
 ):
     assert token not in runtime, f"climate protection scan must remain read-only: {token}"
 
-print("climate worn protection verified: bounded biped scan, deduped armor, cached automatic insulation plus exact JSON overrides")
+print("climate worn protection verified: bounded biped scan, deduped authored coverage, cached automatic insulation plus exact JSON overrides")
