@@ -45,6 +45,19 @@ int main()
     Require(Near(clearC - AmbientTemperatureC(false, snow, afternoonDays), kSnowPenaltyC));
     Require(Near(AmbientTemperatureC(false, mixed, afternoonDays), AmbientTemperatureC(false, snow, afternoonDays)));
 
+    Require(SeasonalOffsetC(0) < SeasonalOffsetC(9));
+    Require(SeasonalOffsetC(9) < SeasonalOffsetC(6));
+    Require(Near(SeasonalOffsetC(9), 0.0f));
+    Require(Near(SeasonalOffsetC(12), SeasonalOffsetC(0)));
+
+    const float januaryC = AmbientTemperatureC(false, clear, afternoonDays, 0);
+    const float octoberC = AmbientTemperatureC(false, clear, afternoonDays, 9);
+    const float julyC = AmbientTemperatureC(false, clear, afternoonDays, 6);
+    Require(januaryC < octoberC);
+    Require(octoberC < julyC);
+    Require(Near(AmbientTemperatureC(true, clear, afternoonDays, 0), kIndoorAmbientC));
+    Require(Near(AmbientTemperatureC(true, clear, afternoonDays, 6), kIndoorAmbientC));
+
     Require(Near(PrecipitationIntensity01(clear), 0.0f));
     Require(Near(PrecipitationIntensity01(cloudy), 0.0f));
     Require(Near(PrecipitationIntensity01(rainy), 1.0f));
