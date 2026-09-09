@@ -43,12 +43,26 @@ for token in (
     "if (const auto overrideProfile = _config.Override(runtimeFormID))",
     "!ref->Get3D()",
     "RadClimateHeatPolicy::ShouldRefresh",
+    "class ClimateHeatLoadSink final : public RE::BSTEventSink<RE::TESObjectLoadedEvent>",
+    "RE::TESObjectLoadedEvent::GetEventSource()",
+    "source->RegisterSink(&sink);",
+    "_runtime->Invalidate();",
+    "_dirty.exchange(false, std::memory_order_acq_rel)",
 ):
     assert token in runtime, f"climate heat runtime contract missing: {token}"
 
-assert "ClimateHeatConfig _config;" in runtime_header
+for token in (
+    "ClimateHeatConfig _config;",
+    "void Invalidate() noexcept;",
+    "std::atomic<bool> _dirty{ true };",
+    "bool _eventsRegistered{ false };",
+):
+    assert token in runtime_header, f"climate heat cache contract missing: {token}"
+
 assert "_refreshTick" not in runtime
 assert "_refreshTick" not in runtime_header
+assert "BSTEvent.h" not in runtime_header
+assert "TESObjectLoadedEvent.h" not in runtime_header
 for token in ("nlohmann::json", "json root", "json::", "file >> root"):
     assert token not in runtime, f"JSON parsing must remain outside the heat runtime hot path: {token}"
 
@@ -65,4 +79,4 @@ for token in forbidden:
     assert token not in loader
     assert token not in runtime
 
-print("climate heat config verified: built-in sources plus load-once JSON overrides, movement-cached range discovery, no plugin mutation or timer polling")
+print("climate heat config verified: load-once overrides, movement/load-event cache invalidation, no plugin mutation or timer polling")
