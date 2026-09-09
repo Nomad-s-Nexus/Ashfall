@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ClimateRuntime.h"
+#include "ClimateEnvironmentPolicy.h"
 
 #include <RE/C/Calendar.h>
 #include <RE/P/PlayerCharacter.h>
@@ -7,8 +8,6 @@
 #include <RE/T/TESGlobal.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESWeather.h>
-
-#include <cmath>
 
 namespace
 {
@@ -26,20 +25,6 @@ namespace
             return false;
         const auto flags = weather->weatherData[static_cast<int>(RE::TESWeather::WeatherData::kFlags)];
         return (flags & static_cast<std::int8_t>(RE::TESWeather::WeatherDataFlags::kRainy)) != 0;
-    }
-
-    float AmbientTemperatureC(bool indoors, bool rainy, float gameDays) noexcept
-    {
-        if (indoors)
-            return 20.0f;
-        const float safeDays = std::isfinite(gameDays) ? gameDays : 0.5f;
-        float fraction = safeDays - std::floor(safeDays);
-        if (fraction < 0.0f)
-            fraction += 1.0f;
-        const float hour = fraction * 24.0f;
-        constexpr float pi = 3.14159265358979323846f;
-        const float diurnal = 3.0f * std::cos((hour - 14.0f) * (2.0f * pi / 24.0f));
-        return 10.0f + diurnal - (rainy ? 4.0f : 0.0f);
     }
 
     const char* StageName(RadClimatePolicy::HypothermiaStage stage) noexcept
@@ -78,7 +63,7 @@ void ClimateRuntime::Update()
     environment.shelter01 = indoors ? 1.0f : 0.0f;
     environment.precipitation01 = rainy ? 1.0f : 0.0f;
     environment.submerged = player->IsSwimming();
-    environment.ambientC = AmbientTemperatureC(indoors, rainy, GameDays());
+    environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, rainy, GameDays());
 
     RadClimatePolicy::ProtectionSample protection{};
     const auto result = RadClimatePolicy::Step(_state, environment, protection, 0.25f);
