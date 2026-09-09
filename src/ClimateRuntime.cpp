@@ -86,9 +86,9 @@ void ClimateRuntime::Update()
     if (_state.stage != _lastLoggedStage)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}%",
+            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={}",
                 StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
-                environment.windMps, protection.insulation01 * 100.0f);
+                environment.windMps, protection.insulation01 * 100.0f, protection.powerArmor);
         _lastLoggedStage = _state.stage;
     }
 
@@ -96,9 +96,9 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% indoors={} rainy={} swimming={} stage={}",
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} indoors={} rainy={} swimming={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
-                protection.insulation01 * 100.0f, _lastIndoors, _lastRainy,
+                protection.insulation01 * 100.0f, protection.powerArmor, _lastIndoors, _lastRainy,
                 environment.submerged, StageName(_state.stage));
     }
 }
