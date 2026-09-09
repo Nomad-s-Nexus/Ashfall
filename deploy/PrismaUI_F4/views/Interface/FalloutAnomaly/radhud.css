@@ -162,8 +162,11 @@ html, body {
   border: 1px solid rgba(120,200,120,.4); color: #cdfbcf;
   padding: 6px 6px; cursor: pointer; font-family: inherit;
   font-size: 11px; letter-spacing: 1px; border-radius: 2px;
+  transition: background .08s ease, border-color .08s ease, box-shadow .08s ease, transform .08s ease;
 }
 #debugPanel button:hover { background: rgba(60,120,64,.85); box-shadow: 0 0 6px rgba(60,255,90,.5); }
+#debugPanel button:focus { outline: none; background: rgba(70,145,76,.95); border-color: rgba(180,255,180,.9); box-shadow: 0 0 8px rgba(60,255,90,.65); }
+#debugPanel button:active { transform: translateY(1px); background: rgba(95,175,92,.98); box-shadow: 0 0 10px rgba(120,255,120,.85); }
 #debugPanel button.warn { border-color: rgba(200,100,100,.55); color: #ffd0b0; }
 #debugPanel button.warn:hover { background: rgba(120,50,40,.7); }
 #debugPanel button.close { border-color: #888; color: #ddd; }
