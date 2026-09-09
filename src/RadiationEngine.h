@@ -5,6 +5,7 @@
 #include <chrono>
 #include <mutex>
 #include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
 #include <RE/B/BSPointerHandle.h>
 #include <RE/B/BSSoundHandle.h>
@@ -496,7 +497,7 @@ private:
     std::vector<RE::ObjectRefHandle> _stormGhoulPendingRefs;
     std::vector<RE::ObjectRefHandle> _stormGhoulCleanupRefs;
     std::uint32_t _stormGhoulPendingTicks = 0;
-    std::uint32_t _stormGhoulUnresolvedTicks = 0;
+    std::unordered_map<std::uint32_t, std::uint32_t> _stormGhoulUnresolvedTicksByHandle;
     bool _stormGhoulsEnabled = true;
     float _stormGhoulSpawnChance = kDefaultStormGhoulSpawnChance;
     void RetryPendingStormGhouls();

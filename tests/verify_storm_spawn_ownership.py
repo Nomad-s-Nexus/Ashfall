@@ -90,12 +90,35 @@ live_retirement = actors.split("void RadiationEngine::RetireUnresolvedStormGhoul
 )[0]
 for token in (
     "_stormGhoulRefs",
-    "_stormGhoulUnresolvedTicks",
+    "_stormGhoulUnresolvedTicksByHandle",
+    "const auto handleValue = handle.get_handle();",
+    "if (handle.get())",
+    "++_stormGhoulUnresolvedTicksByHandle[handleValue]",
+    "_stormGhoulUnresolvedTicksByHandle.erase(handleValue);",
     "kStormGhoulPendingTimeoutTicks",
     "_stormGhoulCleanupRefs.push_back(handle);",
     "pack replacement is no longer blocked",
 ):
     assert token in live_retirement, f"unresolved live ghoul retirement is missing: {token}"
+assert "++_stormGhoulUnresolvedTicks[" not in live_retirement
+assert "std::size_t unresolved" not in live_retirement
+
+unresolved_ages = {}
+retired = []
+for _ in range(119):
+    for handle in ("A", "B"):
+        if handle == "A":
+            unresolved_ages.pop(handle, None)
+        else:
+            unresolved_ages[handle] = unresolved_ages.get(handle, 0) + 1
+            if unresolved_ages[handle] >= 120:
+                retired.append(handle)
+                unresolved_ages.pop(handle)
+assert retired == []
+assert unresolved_ages == {"B": 119}
+unresolved_ages["B"] += 1
+assert unresolved_ages["B"] == 120
+assert "A" not in retired
 
 load_reset = actors.split("void RadiationEngine::ResetStormGhoulStateForLoad()", 1)[1].split(
     "void RadiationEngine::SpawnStormGhouls()", 1
@@ -105,7 +128,7 @@ for token in (
     "_stormGhoulPendingRefs.clear();",
     "_stormGhoulCleanupRefs.clear();",
     "_stormGhoulPendingTicks = 0;",
-    "_stormGhoulUnresolvedTicks = 0;",
+    "_stormGhoulUnresolvedTicksByHandle.clear();",
     "_ghoulPackWorldID = 0;",
 ):
     assert token in load_reset, f"load ghoul state reset is missing: {token}"
@@ -134,7 +157,7 @@ clear_ghouls = actors.split("void RadiationEngine::ClearStormGhouls()", 1)[1].sp
 for token in (
     "_stormGhoulCleanupRefs.push_back(handle);",
     "_stormGhoulPendingRefs.clear();",
-    "_stormGhoulUnresolvedTicks = 0;",
+    "_stormGhoulUnresolvedTicksByHandle.clear();",
     "moved to cleanup ownership",
 ):
     assert token in clear_ghouls, f"pending storm ghoul cleanup is missing: {token}"

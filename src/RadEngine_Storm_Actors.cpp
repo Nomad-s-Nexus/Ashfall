@@ -127,23 +127,9 @@ void RadiationEngine::RetireUnresolvedStormGhouls()
 {
     if (_stormGhoulRefs.empty())
     {
-        _stormGhoulUnresolvedTicks = 0;
+        _stormGhoulUnresolvedTicksByHandle.clear();
         return;
     }
-
-    std::size_t unresolved = 0;
-    for (auto& handle : _stormGhoulRefs)
-    {
-        if (!handle.get())
-            ++unresolved;
-    }
-    if (unresolved == 0)
-    {
-        _stormGhoulUnresolvedTicks = 0;
-        return;
-    }
-    if (++_stormGhoulUnresolvedTicks < kStormGhoulPendingTimeoutTicks)
-        return;
 
     auto logger = Log();
     std::vector<RE::ObjectRefHandle> stillLive;
@@ -151,21 +137,29 @@ void RadiationEngine::RetireUnresolvedStormGhouls()
     std::size_t retired = 0;
     for (auto& handle : _stormGhoulRefs)
     {
-        if (!handle.get())
+        const auto handleValue = handle.get_handle();
+        if (handle.get())
         {
-            _stormGhoulCleanupRefs.push_back(handle);
-            ++retired;
+            _stormGhoulUnresolvedTicksByHandle.erase(handleValue);
+            stillLive.push_back(handle);
+            continue;
         }
-        else
+
+        if (++_stormGhoulUnresolvedTicksByHandle[handleValue] < kStormGhoulPendingTimeoutTicks)
         {
             stillLive.push_back(handle);
+            continue;
         }
+
+        _stormGhoulCleanupRefs.push_back(handle);
+        _stormGhoulUnresolvedTicksByHandle.erase(handleValue);
+        ++retired;
     }
     _stormGhoulRefs.swap(stillLive);
-    _stormGhoulUnresolvedTicks = 0;
-    logger->warn(
-        "[Storm/Ghouls] Moving {} unresolved live ref(s) to cleanup after {} ticks; pack replacement is no longer blocked.",
-        retired, kStormGhoulPendingTimeoutTicks);
+    if (retired)
+        logger->warn(
+            "[Storm/Ghouls] Moving {} unresolved live ref(s) to cleanup after {} consecutive ticks; pack replacement is no longer blocked.",
+            retired, kStormGhoulPendingTimeoutTicks);
 }
 void RadiationEngine::ResetStormGhoulStateForLoad()
 {
@@ -173,7 +167,7 @@ void RadiationEngine::ResetStormGhoulStateForLoad()
     _stormGhoulPendingRefs.clear();
     _stormGhoulCleanupRefs.clear();
     _stormGhoulPendingTicks = 0;
-    _stormGhoulUnresolvedTicks = 0;
+    _stormGhoulUnresolvedTicksByHandle.clear();
     _ghoulPackCenter = {};
     _ghoulPackWorldID = 0;
     _ghoulPackInterior = false;
@@ -386,7 +380,7 @@ void RadiationEngine::ClearStormGhouls()
     _stormGhoulRefs.clear();
     _stormGhoulPendingRefs.clear();
     _stormGhoulPendingTicks = 0;
-    _stormGhoulUnresolvedTicks = 0;
+    _stormGhoulUnresolvedTicksByHandle.clear();
     _ghoulPackCenter = {};
     _ghoulPackWorldID = 0;
     _ghoulPackInterior = false;
