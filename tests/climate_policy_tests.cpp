@@ -1,6 +1,7 @@
 #include "ClimateEnvironmentPolicy.h"
 #include "ClimateHeatPolicy.h"
 #include "ClimateInsulationPolicy.h"
+#include "ClimatePowerArmorPolicy.h"
 #include "ClimateSerializationPolicy.h"
 #include "ClimateStagePolicy.h"
 
@@ -114,6 +115,19 @@ int main()
     Require(Near(CombinedInsulation(oneLayer), PieceInsulation(torsoPiece)));
     std::vector<PieceSample> dynamicLayers{ torsoPiece, headPiece };
     Require(CombinedInsulation(std::span<const PieceSample>{ dynamicLayers }) > PieceInsulation(torsoPiece));
+
+    using namespace RadClimatePowerArmorPolicy;
+
+    Require(!IsCompleteSuit(false, 6));
+    Require(!IsCompleteSuit(true, 5));
+    Require(IsCompleteSuit(true, 6));
+    Require(IsCompleteSuit(true, 7));
+    ProtectionSample ordinaryProtection{};
+    ordinaryProtection.insulation01 = 0.35f;
+    ProtectionSample sealedPowerArmor = ordinaryProtection;
+    sealedPowerArmor.powerArmor = true;
+    Require(EffectiveInsulation(sealedPowerArmor) >= 0.85f);
+    Require(EffectiveInsulation(sealedPowerArmor) > EffectiveInsulation(ordinaryProtection));
 
     using namespace RadClimateStagePolicy;
 
