@@ -77,15 +77,16 @@ The rates are deliberately isolated from game-engine acquisition so the model ca
 
 ## Verified runtime adapter
 
-`src/ClimateRuntime.cpp` now contains the first CommonLib-facing acquisition layer. It reads only interfaces already used and trusted by the Rad plugin or pinned CommonLib:
+`src/ClimateRuntime.cpp` contains the first CommonLib-facing acquisition layer. It reads only interfaces already used and trusted by the Rad plugin or pinned CommonLib:
 
 - `PlayerCharacter::GetSingleton()` and the player's parent cell
 - `TESObjectCELL::IsInterior()`
+- `ActorState::IsSwimming()`
 - `Sky::GetSingleton()` and the current weather
 - the weather record's `kRainy` classification flag
 - `Calendar::gameDaysPassed`
 
-The adapter derives a simple original day/night ambient curve and rainy-weather penalty, then prepares a `RadClimatePolicy::EnvironmentSample` and steps the deterministic policy.
+The adapter derives a simple original day/night ambient curve and rainy-weather penalty, then prepares a `RadClimatePolicy::EnvironmentSample` and steps the deterministic policy. Swimming feeds the policy's submerged exposure input so it can saturate wetness once the adapter is live.
 
 This adapter does not mutate gameplay. It does not modify actor values, health, inventory, weather, references, position, or forms. `tests/verify_climate_runtime.py` enforces that boundary and is run by the Rad build workflow.
 
@@ -110,7 +111,7 @@ The climate checks prove:
 - stage penalties are monotonic and normal-state effects return to neutral
 - comfortable conditions recover toward, but never exceed, 37 C
 
-The source-contract guard additionally proves that the first CommonLib-facing runtime slice remains observation-only.
+The source-contract guard additionally proves that the first CommonLib-facing runtime slice remains observation-only and continues to acquire parent-cell, weather/rain, game-time, and swimming state through the verified interfaces above.
 
 ## Runtime integration still required
 
@@ -123,12 +124,11 @@ The first acquisition adapter exists, but live integration remains pending. Befo
 3. persist core temperature and wetness in a versioned co-save record
 4. share exterior roof/shelter coverage with the existing Rad shelter system
 5. verify a wind magnitude or safe derived wind proxy
-6. verify swimming/submerged state
-7. classify equipped armor insulation
-8. integrate the existing full Power Armor result
-9. discover nearby heat sources safely and with bounded work
-10. apply/remove hypothermia effects idempotently
-11. add PrismaUI temperature/wetness HUD and debug controls
+6. classify equipped armor insulation
+7. integrate the existing full Power Armor result
+8. discover nearby heat sources safely and with bounded work
+9. apply/remove hypothermia effects idempotently
+10. add PrismaUI temperature/wetness HUD and debug controls
 
 No guessed relocation or unverified setter should be added to complete those steps.
 
