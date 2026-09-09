@@ -54,7 +54,22 @@ void RadiationEngine::RetryPendingStormGhouls()
 
         auto* actor = ref->GetFormType() == RE::ENUM_FORM_ID::kACHR
             ? static_cast<RE::Actor*>(ref) : nullptr;
-        if (!actor || !_stormGhoulsEnabled)
+        if (!actor)
+        {
+            if (!_stormGhoulsEnabled)
+            {
+                ref->Disable();
+                ref->SetDelete(true);
+                ++cleared;
+            }
+            else
+            {
+                ref->Enable(true);
+                stillPending.push_back(handle);
+            }
+            continue;
+        }
+        if (!_stormGhoulsEnabled)
         {
             ref->Disable();
             ref->SetDelete(true);
@@ -252,7 +267,6 @@ void RadiationEngine::SpawnStormGhouls()
     int grounded = 0;
     int visible3D = 0;
     int pending = 0;
-    int rejected = 0;
 
     for (int i = 0; i < count; ++i)
     {
@@ -297,14 +311,10 @@ void RadiationEngine::SpawnStormGhouls()
                 _stormGhoulRefs.push_back(handle);
                 ++spawned;
             }
-            else if (ref)
-            {
-                ref->Disable();
-                ref->SetDelete(true);
-                ++rejected;
-            }
             else
             {
+                if (ref)
+                    ref->Enable(true);
                 _stormGhoulPendingRefs.push_back(handle);
                 ++pending;
             }
@@ -314,8 +324,8 @@ void RadiationEngine::SpawnStormGhouls()
     _ghoulPackWorldID = world->GetFormID();
     _ghoulPackInterior = false;
     logger->warn(
-        "[Storm/Ghouls] HUNT — unleashed {} feral ghoul(s); grounded {}/{}, 3D {}/{}, pending {}, rejected {}; they hunt until killed or you leave the area.",
-        spawned, grounded, spawned, visible3D, spawned, pending, rejected);
+        "[Storm/Ghouls] HUNT — unleashed {} feral ghoul(s); grounded {}/{}, 3D {}/{}, pending {}; they hunt until killed or you leave the area.",
+        spawned, grounded, spawned, visible3D, spawned, pending);
 }
 void RadiationEngine::CheckGhoulPackCleanup()
 {

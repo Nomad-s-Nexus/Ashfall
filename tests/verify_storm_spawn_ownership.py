@@ -51,7 +51,6 @@ for token in (
     "actor->ClampToGround();",
     "actor->GetPosition();",
     "actor->Get3D() != nullptr",
-    "ref->SetDelete(true);",
 ):
     assert token in ghoul_spawn, f"storm ghoul placement activation is missing: {token}"
 
@@ -70,9 +69,15 @@ for token in (
     "kStormGhoulPendingTimeoutTicks",
 ):
     assert token in pending_retry, f"pending storm ghoul retry is missing: {token}"
+assert "stillPending.push_back(handle);" in pending_retry
+assert "ref->Enable(true);" in pending_retry
+assert "ref->SetDelete(true);" in pending_retry
 assert "_stormGhoulCleanupRefs.insert" in pending_retry
 assert "allowing future pack rolls" in pending_retry
 assert "_stormGhoulPendingRefs.push_back(handle);" in ghoul_spawn
+assert "else if (ref)" not in ghoul_spawn
+assert "rejected" not in ghoul_spawn
+assert "if (ref)\n                    ref->Enable(true);" in ghoul_spawn
 
 cleanup_retry = actors.split("void RadiationEngine::RetryStormGhoulCleanup()", 1)[1].split(
     "void RadiationEngine::RetireUnresolvedStormGhouls()", 1
