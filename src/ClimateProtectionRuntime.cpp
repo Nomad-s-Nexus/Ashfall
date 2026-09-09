@@ -159,7 +159,7 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
                     powerArmorHelmet = true;
             }
         }
-        if (const auto overrideValue = _config.ArmorOverride(armor->GetFormID()))
+        if (const auto overrideValue = _config.ArmorOverride(armor))
             worn.sample.overrideInsulation01 = *overrideValue;
     }
 
