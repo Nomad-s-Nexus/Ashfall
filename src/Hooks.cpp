@@ -2,6 +2,7 @@
 #include "Hooks.h"
 #include "PrismaUI_F4_API.h"
 #include "RadiationEngine.h"
+#include "ClimateRuntime.h"
 #include "RadHud.h"
 
 #ifdef MAX_PATH
@@ -383,6 +384,7 @@ namespace Hooks
                 try
                 {
                     RadiationEngine::GetSingleton().Update();
+                    ClimateRuntime::GetSingleton().Update();
                 }
                 catch (...)
                 {
