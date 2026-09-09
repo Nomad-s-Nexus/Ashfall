@@ -3,9 +3,6 @@
 #include "ClimatePolicy.h"
 #include "ClimateProtectionConfig.h"
 
-#include <RE/A/ActorEquipManagerEvent.h>
-#include <RE/B/BSTEvent.h>
-
 #include <atomic>
 #include <cstdint>
 #include <vector>
@@ -16,19 +13,16 @@ namespace RE
     class PlayerCharacter;
 }
 
-class ClimateProtectionRuntime :
-    public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>
+class ClimateProtectionRuntime
 {
 public:
     void Reset() noexcept;
+    void Invalidate() noexcept;
     [[nodiscard]] RadClimatePolicy::ProtectionSample Sample(RE::PlayerCharacter* player);
     [[nodiscard]] float LastInsulation01() const noexcept { return _cached.insulation01; }
     [[nodiscard]] bool LastPowerArmor() const noexcept { return _cached.powerArmor; }
 
 private:
-    RE::BSEventNotifyControl ProcessEvent(
-        const RE::ActorEquipManagerEvent::Event& event,
-        RE::BSTEventSource<RE::ActorEquipManagerEvent::Event>* source) override;
     void EnsureConfigLoaded();
     void EnsureEventRegistration();
     [[nodiscard]] RadClimatePolicy::ProtectionSample Scan(RE::PlayerCharacter* player);
