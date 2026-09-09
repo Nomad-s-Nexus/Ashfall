@@ -27,19 +27,27 @@ void ClimateShelterRuntime::Reset() noexcept
 {
     _cached = {};
     _lastCellID = 0;
+    _lastX = 0.0f;
+    _lastY = 0.0f;
+    _lastZ = 0.0f;
     _lastRoofed = false;
     _roofStateKnown = false;
-    _refreshTick = 0;
 }
 
 RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharacter* player)
 {
     if (!player)
+    {
+        _roofStateKnown = false;
         return RadClimateShelterPolicy::FromState(false, false, true);
+    }
 
     auto* cell = player->GetParentCell();
     if (!cell)
+    {
+        _roofStateKnown = false;
         return RadClimateShelterPolicy::FromState(false, false, true);
+    }
 
     if (cell->IsInterior())
     {
@@ -47,39 +55,40 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharact
         _lastCellID = cell->GetFormID();
         _lastRoofed = false;
         _roofStateKnown = true;
-        _refreshTick = 0;
         return _cached;
     }
 
     if (!cell->IsExterior() || !cell->IsAttached())
+    {
+        _roofStateKnown = false;
         return RadClimateShelterPolicy::FromState(false, false, true);
+    }
 
     const auto cellID = cell->GetFormID();
-    if (cellID != _lastCellID)
-    {
-        _lastCellID = cellID;
-        _refreshTick = 0;
-    }
-
-    if (_refreshTick > 0)
-    {
-        --_refreshTick;
+    const auto position = player->GetPosition();
+    const float deltaX = position.x - _lastX;
+    const float deltaY = position.y - _lastY;
+    const float deltaZ = position.z - _lastZ;
+    if (!RadClimateShelterPolicy::ShouldProbe(
+            _roofStateKnown, cellID, _lastCellID, deltaX, deltaY, deltaZ))
         return _cached;
-    }
 
     const bool roofed = ProbeRoof(player, cell);
     _cached = RadClimateShelterPolicy::FromState(false, roofed, false);
-    _refreshTick = 3;
+    _lastCellID = cellID;
+    _lastX = position.x;
+    _lastY = position.y;
+    _lastZ = position.z;
 
     if (!_roofStateKnown || roofed != _lastRoofed)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
             logger->info("[Climate] Exterior roof cover changed: roofed={} thermal={:.0f}% rainCover={:.0f}%.",
                 roofed, _cached.thermal01 * 100.0f, _cached.precipitation01 * 100.0f);
-        _lastRoofed = roofed;
-        _roofStateKnown = true;
     }
 
+    _lastRoofed = roofed;
+    _roofStateKnown = true;
     return _cached;
 }
 
