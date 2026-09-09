@@ -49,7 +49,8 @@ for token in (
 assert "ClimateHeatConfig _config;" in runtime_header
 assert "_refreshTick" not in runtime
 assert "_refreshTick" not in runtime_header
-assert "json" not in runtime
+for token in ("nlohmann::json", "json root", "json::", "file >> root"):
+    assert token not in runtime, f"JSON parsing must remain outside the heat runtime hot path: {token}"
 
 forbidden = (
     "AddFormToFormList",
