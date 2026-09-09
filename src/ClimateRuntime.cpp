@@ -2,6 +2,7 @@
 #include "ClimateRuntime.h"
 #include "ClimateEnvironmentPolicy.h"
 #include "ClimateStagePolicy.h"
+#include "RadHud.h"
 
 #include <RE/C/Calendar.h>
 #include <RE/P/PlayerCharacter.h>
@@ -113,6 +114,14 @@ void ClimateRuntime::Update()
     _lastAmbientC = environment.ambientC;
     _lastRainy = weatherClass.rainy;
     _lastIndoors = indoors;
+
+    RadHud::GetSingleton().PushClimate(
+        _state.coreC,
+        _lastAmbientC,
+        _state.wetness01,
+        result.effectiveInsulation01,
+        environment.heat01,
+        static_cast<int>(_state.stage));
 
     if (_state.stage != _lastLoggedStage)
     {
