@@ -16,13 +16,16 @@ for token in (
     "RE::Sky::GetSingleton()",
     "sky->currentWeather",
     "RE::TESWeather::WeatherDataFlags::kRainy",
+    "RE::TESWeather::WeatherData::kWindSpeed",
     "RE::Calendar::GetSingleton()",
     "cal->gameDaysPassed->GetValue()",
     "RadClimateEnvironmentPolicy::AmbientTemperatureC",
+    "RadClimateEnvironmentPolicy::WindProxyMps",
     "RadClimatePolicy::Step",
     "RadClimateStagePolicy::NextStage",
     "environment.precipitation01",
     "environment.submerged",
+    "environment.windMps",
     "environment.indoors",
     "environment.shelter01",
     "ClimateRuntime::Reset()",
@@ -77,4 +80,4 @@ new_game = main.split("case F4SE::MessagingInterface::kNewGame:", 1)[1].split(
 assert "ClimateRuntime::GetSingleton().Reset();" in post_load
 assert "ClimateRuntime::GetSingleton().Reset();" in new_game
 
-print("climate runtime contract verified: trusted inputs, tested ambient/stage policy, game-main tick, load-safe reset, no gameplay mutation")
+print("climate runtime contract verified: trusted cell/weather/time/swimming/wind inputs, tested ambient/stage policy, game-main tick, load-safe reset, no gameplay mutation")
