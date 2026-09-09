@@ -75,6 +75,7 @@ void ClimateRuntime::Update()
     environment.submerged = player->IsSwimming();
     environment.windMps = indoors ? 0.0f : RadClimateEnvironmentPolicy::WindProxyMps(WindByte(weather));
     environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, rainy, GameDays());
+    environment.heat01 = _heat.Sample(player);
 
     const auto protection = _protection.Sample(player);
     const auto result = RadClimatePolicy::Step(_state, environment, protection, 0.25f);
@@ -88,10 +89,10 @@ void ClimateRuntime::Update()
     if (_state.stage != _lastLoggedStage)
     {
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% roofed={}",
+            logger->warn("[Climate] stage={} core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% heat={:.0f}% roofed={}",
                 StageName(_state.stage), _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f,
                 environment.windMps, protection.insulation01 * 100.0f, protection.powerArmor,
-                environment.shelter01 * 100.0f, _shelter.LastRoofed());
+                environment.shelter01 * 100.0f, environment.heat01 * 100.0f, _shelter.LastRoofed());
         _lastLoggedStage = _state.stage;
     }
 
@@ -99,11 +100,11 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% roofed={} indoors={} rainy={} swimming={} stage={}",
+            logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% heat={:.0f}% roofed={} indoors={} rainy={} swimming={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
                 protection.insulation01 * 100.0f, protection.powerArmor,
                 environment.shelter01 * 100.0f, environment.precipitationShelter01 * 100.0f,
-                _shelter.LastRoofed(), _lastIndoors, _lastRainy,
+                environment.heat01 * 100.0f, _shelter.LastRoofed(), _lastIndoors, _lastRainy,
                 environment.submerged, StageName(_state.stage));
     }
 }
@@ -113,6 +114,7 @@ void ClimateRuntime::Reset()
     _state = {};
     _protection.Reset();
     _shelter.Reset();
+    _heat.Reset();
     _lastLoggedStage = RadClimatePolicy::HypothermiaStage::kNormal;
     _lastAmbientC = RadClimatePolicy::kNeutralAmbientC;
     _lastRainy = false;
