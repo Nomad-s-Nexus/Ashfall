@@ -3,10 +3,12 @@
 #include "ClimateHeatPolicy.h"
 
 #include <RE/B/BSContainer.h>
+#include <RE/B/BSTEvent.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/T/TES.h>
 #include <RE/T/TESDataHandler.h>
 #include <RE/T/TESObjectCELL.h>
+#include <RE/T/TESObjectLoadedEvent.h>
 #include <RE/T/TESObjectREFR.h>
 
 namespace
@@ -24,6 +26,23 @@ namespace
         const float z = lhs.z - rhs.z;
         return std::sqrt(x * x + y * y + z * z);
     }
+
+    class ClimateHeatLoadSink final : public RE::BSTEventSink<RE::TESObjectLoadedEvent>
+    {
+    public:
+        explicit ClimateHeatLoadSink(ClimateHeatRuntime* runtime) : _runtime(runtime) {}
+
+        RE::BSEventNotifyControl ProcessEvent(
+            const RE::TESObjectLoadedEvent&,
+            RE::BSTEventSource<RE::TESObjectLoadedEvent>*) override
+        {
+            _runtime->Invalidate();
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+    private:
+        ClimateHeatRuntime* _runtime;
+    };
 }
 
 void ClimateHeatRuntime::Reset() noexcept
@@ -40,6 +59,12 @@ void ClimateHeatRuntime::Reset() noexcept
     _sourcesResolved = false;
     _sampleKnown = false;
     _lastHeated = false;
+    Invalidate();
+}
+
+void ClimateHeatRuntime::Invalidate() noexcept
+{
+    _dirty.store(true, std::memory_order_release);
 }
 
 void ClimateHeatRuntime::EnsureSourcesResolved()
@@ -72,6 +97,19 @@ void ClimateHeatRuntime::EnsureSourcesResolved()
             _sourceCount, _config.OverrideCount(), _searchRadius);
 }
 
+void ClimateHeatRuntime::EnsureEventRegistration()
+{
+    if (_eventsRegistered)
+        return;
+
+    if (auto* source = RE::TESObjectLoadedEvent::GetEventSource())
+    {
+        static ClimateHeatLoadSink sink(this);
+        source->RegisterSink(&sink);
+        _eventsRegistered = true;
+    }
+}
+
 std::optional<ClimateHeatRuntime::SourceProfile> ClimateHeatRuntime::ProfileFor(
     std::uint32_t runtimeFormID) const noexcept
 {
@@ -89,9 +127,11 @@ std::optional<ClimateHeatRuntime::SourceProfile> ClimateHeatRuntime::ProfileFor(
 float ClimateHeatRuntime::Sample(RE::PlayerCharacter* player)
 {
     EnsureSourcesResolved();
+    EnsureEventRegistration();
     if (!player || !_sourcesResolved || _searchRadius <= 0.0f)
     {
         _sampleKnown = false;
+        Invalidate();
         return 0.0f;
     }
 
@@ -99,12 +139,14 @@ float ClimateHeatRuntime::Sample(RE::PlayerCharacter* player)
     if (!cell || !cell->IsAttached())
     {
         _sampleKnown = false;
+        Invalidate();
         return 0.0f;
     }
 
     const auto position = player->GetPosition();
     const auto cellID = cell->GetFormID();
-    if (!RadClimateHeatPolicy::ShouldRefresh(
+    const bool eventDirty = _dirty.exchange(false, std::memory_order_acq_rel);
+    if (!eventDirty && !RadClimateHeatPolicy::ShouldRefresh(
             _sampleKnown,
             cellID,
             _lastCellID,
@@ -117,6 +159,7 @@ float ClimateHeatRuntime::Sample(RE::PlayerCharacter* player)
     if (!world)
     {
         _sampleKnown = false;
+        Invalidate();
         return 0.0f;
     }
 
