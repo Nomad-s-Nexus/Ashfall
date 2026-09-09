@@ -1,4 +1,5 @@
 #include "ClimateEnvironmentPolicy.h"
+#include "ClimateHeatPolicy.h"
 #include "ClimateInsulationPolicy.h"
 #include "ClimateSerializationPolicy.h"
 #include "ClimateStagePolicy.h"
@@ -113,6 +114,41 @@ int main()
     Require(NextStage(HypothermiaStage::kCritical, 30.10f) == HypothermiaStage::kCritical);
     Require(NextStage(HypothermiaStage::kMild, 32.0f) == HypothermiaStage::kSevere);
     Require(NextStage(static_cast<HypothermiaStage>(255), 36.0f) == HypothermiaStage::kChilled);
+
+    using namespace RadClimateHeatPolicy;
+
+    SourceSample fire{};
+    fire.distance = 0.0f;
+    fire.radius = 1000.0f;
+    fire.strength01 = 0.8f;
+    Require(Near(Contribution(fire), 0.8f));
+
+    fire.distance = 500.0f;
+    const float halfRadius = Contribution(fire);
+    Require(halfRadius > 0.0f && halfRadius < 0.8f);
+    Require(Near(halfRadius, 0.2f));
+
+    fire.distance = 1000.0f;
+    Require(Near(Contribution(fire), 0.0f));
+    fire.distance = 1500.0f;
+    Require(Near(Contribution(fire), 0.0f));
+
+    SourceSample invalidHeat{};
+    invalidHeat.radius = std::numeric_limits<float>::quiet_NaN();
+    invalidHeat.strength01 = 1.0f;
+    Require(Near(Contribution(invalidHeat), 0.0f));
+
+    SourceSample closeFire{};
+    closeFire.distance = 100.0f;
+    closeFire.radius = 1000.0f;
+    closeFire.strength01 = 0.7f;
+    std::array<SourceSample, 1> oneFire{ closeFire };
+    std::array<SourceSample, 2> twoFires{ closeFire, closeFire };
+    Require(CombinedHeat(twoFires) > CombinedHeat(oneFire));
+    Require(CombinedHeat(twoFires) <= 1.0f);
+
+    closeFire.active = false;
+    Require(Near(Contribution(closeFire), 0.0f));
 
     return 0;
 }
