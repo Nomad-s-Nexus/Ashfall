@@ -26,6 +26,8 @@
     <div class="dbg-tabs">
       <button class="dbg-tab on" id="tabbtn-rad"  onclick="showTab('rad')">RAD MOD</button>
       <button class="dbg-tab"    id="tabbtn-wthr" onclick="showTab('wthr')">WEATHER</button>
+      <button class="dbg-tab"    id="tabbtn-ghouls" onclick="showTab('ghouls')">GHOULS</button>
+      <button class="dbg-tab"    id="tabbtn-hud"  onclick="showTab('hud')">HUD LAYOUT</button>
     </div>
 
     <!-- ===================== TAB: RAD MOD ===================== -->
@@ -163,6 +165,38 @@
 
     </div><!-- /tab-wthr -->
 
+    <div class="dbg-pane" id="tab-ghouls">
+      <div class="dbg-sec">STORM GHOULS</div>
+      <div class="dbg-help">Controls future lethal-storm rolls. Disable also clears any active hunter pack.</div>
+      <div class="ghoul-state" id="ghoulState">HUNTER PACKS: SYNCING...</div>
+      <div class="dbg-row">
+        <button class="warn" onclick="setGhoulEnabled(false)">DISABLE + CLEAR</button>
+        <button onclick="setGhoulEnabled(true)">ENABLE</button>
+      </div>
+      <div class="dbg-sec">SPAWN CHANCE</div>
+      <div class="ghoul-range">
+        <label for="ghoulChance">CHANCE</label>
+        <input id="ghoulChance" type="range" min="0" max="100" step="5" value="40"
+               oninput="setGhoulChanceLabel(this.value)"
+               onchange="setGhoulChance(this.value)">
+        <output id="ghoulChanceValue">40%</output>
+      </div>
+      <div class="dbg-row">
+        <button onclick="setGhoulChance(0)">0% NO SPAWN</button>
+        <button onclick="setGhoulChance(100)">100% TEST</button>
+      </div>
+      <div class="dbg-row">
+        <button class="warn" onclick="cmd('ghouls:clear')">CLEAR CURRENT PACK</button>
+        <button onclick="resetGhoulSettings()">RESET 40%</button>
+      </div>
+    </div><!-- /tab-ghouls -->
+
+    <div class="dbg-pane" id="tab-hud">
+      <div class="dbg-sec">HUD LAYOUT EDITOR</div>
+      <div class="dbg-help">Open the built-in Rad widget editor to preview and save widget layout.</div>
+      <div class="dbg-row"><button onclick="cmd('hud:open')">OPEN HUD LAYOUT EDITOR</button></div>
+    </div><!-- /tab-hud -->
+
     <div class="dbg-row" style="margin-top:8px;">
       <button class="close" onclick="cmd('close')">CLOSE  (Shift+F8)</button>
     </div>
@@ -181,5 +215,6 @@
   </div>
 
   <script src="radhud.js"></script>
+  <script src="rad_hud_local_editor.js"></script>
 </body>
 </html>

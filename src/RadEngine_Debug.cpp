@@ -196,6 +196,42 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
     else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);
     else if (a == "fixstats")             DebugFixSpecial();
+    else if (a == "ghouls:on")
+    {
+        _stormGhoulsEnabled = true;
+        RadHud::GetSingleton().PushGhoulSettings(true, static_cast<int>(_stormGhoulSpawnChance * 100.0f + 0.5f));
+        Notify("[DEBUG] Storm ghoul rolls enabled.", false);
+    }
+    else if (a == "ghouls:off")
+    {
+        _stormGhoulsEnabled = false;
+        ClearStormGhouls();
+        RadHud::GetSingleton().PushGhoulSettings(false, static_cast<int>(_stormGhoulSpawnChance * 100.0f + 0.5f));
+        Notify("[DEBUG] Storm ghoul rolls disabled; active pack cleared.", false);
+    }
+    else if (a.rfind("ghouls:chance:", 0) == 0)
+    {
+        _stormGhoulSpawnChance = std::clamp(numAfter("ghouls:chance:"), 0.0f, 100.0f) / 100.0f;
+        RadHud::GetSingleton().PushGhoulSettings(_stormGhoulsEnabled,
+            static_cast<int>(_stormGhoulSpawnChance * 100.0f + 0.5f));
+        Notify("[DEBUG] Storm ghoul spawn chance updated.", false);
+    }
+    else if (a == "ghouls:reset")
+    {
+        _stormGhoulsEnabled = true;
+        _stormGhoulSpawnChance = 0.40f;
+        RadHud::GetSingleton().PushGhoulSettings(true, 40);
+        Notify("[DEBUG] Storm ghoul settings reset (40%).", false);
+    }
+    else if (a == "ghouls:clear")
+    {
+        ClearStormGhouls();
+        Notify("[DEBUG] Active storm ghoul pack cleared.", false);
+    }
+    else if (a == "hud:open")
+    {
+        RadHud::GetSingleton().OpenHudEditor();
+    }
     else if (a == "shelter")
     {
         _debugShelter = !_debugShelter;

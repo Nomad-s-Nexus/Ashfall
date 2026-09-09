@@ -104,6 +104,31 @@ window.stormPhase = function(json) {
 
 function cmd(action) { try { if (window.radDebug) window.radDebug(action); } catch (e) {} }
 
+function setGhoulChanceLabel(value) {
+  var n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+  var output = document.getElementById("ghoulChanceValue");
+  if (output) output.textContent = n + "%";
+  return n;
+}
+
+function setGhoulChance(value) { cmd("ghouls:chance:" + setGhoulChanceLabel(value)); }
+function setGhoulEnabled(enabled) { cmd(enabled ? "ghouls:on" : "ghouls:off"); }
+function resetGhoulSettings() { cmd("ghouls:reset"); }
+
+function setGhoulSettings(state) {
+  try {
+    var d = (typeof state === "string") ? JSON.parse(state) : state;
+    var enabled = !!(d && d.enabled);
+    var n = Math.max(0, Math.min(100, Math.round(Number(d && d.chance) || 0)));
+    var input = document.getElementById("ghoulChance");
+    var output = document.getElementById("ghoulChanceValue");
+    var status = document.getElementById("ghoulState");
+    if (input) input.value = n;
+    if (output) output.textContent = n + "%";
+    if (status) status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+  } catch (e) {}
+}
+
 window.SetDebugMenu = function(on) {
   var panel = document.getElementById("debugPanel");
   var show  = ((""+on)==="1" || on===true);
@@ -114,7 +139,7 @@ window.SetDebugMenu = function(on) {
 
 // Debug-menu tabs: "rad" (Rad Mod controls) | "wthr" (force-weather list).
 function showTab(which) {
-  var tabs = ["rad", "wthr"];
+  var tabs = ["rad", "wthr", "ghouls", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);

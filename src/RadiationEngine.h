@@ -473,6 +473,8 @@ private:
     RE::TESBoundObject* _stormGhoulForm = nullptr;
     RE::TESBoundObject* _stormGlowingOneForm = nullptr;
     std::vector<RE::ObjectRefHandle> _stormGhoulRefs;
+    bool  _stormGhoulsEnabled = true;
+    float _stormGhoulSpawnChance = 0.40f;
     void SpawnStormGhouls();   // % chance to unleash a 5-20 strong persistent hunter pack (lethal storms)
     void ClearStormGhouls();   // disable + delete all spawned ghoul refs
     void CheckGhoulPackCleanup();  // despawn the pack once the player leaves the area

@@ -400,6 +400,26 @@ void RadHud::PushStorm(int phase, int theme, float intensity, bool sheltered, bo
     api->InteropCall(_view, "stormPhase", json);
 }
 
+void RadHud::PushGhoulSettings(bool enabled, int chancePercent)
+{
+    if (!_api || _view == 0 || !_domReady) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view)) return;
+
+    char json[96];
+    std::snprintf(json, sizeof(json), "{\"enabled\":%s,\"chance\":%d}",
+        enabled ? "true" : "false", std::clamp(chancePercent, 0, 100));
+    api->InteropCall(_view, "setGhoulSettings", json);
+}
+
+void RadHud::OpenHudEditor()
+{
+    if (!_api || _view == 0 || !_domReady) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (api->IsValid(_view))
+        api->InteropCall(_view, "OpenLocalHudEditor", "{}");
+}
+
 void RadHud::ResetDebugMenuForSession()
 {
     _debugOpen = false;

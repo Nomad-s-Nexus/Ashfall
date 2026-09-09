@@ -673,6 +673,7 @@ void RadiationEngine::ClearFireRefs()
 
 void RadiationEngine::SpawnStormGhouls()
 {
+    if (!_stormGhoulsEnabled) return;
     if (!_stormGhoulForm) return;
     if (IsPlayerSheltered()) return;
 
@@ -688,9 +689,9 @@ void RadiationEngine::SpawnStormGhouls()
 
     // % chance per lethal storm — most storms pass without a pack.
     std::uniform_real_distribution<float> chance(0.0f, 1.0f);
-    if (chance(rng) > kStormGhoulSpawnChance)
+    if (chance(rng) > _stormGhoulSpawnChance)
     {
-        logger->info("[Storm/Ghouls] No ghoul pack this storm (chance {:.0f}%).", kStormGhoulSpawnChance * 100.0f);
+        logger->info("[Storm/Ghouls] No ghoul pack this storm (chance {:.0f}%).", _stormGhoulSpawnChance * 100.0f);
         return;
     }
 
