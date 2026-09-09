@@ -43,31 +43,40 @@ var warm=document.getElementById('warm');
 var heat=document.getElementById('heat');
 var heatWrap=document.getElementById('heatWrap');
 var names=['NORMAL','CHILLED','MILD','MODERATE','SEVERE','CRITICAL'];
-var _preview=false,_hasData=false;
+var _preview=false,_hasData=false,_fahrenheit=false,_lastData=null;
+function formatTemp(c){var v=_fahrenheit?(c*9/5+32):c;return v.toFixed(1)+'°'+(_fahrenheit?'F':'C');}
+function formatAmbient(c){var v=_fahrenheit?(c*9/5+32):c;return v.toFixed(1)+'°';}
+function renderClimate(d){
+  var s=Math.max(0,Math.min(5,Math.round(+d.stage||0)));
+  core.textContent=formatTemp(+d.core||0);stage.textContent=names[s];
+  air.textContent=formatAmbient(+d.ambient||0);
+  wet.textContent=Math.max(0,Math.min(100,Math.round(+d.wetness||0)))+'%';
+  warm.textContent=Math.max(0,Math.min(100,Math.round(+d.insulation||0)))+'%';
+  var h=Math.max(0,Math.min(100,Math.round(+d.heat||0)));
+  heat.textContent=h+'%';heatWrap.style.display=h>0?'':'none';root.className='visible s'+s;
+}
 
 window.updateClimate=function(json){
   try{
     var d=(typeof json==='string')?JSON.parse(json):json;
-    var s=Math.max(0,Math.min(5,Math.round(+d.stage||0)));
-    core.textContent=(+d.core||0).toFixed(1)+'°C';
-    stage.textContent=names[s];
-    air.textContent=(+d.ambient||0).toFixed(1)+'°';
-    wet.textContent=Math.max(0,Math.min(100,Math.round(+d.wetness||0)))+'%';
-    warm.textContent=Math.max(0,Math.min(100,Math.round(+d.insulation||0)))+'%';
-    var h=Math.max(0,Math.min(100,Math.round(+d.heat||0)));
-    heat.textContent=h+'%';
-    heatWrap.style.display=h>0?'':'none';
-    root.className='visible s'+s;
+    _lastData=d;
+    renderClimate(d);
     _hasData=true;
     window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));
   }catch(e){}
 };
 
+window.setClimateUnit=function(json){
+  _fahrenheit=(json==='F'||json==='"F"');
+  if(_lastData) window.updateClimate(_lastData);
+};
+
 window.setEditorPreview=function(json){
   _preview=(json==='1'||json===1||json===true);
   if(_preview){
-    core.textContent='35.8°C';stage.textContent='CHILLED';air.textContent='-4.0°';wet.textContent='62%';warm.textContent='48%';heat.textContent='30%';heatWrap.style.display='';root.className='visible s1';
-  }else if(!_hasData){root.className='';}
+    core.textContent=formatTemp(35.8);stage.textContent='CHILLED';air.textContent=formatAmbient(-4.0);wet.textContent='62%';warm.textContent='48%';heat.textContent='30%';heatWrap.style.display='';root.className='visible s1';
+  }else if(_lastData){renderClimate(_lastData);}
+  else if(!_hasData){root.className='';}
 };
 
 var WIDGET_ID='rad_climate';
@@ -90,6 +99,10 @@ window.setHUDPosition=function(json){
   _posSet=true;
   try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0));}catch(e){}
 };
+window.setLocalHUDLayout=function(json){
+  try{var p=(typeof json==='string')?JSON.parse(json):json;applyPos(p.x,p.y,p.s,p.r);document.getElementById('root').style.display=p.hidden?'none':'';}catch(e){}
+};
+window.releaseLocalHUDLayout=function(){document.getElementById('root').style.display='';};
 window.reportPosition=window.reportPosition||function(){};
 window.reportVisibility=window.reportVisibility||function(){};
 setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0);},50);

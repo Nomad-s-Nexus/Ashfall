@@ -16,6 +16,9 @@ def main() -> None:
     assert 'InteropCall(view, "setEditorPreview", preview ? "1" : "0");' in native
     assert 'InteropCall(_view, "OpenLocalHudEditor", LocalHudLayoutJson().c_str());' in native
     assert 'window.radHudLayout(JSON.stringify(command));' in editor
+    assert 'rad_climate' in editor
+    assert 'temperatureUnit' in native
+    assert 'setClimateUnit' in (ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "hud_climate.html").read_text(encoding="utf-8")
     assert 'window.setHudLayoutStatus' in view
     print("HUD layout bridge contract verified")
 

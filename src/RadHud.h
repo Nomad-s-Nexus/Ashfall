@@ -85,6 +85,8 @@ private:
     };
     LocalLayout _toxicLayout{ 30.0f / 1920.0f, 882.0f / 1080.0f, 1.0f, 0.0f, false };
     LocalLayout _filterLayout{ 22.0f / 1920.0f, 1014.0f / 1080.0f, 1.0f, 0.0f, false };
+    LocalLayout _climateLayout{ 22.0f / 1920.0f, 944.0f / 1080.0f, 1.0f, 0.0f, false };
+    bool _climateFahrenheit = false;
     bool _localLayoutLoaded = false;
     bool _localLayoutApplied = false;
 

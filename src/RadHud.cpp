@@ -434,6 +434,8 @@ std::string RadHud::LocalHudLayoutJson() const
     };
     add("rad_toxic", _toxicLayout);
     add("rad_filter", _filterLayout);
+    add("rad_climate", _climateLayout);
+    out["temperatureUnit"] = _climateFahrenheit ? "F" : "C";
     return out.dump();
 }
 
@@ -462,6 +464,9 @@ void RadHud::LoadLocalHudLayout()
     };
     load("rad_toxic", _toxicLayout);
     load("rad_filter", _filterLayout);
+    load("rad_climate", _climateLayout);
+    const auto unit = data.find("temperatureUnit");
+    if (unit != data.end() && unit->is_string()) _climateFahrenheit = unit->get<std::string>() == "F";
 }
 
 bool RadHud::SaveLocalHudLayout()
@@ -480,8 +485,11 @@ bool RadHud::SaveLocalHudLayout()
 
 void RadHud::ApplyLocalHudLayout(bool preview)
 {
-    if (!_api || _hudApi) return;
+    if (!_api) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (_climateView != 0 && _climateDomReady && api->IsValid(_climateView))
+        api->InteropCall(_climateView, "setClimateUnit", _climateFahrenheit ? "\"F\"" : "\"C\"");
+    if (_hudApi) return;
     const auto apply = [api, preview](uint64_t view, bool ready, const LocalLayout& layout) {
         if (!ready || view == 0 || !api->IsValid(view)) return;
         char payload[160];
@@ -495,7 +503,9 @@ void RadHud::ApplyLocalHudLayout(bool preview)
     const bool filterApplied = _filterView != 0 && _filterDomReady && api->IsValid(_filterView);
     if (toxicApplied) apply(_toxicView, true, _toxicLayout);
     if (filterApplied) apply(_filterView, true, _filterLayout);
-    _localLayoutApplied = toxicApplied && filterApplied;
+    const bool climateApplied = _climateView != 0 && _climateDomReady && api->IsValid(_climateView);
+    if (climateApplied) apply(_climateView, true, _climateLayout);
+    _localLayoutApplied = toxicApplied && filterApplied && climateApplied;
 }
 
 void RadHud::HandleHudLayoutCommand(const std::string& command)
@@ -503,14 +513,36 @@ void RadHud::HandleHudLayoutCommand(const std::string& command)
     LoadLocalHudLayout();
     const json data = json::parse(command, nullptr, false);
     if (!data.is_object()) return;
-    const std::string action = data.value("action", "");
+    const auto actionIt = data.find("action");
+    if (actionIt == data.end() || !actionIt->is_string()) return;
+    const std::string action = actionIt->get<std::string>();
+    if (action == "unit")
+    {
+        const auto unit = data.find("unit");
+        if (unit == data.end() || !unit->is_string()) return;
+        const std::string value = unit->get<std::string>();
+        if (value != "C" && value != "F") return;
+        _climateFahrenheit = value == "F";
+        ApplyLocalHudLayout(true);
+        const auto save = data.find("save");
+        if (save != data.end() && save->is_boolean() && save->get<bool>()) {
+            const bool saved = SaveLocalHudLayout();
+            if (_view != 0 && _domReady) {
+                auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+                if (api->IsValid(_view)) api->InteropCall(_view, "setHudLayoutStatus", saved ? "1" : "0");
+            }
+        }
+        return;
+    }
     if (action == "preview")
     {
         if (data.contains("on") && data["on"].is_boolean()) ApplyLocalHudLayout(data["on"].get<bool>());
         return;
     }
     if (action != "update") return;
-    const std::string widget = data.value("widget", "");
+    const auto widgetIt = data.find("widget");
+    if (widgetIt == data.end() || !widgetIt->is_string()) return;
+    const std::string widget = widgetIt->get<std::string>();
     LocalLayout* layout = widget == "rad_toxic" ? &_toxicLayout :
                           widget == "rad_filter" ? &_filterLayout : nullptr;
     if (!layout) return;

@@ -120,6 +120,8 @@ void RadHud::PushClimate(
         return;
 
     EnsureClimateView();
+    if (!_hudApi && !_localLayoutApplied)
+        ApplyLocalHudLayout(false);
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     if (_climateView == 0 || !api->IsValid(_climateView) ||
