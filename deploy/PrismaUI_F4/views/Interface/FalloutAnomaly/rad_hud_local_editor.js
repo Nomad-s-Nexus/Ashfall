@@ -7,6 +7,7 @@
   var editor = null;
   var status = null;
   var layout = null;
+  var temperatureUnit = "C";
 
   function cloneDefaults() {
     return JSON.parse(JSON.stringify(defaults));
@@ -50,7 +51,19 @@
   }
 
   function setUnit(unit, save) {
-    queueLayout({ action: "unit", unit: unit === "F" ? "F" : "C", save: !!save });
+    temperatureUnit = unit === "F" ? "F" : "C";
+    updateUnitToggle();
+    queueLayout({ action: "unit", unit: temperatureUnit, save: !!save });
+    if (status) status.textContent = save ? "SAVING..." : "LIVE PREVIEW";
+  }
+
+  function updateUnitToggle() {
+    if (!editor) return;
+    var toggle = editor.querySelector("[data-unit-toggle]");
+    if (!toggle) return;
+    toggle.textContent = temperatureUnit === "F" ? "FAHRENHEIT (°F)" : "CELSIUS (°C)";
+    toggle.setAttribute("data-unit", temperatureUnit);
+    toggle.setAttribute("aria-pressed", temperatureUnit === "F" ? "true" : "false");
   }
 
   function percent(v) {
@@ -85,12 +98,18 @@
         sendUpdate(id, true);
       });
     });
+    var unitToggle = card.querySelector("[data-unit-toggle]");
+    if (unitToggle) {
+      unitToggle.onclick = function () { setUnit(temperatureUnit === "F" ? "C" : "F", true); };
+      updateUnitToggle();
+    }
     updateReadout(card, id);
   }
 
   function cardHtml(id) {
     return '<div class="rad-local-card" data-widget="' + id + '">' +
       '<div class="rad-local-name">' + defaults[id].name + '</div>' +
+      (id === "rad_climate" ? '<div class="rad-local-unit-row"><span>TEMPERATURE UNIT</span><button type="button" class="rad-local-unit-toggle" data-unit-toggle="1" data-unit="C" aria-pressed="false">CELSIUS (°C)</button></div>' : '') +
       controlHtml("X", "x", 0, 0.95, 0.005) +
       controlHtml("Y", "y", 0, 0.95, 0.005) +
       controlHtml("SIZE", "s", 0.5, 2.5, 0.05) +
@@ -106,7 +125,7 @@
   function buildEditor() {
     if (editor) return;
     var style = document.createElement("style");
-    style.textContent = "#radLocalHudEditor{display:none;margin-top:10px;padding:10px;border:1px solid rgba(120,200,120,.35);background:rgba(8,22,10,.9)}#radLocalHudEditor.on{display:block}.rad-local-title{font-size:10px;letter-spacing:2px;color:#b6ffb6;margin-bottom:8px}.rad-local-card{padding:8px;margin:7px 0;border:1px solid rgba(120,200,120,.2);background:rgba(12,30,14,.75)}.rad-local-name{font-size:10px;color:#d9ffd9;margin-bottom:6px}.rad-local-control{display:grid;grid-template-columns:62px 1fr 52px;gap:6px;align-items:center;margin:5px 0;font-size:9px;color:#a8c8a8}.rad-local-control input[type=range]{width:100%}.rad-local-check{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:9px;color:#d8b97a}.rad-local-actions{display:flex;gap:5px;margin-top:8px}.rad-local-status{margin-top:7px;font-size:9px;color:#7fd07f;letter-spacing:1px}";
+    style.textContent = "#radLocalHudEditor{display:none;margin-top:10px;padding:10px;border:1px solid rgba(120,200,120,.35);background:rgba(8,22,10,.9)}#radLocalHudEditor.on{display:block}.rad-local-title{font-size:10px;letter-spacing:2px;color:#b6ffb6;margin-bottom:8px}.rad-local-card{padding:8px;margin:7px 0;border:1px solid rgba(120,200,120,.2);background:rgba(12,30,14,.75)}.rad-local-name{font-size:10px;color:#d9ffd9;margin-bottom:6px}.rad-local-control{display:grid;grid-template-columns:62px 1fr 52px;gap:6px;align-items:center;margin:5px 0;font-size:9px;color:#a8c8a8}.rad-local-control input[type=range]{width:100%}.rad-local-unit-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 8px;padding:6px 0;border-top:1px solid rgba(120,200,120,.16);border-bottom:1px solid rgba(120,200,120,.16);font-size:9px;color:#a8c8a8}.rad-local-unit-toggle{flex:0 0 auto;min-width:132px;padding:5px 8px!important;color:#cdfbcf!important;background:rgba(20,60,24,.9)!important;border:1px solid rgba(120,200,120,.55)!important}.rad-local-unit-toggle:hover,.rad-local-unit-toggle:focus{background:rgba(70,145,76,.95)!important;border-color:rgba(180,255,180,.9)!important;box-shadow:0 0 8px rgba(60,255,90,.65)!important}.rad-local-unit-toggle[data-unit=F]{color:#fff!important;background:rgba(60,120,64,.9)!important}.rad-local-check{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:9px;color:#d8b97a}.rad-local-actions{display:flex;gap:5px;margin-top:8px}.rad-local-status{margin-top:7px;font-size:9px;color:#7fd07f;letter-spacing:1px}";
     document.head.appendChild(style);
 
     editor = document.createElement("div");
@@ -114,13 +133,11 @@
     editor.innerHTML =
       '<div class="rad-local-title">BUILT-IN RAD HUD EDITOR</div>' +
       '<div class="dbg-help">Without PrismaHUD, Rad supplies Health with radiation loss, Stamina/AP, Tissue, and the gas-mask filter. PrismaHUD takes over automatically when installed.</div>' +
-      '<label class="rad-local-control"><span>TEMP</span><select id="radLocalUnit"><option value="C">CELSIUS (°C)</option><option value="F">FAHRENHEIT (°F)</option></select></label>' +
       cardHtml("rad_toxic") + cardHtml("rad_filter") + cardHtml("rad_climate") +
       '<div class="rad-local-actions"><button id="radLocalSave">SAVE</button><button id="radLocalReset" class="warn">RESET</button><button id="radLocalClose" class="close">DONE</button></div>' +
       '<div class="rad-local-status" id="radLocalStatus">READY</div>';
     document.getElementById("tab-hud").appendChild(editor);
     status = document.getElementById("radLocalStatus");
-    document.getElementById("radLocalUnit").onchange = function () { setUnit(this.value, true); };
 
     document.getElementById("radLocalSave").onclick = function () {
       sendUpdate("rad_toxic", true);
@@ -156,9 +173,9 @@
     var parsed = {};
     try { parsed = (typeof json === "string") ? JSON.parse(json) : json; } catch (e) {}
     layout = mergeLayout(parsed);
+    temperatureUnit = parsed && parsed.temperatureUnit === "F" ? "F" : "C";
     buildEditor();
     rebuildCards();
-    document.getElementById("radLocalUnit").value = parsed && parsed.temperatureUnit === "F" ? "F" : "C";
     editor.classList.add("on");
     status.textContent = "READY";
   };

@@ -18,6 +18,10 @@ def main() -> None:
     assert 'widget == "rad_climate" ? &_climateLayout' in native
     assert 'window.radHudLayout(JSON.stringify(command));' in editor
     assert 'rad_climate' in editor
+    assert 'data-unit-toggle' in editor
+    assert 'rad-local-unit-row' in editor
+    assert 'id="radLocalUnit"' not in editor
+    assert 'setUnit(temperatureUnit === "F" ? "C" : "F", true)' in editor
     assert 'temperatureUnit' in native
     assert 'setClimateUnit' in (ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "hud_climate.html").read_text(encoding="utf-8")
     assert 'window.setHudLayoutStatus' in view
