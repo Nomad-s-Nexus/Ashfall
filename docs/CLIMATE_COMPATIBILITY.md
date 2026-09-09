@@ -75,16 +75,22 @@ Example:
 
 Heat discovery is cache-driven. Nearby references are rescanned after entering/changing cells, moving at least 96 game units, or an object load/unload event invalidates the cache. A stable stationary scene does not trigger periodic heat scans.
 
-## Weather behavior
+## Weather and seasons
 
-Automatic weather temperature comes from the WTHR record's authored flags:
+Automatic exterior temperature combines:
+
+- time-of-day variation;
+- the Fallout calendar month;
+- the WTHR record's authored weather flags.
+
+October is the neutral seasonal baseline. Winter months progressively cool the outdoor baseline, while summer months warm it modestly. Interiors stay at the fixed indoor baseline regardless of month.
+
+Weather classifications then adjust the seasonal result:
 
 - Pleasant: small warmth bonus.
 - Cloudy: mild cooling.
 - Rainy: stronger cooling and full precipitation wetness.
 - Snow: strongest cooling and reduced-rate precipitation wetness.
-
-Interiors ignore exterior weather temperature and precipitation.
 
 Exact weather exceptions can be registered without a compatibility plugin.
 
@@ -108,9 +114,9 @@ Example:
 }
 ```
 
-`temperatureOffsetC` adds or subtracts from the automatic temperature for that exact weather and is bounded to -50..50 C. `precipitation` optionally replaces the automatic precipitation intensity for that weather and is 0..100.
+`temperatureOffsetC` adds or subtracts from the automatic seasonal/weather temperature for that exact weather and is bounded to -50..50 C. `precipitation` optionally replaces the automatic precipitation intensity for that weather and is 0..100.
 
-Overrides are resolved once to runtime WTHR FormIDs. The automatic Pleasant/Cloudy/Rainy/Snow classification remains the default when no exact override exists.
+Overrides are resolved once to runtime WTHR FormIDs. The automatic season + Pleasant/Cloudy/Rainy/Snow model remains authoritative when no exact override exists.
 
 ## Runtime rules
 
