@@ -166,6 +166,12 @@ def check_source(html_path, source_path):
     assert producer.index('QueueInputPoll();') < producer.index('if (elapsed < kUpdateInterval)')
     assert 'UpdateStormDomePosition();' not in producer
     storm = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    begin = storm.split('void RadiationEngine::BeginStorm(int typeIndex)', 1)[1].split('\n}', 1)[0]
+    assert 'dome-only lead' not in begin
+    ensure = storm.split('void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)', 1)[1].split('void RadiationEngine::DumpQuestStageTable', 1)[0]
+    assert 'EnableCloudDome' not in ensure
+    stage_diag = storm.split('void RadiationEngine::DumpQuestStageTable(RE::TESQuest* quest)', 1)[1].split('void RadiationEngine::TriggerStormFX(bool on)', 1)[0]
+    assert 'InitSearchTables' not in stage_diag
     nuke = storm.split('bool RadiationEngine::SpawnDistantNuke()', 1)[1].split('\n}', 1)[0]
     for marker in (
         'std::uniform_real_distribution<float> distanceDist(10000.0f, 22000.0f);',
