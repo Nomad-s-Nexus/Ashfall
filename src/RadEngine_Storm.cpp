@@ -49,10 +49,9 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _debugSkipToActive = false;  // clear any leftover debug fast-forward from a prior storm
     const StormType& st = kStormTypes[typeIndex];
 
-    // STAGED ONSET (R.'s spec): the dome appears ALONE, silent, first — a "something's coming" visual
-    // warning for a lead window (DomeLeadMinutes, INI-configurable, default 3 min) with NO siren, NO
-    // alert, and NO weather change. Only when that lead elapses does EnterWarningPhase() fire the alarm
-    // and begin the dust-sky roll-in + the rest of the storm. This is the APPROACH phase.
+    // STAGED ONSET (R.'s spec): dome-using storms begin with a silent visual lead; Firestorm begins
+    // silently without a dome. The lead has NO siren, NO alert, and NO weather change. Only when it
+    // elapses does EnterWarningPhase() fire the alarm and begin the dust-sky roll-in + the rest of the storm.
     // A debug-forced storm may shorten the silent lead (_forcedLeadTicks); consume it here so the
     // NEXT natural storm is back to the configured DomeLeadMinutes.
     const int leadTicks = (_forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
@@ -64,12 +63,12 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _dustBuildupActive = false;   // no weather build-up during the silent lead
     _debugWeatherHold  = false;   // a real storm takes over from any debug-held weather
 
-    // Dome NOW (exterior only — a dome mesh would clip through a roof indoors). Native spawn.
+    // Dome-using storms spawn their native dome now when the player is exposed.
     if (!IsPlayerSheltered())
         SpawnStormDome();
 
     EnterStormPhase(StormPhase::Approach, leadTicks);
-    logger->info("[StormSeq] t=0 APPROACH begin: dome up, silent. Alarm in {} s.", leadTicks / 4);
+    logger->info("[StormSeq] t=0 APPROACH begin: silent. Alarm in {} s.", leadTicks / 4);
 }
 
 
@@ -950,11 +949,10 @@ void RadiationEngine::DumpQuestStageTable(RE::TESQuest* quest)
 
 void RadiationEngine::TriggerStormFX(bool on)
 {
-    // Storm screen FX via the RadStormFX Papyrus quest. Every storm spawns the cloud dome;
-    // lethal storms also shake; the firestorm also detonates a distant nuke. No-op if the
-    // companion ESP / quest isn't installed.
+    // Storm screen FX via the RadStormFX Papyrus quest. Firestorm bypasses its dome stages;
+    // its native detonation is driven by the Active handler. No-op if the companion ESP / quest isn't installed.
     //   stage 10 = ash      (shake + dome)
-    //   stage 11 = firestorm (nuke + shake; dome deferred to the roll-in via TriggerStormDome)
+    //   stage 11 = legacy firestorm stage (not used)
     //   stage 12 = dome only (ambient sulfur/acid)
     //   stage 20 = stop (stop shake, remove dome)
     if (!_stormFXQuest) return;
@@ -998,8 +996,7 @@ void RadiationEngine::TriggerStormDome()
 {
     if (_activeStormType < 0 || _activeStormType >= kStormTypeTableSize ||
         !RadCorrectnessPolicy::StormUsesDome(kStormTypes[_activeStormType].themeId)) return;
-    // Spawn the cloud dome (stage 12) without re-triggering shake/nuke — used at the firestorm
-    // roll-in so the dome arrives with the fog rather than at the detonation instant.
+    // Spawn the cloud dome (stage 12) without re-triggering shake or nuke.
     if (!_stormFXQuest) return;
     EnsureQuestRunning(_stormFXQuest);
     _stormFXQuest->SetStage(12);

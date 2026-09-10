@@ -193,9 +193,13 @@ def check_source(html_path, source_path):
     ):
         assert marker in active, f'missing bounded Firestorm retry contract: {marker}'
     assert '_stormNukeFired = true' not in active
-    for symbol in ('SpawnStormDome', 'TriggerStormDome'):
+    for symbol in ('SpawnStormDome', 'TriggerStormDome', 'UpdateStormDomeOwner'):
         body = storm.split('void RadiationEngine::' + symbol + '()', 1)[1].split('\n}', 1)[0]
         assert 'StormUsesDome(kStormTypes[_activeStormType].themeId)' in body
+    papyrus_fx = storm.split('void RadiationEngine::TriggerStormFX(bool on)', 1)[1].split('\n}', 1)[0]
+    firestorm_fx = papyrus_fx.split('if (st.themeId == 1)', 1)[1].split('else if', 1)[0]
+    assert '_stormFXQuest->SetStage(20);' in firestorm_fx
+    assert 'return;' in firestorm_fx
     engine = Path(source_path).with_name('RadiationEngine.cpp').read_text(encoding='utf-8')
     assert 'filterSys && maskExposed && inRadWeather && _filterCharge > 0.0f' in engine
     assert 'RadHud::GetSingleton().PushAir(json{' in engine
