@@ -4,6 +4,7 @@
 #include "ClimateStagePolicy.h"
 #include "RadHud.h"
 
+#include <chrono>
 #include <RE/B/BSSpinLock.h>
 #include <RE/C/Calendar.h>
 #include <RE/P/PlayerCharacter.h>
@@ -173,13 +174,18 @@ void ClimateRuntime::Update()
             const float jumpGameSeconds = std::min(
                 RadClimatePolicy::ElapsedGameSeconds(gameDaysElapsed),
                 RadClimatePolicy::kMaximumTimeJumpHours * 3600.0f);
+            const auto jumpStart = std::chrono::steady_clock::now();
             result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpGameSeconds, RadClimatePolicy::kMaximumStepSeconds);
+            const double jumpWallMs = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - jumpStart).count();
+            const auto jumpSubsteps = static_cast<unsigned>(std::ceil(
+                jumpGameSeconds / RadClimatePolicy::kMaximumStepSeconds));
             branchName = "time_jump";
             appliedSeconds = jumpGameSeconds;
 
             if (auto logger = spdlog::get("FalloutAnomaly"))
-                logger->info("[ClimateTime] jump: prev={:.6f} now={:.6f} deltaDays={:.6f} freezeFrame={} pausedMenu={} branch={} appliedSec={:.2f}",
-                    prevDays, nowDays, gameDaysElapsed, pauseInfo.freezeFramePause, pauseInfo.pausedByMenu, branchName, appliedSeconds);
+                logger->info("[ClimateTime] jump: prev={:.6f} now={:.6f} deltaDays={:.6f} freezeFrame={} pausedMenu={} branch={} appliedSec={:.2f} substeps={} wallMs={:.3f}",
+                    prevDays, nowDays, gameDaysElapsed, pauseInfo.freezeFramePause, pauseInfo.pausedByMenu, branchName, appliedSeconds, jumpSubsteps, jumpWallMs);
         }
         else if (pauseInfo.isPaused || gameDaysElapsed <= 0.0f)
         {
