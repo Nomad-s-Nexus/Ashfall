@@ -14,6 +14,7 @@
 #include <RE/U/UI.h>
 // For the in-world HUD gate (Pip-Boy possession + current location).
 #include <RE/P/PlayerCharacter.h>
+#include <RE/P/PowerArmor.h>
 #include <RE/T/TESObjectREFR.h>
 #include <RE/T/TESObjectARMO.h>
 #include <RE/B/BGSInventoryList.h>
@@ -450,6 +451,7 @@ void RadHud::PushArmor(
         { "insulation", percent(insulation01) },
         { "effectiveInsulation", percent(effectiveInsulation01) },
         { "powerArmor", powerArmor },
+        { "inPowerArmor", RE::PowerArmor::PlayerInPowerArmor() },
         { "pieces", json::array() }
     };
     for (const auto& piece : armor)

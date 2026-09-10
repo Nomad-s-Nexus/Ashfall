@@ -44,6 +44,9 @@ def main() -> None:
     assert 'id="tab-armor"' in html
     assert 'armor_terminal_schematic.png' in css
     assert (RADHUD_CSS.parent / "armor_terminal_schematic.png").is_file()
+    assert 'armor_terminal_schematic_human.png' in css
+    assert (RADHUD_CSS.parent / "armor_terminal_schematic_human.png").is_file()
+    assert '.armor-figure.power-armor' in css
     structure = ArmorStructure()
     structure.feed(html)
     for label in ("armorInsulationLabel", "armorEffectiveLabel", "armorPowerLabel"):
@@ -54,7 +57,8 @@ def main() -> None:
         assert tag == "section" and attrs["class"] == "armor-region"
         assert f"#armorRegion-{region}" in css
     assert html.count('class="armor-region"') == 6
-    assert 'class="armor-figure" role="img"' in html
+    assert structure.nodes["armorFigure"][1]["role"] == "img"
+    assert "Vault suit" in structure.nodes["armorFigure"][1]["aria-label"]
     assert 'grid-column: 2; grid-row: 1 / 4;' in css
     for table in ("armorList", "armorNonThermalList"):
         assert structure.nodes[table][0] == "tbody"
@@ -66,7 +70,8 @@ def main() -> None:
     armor_native = native.split("void RadHud::PushArmor(", 1)[1].split("std::string RadHud::LocalHudLayoutJson", 1)[0]
     assert 'if (serialized == _armorPayload)\n        return;' in armor_native
     assert '!_debugOpen' in armor_native and '_hudApi' not in armor_native
-    for field in ("insulation", "effectiveInsulation", "powerArmor", "pieces", "formID", "name", "warmth", "override",
+    assert '{ "inPowerArmor", RE::PowerArmor::PlayerInPowerArmor() }' in armor_native
+    for field in ("insulation", "effectiveInsulation", "powerArmor", "inPowerArmor", "pieces", "formID", "name", "warmth", "override",
                   "head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"):
         assert f'"{field}"' in armor_native
     assert 'PushArmor' in (ROOT / "src" / "RadHud.h").read_text(encoding="utf-8")

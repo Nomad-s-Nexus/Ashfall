@@ -196,10 +196,11 @@ html, body {
 }
 .armor-figure {
   grid-column: 2; grid-row: 1 / 4;
-  background: url("armor_terminal_schematic.png") center / contain no-repeat;
+  background: url("armor_terminal_schematic_human.png") center / contain no-repeat;
   opacity: .7; filter: grayscale(1) sepia(1) hue-rotate(55deg) saturate(1.6) contrast(1.65) brightness(.8);
   mix-blend-mode: screen; pointer-events: none;
 }
+.armor-figure.power-armor { background-image: url("armor_terminal_schematic.png"); }
 .armor-region { min-width: 0; min-height: 0; align-self: start; max-height: 100%; display: flex; flex-direction: column; border-top: 1px solid #344b2e; }
 .armor-region h4 { padding: 9px 0 7px; color: #8a9f80; font-size: 11px; letter-spacing: 1px; font-weight: normal; }
 .armor-region ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; scrollbar-color: #486640 #10210f; }

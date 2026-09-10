@@ -160,6 +160,10 @@ window.setArmorInfo = function(json) {
     document.getElementById("armorEffectiveMeter").style.width = percent(d.effectiveInsulation) + "%";
     document.getElementById("armorPower").textContent = d.powerArmor ? "SEALED" : "UNSEALED";
     document.getElementById("armorPowerDetail").textContent = d.powerArmor ? "COMPLETE SUIT DETECTED" : "NO COMPLETE SUIT DETECTED";
+    var figure = document.getElementById("armorFigure");
+    figure.classList.toggle("power-armor", d.inPowerArmor === true);
+    figure.setAttribute("aria-label", d.inPowerArmor === true ?
+      "Front-facing Power Armor reference schematic" : "Front-facing Vault suit reference schematic");
     document.getElementById("armorThermalCount").textContent = thermal.length + " RECORDS";
     document.getElementById("armorNonThermalCount").textContent = nonThermal.length + " RECORDS";
     function renderRows(target, records, emptyText) {
