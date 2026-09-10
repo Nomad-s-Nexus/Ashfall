@@ -193,11 +193,57 @@
     </div><!-- /tab-ghouls -->
 
     <div class="dbg-pane" id="tab-armor">
-      <div class="dbg-sec">CLIMATE ARMOR</div>
-      <div class="armor-terminal-label">SUIT INTEGRITY / THERMAL SENSOR ARRAY</div>
-      <div class="dbg-help">Current worn armor insulation and thermal coverage. Values are read-only and use the same climate scan as CORE.</div>
-      <div class="armor-summary" id="armorSummary">ARMOR: SYNCING...</div>
-      <div class="armor-list" id="armorList"><div class="armor-empty">WAITING FOR ARMOR DATA...</div></div>
+      <div class="armor-heading"><h2>ARMOR DIAGNOSTICS</h2><span>CLIMATE / READ ONLY</span></div>
+      <div class="armor-status-strip" id="armorSummary" aria-label="Armor status">
+        <section class="armor-status" aria-labelledby="armorInsulationLabel">
+          <h3 id="armorInsulationLabel">ARMOR INSULATION</h3>
+          <strong id="armorInsulation">--</strong><span>COMBINED EQUIPMENT</span>
+          <div class="armor-meter" aria-hidden="true"><i id="armorInsulationMeter"></i></div>
+        </section>
+        <section class="armor-status" aria-labelledby="armorEffectiveLabel">
+          <h3 id="armorEffectiveLabel">EFFECTIVE THERMAL</h3>
+          <strong id="armorEffective">--</strong><span>CURRENT CLIMATE PROTECTION</span>
+          <div class="armor-meter" aria-hidden="true"><i id="armorEffectiveMeter"></i></div>
+        </section>
+        <section class="armor-status" aria-labelledby="armorPowerLabel">
+          <h3 id="armorPowerLabel">POWER ARMOR</h3>
+          <strong id="armorPower">--</strong><span id="armorPowerDetail">AWAITING EQUIPMENT DATA</span>
+        </section>
+      </div>
+      <div class="armor-workspace">
+        <section class="armor-equipment" aria-labelledby="armorEquipmentTitle">
+          <div class="armor-section-heading"><h3 id="armorEquipmentTitle">THERMAL EQUIPMENT</h3><span id="armorThermalCount">-- RECORDS</span></div>
+          <div class="armor-records-scroll">
+            <table class="armor-records" aria-label="Thermal equipment">
+              <colgroup><col class="armor-name-col"><col><col><col class="armor-coverage-col"><col></colgroup>
+              <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">OVERRIDE</th></tr></thead>
+              <tbody id="armorList"><tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr></tbody>
+            </table>
+            <section class="armor-nonthermal" aria-labelledby="armorNonThermalTitle">
+              <div class="armor-section-heading"><h3 id="armorNonThermalTitle">NON-THERMAL EQUIPMENT</h3><span id="armorNonThermalCount">-- RECORDS</span></div>
+              <table class="armor-records" aria-label="Non-thermal equipment">
+                <colgroup><col class="armor-name-col"><col><col><col class="armor-coverage-col"><col></colgroup>
+                <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">OVERRIDE</th></tr></thead>
+                <tbody id="armorNonThermalList"><tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr></tbody>
+              </table>
+            </section>
+          </div>
+          <p class="armor-footnote">INSUL. = standalone contribution. Layered values are not additive.</p>
+        </section>
+        <section class="armor-map" aria-labelledby="armorMapTitle">
+          <div class="armor-section-heading"><h3 id="armorMapTitle">BODY COVERAGE</h3><span>THERMAL RECORD MAP</span></div>
+          <div class="armor-schematic">
+            <div class="armor-figure" role="img" aria-label="Front-facing armor reference schematic"></div>
+            <section class="armor-region" id="armorRegion-head"><h4>HEAD</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-torso"><h4>TORSO</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-leftArm"><h4>L ARM</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-rightArm"><h4>R ARM</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-leftLeg"><h4>L LEG</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-rightLeg"><h4>R LEG</h4><ul><li>AWAITING DATA</li></ul></section>
+          </div>
+          <p class="armor-footnote">FRONT VIEW / L &amp; R = WEARER'S SIDES / REFERENCE SCHEMATIC</p>
+        </section>
+      </div>
     </div><!-- /tab-armor -->
 
     <div class="dbg-pane" id="tab-hud">

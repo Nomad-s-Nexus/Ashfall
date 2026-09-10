@@ -132,38 +132,76 @@ function setGhoulSettings(state) {
 window.setArmorInfo = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
-    var summary = document.getElementById("armorSummary");
+    if (!d || typeof d !== "object") return;
     var list = document.getElementById("armorList");
-    if (!summary || !list) return;
-    var pieces = Array.isArray(d && d.pieces) ? d.pieces : [];
-    summary.textContent = "ARMOR INSULATION: " + (+d.insulation || 0) + "% | EFFECTIVE THERMAL: " +
-      (+d.effectiveInsulation || 0) + "% | POWER ARMOR: " + (d.powerArmor ? "SEALED" : "NO");
-    list.textContent = "";
-    if (!pieces.length) {
-      var empty = document.createElement("div");
-      empty.className = "armor-empty";
-      empty.textContent = "NO WORN ARMOR";
-      list.appendChild(empty);
-      return;
+    var nonThermalList = document.getElementById("armorNonThermalList");
+    if (!list || !nonThermalList) return;
+    var regions = ["head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"];
+    var labels = ["HEAD", "TORSO", "L ARM", "R ARM", "L LEG", "R LEG"];
+    function percent(value) {
+      var n = Number(value);
+      return isFinite(n) ? Math.round(Math.max(0, Math.min(100, n))) : 0;
     }
-    pieces.forEach(function(piece) {
-      var row = document.createElement("div");
-      row.className = "armor-row";
-      var name = document.createElement("div");
-      name.className = "armor-name";
-      name.textContent = (piece.name || "<unnamed>") + (piece.override ? "  [OVERRIDE]" : "");
-      var detail = document.createElement("div");
-      detail.className = "armor-detail";
-      var coverage = [];
-      if (piece.head) coverage.push("HEAD");
-      if (piece.torso) coverage.push("TORSO");
-      if (piece.leftArm || piece.rightArm) coverage.push("ARMS");
-      if (piece.leftLeg || piece.rightLeg) coverage.push("LEGS");
-      detail.textContent = "WARMTH " + (+piece.warmth || 0) + "% | INSULATION " +
-        (+piece.insulation || 0) + "% | COVER " + (coverage.join("/") || "NONE");
-      row.appendChild(name);
-      row.appendChild(detail);
-      list.appendChild(row);
+    var pieces = (Array.isArray(d.pieces) ? d.pieces : []).filter(function(p) {
+      return p && typeof p === "object";
+    });
+    pieces.sort(function(a, b) {
+      return percent(b.insulation) - percent(a.insulation) || String(a.name || "").localeCompare(String(b.name || ""));
+    });
+    var thermal = [], nonThermal = [];
+    pieces.forEach(function(p) {
+      var contributes = percent(p.insulation) > 0 ||
+        (percent(p.warmth) > 0 && regions.some(function(region) { return !!p[region]; }));
+      (contributes ? thermal : nonThermal).push(p);
+    });
+    document.getElementById("armorInsulation").textContent = percent(d.insulation) + "%";
+    document.getElementById("armorEffective").textContent = percent(d.effectiveInsulation) + "%";
+    document.getElementById("armorInsulationMeter").style.width = percent(d.insulation) + "%";
+    document.getElementById("armorEffectiveMeter").style.width = percent(d.effectiveInsulation) + "%";
+    document.getElementById("armorPower").textContent = d.powerArmor ? "SEALED" : "UNSEALED";
+    document.getElementById("armorPowerDetail").textContent = d.powerArmor ? "COMPLETE SUIT DETECTED" : "NO COMPLETE SUIT DETECTED";
+    document.getElementById("armorThermalCount").textContent = thermal.length + " RECORDS";
+    document.getElementById("armorNonThermalCount").textContent = nonThermal.length + " RECORDS";
+    function renderRows(target, records, emptyText) {
+      target.textContent = "";
+      if (!records.length) {
+        var empty = document.createElement("tr");
+        var cell = document.createElement("td");
+        cell.className = "armor-empty";
+        cell.colSpan = 5;
+        cell.textContent = emptyText;
+        empty.appendChild(cell);
+        target.appendChild(empty);
+      }
+      records.forEach(function(piece) {
+        var row = document.createElement("tr");
+        row.className = "armor-row";
+        var coverage = regions.filter(function(region) { return !!piece[region]; }).map(function(region) {
+          return labels[regions.indexOf(region)];
+        });
+        [piece.name || "<unnamed>", percent(piece.warmth) + "%", percent(piece.insulation) + "%",
+          coverage.join(" / ") || "NONE", piece.override ? "YES" : "--"].forEach(function(value, index) {
+          var cell = document.createElement("td");
+          cell.textContent = value;
+          if (index === 4 && piece.override) cell.className = "armor-override";
+          row.appendChild(cell);
+        });
+        target.appendChild(row);
+      });
+    }
+    renderRows(list, thermal, pieces.length ? "NO THERMAL CONTRIBUTION" : "NO WORN ARMOR");
+    renderRows(nonThermalList, nonThermal, "NONE EQUIPPED");
+    regions.forEach(function(region) {
+      var zone = document.getElementById("armorRegion-" + region);
+      var names = thermal.filter(function(piece) { return !!piece[region]; });
+      var items = zone.querySelector("ul");
+      zone.classList.toggle("covered", names.length > 0);
+      items.textContent = "";
+      (names.length ? names : [{name: "NO THERMAL COVERAGE"}]).forEach(function(piece) {
+        var item = document.createElement("li");
+        item.textContent = piece.name || "<unnamed>";
+        items.appendChild(item);
+      });
     });
   } catch (e) {}
 };
@@ -191,5 +229,8 @@ function showTab(which) {
     if (btn)  { if (on) btn.classList.add("on");  else btn.classList.remove("on"); }
   }
   var panel = document.getElementById("debugPanel");
-  if (panel) panel.scrollTop = 0;
+  if (panel) {
+    panel.classList.toggle("armor-view", which === "armor");
+    panel.scrollTop = 0;
+  }
 }

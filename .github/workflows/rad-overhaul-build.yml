@@ -55,6 +55,11 @@ jobs:
         with:
           xmake-version: "3.0.4"
 
+      - name: Setup Node for HUD regression tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Run correctness policy tests
         working-directory: Rad-Overhaul-Fallout-4
         shell: bash
@@ -69,6 +74,7 @@ jobs:
           python3 tests/verify_climate_weather_config.py
           python3 tests/verify_climate_hud.py
           python3 tests/verify_hud_layout_bridge.py
+          node tests/armor_diagnostics_tests.js
           python3 tests/verify_rad_shelter_cache.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
