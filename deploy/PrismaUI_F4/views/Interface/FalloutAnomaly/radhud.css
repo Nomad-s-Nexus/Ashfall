@@ -147,7 +147,7 @@ html, body {
 }
 #debugPanel .dbg-pane { display: none; }
 #debugPanel .dbg-pane.on { display: block; }
-#debugPanel.armor-view { width: min(1280px, calc(100vw - 100px)); }
+#debugPanel.armor-view { width: min(1280px, calc(100vw - 100px)); max-height: calc(100vh - 108px); }
 #tab-armor { letter-spacing: .3px; }
 #tab-armor h2, #tab-armor h3, #tab-armor h4, #tab-armor p { margin: 0; }
 .armor-heading, .armor-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
