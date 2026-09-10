@@ -70,22 +70,40 @@ namespace
         }
     }
 
-    bool IsGameplayPaused() noexcept
+    struct PauseInfo
     {
+        bool isPaused{ false };
+        std::uint32_t freezeFramePause{ 0 };
+        bool pausedByMenu{ false };
+    };
+
+    PauseInfo QueryPauseInfo() noexcept
+    {
+        PauseInfo info{};
         auto* ui = RE::UI::GetSingleton();
         if (!ui)
-            return false;
+            return info;
 
-        if (ui->freezeFramePause > 0)
-            return true;
+        info.freezeFramePause = ui->freezeFramePause;
+        if (info.freezeFramePause > 0)
+            info.isPaused = true;
 
         RE::BSAutoReadLock l{ RE::UI::GetMenuMapRWLock() };
         for (const auto& menu : ui->menuStack)
         {
             if (menu && menu->menuFlags.all(RE::UI_MENU_FLAGS::kPausesGame))
-                return true;
+            {
+                info.pausedByMenu = true;
+                info.isPaused = true;
+                break;
+            }
         }
-        return false;
+        return info;
+    }
+
+    bool IsGameplayPaused() noexcept
+    {
+        return QueryPauseInfo().isPaused;
     }
 }
 
@@ -136,51 +154,62 @@ void ClimateRuntime::Update()
 
     const auto protection = _protection.Sample(player);
     const float nowDays = GameDays();
-    const bool paused = IsGameplayPaused();
+    const auto pauseInfo = QueryPauseInfo();
 
     RadClimatePolicy::StepResult result{};
+    const char* branchName = "init";
+    float appliedSeconds = 0.0f;
 
     if (_prevGameDays < 0.0f)
     {
         _prevGameDays = nowDays;
         result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
+        branchName = "init";
+        appliedSeconds = 0.0f;
     }
     else
     {
+        const float prevDays = _prevGameDays;
         const float gameDaysElapsed = nowDays - _prevGameDays;
         _prevGameDays = nowDays;
 
-        if (paused || gameDaysElapsed <= 0.0f)
+        if (gameDaysElapsed > RadClimatePolicy::kTimeJumpThresholdDays)
         {
-            result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
-        }
-        else if (gameDaysElapsed > RadClimatePolicy::kTimeJumpThresholdDays)
-        {
-            float timeScale = 20.0f;
-            if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale)
-            {
-                const float ts = cal->timeScale->GetValue();
-                if (ts > 0.0f)
-                    timeScale = ts;
-            }
             const float gameHours = gameDaysElapsed * 24.0f;
             const float effectiveHours = std::min(gameHours, RadClimatePolicy::kMaximumTimeJumpHours);
-            const float jumpRealSeconds = (effectiveHours * 3600.0f) / timeScale;
-            result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpRealSeconds);
+            const float jumpGameSeconds = effectiveHours * 3600.0f;
+            result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpGameSeconds, RadClimatePolicy::kMaximumStepSeconds);
+            branchName = "time_jump";
+            appliedSeconds = jumpGameSeconds;
+
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->info("[ClimateTime] jump: prev={:.6f} now={:.6f} deltaDays={:.6f} freezeFrame={} pausedMenu={} branch={} appliedSec={:.2f}",
+                    prevDays, nowDays, gameDaysElapsed, pauseInfo.freezeFramePause, pauseInfo.pausedByMenu, branchName, appliedSeconds);
+        }
+        else if (pauseInfo.isPaused || gameDaysElapsed <= 0.0f)
+        {
+            result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
+            branchName = "paused";
+            appliedSeconds = 0.0f;
         }
         else
         {
-            float timeScale = 20.0f;
-            if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale)
+            const float gameSeconds = gameDaysElapsed * 86400.0f;
+            if (gameSeconds > RadClimatePolicy::kMaximumStepSeconds)
             {
-                const float ts = cal->timeScale->GetValue();
-                if (ts > 0.0f)
-                    timeScale = ts;
+                result = RadClimatePolicy::StepTimeJump(_state, environment, protection, gameSeconds, RadClimatePolicy::kMaximumStepSeconds);
             }
-            const float realSeconds = (gameDaysElapsed * 86400.0f) / timeScale;
-            const float dt = std::clamp(realSeconds, 0.0f, RadClimatePolicy::kMaximumStepSeconds);
-            result = RadClimatePolicy::Step(_state, environment, protection, dt);
+            else
+            {
+                result = RadClimatePolicy::Step(_state, environment, protection, gameSeconds);
+            }
+            branchName = "normal";
+            appliedSeconds = gameSeconds;
         }
+
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+            logger->trace("[ClimateTime] prev={:.6f} now={:.6f} deltaDays={:.6f} freezeFrame={} pausedMenu={} branch={} appliedSec={:.2f}",
+                prevDays, nowDays, gameDaysElapsed, pauseInfo.freezeFramePause, pauseInfo.pausedByMenu, branchName, appliedSeconds);
     }
     auto nextState = result.state;
     nextState.stage = RadClimateStagePolicy::NextStage(_state.stage, nextState.coreC);
@@ -212,6 +241,9 @@ void ClimateRuntime::Update()
     {
         _statusTick = 0;
         if (auto logger = spdlog::get("FalloutAnomaly"))
+        {
+            logger->debug("[ClimateTime] prev={:.6f} now={:.6f} freezeFrame={} pausedMenu={} branch={} appliedSec={:.2f}",
+                _prevGameDays, nowDays, pauseInfo.freezeFramePause, pauseInfo.pausedByMenu, branchName, appliedSeconds);
             logger->debug("[Climate] core={:.2f}C ambient={:.1f}C wet={:.0f}% wind={:.1f} insulation={:.0f}% PA={} shelter={:.0f}% rainCover={:.0f}% heat={:.0f}% roofed={} indoors={} pleasant={} cloudy={} rainy={} snow={} swimming={} sprinting={} month={} weatherOverride={} stage={}",
                 _state.coreC, _lastAmbientC, _state.wetness01 * 100.0f, environment.windMps,
                 protection.insulation01 * 100.0f, protection.powerArmor,
@@ -220,6 +252,7 @@ void ClimateRuntime::Update()
                 weatherClass.pleasant, weatherClass.cloudy, weatherClass.rainy, weatherClass.snow,
                 environment.submerged, environment.activity01 > 0.0f, gameMonth,
                 weatherOverride.has_value(), StageName(_state.stage));
+        }
     }
 }
 

@@ -50,11 +50,11 @@ for token in (
     "RadClimateSerialization::Snapshot(_state)",
     "RadClimateSerialization::Restore(state)",
     "IsGameplayPaused()",
+    "QueryPauseInfo()",
     "RadClimatePolicy::StepTimeJump",
     "RadClimatePolicy::kTimeJumpThresholdDays",
     "RadClimatePolicy::kMaximumTimeJumpHours",
     "RadClimatePolicy::kMaximumStepSeconds",
-    "cal->timeScale",
     "return 8;",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
