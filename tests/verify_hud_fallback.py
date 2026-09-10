@@ -95,7 +95,7 @@ def check_behavior():
 
 def check_source(html_path, source_path):
     html = Path(html_path).read_text(encoding="utf-8")
-    for marker in ('HEALTH', 'STAMINA (AP)', 'TISSUE', 'id="hRads"', '#hFill{background:#55a65c}', 'background:#d9822b', 'setHealthVital', 'd.rads,d.radsMax', "fallback=!!d.fallback", "var show=fallback||t>0"):
+    for marker in ('HEALTH', 'AP', 'TISSUE', 'id="rads"', 'id="health"', 'id="stamina"', 'hud_status.css', "fallback=!!d.fallback", "var show=fallback||t>0"):
         if marker not in html:
             raise SystemExit(f"missing HUD fallback contract: {marker}")
 
@@ -166,6 +166,12 @@ def check_source(html_path, source_path):
     assert producer.index('QueueInputPoll();') < producer.index('if (elapsed < kUpdateInterval)')
     assert 'UpdateStormDomePosition();' not in producer
     storm = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    for symbol in ('SpawnStormDome', 'TriggerStormDome'):
+        body = storm.split('void RadiationEngine::' + symbol + '()', 1)[1].split('\n}', 1)[0]
+        assert 'StormUsesDome(kStormTypes[_activeStormType].themeId)' in body
+    engine = Path(source_path).with_name('RadiationEngine.cpp').read_text(encoding='utf-8')
+    assert 'filterSys && maskExposed && inRadWeather && _filterCharge > 0.0f' in engine
+    assert 'RadHud::GetSingleton().PushAir(json{' in engine
     follow = storm.split('void RadiationEngine::UpdateStormDomePosition()', 1)[1].split('void RadiationEngine::UpdateDustMotes()', 1)[0]
     assert 'player->cachedWorldspace != _stormDomeWorld' in follow
     assert 'ref->Update3DPosition(true);' in follow

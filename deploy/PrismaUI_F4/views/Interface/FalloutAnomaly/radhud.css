@@ -281,3 +281,12 @@ html, body {
   letter-spacing: 1px; border-radius: 2px;
 }
 #specialPopupClose:hover { background: rgba(60,120,64,.85); box-shadow: 0 0 6px rgba(60,255,90,.5); }
+
+.diagnostics{margin:12px 0 20px;padding:16px;border:1px solid #30492a;color:#bed3b2}
+.diagnostics h2{font-size:13px;font-weight:normal;letter-spacing:2px;margin:0 0 16px}
+.diagnostic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.diagnostics h3{font-size:11px;font-weight:normal;letter-spacing:1px;margin:0 0 10px;color:#91b183}
+.diagnostics dl{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0;font-size:11px}
+.diagnostics dd{text-align:right;margin:0;color:#d0e5c5;font-variant-numeric:tabular-nums}
+.diagnostics p{font-size:10px;line-height:1.6;margin:12px 0 0;color:#96ae8b}
+@media(max-width:650px){.diagnostic-grid{grid-template-columns:1fr}}

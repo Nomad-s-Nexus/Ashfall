@@ -52,9 +52,9 @@ namespace
     // was wrong and is corrected there now; passing raw pixels puts the editor drag box off-screen at
     // e.g. 30*1920, which is why the toxicity widget registered but never appeared usable in the editor.)
     constexpr PRISMA_HUD_API::WidgetDesc kToxicDesc{
-        kToxicWidgetId, "Toxicity", 30.0f / 1920.0f, 882.0f / 1080.0f, 200.0f / 1920.0f, 44.0f / 1080.0f };
+        kToxicWidgetId, "Toxicity", 30.0f / 1920.0f, 882.0f / 1080.0f, 240.0f / 1920.0f, 58.0f / 1080.0f };
     constexpr PRISMA_HUD_API::WidgetDesc kFilterDesc{
-        kFilterWidgetId, "Gas Mask Filter", 22.0f / 1920.0f, 1014.0f / 1080.0f, 240.0f / 1920.0f, 44.0f / 1080.0f };
+        kFilterWidgetId, "Gas Mask Filter", 22.0f / 1920.0f, 1014.0f / 1080.0f, 180.0f / 1920.0f, 58.0f / 1080.0f };
 
     // HUD gate: latches once the player is in the world (cleared each load in
     // CreateView) so the inventory scan only runs during the intro.
@@ -280,6 +280,7 @@ void RadHud::CreateView()
     // --- Filter/mask bar widget view (hud_filter.html), registered with PrismaHUD_F4 for positioning ---
     if (_filterView == 0 || !api->IsValid(_filterView))
     {
+        _airPayload.clear();
         _filterDomReady = false;
         g_filterDomReadyFlag.store(&_filterDomReady, std::memory_order_release);
 
@@ -328,7 +329,7 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
     auto* values = RE::ActorValue::GetSingleton();
     float health = 0.0f, healthMax = 0.0f, rads = 0.0f, ap = 0.0f, apMax = 0.0f;
     const bool fallback = !_toxicWidgetRegistered.load();
-    if (fallback && player && values)
+    if (player && values)
     {
         if (values->health)
         {
@@ -353,6 +354,12 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         "\"ap\":%.1f,\"apMax\":%.1f}",
         tissue, permanentTissue, fallback ? "true" : "false", health, healthMax, rads, ap, apMax);
     api->InteropCall(_toxicView, "updateToxic", json);
+    if (_toxicPayload != json)
+    {
+        _toxicPayload = json;
+        if (_debugOpen && _view && _domReady && api->IsValid(_view))
+            api->InteropCall(_view, "updateVitalsInfo", json);
+    }
 }
 
 void RadHud::PushMask(bool on)
@@ -388,6 +395,18 @@ void RadHud::PushFilter(float charge, float condition, int spares, bool masked)
         api->InteropCall(_view, "updateFilter", json);
     if (_filterView != 0 && _filterDomReady && api->IsValid(_filterView))
         api->InteropCall(_filterView, "updateFilter", json);
+}
+
+void RadHud::PushAir(const std::string& payload)
+{
+    if (!_api || !IsPlayerInWorld()) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!_filterView || !_filterDomReady || !api->IsValid(_filterView)) return;
+    if (payload == _airPayload) return;
+    _airPayload = payload;
+    api->InteropCall(_filterView, "updateAir", payload.c_str());
+    if (_debugOpen && _view && _domReady && api->IsValid(_view))
+        api->InteropCall(_view, "updateAirInfo", payload.c_str());
 }
 
 bool RadHud::ShowSpecialInfo(const std::vector<std::string>& lines)
@@ -725,6 +744,9 @@ void RadHud::SetDebugMenu(bool open)
         api->InteropCall(_view, "SetDebugMenu", open ? "1" : "0");
         if (open)
         {
+            if (!_climatePayload.empty()) api->InteropCall(_view, "updateClimateInfo", _climatePayload.c_str());
+            if (!_airPayload.empty()) api->InteropCall(_view, "updateAirInfo", _airPayload.c_str());
+            if (!_toxicPayload.empty()) api->InteropCall(_view, "updateVitalsInfo", _toxicPayload.c_str());
             auto& engine = RadiationEngine::GetSingleton();
             PushGhoulSettings(engine.StormGhoulsEnabled(), engine.StormGhoulChancePercent());
             auto& climate = ClimateRuntime::GetSingleton();

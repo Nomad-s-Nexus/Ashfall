@@ -19,6 +19,11 @@ namespace RadCorrectnessPolicy
         return { player.x, player.y, player.z + zOffset };
     }
 
+    constexpr bool StormUsesDome(int theme)
+    {
+        return theme != 1;
+    }
+
     constexpr bool ShouldRecreateDomeForOwner(bool domeUp, [[maybe_unused]] bool sameCell, bool sameWorld)
     {
         // Exterior parent-cell changes are normal streaming while the player moves through one

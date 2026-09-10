@@ -1,83 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Environmental Climate</title>
-<style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none}
-#root{position:fixed;left:0;top:0;width:250px;height:58px;transform-origin:top left;transform:rotate(var(--r,0deg)) scale(var(--s,1));font-family:Consolas,"Courier New",monospace;color:#eef3ee;text-shadow:0 1px 3px #000;opacity:0;transition:opacity .2s}
-#root.visible{opacity:1}
-.panel{width:100%;height:100%;padding:7px 10px;background:rgba(7,11,9,.72);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);-webkit-clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);border-left:2px solid rgba(174,193,177,.8)}
-.top{height:25px;display:flex;align-items:baseline;gap:8px;white-space:nowrap}
-.core{font-size:19px;font-weight:700;letter-spacing:.2px}
-.stage{font-size:10px;font-weight:700;letter-spacing:1px;color:#cfd8cf}
-.bottom{height:19px;display:flex;align-items:center;gap:11px;font-size:9px;white-space:nowrap;color:#c9d1c9}
-.metric b{font-size:10px;color:#f3f6f3}
-#root.s1 .panel{border-left-color:#a9c6cc}
-#root.s2 .panel{border-left-color:#b6c7d9}
-#root.s3 .panel{border-left-color:#d8c18f}
-#root.s4 .panel{border-left-color:#d39a6d}
-#root.s5 .panel{border-left-color:#cf6e62}
-</style>
-</head>
-<body>
-<div id="root">
-  <div class="panel">
-    <div class="top"><div class="core" id="core">37.0°C</div><div class="stage" id="stage">NORMAL</div></div>
-    <div class="bottom">
-      <span class="metric">AIR <b id="air">10.0°</b></span>
-      <span class="metric">WET <b id="wet">0%</b></span>
-      <span class="metric">WARM <b id="warm">0%</b></span>
-      <span class="metric" id="heatWrap">HEAT <b id="heat">0%</b></span>
-    </div>
-  </div>
-</div>
-<script>
-var root=document.getElementById('root');
-var core=document.getElementById('core');
-var stage=document.getElementById('stage');
-var air=document.getElementById('air');
-var wet=document.getElementById('wet');
-var warm=document.getElementById('warm');
-var heat=document.getElementById('heat');
-var heatWrap=document.getElementById('heatWrap');
+<html lang="en"><head><meta charset="UTF-8"><title>Climate status</title><link rel="stylesheet" href="hud_status.css"></head>
+<body><div id="root"><div class="status " id="warm" role="img" aria-label="WARM"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14V5a3 3 0 0 1 6 0v9a5 5 0 1 1-6 0Zm3-7v10"/></svg><span class="label">WARM</span><b id="warmValue">--</b></div><div class="status " id="wet" role="img" aria-label="WET"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2S4 11 4 16a8 8 0 0 0 16 0c0-5-8-14-8-14Z"/></svg><span class="label">WET</span><b id="wetValue">--</b></div><div class="status " id="air" role="img" aria-label="TEMP"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14V5a3 3 0 0 1 6 0v9a5 5 0 1 1-6 0Zm3-7v10"/></svg><span class="label">TEMP</span><b id="airValue">--</b></div><div class="status " id="wind" role="img" aria-label="WIND"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h12a3 3 0 1 0-3-3M3 12h17a3 3 0 1 1-3 3M3 17h6a3 3 0 1 1-3 3"/></svg><span class="label">WIND</span><b id="windValue">--</b></div></div><script>
+
+var root=document.getElementById('root'),_preview=false,_hasData=false,_fahrenheit=false,_lastData=null;
 var names=['NORMAL','CHILLED','MILD','MODERATE','SEVERE','CRITICAL'];
-var _preview=false,_hasData=false,_fahrenheit=false,_lastData=null;
-function formatTemp(c){var v=_fahrenheit?(c*9/5+32):c;return v.toFixed(1)+'°'+(_fahrenheit?'F':'C');}
-function formatAmbient(c){var v=_fahrenheit?(c*9/5+32):c;return v.toFixed(1)+'°';}
-function renderClimate(d){
-  var s=Math.max(0,Math.min(5,Math.round(+d.stage||0)));
-  core.textContent=formatTemp(+d.core||0);stage.textContent=names[s];
-  air.textContent=formatAmbient(+d.ambient||0);
-  wet.textContent=Math.max(0,Math.min(100,Math.round(+d.wetness||0)))+'%';
-  warm.textContent=Math.max(0,Math.min(100,Math.round(+d.insulation||0)))+'%';
-  var h=Math.max(0,Math.min(100,Math.round(+d.heat||0)));
-  heat.textContent=h+'%';heatWrap.style.display=h>0?'':'none';root.className='visible s'+s;
+function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
+function status(id,value,description,severity){
+ var e=document.getElementById(id);document.getElementById(id+'Value').textContent=value;
+ e.className='status '+(severity||'');e.setAttribute('aria-label',description);e.title=description;
 }
-
-window.updateClimate=function(json){
-  try{
-    var d=(typeof json==='string')?JSON.parse(json):json;
-    _lastData=d;
-    renderClimate(d);
-    _hasData=true;
-    window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));
-  }catch(e){}
-};
-
-window.setClimateUnit=function(json){
-  _fahrenheit=(json==='F'||json==='"F"');
-  if(_lastData) window.updateClimate(_lastData);
-};
-
-window.setEditorPreview=function(json){
-  _preview=(json==='1'||json===1||json===true);
-  if(_preview){
-    core.textContent=formatTemp(35.8);stage.textContent='CHILLED';air.textContent=formatAmbient(-4.0);wet.textContent='62%';warm.textContent='48%';heat.textContent='30%';heatWrap.style.display='';root.className='visible s1';
-  }else if(_lastData){renderClimate(_lastData);}
-  else if(!_hasData){root.className='';}
-};
+function renderClimate(d){
+ var s=Math.max(0,Math.min(5,Math.round(+d.stage||0))),core=+d.core||0,ambient=+d.ambient||0;
+ var warmth=pct(d.warmth==null?(core-28)/9*100:d.warmth),wet=pct(d.wetness),wind=+d.wind||0;
+ var trend=(+d.warming||0)-(+d.cooling||0);if((core>=37&&trend>0)||(core<=28&&trend<0))trend=0;var body=names[s]+(trend>.001?' / WARMING':trend<-.001?' / COOLING':' / STEADY');
+ status('warm',warmth+'%'+(trend>.001?' \u2191':trend<-.001?' \u2193':''),body+(+d.heat>0?' / NEAR HEAT':''),s>=4?'danger':s>=1?'warn':'');
+ status('wet',wet+'%',wet?'Wet clothing increases cooling':'Dry',wet>=75?'warn':'');
+ status('air',ambient<=0?'FREEZING':ambient<10?'COLD':ambient<20?'COOL':'MILD','Ambient '+(_fahrenheit?(ambient*9/5+32).toFixed(1)+' F':ambient.toFixed(1)+' C')+' / '+body,ambient<=0?'warn':'');
+ status('wind',wind<2?'CALM':wind<8?'BREEZE':wind<14?'WINDY':'STRONG','Wind increases cooling; shelter reduces exposure',wind>=14?'warn':'');
+ root.className='visible s'+s;
+}
+window.updateClimate=function(json){try{var d=typeof json==='string'?JSON.parse(json):json;if(!d||typeof d!=='object')return;_lastData=d;renderClimate(d);_hasData=true;window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));}catch(e){}};
+window.setClimateUnit=function(json){_fahrenheit=json==='F'||json==='"F"';if(_lastData)renderClimate(_lastData);};
+window.setEditorPreview=function(json){_preview=json==='1'||json===1||json===true;if(_preview)renderClimate({core:35.8,warmth:87,ambient:-4,wetness:62,heat:30,wind:12,stage:1});else if(_lastData)renderClimate(_lastData);else root.className='';};
 
 var WIDGET_ID='rad_climate';
 var DEF={xf:22/1920,yf:944/1080,wf:250/1920,hf:58/1080};

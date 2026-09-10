@@ -36,6 +36,16 @@
 
     <!-- Vitals HUD moved to PrismaHUD_F4 (position the toxicity widget in PrismaHUD's HUD editor). -->
 
+    <section class="diagnostics" aria-label="Live survival diagnostics">
+      <h2>LIVE DIAGNOSTICS</h2>
+      <div class="diagnostic-grid">
+        <section><h3>BODY &amp; WEATHER</h3><dl id="climateReadout"><dt>Climate</dt><dd>Awaiting data</dd></dl><p id="climateEffect"></p></section>
+        <section><h3>BREATHING AIR</h3><dl id="airReadout"><dt>Air</dt><dd>Awaiting data</dd></dl><p id="airEffect"></p></section>
+        <section><h3>VITALS</h3><dl id="vitalsReadout"><dt>Vitals</dt><dd>Awaiting data</dd></dl></section>
+      </div>
+      <p>WARM tracks body temperature: 28°C = 0%, 37°C = 100%. Climate is observational; hypothermia penalties are not applied. Breathing protection does not block every storm hazard.</p>
+    </section>
+
     <div class="dbg-sec">TRIGGER STORM</div>
     <div class="dbg-row">
       <button onclick="cmd('storm:0')">Ash</button>
@@ -271,5 +281,6 @@
 
   <script src="radhud.js"></script>
   <script src="rad_hud_local_editor.js"></script>
+<script src="rad_diagnostics.js"></script>
 </body>
 </html>

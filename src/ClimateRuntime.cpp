@@ -124,13 +124,7 @@ void ClimateRuntime::Update()
     _lastRainy = weatherClass.rainy;
     _lastIndoors = indoors;
 
-    RadHud::GetSingleton().PushClimate(
-        _state.coreC,
-        _lastAmbientC,
-        _state.wetness01,
-        result.effectiveInsulation01,
-        environment.heat01,
-        static_cast<int>(_state.stage));
+    RadHud::GetSingleton().PushClimate(_state, environment, result);
     RadHud::GetSingleton().PushArmor(
         protection.insulation01,
         result.effectiveInsulation01,

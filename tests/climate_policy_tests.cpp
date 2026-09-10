@@ -48,6 +48,19 @@ int main()
     using namespace RadClimateSerialization;
     using namespace RadClimatePolicy;
 
+    Require(Near(BodyWarmth01(28.0f), 0.0f));
+    Require(Near(BodyWarmth01(37.0f), 1.0f));
+    Require(Near(BodyWarmth01(40.0f), 1.0f));
+    Require(Near(BodyWarmth01(20.0f), 0.0f));
+    ClimateState besideFire{};
+    besideFire.coreC = 35.0f;
+    EnvironmentSample fireEnvironment{};
+    fireEnvironment.ambientC = 8.0f;
+    fireEnvironment.heat01 = 0.7f;
+    for (int tick = 0; tick < 3600; ++tick)
+        besideFire = Step(besideFire, fireEnvironment, {}, 0.25f).state;
+    Require(Near(BodyWarmth01(besideFire.coreC), 1.0f));
+
     ClimateState state{};
     state.coreC = 34.75f;
     state.wetness01 = 0.65f;

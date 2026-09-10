@@ -343,6 +343,8 @@ bool RadiationEngine::SpawnDistantNuke()
 // re-spawns it if the player steps back outside.
 void RadiationEngine::SpawnStormDome()
 {
+    if (_activeStormType < 0 || _activeStormType >= kStormTypeTableSize ||
+        !RadCorrectnessPolicy::StormUsesDome(kStormTypes[_activeStormType].themeId)) return;
     if (_stormDomeUp || IsPlayerSheltered()) return;
     auto* dh     = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
@@ -570,6 +572,12 @@ void RadiationEngine::ClearStormDome()
 
 void RadiationEngine::UpdateStormDomeOwner()
 {
+    if (_activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
+        !RadCorrectnessPolicy::StormUsesDome(kStormTypes[_activeStormType].themeId))
+    {
+        if (_stormDomeUp) ClearStormDome();
+        return;
+    }
     const bool domePhase = _stormPhase == StormPhase::Approach ||
         _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
     const bool exposed = !IsPlayerSheltered();
@@ -976,7 +984,10 @@ void RadiationEngine::TriggerStormFX(bool on)
         // consumed the storm's one shot. The Active-phase tick now calls SpawnDistantNuke() with a
         // bounded retry and only latches _stormNukeFired on a successful detonation.
         if (st.themeId == 1)
-            desc = "firestorm: native nuke (fired on Active tick, bounded retry) + native shake";
+        {
+            _stormFXQuest->SetStage(20);
+            return;
+        }
         else if (st.lethal)
             { desc = "lethal: native shake + dome"; }
     }
@@ -991,6 +1002,8 @@ void RadiationEngine::TriggerStormFX(bool on)
 
 void RadiationEngine::TriggerStormDome()
 {
+    if (_activeStormType < 0 || _activeStormType >= kStormTypeTableSize ||
+        !RadCorrectnessPolicy::StormUsesDome(kStormTypes[_activeStormType].themeId)) return;
     // Spawn the cloud dome (stage 12) without re-triggering shake/nuke — used at the firestorm
     // roll-in so the dome arrives with the fog rather than at the detonation instant.
     if (!_stormFXQuest) return;

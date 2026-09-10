@@ -75,6 +75,7 @@ jobs:
           python3 tests/verify_climate_hud.py
           python3 tests/verify_hud_layout_bridge.py
           node tests/armor_diagnostics_tests.js
+          node tests/status_hud_tests.js
           python3 tests/verify_rad_shelter_cache.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y

@@ -342,7 +342,7 @@ void RadiationEngine::Update()
             if (realMasked)
             {
                 // filter drains while worn AND actually exposed to the air it's filtering
-                if (filterSys && maskExposed && _filterCharge > 0.0f)
+                if (filterSys && maskExposed && inRadWeather && _filterCharge > 0.0f)
                     _filterCharge = std::max(0.0f, _filterCharge - (100.0f / _filterDurationSec) * 0.25f);
 
                 // auto replace / repair when empty/broken
@@ -383,6 +383,25 @@ void RadiationEngine::Update()
                                               realMasked ? _filterSparesCache : 0, realMasked);
         }
 
+        const bool airSheltered = IsPlayerSheltered() || IsPlayerInPoweredShelter();
+        const bool airSealed = IsPlayerInPowerArmor();
+        const bool airExposed = inRadWeather && !airSheltered && !airSealed;
+        const bool failedAirMask = realMasked &&
+            ((filterSys && _filterCharge <= 0.0f) || (condSys && _maskCondition <= 0.0f));
+        const float airHealthLoss = _chokingEnabled && airExposed && (!realMasked || failedAirMask)
+            ? _chokeHealthPerSec * (realMasked ? _chokeFailedFactor : 1.0f) : 0.0f;
+        RadHud::GetSingleton().PushAir(json{
+            { "contaminated", inRadWeather }, { "sheltered", airSheltered }, { "sealed", airSealed },
+            { "masked", realMasked }, { "failed", failedAirMask }, { "chokingEnabled", _chokingEnabled },
+            { "healthLoss", actorValue->health ? airHealthLoss : 0.0f },
+            { "radGain", airExposed && failedAirMask && actorValue->rads ? _filterChokeRads : 0.0f },
+            { "filterDrain", airExposed && realMasked && filterSys && _filterCharge > 0.0f
+                ? 100.0f / _filterDurationSec : 0.0f },
+            { "charge", filterSys ? std::round(_filterCharge) : -1.0f },
+            { "condition", condSys ? std::round(_maskCondition) : -1.0f },
+            { "spares", realMasked ? _filterSparesCache : 0 }
+        }.dump());
+
         // ---- Choke-gate diagnostic (opt-in via the `shelter` debug command) ----
         // Dumps the live values behind every mask/choke gate once per second so we can see WHY a
         // feature is (not) firing in-game: the actual current-weather FormID and whether it's in the
@@ -418,7 +437,7 @@ void RadiationEngine::Update()
                 _chokeCalmTicks = 0;
                 if (_chokeTicks < 1000) ++_chokeTicks;
 
-                const float rate = _chokeHealthPerSec * (realMasked ? _chokeFailedFactor : 1.0f);
+            const float rate = airHealthLoss;
                 player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *actorValue->health,
                                       -rate * 0.25f);
 

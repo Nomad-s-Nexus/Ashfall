@@ -47,12 +47,9 @@ namespace
 
 void RadHud::ResetClimateForSession() noexcept
 {
-    _climateCoreTenth = -100000;
-    _climateAmbientTenth = -100000;
-    _climateWetPercent = -1;
-    _climateInsulationPercent = -1;
-    _climateHeatPercent = -1;
-    _climateStage = -1;
+    _climatePayload.clear();
+    _airPayload.clear();
+    _toxicPayload.clear();
 }
 
 void RadHud::EnsureClimateView()
@@ -108,58 +105,35 @@ void RadHud::EnsureClimateView()
     }
 }
 
-void RadHud::PushClimate(
-    float coreC,
-    float ambientC,
-    float wetness01,
-    float insulation01,
-    float heat01,
-    int stage)
+void RadHud::PushClimate(const RadClimatePolicy::ClimateState& state,
+    const RadClimatePolicy::EnvironmentSample& environment, const RadClimatePolicy::StepResult& result)
 {
-    if (!_api)
-        return;
-
+    if (!_api) return;
     EnsureClimateView();
-    if (!_hudApi && !_localLayoutApplied)
-        ApplyLocalHudLayout(false);
-
+    if (!_hudApi && !_localLayoutApplied) ApplyLocalHudLayout(false);
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
-    if (_climateView == 0 || !api->IsValid(_climateView) ||
-        !_climateDomReady.load(std::memory_order_acquire))
-        return;
-
-    const int coreTenth = TempTenth(coreC);
-    const int ambientTenth = TempTenth(ambientC);
-    const int wetPercent = Percent(wetness01);
-    const int insulationPercent = Percent(insulation01);
-    const int heatPercent = Percent(heat01);
-    const int stageValue = std::clamp(stage, 0, 5);
-
-    if (coreTenth == _climateCoreTenth &&
-        ambientTenth == _climateAmbientTenth &&
-        wetPercent == _climateWetPercent &&
-        insulationPercent == _climateInsulationPercent &&
-        heatPercent == _climateHeatPercent &&
-        stageValue == _climateStage)
-        return;
-
-    _climateCoreTenth = coreTenth;
-    _climateAmbientTenth = ambientTenth;
-    _climateWetPercent = wetPercent;
-    _climateInsulationPercent = insulationPercent;
-    _climateHeatPercent = heatPercent;
-    _climateStage = stageValue;
-
-    char payload[224];
-    std::snprintf(payload, sizeof(payload),
-        "{\"core\":%.1f,\"ambient\":%.1f,\"wetness\":%d,\"insulation\":%d,\"heat\":%d,\"stage\":%d}",
-        static_cast<double>(coreTenth) / 10.0,
-        static_cast<double>(ambientTenth) / 10.0,
-        wetPercent,
-        insulationPercent,
-        heatPercent,
-        stageValue);
-
-    api->InteropCall(_climateView, "updateClimate", payload);
+    if (!_climateView || !api->IsValid(_climateView) || !_climateDomReady) return;
+    const auto rate = [](float value) { return std::round(value * 60000.0f) / 1000.0f; };
+    json data{
+        { "core", TempTenth(state.coreC) / 10.0 },
+        { "ambient", TempTenth(environment.ambientC) / 10.0 },
+        { "warmth", Percent(RadClimatePolicy::BodyWarmth01(state.coreC)) },
+        { "wetness", Percent(state.wetness01) },
+        { "insulation", Percent(result.effectiveInsulation01) },
+        { "heat", Percent(environment.heat01) },
+        { "stage", static_cast<int>(state.stage) },
+        { "wind", TempTenth(environment.windMps) / 10.0 },
+        { "shelter", Percent(environment.shelter01) },
+        { "rainCover", Percent(environment.precipitationShelter01) },
+        { "indoors", environment.indoors },
+        { "cooling", rate(result.coolingCPerSecond) },
+        { "warming", rate(result.warmingCPerSecond) }
+    };
+    const auto payload = data.dump();
+    if (payload == _climatePayload) return;
+    _climatePayload = payload;
+    api->InteropCall(_climateView, "updateClimate", payload.c_str());
+    if (_debugOpen && _view && _domReady && api->IsValid(_view))
+        api->InteropCall(_view, "updateClimateInfo", payload.c_str());
     api->Show(_climateView);
 }

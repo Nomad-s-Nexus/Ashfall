@@ -10,7 +10,7 @@ climate = (SRC / "ClimateRuntime.cpp").read_text(encoding="utf-8")
 html = VIEW.read_text(encoding="utf-8")
 
 for token in (
-    "void PushClimate(float coreC, float ambientC, float wetness01, float insulation01, float heat01, int stage);",
+    "void PushClimate(const RadClimatePolicy::ClimateState& state,",
     "void EnsureClimateView();",
     "uint64_t _climateView = 0;",
     "std::atomic<bool> _climateDomReady{ false };",
@@ -24,18 +24,15 @@ for token in (
     "api->CreateView(kClimateViewPath",
     "hudApi->RegisterWidget(_climateView, kClimateDesc);",
     "hudApi->ApplyLayout(_climateView);",
-    'api->InteropCall(_climateView, "updateClimate", payload);',
-    "if (coreTenth == _climateCoreTenth",
+    'api->InteropCall(_climateView, "updateClimate", payload.c_str());',
+    "if (payload == _climatePayload)",
     "api->Hide(_climateView);",
     "api->Show(_climateView);",
 ):
     assert token in hud, f"climate HUD runtime contract missing: {token}"
 
 for token in (
-    "RadHud::GetSingleton().PushClimate(",
-    "result.effectiveInsulation01",
-    "environment.heat01",
-    "static_cast<int>(_state.stage)",
+    "RadHud::GetSingleton().PushClimate(_state, environment, result);",
 ):
     assert token in climate, f"climate model-to-HUD bridge missing: {token}"
 
@@ -48,7 +45,7 @@ for token in (
     "CHILLED",
     "WET",
     "WARM",
-    "HEAT",
+    "NEAR HEAT",
 ):
     assert token in html, f"climate HUD HTML contract missing: {token}"
 

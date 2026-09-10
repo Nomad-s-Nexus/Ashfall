@@ -74,6 +74,11 @@ namespace RadClimatePolicy
         return std::clamp(value, 0.0f, 1.0f);
     }
 
+    [[nodiscard]] inline float BodyWarmth01(float coreC) noexcept
+    {
+        return Clamp01((coreC - kMinimumCoreC) / (kNormalCoreC - kMinimumCoreC));
+    }
+
     [[nodiscard]] inline HypothermiaStage StageForCore(float coreC) noexcept
     {
         if (!std::isfinite(coreC) || coreC >= 36.5f)

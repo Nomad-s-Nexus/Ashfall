@@ -48,6 +48,10 @@ int main()
     Require(!ShouldRetryDomeSpawn(true, true, true, 4));
     Require(!ShouldRetryDomeSpawn(true, true, false, 3));
     Require(ShouldRetryDomeSpawn(true, true, false, 4));
+    Require(!StormUsesDome(1));
+    Require(StormUsesDome(0));
+    Require(StormUsesDome(2));
+    Require(StormUsesDome(5));
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
     Require(!CuresPermanentTissue(CureSignal::kNone));

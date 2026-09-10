@@ -21,7 +21,9 @@ public:
     void PushToxic(float tissue, float permanentTissue);
     void PushMask(bool on);
     void PushFilter(float charge, float condition, int spares, bool masked);
-    void PushClimate(float coreC, float ambientC, float wetness01, float insulation01, float heat01, int stage);
+    void PushClimate(const RadClimatePolicy::ClimateState& state,
+        const RadClimatePolicy::EnvironmentSample& environment, const RadClimatePolicy::StepResult& result);
+    void PushAir(const std::string& payload);
     void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
     void PushGhoulSettings(bool enabled, int chancePercent);
@@ -67,12 +69,9 @@ private:
     uint64_t _climateView = 0;
     std::atomic<bool> _climateDomReady{ false };
     std::atomic<bool> _climateWidgetRegistered{ false };
-    int _climateCoreTenth = -100000;
-    int _climateAmbientTenth = -100000;
-    int _climateWetPercent = -1;
-    int _climateInsulationPercent = -1;
-    int _climateHeatPercent = -1;
-    int _climateStage = -1;
+    std::string _climatePayload;
+    std::string _airPayload;
+    std::string _toxicPayload;
     std::string _armorPayload;
 
     int _maskPushed = -1;
