@@ -183,8 +183,8 @@ window.setArmorInfo = function(json) {
         var coverage = regions.filter(function(region) { return !!piece[region]; }).map(function(region) {
           return labels[regions.indexOf(region)];
         });
-        [piece.name || "<unnamed>", percent(piece.warmth) + "%", percent(piece.insulation) + "%",
-          coverage.join(" / ") || "NONE", piece.override ? "YES" : "--"].forEach(function(value, index) {
+        [piece.name || "<unnamed>", coverage.length ? percent(piece.warmth) + "%" : "--", percent(piece.insulation) + "%",
+          coverage.join(" / ") || "NONE", piece.override ? "OVERRIDE" : coverage.length ? "DEFAULT" : "--"].forEach(function(value, index) {
           var cell = document.createElement("td");
           cell.textContent = value;
           if (index === 4 && piece.override) cell.className = "armor-override";

@@ -167,10 +167,14 @@ html, body {
 .armor-section-heading { min-height: 30px; padding-bottom: 8px; border-bottom: 1px solid #476c3d; }
 .armor-section-heading h3 { color: #bdd9b1; font-size: 12px; letter-spacing: 1.2px; font-weight: normal; }
 .armor-section-heading > span { flex-shrink: 0; color: #91ae86; font-size: 10px; letter-spacing: .7px; }
-.armor-records-scroll { max-height: 480px; overflow-y: auto; scrollbar-color: #486640 #10210f; }
-.armor-records-scroll::-webkit-scrollbar, .armor-region ul::-webkit-scrollbar { width: 5px; height: 5px; background: #10210f; }
-.armor-records-scroll::-webkit-scrollbar-thumb, .armor-region ul::-webkit-scrollbar-thumb { background: #486640; }
+.armor-records-scroll { max-height: min(480px, 45vh); overflow-y: scroll; scrollbar-gutter: stable; padding-right: 8px; }
+.armor-records-scroll:focus-visible { outline: 1px solid #91bc7f; outline-offset: 3px; }
+.armor-records-scroll::-webkit-scrollbar { width: 12px; background: #10210f; }
+.armor-records-scroll::-webkit-scrollbar-thumb { background: #78986a; border: 2px solid #10210f; }
+.armor-region ul::-webkit-scrollbar { width: 5px; height: 5px; background: #10210f; }
+.armor-region ul::-webkit-scrollbar-thumb { background: #486640; }
 .armor-records { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+.armor-records thead { position: sticky; top: 0; background: #10210f; }
 .armor-name-col { width: 38%; }
 .armor-coverage-col { width: 23%; }
 .armor-records th { padding: 12px 6px 9px; color: #9dbb92; font-size: 10px; letter-spacing: .1px; font-weight: normal; text-align: right; }

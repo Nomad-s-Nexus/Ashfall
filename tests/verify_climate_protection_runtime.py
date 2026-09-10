@@ -57,6 +57,12 @@ assert "ActorEquipManagerEvent.h" not in header
 assert "const auto protection = _protection.Sample(player);" in climate
 assert "_protection.Reset();" in climate
 
+skin_guard = runtime.index("player->race->formSkin == armor")
+assert skin_guard < runtime.index("piecesByForm.try_emplace")
+assert "npc && npc->formSkin == armor" in runtime
+assert "const auto* npc = player->GetNPC();" in runtime
+assert 'std::format("Unnamed armor [{:08X}]", info.formID)' in runtime
+
 for token in (
     "EquipObject(",
     "UnequipObject(",

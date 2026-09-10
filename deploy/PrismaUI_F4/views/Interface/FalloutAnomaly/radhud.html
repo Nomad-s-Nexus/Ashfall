@@ -213,22 +213,22 @@
       <div class="armor-workspace">
         <section class="armor-equipment" aria-labelledby="armorEquipmentTitle">
           <div class="armor-section-heading"><h3 id="armorEquipmentTitle">THERMAL EQUIPMENT</h3><span id="armorThermalCount">-- RECORDS</span></div>
-          <div class="armor-records-scroll">
+          <div class="armor-records-scroll" tabindex="0" role="region" aria-label="Equipped armor records">
             <table class="armor-records" aria-label="Thermal equipment">
               <colgroup><col class="armor-name-col"><col><col><col class="armor-coverage-col"><col></colgroup>
-              <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">OVERRIDE</th></tr></thead>
+              <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">SOURCE</th></tr></thead>
               <tbody id="armorList"><tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr></tbody>
             </table>
             <section class="armor-nonthermal" aria-labelledby="armorNonThermalTitle">
               <div class="armor-section-heading"><h3 id="armorNonThermalTitle">NON-THERMAL EQUIPMENT</h3><span id="armorNonThermalCount">-- RECORDS</span></div>
               <table class="armor-records" aria-label="Non-thermal equipment">
                 <colgroup><col class="armor-name-col"><col><col><col class="armor-coverage-col"><col></colgroup>
-                <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">OVERRIDE</th></tr></thead>
+                <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">SOURCE</th></tr></thead>
                 <tbody id="armorNonThermalList"><tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr></tbody>
               </table>
             </section>
           </div>
-          <p class="armor-footnote">INSUL. = standalone contribution. Layered values are not additive.</p>
+          <p class="armor-footnote">DEFAULT = shared 45% warmth estimate, not an item-specific rating. OVERRIDE = configured warmth. INSUL. includes coverage; layered values are not additive.</p>
         </section>
         <section class="armor-map" aria-labelledby="armorMapTitle">
           <div class="armor-section-heading"><h3 id="armorMapTitle">BODY COVERAGE</h3><span>THERMAL RECORD MAP</span></div>

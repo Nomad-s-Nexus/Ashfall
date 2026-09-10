@@ -57,9 +57,11 @@ assert.deepEqual(names('armorList'), ['Fatigues', 'Left arm', '<img src=x onerro
 assert.deepEqual(names('armorNonThermalList'), ['Pip-Boy', 'Wedding ring', 'Zero override']);
 assert.equal(elements.armorThermalCount.textContent, '3 RECORDS');
 assert.equal(elements.armorNonThermalCount.textContent, '3 RECORDS');
-assert.equal(elements.armorList.children[2].children[4].textContent, 'YES');
-assert.equal(elements.armorNonThermalList.children[2].children[4].textContent, 'YES');
+assert.equal(elements.armorList.children[2].children[4].textContent, 'OVERRIDE');
+assert.equal(elements.armorNonThermalList.children[2].children[4].textContent, 'OVERRIDE');
 assert.equal(elements.armorList.children[1].children[3].textContent, 'L ARM');
+assert.equal(elements.armorList.children[0].children[4].textContent, 'DEFAULT');
+assert.equal(elements.armorNonThermalList.children[0].children[1].textContent, '--');
 assert.deepEqual(callout('leftArm').children.map(item => item.textContent), ['Fatigues', 'Left arm']);
 assert.deepEqual(callout('rightArm').children.map(item => item.textContent), ['Fatigues']);
 assert.equal(callout('head').textContent, '<img src=x onerror=alert(1)>');
@@ -106,3 +108,9 @@ context.setArmorInfo({pieces: {}});
 assert.equal(elements.armorList.textContent, 'NO WORN ARMOR');
 assert.ok(!elements.armorFigure.classes.has('power-armor'));
 console.log('Armor diagnostics verified: bridge, read-only rendering, thermal grouping, six callouts, replacement and malformed input');
+
+const css = fs.readFileSync(path.join(view, 'radhud.css'), 'utf8');
+assert.match(css, /\.armor-records-scroll\s*\{[^}]*max-height: min\(480px, 45vh\)[^}]*overflow-y: scroll/);
+assert.match(html, /class="armor-records-scroll" tabindex="0" role="region"/);
+context.setArmorInfo({pieces: Array.from({length: 100}, (_, i) => ({name: 'Record ' + i, warmth: 45, insulation: 5, torso: true}))});
+assert.equal(elements.armorList.children.length, 100);
