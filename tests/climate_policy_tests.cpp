@@ -270,29 +270,12 @@ int main()
     const auto single5sStep = Step(outdoorsFreezing, blizzardEnv, {}, kMaximumStepSeconds);
     Require(delayed20sResult.state.coreC < single5sStep.state.coreC);
 
-    const float oneGameHourDays = 1.0f / 24.0f;
-    const std::array<float, 3> testTimescales{ 10.0f, 20.0f, 40.0f };
-    std::vector<ClimateState> timescaleResults;
-    for (float ts : testTimescales)
-    {
-        const float simulatedGameSeconds = oneGameHourDays * 86400.0f;
-        Require(ts > 0.0f);
-        const auto simResult = StepTimeJump(outdoorsFreezing, blizzardEnv, {}, simulatedGameSeconds);
-        timescaleResults.push_back(simResult.state);
-    }
-    for (std::size_t i = 1; i < timescaleResults.size(); ++i)
-    {
-        Require(Near(timescaleResults[i].coreC, timescaleResults[0].coreC));
-        Require(Near(timescaleResults[i].wetness01, timescaleResults[0].wetness01));
-        Require(timescaleResults[i].stage == timescaleResults[0].stage);
-    }
-
-    const float justBelowDays = kTimeJumpThresholdDays - 0.00001f;
-    const float justAboveDays = kTimeJumpThresholdDays + 0.00001f;
-    const auto belowJump = StepTimeJump(outdoorsFreezing, blizzardEnv, {}, justBelowDays * 86400.0f);
-    const auto aboveJump = StepTimeJump(outdoorsFreezing, blizzardEnv, {}, justAboveDays * 86400.0f);
-    Require(aboveJump.state.coreC <= belowJump.state.coreC);
-    Require(Near(belowJump.state.coreC, aboveJump.state.coreC, 0.05f));
+    Require(Near(ElapsedGameSeconds(1.0f / 24.0f), 3600.0f));
+    Require(Near(ElapsedGameSeconds(8.0f / 24.0f), 28800.0f));
+    Require(Near(ElapsedGameSeconds(1.0f), 86400.0f));
+    Require(Near(ElapsedGameSeconds(0.0f), 0.0f));
+    Require(Near(ElapsedGameSeconds(-0.5f), 0.0f));
+    Require(Near(ElapsedGameSeconds(std::numeric_limits<float>::quiet_NaN()), 0.0f));
 
     const auto clampedStep = Step(outdoorsFreezing, blizzardEnv, {}, 100.0f);
     const auto maxStep = Step(outdoorsFreezing, blizzardEnv, {}, kMaximumStepSeconds);

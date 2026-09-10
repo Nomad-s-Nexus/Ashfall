@@ -244,4 +244,11 @@ namespace RadClimatePolicy
         }
         return current;
     }
+
+    [[nodiscard]] inline float ElapsedGameSeconds(float gameDaysElapsed) noexcept
+    {
+        if (!std::isfinite(gameDaysElapsed) || gameDaysElapsed <= 0.0f)
+            return 0.0f;
+        return gameDaysElapsed * 86400.0f;
+    }
 }

@@ -100,11 +100,6 @@ namespace
         }
         return info;
     }
-
-    bool IsGameplayPaused() noexcept
-    {
-        return QueryPauseInfo().isPaused;
-    }
 }
 
 void ClimateRuntime::Update()
@@ -175,9 +170,9 @@ void ClimateRuntime::Update()
 
         if (gameDaysElapsed > RadClimatePolicy::kTimeJumpThresholdDays)
         {
-            const float gameHours = gameDaysElapsed * 24.0f;
-            const float effectiveHours = std::min(gameHours, RadClimatePolicy::kMaximumTimeJumpHours);
-            const float jumpGameSeconds = effectiveHours * 3600.0f;
+            const float jumpGameSeconds = std::min(
+                RadClimatePolicy::ElapsedGameSeconds(gameDaysElapsed),
+                RadClimatePolicy::kMaximumTimeJumpHours * 3600.0f);
             result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpGameSeconds, RadClimatePolicy::kMaximumStepSeconds);
             branchName = "time_jump";
             appliedSeconds = jumpGameSeconds;
@@ -194,7 +189,7 @@ void ClimateRuntime::Update()
         }
         else
         {
-            const float gameSeconds = gameDaysElapsed * 86400.0f;
+            const float gameSeconds = RadClimatePolicy::ElapsedGameSeconds(gameDaysElapsed);
             if (gameSeconds > RadClimatePolicy::kMaximumStepSeconds)
             {
                 result = RadClimatePolicy::StepTimeJump(_state, environment, protection, gameSeconds, RadClimatePolicy::kMaximumStepSeconds);
