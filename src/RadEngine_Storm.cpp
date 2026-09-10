@@ -57,7 +57,7 @@ void RadiationEngine::BeginStorm(int typeIndex)
     const int leadTicks = (_forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
     _forcedLeadTicks = -1;
     _activeLeadTicks = leadTicks;
-    logger->warn("========== STORM APPROACHING: {} ({}) — dome-only lead {} s ==========",
+    logger->warn("========== STORM APPROACHING: {} ({}) — silent lead {} s ==========" ,
         st.name, st.lethal ? "LETHAL" : "ambient", leadTicks / 4);
     _sirenDelayTicks = 0;
     _dustBuildupActive = false;   // no weather build-up during the silent lead
@@ -841,87 +841,23 @@ void RadiationEngine::EnsureQuestRunning(RE::TESQuest* quest)
 {
     if (!quest) return;
     DumpQuestStageTable(quest);
-    // TESQuest::SetStage (decompiled @ RVA 0x5D71E0) returns FALSE and does nothing unless the quest's
-    // runtime ENABLED bit is set: `if ((quest+0xF4 & 1) != 0)`, i.e. QUEST_DATA.flags bit 0. A
-    // StartGameEnabled quest added to an existing save via an ESL stays DORMANT (that record flag only
-    // auto-fires on a NEW GAME), so the bit is clear, so every SetStage(10/11/12/20) silently failed —
-    // the dome / camera shake / firestorm nuke never ran (log: "SetStage(11) result=false").
-    //
-    // Set the enabled bit NATIVELY. This is a plain memory write (safe on the main-thread Update tick)
-    // — NOT Papyrus Quest.Start(), which is a latent native that CTDs when dispatched from here.
     if ((quest->data.flags & static_cast<std::uint16_t>(RE::QuestFlag::kEnabled)) == 0)
     {
         quest->data.flags |= static_cast<std::uint16_t>(RE::QuestFlag::kEnabled);
         Log()->info("[StormFX] Quest 0x{:03X} was dormant (ESL-on-existing-save) -> enabled natively.",
             quest->GetFormID() & 0xFFF);
-    }
-
-    // NOTE: an older build here also rebuilt the quest's SetStage lookup table via a raw OG-only module
-    // offset for TESQuest::InitSearchTables (0x5E07D0). That has been REMOVED. SetStage is no longer used
-    // to drive any FX — the dome, camera shake, and firestorm nuke are all native now, and TriggerStormFX
-    // treats SetStage's result as informational only — so rebuilding its scatter table served no purpose
-    // (and, per the earlier logs, SetStage returned false even with the rebuild). No private RVA remains.
-    static bool questTablesInit = false;   // session latch (EnsureQuestRunning is a static member)
-    if (!questTablesInit)
-    {
-        questTablesInit = true;
-        DumpQuestStageTable(quest);   // diagnostic dump of the stage table as the engine built it
-
-        // STORM DOME: the RadStormFX script ships with `Bool Property EnableCloudDome = false`, so
-        // _SpawnDome() has always bailed out immediately ("cloud dome disabled (using weather fog
-        // instead)"). Flip it ON at runtime.
-        //
-        // Deliberately NOT done by editing the ESP: RadiationOverhaul.esp's raw TES4 master order is
-        // [0] DLCCoast, [1] DLCNukaWorld, [2] Fallout4.esm — Fallout4.esm is NOT index 0. The plugin's
-        // FormIDs are built against that mapping, so it is self-consistent, but a save_plugin that
-        // re-sorts masters to load order would remap every Fallout4.esm reference and silently corrupt
-        // the plugin (hang on load, no crash log). Not worth it for one boolean.
-        //
-        // This is a script PROPERTY read/write on the bound script object under attachedScriptsLock —
-        // a locked data access, NOT a VM dispatch, so it is safe on the main-thread Update tick
-        // (only DispatchMethodCall/latent natives would be unsafe here).
-        if (auto* gameVM = RE::GameVM::GetSingleton())
-        {
-            if (auto* vm = gameVM->GetVM().get())
-            {
-                auto* concreteVM = static_cast<RE::BSScript::Internal::VirtualMachine*>(vm);
-                RE::BSAutoLock lock(concreteVM->attachedScriptsLock);
-                const auto handle = vm->GetObjectHandlePolicy().GetHandleForObject(
-                    static_cast<std::uint32_t>(quest->GetFormType()), quest);
-                if (const auto it = concreteVM->attachedScripts.find(handle);
-                    it != concreteVM->attachedScripts.end())
-                {
-                    for (auto& attached : it->second)
-                    {
-                        auto* obj = attached.get();
-                        if (!obj) continue;
-                        if (auto* prop = obj->GetProperty(RE::BSFixedString("EnableCloudDome")))
-                        {
-                            *prop = true;
-                            Log()->info("[StormFX] Storm dome ENABLED (RadStormFX.EnableCloudDome=true) — "
-                                        "KORs CloudArena layers will spawn with the storm.");
-                        }
-                    }
-                }
-                else
-                {
-                    Log()->warn("[StormFX] Quest script not bound yet — could not enable the storm dome.");
-                }
-            }
-        }
+        DumpQuestStageTable(quest);
     }
 }
 
 
 void RadiationEngine::DumpQuestStageTable(RE::TESQuest* quest)
 {
-    // Called twice: once BEFORE InitSearchTables (expected: table empty -> why SetStage returned false)
-    // and once AFTER (expected: stages 0/10/11/12/20 present -> SetStage can now resolve them).
     static int dumps = 0;
     if (!quest || dumps >= 2) return;
     ++dumps;
     Log()->info("[StormFX/StageDiag] ---- dump #{} ({}) ----", dumps,
-        dumps == 1 ? "BEFORE InitSearchTables" : "AFTER InitSearchTables");
+        dumps == 1 ? "initial" : "post-enable check");
 
     const auto& table = quest->stageTable;
     Log()->info(
@@ -1269,9 +1205,6 @@ void RadiationEngine::UpdateStorm()
 
     case StormPhase::Approach:
     {
-        // Dome-only SILENT lead. Keep the dome tracking the player's exposure (spawn outside, clear when
-        // sheltered) but fire NOTHING else — no siren, no alert, no weather. When the lead elapses, the
-        // storm commits: EnterWarningPhase() fires the alarm and starts the dust-sky roll-in.
         const bool exposed = !IsPlayerSheltered();
         if (!exposed && _stormDomeUp) ClearStormDome();
 
@@ -1350,22 +1283,11 @@ void RadiationEngine::UpdateStorm()
                 }
             }
 
-            // The storm ambient bed is owned by UpdateAmbientAudio() (driven by current weather): now
-            // that this storm's weather is current, it starts the bed on the next tick while exposed.
-
-            // Screen FX are EXTERIOR-only: an exposed player gets the cloud dome (lethal storms also
-            // shake; the firestorm detonates the distant nuke first and defers its dome + fog/IMAD to
-            // the roll-in). A sheltered player gets NOTHING on-screen — TriggerStormFX/ApplyStormIMAD
-            // no-op while sheltered, and UpdateStormFXVisibility restores them if they step outside.
             _stormFXVisible = !IsPlayerSheltered();
             TriggerStormFX(true);
 
             if (st.themeId == 1)
             {
-                // Firestorm: HOLD the atmosphere roll-in until the distant nuke actually detonates (or
-                // its bounded retry window expires). The Active tick drives SpawnDistantNuke and starts
-                // the fixed roll-in only once the nuke resolves — so a transient streaming failure can't
-                // let the fog/fire/dome roll in as though the nuke had fired.
                 _firestormAwaitingNuke = true;
                 _stormRollInTicks      = 0;   // not started yet; armed when the nuke resolves
             }
@@ -1427,8 +1349,6 @@ void RadiationEngine::UpdateStorm()
             }
             else
             {
-                // Still awaiting the nuke: hold the atmosphere exactly like the roll-in-hold below —
-                // if the player ducked inside, drop the exterior FX; tick the storm clock; skip exposure.
                 if (_stormFXVisible && IsPlayerSheltered())
                 {
                     TriggerStormFX(false);
@@ -1446,30 +1366,18 @@ void RadiationEngine::UpdateStorm()
         {
             if (--_stormRollInTicks == 0)
             {
-                // The atmosphere rolls in with the blast wave — but only for an EXPOSED player, so the
-                // fog/fire/dome never appear inside. If sheltered, leave it hidden; UpdateStormFXVisibility
-                // rolls it in the moment they step outside. (SpawnFireRing already self-gates on shelter.)
-                // NOTE: we deliberately do NOT touch _stormFXVisible here — the visibility manager owns it
-                // and reconciles the real FX state next tick. Hand-setting it desynced when the player ran
-                // indoors mid-roll-in (the nuke's shake stayed on because the manager thought FX were off).
                 if (!IsPlayerSheltered())
                 {
                     ApplyStormIMAD(_activeStormType);   // engine colour grade rolls in
                     if (st.themeId == 1)
                         SpawnFireRing();                // ground fire ring rolls in
-                    TriggerStormDome();                 // cloud dome rolls in with the blast wave
+                    TriggerStormDome();
                     RE::BSSoundHandle wave{};
                     if (!Play2DSound(kSndBlastWave, wave))   // the shockwave sweeping in (one-shot)
                         logger->warn("[StormAudio] blast wave '{}' failed to load.", kSndBlastWave);
                 }
                 logger->info("[Storm] {} — blast wave arrived; atmosphere rolling in.", st.name);
             }
-            // The nuke's camera shake / dome are exterior-only during the inbound-wave window too. If
-            // the player ducks inside while the blast is still rolling in, stop them now so the rumble
-            // doesn't keep shaking the camera indoors. We only ever turn FX OFF here — turning them back
-            // on is left to the arrival rollout / UpdateStormFXVisibility so the deferred fog can't
-            // appear before the wave lands. (Only meaningful on non-arrival ticks; the arrival block
-            // above already self-gates on shelter.)
             else if (_stormFXVisible && IsPlayerSheltered())
             {
                 TriggerStormFX(false);
@@ -1578,7 +1486,6 @@ void RadiationEngine::UpdateStorm()
     // overlay — only the distant nuke flash shows until the blast wave arrives.
     if (_stormRollInTicks > 0)
         theme = 0;
-    // APPROACH is a SILENT dome-only lead — no HUD storm banner at all until the alarm (Warning).
     if (_stormPhase == StormPhase::Approach)
         theme = 0;
     RadHud::GetSingleton().PushStorm(static_cast<int>(_stormPhase), theme, intensity,
