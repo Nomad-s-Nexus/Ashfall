@@ -61,6 +61,7 @@ public:
     void Update();
     // Called EVERY frame (not the 4Hz tick) so hotkeys are never missed between ticks.
     void PollInput();
+    void UpdateStormDomePosition();
     void ApplyDebuffs(uint32_t radLevel);
 
     // Called on game load / new game: re-sync penalty tracking with the freshly
@@ -438,7 +439,6 @@ private:
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
     RE::TESWorldSpace* _stormDomeWorld = nullptr;
-    int _stormDomeFollowTick = 0;
     int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
@@ -446,7 +446,7 @@ private:
                                                     // UpdateDomeAnimation force-activates it once 3D loads
     void SpawnStormDome();                          // place the dome layers overhead (exterior only)
     void ClearStormDome();                          // disable + release the dome layers
-    void UpdateStormDomePosition();                 // follow the exposed player at 1 Hz
+    void UpdateStormDomeOwner();
     void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
     // Native camera shake (replaces the RadStormFX Papyrus shake, which never fired — SetStage
     // returned false every time). -1 = inactive for both counters.

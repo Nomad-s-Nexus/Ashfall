@@ -160,6 +160,19 @@ def check_source(html_path, source_path):
             raise SystemExit(f'missing PrismaUI startup retry contract: {marker}')
 
     hooks = Path(source_path).with_name('Hooks.cpp').read_text(encoding='utf-8')
+    frame_queue = hooks.split('static void QueueInputPoll()', 1)[1].split('static void QueueEngineUpdate()', 1)[0]
+    assert frame_queue.index('QueueMainThreadTask([]()') < frame_queue.index('UpdateStormDomePosition();')
+    producer = hooks.split('void PlayerCharacter_Update_Hook', 1)[1].split('bool InstallUpdateHook()', 1)[0]
+    assert producer.index('QueueInputPoll();') < producer.index('if (elapsed < kUpdateInterval)')
+    assert 'UpdateStormDomePosition();' not in producer
+    storm = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    follow = storm.split('void RadiationEngine::UpdateStormDomePosition()', 1)[1].split('void RadiationEngine::UpdateDustMotes()', 1)[0]
+    assert 'player->cachedWorldspace != _stormDomeWorld' in follow
+    assert 'ref->Update3DPosition(true);' in follow
+    assert '_stormDomeFollowTick' not in storm
+    assert 'UpdateStormDomeOwner();' in storm.split('void RadiationEngine::UpdateStorm()', 1)[1]
+    for mutation in ('ClearStormDome();', 'SpawnStormDome();', 'UpdateStorm();', 'ApplyStormExposure();'):
+        assert mutation not in frame_queue + follow
     for marker in (
         'class RadInputHandler final : public RE::BSInputEventUser',
         'RE::MenuControls::GetSingleton()',

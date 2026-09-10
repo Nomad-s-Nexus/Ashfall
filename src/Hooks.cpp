@@ -351,6 +351,7 @@ namespace Hooks
                 try
                 {
                     RadiationEngine::GetSingleton().PollInput();
+                    RadiationEngine::GetSingleton().UpdateStormDomePosition();
                 }
                 catch (...)
                 {
