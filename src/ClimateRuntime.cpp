@@ -4,12 +4,14 @@
 #include "ClimateStagePolicy.h"
 #include "RadHud.h"
 
+#include <RE/B/BSSpinLock.h>
 #include <RE/C/Calendar.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/S/Sky.h>
 #include <RE/T/TESGlobal.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESWeather.h>
+#include <RE/U/UI.h>
 
 namespace
 {
@@ -25,7 +27,7 @@ namespace
     {
         if (auto* cal = RE::Calendar::GetSingleton())
             return cal->GetMonth();
-        return 9;
+        return 8;
     }
 
     RadClimateEnvironmentPolicy::WeatherClass ClassifyWeather(RE::TESWeather* weather) noexcept
@@ -66,6 +68,24 @@ namespace
         case kNormal:
         default: return "normal";
         }
+    }
+
+    bool IsGameplayPaused() noexcept
+    {
+        auto* ui = RE::UI::GetSingleton();
+        if (!ui)
+            return false;
+
+        if (ui->freezeFramePause > 0)
+            return true;
+
+        RE::BSAutoReadLock l{ RE::UI::GetMenuMapRWLock() };
+        for (const auto& menu : ui->menuStack)
+        {
+            if (menu && menu->menuFlags.all(RE::UI_MENU_FLAGS::kPausesGame))
+                return true;
+        }
+        return false;
     }
 }
 
@@ -115,7 +135,53 @@ void ClimateRuntime::Update()
     environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;
 
     const auto protection = _protection.Sample(player);
-    const auto result = RadClimatePolicy::Step(_state, environment, protection, 0.25f);
+    const float nowDays = GameDays();
+    const bool paused = IsGameplayPaused();
+
+    RadClimatePolicy::StepResult result{};
+
+    if (_prevGameDays < 0.0f)
+    {
+        _prevGameDays = nowDays;
+        result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
+    }
+    else
+    {
+        const float gameDaysElapsed = nowDays - _prevGameDays;
+        _prevGameDays = nowDays;
+
+        if (paused || gameDaysElapsed <= 0.0f)
+        {
+            result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
+        }
+        else if (gameDaysElapsed > RadClimatePolicy::kTimeJumpThresholdDays)
+        {
+            float timeScale = 20.0f;
+            if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale)
+            {
+                const float ts = cal->timeScale->GetValue();
+                if (ts > 0.0f)
+                    timeScale = ts;
+            }
+            const float gameHours = gameDaysElapsed * 24.0f;
+            const float effectiveHours = std::min(gameHours, RadClimatePolicy::kMaximumTimeJumpHours);
+            const float jumpRealSeconds = (effectiveHours * 3600.0f) / timeScale;
+            result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpRealSeconds);
+        }
+        else
+        {
+            float timeScale = 20.0f;
+            if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale)
+            {
+                const float ts = cal->timeScale->GetValue();
+                if (ts > 0.0f)
+                    timeScale = ts;
+            }
+            const float realSeconds = (gameDaysElapsed * 86400.0f) / timeScale;
+            const float dt = std::clamp(realSeconds, 0.0f, RadClimatePolicy::kMaximumStepSeconds);
+            result = RadClimatePolicy::Step(_state, environment, protection, dt);
+        }
+    }
     auto nextState = result.state;
     nextState.stage = RadClimateStagePolicy::NextStage(_state.stage, nextState.coreC);
     _state = nextState;
@@ -169,6 +235,7 @@ void ClimateRuntime::Reset()
     _lastRainy = false;
     _lastIndoors = false;
     _statusTick = 0;
+    _prevGameDays = -1.0f;
 }
 
 RadClimateSerialization::PersistedState ClimateRuntime::SnapshotForSave() const noexcept
@@ -180,4 +247,5 @@ void ClimateRuntime::RestoreFromSave(const RadClimateSerialization::PersistedSta
 {
     _state = RadClimateSerialization::Restore(state);
     _lastLoggedStage = _state.stage;
+    _prevGameDays = -1.0f;
 }

@@ -224,5 +224,105 @@ int main()
     Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));
     Require(ShouldProbe(true, 10, 10, kProbeMoveDistance, 0.0f, 0.0f));
 
+    // Time semantics: zero delta / paused menu regression
+    ClimateState outdoorsFreezing{};
+    outdoorsFreezing.coreC = 36.0f;
+    outdoorsFreezing.wetness01 = 0.5f;
+    outdoorsFreezing = SanitizeState(outdoorsFreezing);
+    EnvironmentSample blizzardEnv{};
+    blizzardEnv.ambientC = -15.0f;
+    blizzardEnv.windMps = 15.0f;
+    blizzardEnv.precipitation01 = 1.0f;
+
+    // Simulate 1000 ticks of idle in paused/fullscreen menu (dt = 0.0f)
+    ClimateState pausedState = outdoorsFreezing;
+    for (int i = 0; i < 1000; ++i)
+    {
+        const auto pausedRes = Step(pausedState, blizzardEnv, {}, 0.0f);
+        pausedState = pausedRes.state;
+        // Prospective cooling must be reported non-zero for HUD/diagnostics
+        Require(pausedRes.coolingCPerSecond > 0.0f);
+    }
+    // State must be completely unchanged despite severe blizzard
+    Require(Near(pausedState.coreC, outdoorsFreezing.coreC));
+    Require(Near(pausedState.wetness01, outdoorsFreezing.wetness01));
+    Require(pausedState.stage == outdoorsFreezing.stage);
+
+    // Elapsed-time integration: varying dt and backlog invariance
+    ClimateState step4x025 = outdoorsFreezing;
+    for (int i = 0; i < 4; ++i)
+        step4x025 = Step(step4x025, blizzardEnv, {}, 0.25f).state;
+
+    ClimateState step1x100 = Step(outdoorsFreezing, blizzardEnv, {}, 1.0f).state;
+    // Four 0.25s steps and one 1.0s step produce very close cooling and wetness results
+    Require(Near(step4x025.coreC, step1x100.coreC, 0.01f));
+    Require(Near(step4x025.wetness01, step1x100.wetness01, 0.01f));
+
+    // Stalls: dt clamped to kMaximumStepSeconds
+    const auto clampedStep = Step(outdoorsFreezing, blizzardEnv, {}, 100.0f);
+    const auto maxStep = Step(outdoorsFreezing, blizzardEnv, {}, kMaximumStepSeconds);
+    Require(Near(clampedStep.state.coreC, maxStep.state.coreC));
+    Require(Near(clampedStep.state.wetness01, maxStep.state.wetness01));
+
+    // Time jumps: sleep 8 hours indoors under shelter with heat
+    // 8 hours @ timescale 20 = 1440 real seconds
+    ClimateState coldAndWet{};
+    coldAndWet.coreC = 33.5f;
+    coldAndWet.wetness01 = 0.90f;
+    coldAndWet.stage = HypothermiaStage::kModerate;
+
+    EnvironmentSample indoorBedEnv{};
+    indoorBedEnv.indoors = true;
+    indoorBedEnv.ambientC = 20.0f;
+    indoorBedEnv.shelter01 = 1.0f;
+    indoorBedEnv.precipitationShelter01 = 1.0f;
+    indoorBedEnv.heat01 = 0.5f;
+
+    const auto sleepResult = StepTimeJump(coldAndWet, indoorBedEnv, {}, 1440.0f);
+    // After 8 hours sleeping in warm shelter with heat, wetness dries to 0 and core recovers to 37C
+    Require(Near(sleepResult.state.wetness01, 0.0f));
+    Require(Near(sleepResult.state.coreC, kNormalCoreC));
+    Require(sleepResult.state.stage == HypothermiaStage::kNormal);
+
+    // Mild hypothermia recovers under unheated shelter via natural homeostasis
+    ClimateState mildCold{};
+    mildCold.coreC = 36.0f;
+    mildCold.stage = HypothermiaStage::kChilled;
+    EnvironmentSample unheatedShelter = indoorBedEnv;
+    unheatedShelter.heat01 = 0.0f;
+    const auto mildRecovery = StepTimeJump(mildCold, unheatedShelter, {}, 1440.0f);
+    Require(mildRecovery.state.coreC >= 36.6f);
+    Require(mildRecovery.state.stage == HypothermiaStage::kNormal);
+
+    // Time jumps: wait 4 hours outdoors in rain
+    // 4 hours @ timescale 20 = 720 real seconds
+    ClimateState dryOutdoor{};
+    dryOutdoor.coreC = 37.0f;
+    dryOutdoor.wetness01 = 0.0f;
+    dryOutdoor.stage = HypothermiaStage::kNormal;
+
+    EnvironmentSample rainOutdoorEnv{};
+    rainOutdoorEnv.indoors = false;
+    rainOutdoorEnv.ambientC = 5.0f;
+    rainOutdoorEnv.precipitation01 = 1.0f;
+    rainOutdoorEnv.shelter01 = 0.0f;
+
+    const auto rainWaitResult = StepTimeJump(dryOutdoor, rainOutdoorEnv, {}, 720.0f);
+    // After 4 hours waiting in rain, wetness saturates to 1.0 and core cools
+    Require(Near(rainWaitResult.state.wetness01, 1.0f));
+    Require(rainWaitResult.state.coreC < dryOutdoor.coreC);
+    Require(rainWaitResult.state.stage != HypothermiaStage::kNormal);
+
+    // Time jumps: fast travel 2 hours (360 real seconds)
+    const auto travelResult = StepTimeJump(coldAndWet, indoorBedEnv, {}, 360.0f);
+    Require(travelResult.state.wetness01 < coldAndWet.wetness01);
+    Require(travelResult.state.coreC > coldAndWet.coreC);
+
+    // Time jumps: excessive jump bounded by kMaximumTimeJumpHours (24h)
+    const auto hugeJump = StepTimeJump(outdoorsFreezing, blizzardEnv, {}, 1000000.0f);
+    Require(std::isfinite(hugeJump.state.coreC));
+    Require(std::isfinite(hugeJump.state.wetness01));
+    Require(hugeJump.state.coreC >= kMinimumCoreC && hugeJump.state.coreC <= kMaximumCoreC);
+
     return 0;
 }

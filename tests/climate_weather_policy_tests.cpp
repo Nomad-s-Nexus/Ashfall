@@ -48,6 +48,8 @@ int main()
     Require(SeasonalOffsetC(0) < SeasonalOffsetC(9));
     Require(SeasonalOffsetC(9) < SeasonalOffsetC(6));
     Require(Near(SeasonalOffsetC(9), 0.0f));
+    Require(Near(SeasonalOffsetC(8), 2.0f));
+    Require(Near(clearC, AmbientTemperatureC(false, clear, afternoonDays, 8)));
     Require(Near(SeasonalOffsetC(12), SeasonalOffsetC(0)));
 
     const float januaryC = AmbientTemperatureC(false, clear, afternoonDays, 0);
