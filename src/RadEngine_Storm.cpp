@@ -305,15 +305,9 @@ bool RadiationEngine::SpawnDistantNuke()
     if (!player->Get3D()) return false;               // worldspace must actually be up
 
     static std::mt19937 rng{ std::random_device{}() };
-    constexpr float kPi = 3.14159265f;
-    std::uniform_real_distribution<float> yawJitter(-25.0f, 25.0f);
-    // Keep the giant visual inside the exterior streaming envelope, but far enough away to
-    // read as a horizon-scale detonation instead of a player-side blast.
-    std::uniform_real_distribution<float> distanceDist(6000.0f, 7000.0f);
+    std::uniform_real_distribution<float> distanceDist(10000.0f, 22000.0f);
 
-    // Place the single strike along the player's current view vector, never in a ring.
-    // Engine angles are radians; the small jitter keeps each storm's composition natural.
-    const float yaw = player->data.angle.z + yawJitter(rng) * (kPi / 180.0f);
+    const float yaw = player->data.angle.z;
     const float distance = distanceDist(rng);
     const RE::NiPoint3 base = player->GetPosition();
     const RE::NiPoint3 pos{ base.x + distance * std::sin(yaw),

@@ -166,6 +166,33 @@ def check_source(html_path, source_path):
     assert producer.index('QueueInputPoll();') < producer.index('if (elapsed < kUpdateInterval)')
     assert 'UpdateStormDomePosition();' not in producer
     storm = Path(source_path).with_name('RadEngine_Storm.cpp').read_text(encoding='utf-8')
+    nuke = storm.split('bool RadiationEngine::SpawnDistantNuke()', 1)[1].split('\n}', 1)[0]
+    for marker in (
+        'std::uniform_real_distribution<float> distanceDist(10000.0f, 22000.0f);',
+        'const float yaw = player->data.angle.z;',
+        'const float distance = distanceDist(rng);',
+        'base.x + distance * std::sin(yaw)',
+        'base.y + distance * std::cos(yaw)',
+        'base.z + 1500.0f',
+        'dh->CreateExplosionAtLocation(',
+        'pos, rot, nullptr, player->cachedWorldspace)',
+        'return static_cast<bool>(handle);',
+    ):
+        assert marker in nuke, f'missing Firestorm placement contract: {marker}'
+    assert 'yawJitter' not in nuke
+    active = storm.split('case StormPhase::Active:', 1)[1].split('case StormPhase::', 1)[0]
+    for marker in (
+        '++_nukeWaitTicks;',
+        'if (!_stormNukeFired && !IsPlayerSheltered() && _nukeAttempts < kFirestormNukeMaxAttempts)',
+        '++_nukeAttempts;',
+        '_stormNukeFired = SpawnDistantNuke();',
+        'if (_stormNukeFired || _nukeAttempts >= kFirestormNukeMaxAttempts ||',
+        '_nukeWaitTicks >= kFirestormNukeMaxWaitTicks)',
+        '_firestormAwaitingNuke = false;',
+        '_stormRollInTicks      = kNukeRollInTicks;',
+    ):
+        assert marker in active, f'missing bounded Firestorm retry contract: {marker}'
+    assert '_stormNukeFired = true' not in active
     for symbol in ('SpawnStormDome', 'TriggerStormDome'):
         body = storm.split('void RadiationEngine::' + symbol + '()', 1)[1].split('\n}', 1)[0]
         assert 'StormUsesDome(kStormTypes[_activeStormType].themeId)' in body
