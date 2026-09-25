@@ -103,6 +103,11 @@ html, body {
 }
 @keyframes bannerDust { 0%,100%{opacity:1;letter-spacing:4px;}50%{opacity:.6;letter-spacing:6px;} }
 
+#emissionBanner.warning-blink, #emissionSub.warning-blink {
+  animation: stormWarningBlink .75s steps(2,end) infinite;
+}
+@keyframes stormWarningBlink { 0%,100%{opacity:1;}50%{opacity:.35;} }
+
 #emissionSub {
   position: fixed; top: calc(13% + 46px); left: 50%; transform: translateX(-50%);
   font-size: 12px; letter-spacing: 6px; opacity: 0;
@@ -234,6 +239,13 @@ html, body {
   .armor-records { min-width: 500px; }
   .armor-schematic { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); gap: 10px; }
 }
+#debugPanel .dbg-help { color: #a8c8a8; font-size: 10px; line-height: 1.45; letter-spacing: .5px; margin: 7px 0; }
+#debugPanel .ghoul-range { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+#debugPanel .ghoul-range label { width: 48px; flex: none; color: #b6ffb6; font-size: 10px; letter-spacing: 1px; }
+#debugPanel .ghoul-range input[type=range] { flex: 1; accent-color: #5cbe60; cursor: pointer; }
+#debugPanel .ghoul-range output { width: 42px; flex: none; text-align: right; color: #efffdc; font-weight: bold; }
+#debugPanel .ghoul-state { padding: 7px 9px; margin: 8px 0; border: 1px solid #4fba61; background: rgba(10, 45, 18, .9); color: #efffdc; font-size: 11px; font-weight: bold; letter-spacing: 1px; text-align: center; }
+#debugPanel .ghoul-state.off { border-color: #d78658; background: rgba(65, 25, 15, .9); color: #ffd8c2; }
 
 /* Weather tab: two-column list of force buttons */
 #debugPanel .wthr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px; }

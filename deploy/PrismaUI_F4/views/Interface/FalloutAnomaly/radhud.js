@@ -1,10 +1,3 @@
-// Rad Overhaul HUD overlay: gas-mask overlay, filter/condition widget, storm banners,
-// SPECIAL popup, and the debug menu. The vitals HUD (rads/tissue/health/AP bars) moved to
-// PrismaHUD_F4 — its JS (updateRad/toggleHud/loadHudPrefs, drag/resize, prefs persistence)
-// was excised 2026-07-03 along with the matching C++ paths.
-
-// SPECIAL-penalty diagnostic popup, driven by C++ (showSpecialInfo {lines:[...]}). Shows the full
-// multi-line report (the vanilla HUD corner truncated it). Dismissed via the CLOSE button or backdrop.
 window.showSpecialInfo = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
@@ -25,10 +18,6 @@ function closeSpecialInfo() {
   if (p) p.classList.remove("on");
 }
 
-// Fullscreen low-filter visor fog, driven by C++ (updateFilter {charge, condition, spares, masked}).
-// The FILTER/MASK BAR widget moved to the standalone hud_filter.html view (registered with PrismaHUD_F4
-// for positioning); only the fullscreen condensation haze stays here. Fog builds below 30% charge (max
-// at 0), or a fixed haze when the mask is broken; cleared entirely while unmasked.
 window.updateFilter = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
@@ -44,12 +33,7 @@ window.updateFilter = function(json) {
   } catch(e) {}
 };
 
-// First-person gas-mask screen overlay, driven by C++ (setMask {on:bool}). Toggles the CSS fade
-// class on the fullscreen <img>; the engine sends only on state change.
-//   Put-on timing: this mod ships its own mask (no GMW), so there is no external first-person
-//   put-on animation to wait for. Fade in promptly. If we later add our own put-on animation
-//   (e.g. a baked APNG sweep), raise this to hold the static overlay until that finishes.
-var MASK_ON_DELAY = 0.0;   // seconds to wait after equip before the overlay fades in
+var MASK_ON_DELAY = 0.0;
 window.setMask = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
@@ -82,22 +66,25 @@ window.stormPhase = function(json) {
     currentStormTheme = theme; currentStormPhase = phase;
     var banner = document.getElementById("emissionBanner");
     var sub    = document.getElementById("emissionSub");
-    if (phase === 0 || !STORM_THEMES[theme]) { banner.className=""; sub.className=""; return; }
+    if (phase === 0 || !STORM_THEMES[theme]) {
+      clearTimeout(bannerTimer);
+      banner.className=""; sub.className=""; return;
+    }
     if (phaseChanged) {
       var th = STORM_THEMES[theme];
       if (phase === 3) {
-        // Aftermath: the storm is clearing. Show a calmer "passing" banner so the player
-        // knows it's ending, instead of re-flashing the same alarming storm warning.
         banner.textContent = th.name + " - PASSING";
         sub.textContent    = "The storm is clearing - radiation subsiding";
       } else {
         banner.textContent = th.name + (lethal && (phase===1||(phase===2&&!shelter)) ? " - SEEK SHELTER!" : "");
         sub.textContent    = th.sub;
       }
-      banner.className = "on " + th.cls + "-b";
-      sub.className    = "on " + th.cls + "-s";
+      var warning = phase === 1;
+      var blink = warning ? " warning-blink" : "";
+      banner.className = "on " + th.cls + "-b" + blink;
+      sub.className    = "on " + th.cls + "-s" + blink;
       clearTimeout(bannerTimer);
-      bannerTimer = setTimeout(function(){ banner.className=""; sub.className=""; }, 10000);
+      bannerTimer = warning ? 0 : setTimeout(function(){ banner.className=""; sub.className=""; }, 10000);
     }
   } catch(e) {}
 };
@@ -111,9 +98,17 @@ function setGhoulChanceLabel(value) {
   return n;
 }
 
-function setGhoulChance(value) { cmd("ghouls:chance:" + setGhoulChanceLabel(value)); }
-function setGhoulEnabled(enabled) { cmd(enabled ? "ghouls:on" : "ghouls:off"); }
-function resetGhoulSettings() { cmd("ghouls:reset"); }
+function setGhoulChance(value) {
+  cmd("ghouls:chance:" + Math.max(0, Math.min(100, parseInt(value, 10) || 0)));
+}
+
+function setGhoulEnabled(enabled) {
+  cmd(enabled ? "ghouls:on" : "ghouls:off");
+}
+
+function resetGhoulSettings() {
+  cmd("ghouls:reset");
+}
 
 function setGhoulSettings(state) {
   try {
@@ -125,9 +120,13 @@ function setGhoulSettings(state) {
     var status = document.getElementById("ghoulState");
     if (input) input.value = n;
     if (output) output.textContent = n + "%";
-    if (status) status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+    if (status) {
+      status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+      status.classList.toggle("off", !enabled);
+    }
   } catch (e) {}
 }
+
 
 window.setArmorInfo = function(json) {
   try {

@@ -59,7 +59,7 @@ jobs:
           # Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to an immutable SHA for
           # reproducible releases (the commit adding the Rad natives). Bump deliberately. Auth via the
           # COMMONLIB_READ_TOKEN repo secret; Actions masks it in logs.
-          COMMONLIB_SHA="6baa8006f28a14d2d50251d89923b6ac416e8305"   # commonlib_NonVR main: merged guarded OG-only Rad natives (+ MagicTarget fix)
+          COMMONLIB_SHA="961358dd72838417579fc6186a5a0da3b3242d37"   # commonlib_NonVR: verified AE CreateExplosionAtLocation + guarded OG camera shake
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
@@ -75,6 +75,25 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: "3.0.4"
+
+      - name: Run release correctness policy tests
+        working-directory: Rad-Overhaul-Fallout-4
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
+          python3 tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
+          python3 tests/verify_local_hud_editor.py
+          python3 tests/verify_ae_runtime_support.py
+          python3 tests/verify_ghoul_contract.py
+          python3 tests/verify_storm_spawn_ownership.py
+          python3 tests/verify_serialization_policy.py
+          rm -rf build-policy
+          xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
+          xmake build rad_correctness_policy_tests
+          xmake build serialization_policy_tests
+          ./build/tests/rad_correctness_policy_tests
+          ./build/tests/serialization_policy_tests
 
       - name: Verify xwin toolchain
         shell: bash

@@ -11,6 +11,21 @@ void RadiationEngine::CheckRadstormWarning()
 {
     auto logger = Log();
 
+    if (_maskWasOn == -1)
+    {
+        _playerEnclosed = false;
+        _enclosedCheckTick = 0;
+        _prevSheltered = true;
+        _cellExitGraceTicks = 0;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* cell = player ? player->GetParentCell() : nullptr;
+        if (cell && cell->IsExterior())
+        {
+            _playerEnclosed = ComputeEnclosedByStructure();
+            _enclosedCheckTick = kEnclosedRecheckTicks;
+        }
+    }
+
     // Cell-exit grace: arm a short veto window whenever the player goes from sheltered to exposed
     // (interior load-door OR a roofed exterior base — IsPlayerSheltered covers both). While armed, the
     // veto below force-clears a vanilla radstorm regardless of its transition pct, so leaving Sanctuary
@@ -123,6 +138,7 @@ void RadiationEngine::CheckRadstormWarning()
 
     logger->info("[Radstorm] Incoming vanilla radstorm (weather 0x{:06X}) — soft ambient cue.", wid);
     PlayStormCue();
+    SpawnStormGhouls();
 }
 
 
@@ -149,7 +165,22 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     //   to 0, so a storm that begins mid-transition can cosmetically jump once. Rare, and not worth
     //   destabilising the (hard-won) working path over — documented so it's a choice, not an oversight.
     auto* sky = RE::Sky::GetSingleton();
-    if (!sky || !a_target || sky->currentWeather == a_target) return;
+    if (!sky || !a_target) return;
+    if (_releaseWeatherOverrideWhenSettled && a_target != _weatherReturnTarget)
+    {
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+    }
+    if (sky->currentWeather == a_target)
+    {
+        if (a_lockOverride)
+        {
+            sky->overrideWeather = a_target;
+            _weatherForced = true;
+        }
+        return;
+    }
     if (a_lockOverride)
         sky->overrideWeather = a_target;            // lock target (region won't override it back)
     sky->lastWeather       = sky->currentWeather;   // transition SOURCE (engine blends from this)
@@ -158,6 +189,132 @@ void RadiationEngine::BeginSmoothWeather(RE::TESWeather* a_target, bool a_lockOv
     sky->currentWeatherPct  = 0.0f;                 // begin the blend; engine ramps it to 1.0 from here
     _weatherForced = true;
 }
+
+void RadiationEngine::CaptureWeatherReturnTarget()
+{
+    if (_weatherReturnCaptured) return;
+
+    auto* sky = RE::Sky::GetSingleton();
+    if (!sky || !sky->currentWeather)
+    {
+        if (_clearWeather)
+        {
+            _weatherReturnTarget = _clearWeather;
+            _weatherReturnCaptured = true;
+        }
+        return;
+    }
+
+    RE::TESWeather* candidate = sky->currentWeather;
+    bool isManagedStorm = false;
+    for (auto* managed : _stormWeathers)
+    {
+        if (managed && managed == candidate)
+        {
+            isManagedStorm = true;
+            break;
+        }
+    }
+
+    const bool isVanillaRadstorm = IsRadstormWeather(candidate->GetFormID());
+    _weatherReturnTarget = RadCorrectnessPolicy::ShouldReturnToClear(isManagedStorm, isVanillaRadstorm)
+        ? _clearWeather
+        : candidate;
+    _weatherReturnCaptured = _weatherReturnTarget != nullptr;
+    if (_weatherReturnCaptured)
+        Log()->debug("[StormWeather] Captured pre-override return weather 0x{:06X}.", _weatherReturnTarget->GetFormID());
+}
+
+
+void RadiationEngine::UpdateWeatherHandoff()
+{
+    const bool resetSessionState = _forceClearOnEntry
+        || (!_weatherForced && (_weatherReturnTarget || _weatherReturnCaptured
+                                || _releaseWeatherOverrideWhenSettled || _weatherHandoffSettleTicks != 0
+                                || _weatherHandoffWaitTicks != 0));
+    if (resetSessionState)
+    {
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        return;
+    }
+    if (!_releaseWeatherOverrideWhenSettled) return;
+
+    auto* sky = RE::Sky::GetSingleton();
+    if (!sky)
+    {
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        return;
+    }
+
+    RE::TESWeather* target = _weatherReturnTarget;
+    if (!target || sky->currentWeather != target)
+    {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] Return target was lost or replaced; released the temporary weather override.");
+        return;
+    }
+
+    if (!std::isfinite(sky->currentWeatherPct))
+    {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] Return transition reported a non-finite blend; released the temporary weather override.");
+        return;
+    }
+
+    if (++_weatherHandoffWaitTicks > 240)
+    {
+        sky->ReleaseWeatherOverride();
+        _weatherReturnTarget = nullptr;
+        _weatherReturnCaptured = false;
+        _releaseWeatherOverrideWhenSettled = false;
+        _weatherHandoffSettleTicks = 0;
+        _weatherHandoffWaitTicks = 0;
+        _weatherForced = false;
+        Log()->warn("[StormWeather] Return transition exceeded its bounded wait; released the temporary weather override.");
+        return;
+    }
+
+    if (sky->currentWeatherPct < 0.999f)
+    {
+        _weatherHandoffSettleTicks = 0;
+        return;
+    }
+
+    if (++_weatherHandoffSettleTicks < 8) return;
+
+    const std::uint32_t targetId = target->GetFormID();
+    sky->ReleaseWeatherOverride();
+    _weatherReturnTarget = nullptr;
+    _weatherReturnCaptured = false;
+    _releaseWeatherOverrideWhenSettled = false;
+    _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
+    _weatherForced = false;
+    Log()->info("[StormWeather] Return weather 0x{:06X} stable; vanilla region weather control restored.", targetId);
+}
+
 
 
 void RadiationEngine::UpdateDustFogRoll()

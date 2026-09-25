@@ -25,7 +25,7 @@ namespace PRISMA_HUD_API {
 
     constexpr const auto PrismaHUDPluginName = "PrismaHUD_F4";
 
-    enum class InterfaceVersion : uint8_t { V1, V2, V3 };
+    enum class InterfaceVersion : uint8_t { V1, V2, V3, V4 };
 
     struct WidgetDesc {
         const char* id;           // Stable identifier used as the key in layout JSON (e.g. "prisma_inventory")
@@ -94,6 +94,15 @@ namespace PRISMA_HUD_API {
         virtual void UnregisterActivateChoice(const char* id) noexcept = 0;
     };
 
+    class IVPrismaHUD4 {
+    protected:
+        ~IVPrismaHUD4() = default;
+
+    public:
+        virtual void OpenEditor() noexcept = 0;
+        virtual void CloseEditor() noexcept = 0;
+    };
+
     typedef void* (*RequestPluginAPIFunc)(InterfaceVersion interfaceVersion);
 
     [[nodiscard]] inline IVPrismaHUD1* RequestPluginAPI() {
@@ -133,6 +142,19 @@ namespace PRISMA_HUD_API {
             return nullptr;
 
         return static_cast<IVPrismaHUD3*>(fn(InterfaceVersion::V3));
+    }
+
+    [[nodiscard]] inline IVPrismaHUD4* RequestEditorAPI() {
+        auto pluginHandle = GetModuleHandleW(L"PrismaHUD_F4.dll");
+        if (!pluginHandle)
+            return nullptr;
+
+        auto fn = reinterpret_cast<RequestPluginAPIFunc>(
+            GetProcAddress(pluginHandle, "RequestPrismaHUDAPI"));
+        if (!fn)
+            return nullptr;
+
+        return static_cast<IVPrismaHUD4*>(fn(InterfaceVersion::V4));
     }
 
 } // namespace PRISMA_HUD_API

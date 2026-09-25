@@ -110,9 +110,9 @@ void RadHud::PushClimate(const RadClimatePolicy::ClimateState& state,
 {
     if (!_api) return;
     EnsureClimateView();
-    if (!_hudApi && !_localLayoutApplied) ApplyLocalHudLayout(false);
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     if (!_climateView || !api->IsValid(_climateView) || !_climateDomReady) return;
+    SyncLocalHudLayout();
     const auto rate = [](float value) { return std::round(value * 60000.0f) / 1000.0f; };
     json data{
         { "core", TempTenth(state.coreC) / 10.0 },

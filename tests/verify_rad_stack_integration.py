@@ -26,9 +26,8 @@ def body(source, signature):
     if signature not in source:
         return ""
     start = source.index(signature)
-    end = source.find("\n    }\n", start)
-    if end < 0:
-        end = source.find("\n}\n", start)
+    terminator = "\n}\n" if "RadiationEngine::" in signature else "\n    }\n"
+    end = source.find(terminator, start)
     return source[start:end if end > 0 else len(source)]
 
 

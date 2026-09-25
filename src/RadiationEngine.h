@@ -5,9 +5,11 @@
 #include <chrono>
 #include <mutex>
 #include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
 #include <RE/B/BSPointerHandle.h>
 #include <RE/B/BSSoundHandle.h>
+#include <RE/I/ImageSpaceModifierInstanceForm.h>
 #include <RE/N/NiPoint3.h>
 
 #include "RadCorrectnessPolicy.h"
@@ -61,7 +63,8 @@ public:
     void Update();
     // Called EVERY frame (not the 4Hz tick) so hotkeys are never missed between ticks.
     void PollInput();
-    void UpdateStormDomePosition();
+    void UpdateStormDomeFollow();
+    void UpdateStormIMADFade();
     void ApplyDebuffs(uint32_t radLevel);
 
     // Called on game load / new game: re-sync penalty tracking with the freshly
@@ -74,7 +77,12 @@ public:
         _currentStageLevel = 0;
         _appliedPerkIndex = -1;  // perks persist in the save; re-sync from scratch
         _activeStormImadIndex = -1;
+        _stormImadInstance = nullptr;
+        _stormImadTargetStrength = 0.0f;
+        _stormImadFadeRate = 0.0f;
+        _stormImadStopWhenFaded = false;
         _radstormWarned = false;
+        if (_radstormCueHandle.IsValid()) _radstormCueHandle.FadeOutAndRelease(500);
         _stormRollInTicks = 0;
         // -1 sentinel = "no previous tick yet": both the sheltered rad-gain refund and the
         // cure-delta check skip the first tick after a load instead of reading the entire
@@ -110,6 +118,7 @@ public:
     void DebugForceWeatherByForm(const std::string& spec);  // "Plugin.esp|1C8556" -> force ANY weather (debug WEATHER tab)
     void DebugScanWornMask();                         // log worn biped slots (mask detection = slot 44)
     void DebugClearWeather();                         // release any forced weather
+    void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
     void DispelNegativeSpecials();                    // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)
@@ -118,7 +127,6 @@ public:
     // because engine calls (weather/VM/spawns) crash if made off the main thread.
     void HandleDebugCommand(const char* action);
     [[nodiscard]] bool StormGhoulsEnabled() const noexcept { return _stormGhoulsEnabled; }
-    [[nodiscard]] int StormGhoulChancePercent() const noexcept;
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();
@@ -175,11 +183,8 @@ private:
     bool _eslAvailable = false;
     bool _eslChecked = false;
 
-    RE::TESQuest* _stormFXQuest = nullptr;   // RadOverhaul_StormFXQuest — drives shake/nuke/dome FX
-    // Stage map: 10 = ash (shake+dome), 11 = firestorm (nuke+shake, dome deferred),
-    // 12 = spawn dome only, 20 = stop everything.
+    RE::TESQuest* _stormFXQuest = nullptr;
     void TriggerStormFX(bool on);            // start (per storm type) / stop the storm FX
-    void TriggerStormDome();                 // SetStage(12) — roll the cloud dome in
     int  _sirenDelayTicks = 0;               // >0: ticks until the incoming-storm siren starts (dome fades in first)
     // StartGameEnabled only auto-runs a quest on a NEW game; a quest added to the ESP after a
     // save was made stays dormant and SetStage() silently fails. Force-start via the Papyrus VM
@@ -244,6 +249,11 @@ private:
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
+    RE::TESWeather* _weatherReturnTarget = nullptr; // weather live before Rad/debug took sky control
+    bool            _weatherReturnCaptured = false; // keep the original return target while test/storm weathers change
+    bool            _releaseWeatherOverrideWhenSettled = false; // release only after the return blend is stable
+    int             _weatherHandoffSettleTicks = 0; // short stable hold prevents an edge snap on override release
+    int             _weatherHandoffWaitTicks = 0;
     bool            _debugWeatherHold = false;      // a debug-menu forced weather is held: stand the
                                                     // radstorm/dust/rain vetoes down so they can't revert it
     int             _stormPeakTick = 0;             // tick index at which the lethal NPC burst fires
@@ -342,6 +352,7 @@ private:
     void EquipNearbyNpcMasks(bool equip);                              // mask/unmask high-process NPCs
     RE::BGSListForm* _radWeatherList = nullptr;                    // ESL 0x802 — weathers that count as "rad"
     int  _wasInRadWeather   = -1;       // -1 = just loaded (sync silently), 0 = no, 1 = yes
+    std::uint32_t _lastRadWeatherFormID = 0;
     bool _autoMaskEquipped  = false;    // we auto-donned the PLAYER's mask (so we may auto-remove it)
     int  _npcMaskScanTick   = 0;        // throttle countdown for the mid-storm NPC re-scan
     std::unordered_set<std::uint32_t> _autoMaskedNpcs;  // NPC formIDs we auto-masked (to remove on clear)
@@ -409,13 +420,15 @@ private:
     bool IsGhoulActor(RE::Actor* a) const;  // true if the actor's race carries ActorTypeGhoul
     void MakeNearbyNPCsFlee();         // lethal storms: panic nearby non-ghoul NPCs (engine flee)
     int  _fleeTick = 0;                // throttle for re-issuing the flee order
-    void ReleaseStormWeather();        // drop any forced weather override
+    void CaptureWeatherReturnTarget(); // remember pre-Rad/pre-debug weather before taking sky control
+    void UpdateWeatherHandoff();       // release the temporary return override after the blend is stably settled
+    void ReleaseStormWeather();        // smoothly restore remembered weather, then return control to the region system
     void Notify(const char* message, bool warning) const;  // vanilla HUD corner message
 
     // Fire hazard refs spawned around the player during a Firestorm (themeId==1).
     // Resolved once in EnsureEslLoaded. Spawned at Active phase, cleared at Aftermath.
     RE::BGSHazard* _fireHazardForm = nullptr;       // DN121FireHazard (0x1A7C6A, Fallout4.esm)
-    RE::BGSExplosion* _nukeExplosionForm = nullptr;  // FARO_EmissionStrikeAlpha (0x885)
+    RE::BGSExplosion* _nukeExplosionForm = nullptr;
     std::vector<RE::ObjectRefHandle> _fireRefs;    // live handles so we can disable on cleanup
     bool SpawnDistantNuke();                        // one distant firestorm strike; true = detonated (false = transient failure)
     void SpawnFireRing();                           // place a ring of fire hazards around player
@@ -446,7 +459,7 @@ private:
                                                     // UpdateDomeAnimation force-activates it once 3D loads
     void SpawnStormDome();                          // place the dome layers overhead (exterior only)
     void ClearStormDome();                          // disable + release the dome layers
-    void UpdateStormDomeOwner();
+    void UpdateStormDomeLifecycle();                // 4 Hz spawn/retry/worldspace ownership only
     void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
     // Native camera shake (replaces the RadStormFX Papyrus shake, which never fired — SetStage
     // returned false every time). -1 = inactive for both counters.
@@ -463,20 +476,35 @@ private:
     void UpdateDustMotes();
 
     // Storm atmosphere IMADs — engine color grading per storm type (0x880-0x884).
-    // Triggered at Warning→Active via Trigger(imad, 1.0, nullptr); stopped at aftermath.
     // Index matches kStormTypes[]: 0=Ash, 1=Fire, 2=Sulfur, 3=Acid Rain, 4=Dust.
     RE::TESImageSpaceModifier* _stormIMADs[kStormTypeCount] = {};
     int _activeStormImadIndex = -1;  // index of the currently-running storm IMAD, -1 = none
-    void ApplyStormIMAD(int typeIndex);   // trigger the per-type atmosphere IMAD
-    void ClearStormIMAD();               // stop any active storm IMAD
+    RE::NiPointer<RE::ImageSpaceModifierInstanceForm> _stormImadInstance;
+    float _stormImadTargetStrength = 0.0f;
+    float _stormImadFadeRate = 0.0f;
+    bool _stormImadStopWhenFaded = false;
+    void ApplyStormIMAD(int typeIndex);
+    void SetStormIMADTarget(int typeIndex, float strength, float fadeSeconds);
+    void FadeOutStormIMAD(float fadeSeconds);
+    void ClearStormIMAD();
 
     // Feral ghoul spawns — ghouls emerge from the radiation during lethal storms.
     // Leveled lists from Fallout4.esm (LCharFeralGhoul 0x0758AE, Glowing One 0x0D39EE).
+    static constexpr float kDefaultStormGhoulSpawnChance = 0.40f;
+    static constexpr std::uint32_t kStormGhoulPendingTimeoutTicks = 120;
     RE::TESBoundObject* _stormGhoulForm = nullptr;
     RE::TESBoundObject* _stormGlowingOneForm = nullptr;
     std::vector<RE::ObjectRefHandle> _stormGhoulRefs;
-    bool  _stormGhoulsEnabled = true;
-    float _stormGhoulSpawnChance = 0.40f;
+    std::vector<RE::ObjectRefHandle> _stormGhoulPendingRefs;
+    std::vector<RE::ObjectRefHandle> _stormGhoulCleanupRefs;
+    std::uint32_t _stormGhoulPendingTicks = 0;
+    std::unordered_map<std::uint32_t, std::uint32_t> _stormGhoulUnresolvedTicksByHandle;
+    bool _stormGhoulsEnabled = true;
+    float _stormGhoulSpawnChance = kDefaultStormGhoulSpawnChance;
+    void RetryPendingStormGhouls();
+    void RetryStormGhoulCleanup();
+    void RetireUnresolvedStormGhouls();
+    void ResetStormGhoulStateForLoad();
     void SpawnStormGhouls();   // % chance to unleash a 5-20 strong persistent hunter pack (lethal storms)
     void ClearStormGhouls();   // disable + delete all spawned ghoul refs
     void CheckGhoulPackCleanup();  // despawn the pack once the player leaves the area

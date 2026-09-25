@@ -3,6 +3,7 @@
 #include "ClimateProtectionRuntime.h"
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@ public:
     }
 
     void RequestAPI();
+    bool StartPrismaViewRetry();
     void CreateView();
 
     void PushToxic(float tissue, float permanentTissue);
@@ -26,9 +28,7 @@ public:
     void PushAir(const std::string& payload);
     void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
-    void PushGhoulSettings(bool enabled, int chancePercent);
-    void OpenHudEditor();
-    void HandleHudLayoutCommand(const std::string& command);
+    void PushGhoulSettings(bool enabled, float chance);
     void ResetClimateForSession() noexcept;
 
     bool ShowSpecialInfo(const std::vector<std::string>& lines);
@@ -36,30 +36,38 @@ public:
 
     void ToggleDebugMenu();
     void SetDebugMenu(bool open);
+    void OpenHudLayoutEditor();
+    void ApplyLocalHudLayout(const std::string& payload);
+    void SyncLocalHudLayout();
+    void SetLocalHudEditorPreview(bool on);
+    void InvalidateLocalHudLayoutViews();
     void ResetDebugMenuForSession();
     void PumpDeferredDebug();
     void OnBlockingMenuOpened();
 
     [[nodiscard]] bool Available() const { return _api != nullptr; }
     [[nodiscard]] bool HudLayoutAvailable() const { return _hudApi != nullptr; }
-    [[nodiscard]] bool ViewsReady() const { return _viewsReady.load(); }
+    [[nodiscard]] bool ViewsReady() const
+    {
+        return _viewsReady.load() && _domReady.load() && _toxicDomReady.load() && _filterDomReady.load();
+    }
 
 private:
     RadHud() = default;
     ~RadHud() = default;
 
-    void StartPrismaViewRetry();
     void EnsureClimateView();
 
-    void* _api = nullptr;
-    void* _threadApi = nullptr;
+    void* _api = nullptr;       // PRISMA_UI_API::IVPrismaUI2*
+    void* _threadApi = nullptr; // PRISMA_UI_API::IVPrismaUI11*
     std::atomic<bool> _viewCreateRetry{ false };
     std::atomic<bool> _viewsReady{ false };
     uint64_t _view = 0;
     std::atomic<bool> _domReady{ false };
 
-    void* _hudApi = nullptr;
-    uint64_t _toxicView = 0;
+    void* _hudApi = nullptr;    // PRISMA_HUD_API::IVPrismaHUD1* (optional; positions the toxic widget)
+    void* _hudEditorApi = nullptr;
+    uint64_t _toxicView = 0;    // standalone toxicity widget view registered with PrismaHUD
     std::atomic<bool> _toxicDomReady{ false };
     std::atomic<bool> _toxicWidgetRegistered{ false };
 
@@ -80,22 +88,5 @@ private:
     bool _debugTogglePending = false;
     bool _debugDesiredOpen = false;
 
-    struct LocalLayout {
-        float x;
-        float y;
-        float s;
-        float r;
-        bool hidden;
-    };
-    LocalLayout _toxicLayout{ 30.0f / 1920.0f, 882.0f / 1080.0f, 1.0f, 0.0f, false };
-    LocalLayout _filterLayout{ 22.0f / 1920.0f, 1014.0f / 1080.0f, 1.0f, 0.0f, false };
-    LocalLayout _climateLayout{ 22.0f / 1920.0f, 944.0f / 1080.0f, 1.0f, 0.0f, false };
-    bool _climateFahrenheit = false;
-    bool _localLayoutLoaded = false;
-    bool _localLayoutApplied = false;
-
-    void LoadLocalHudLayout();
-    bool SaveLocalHudLayout();
-    void ApplyLocalHudLayout(bool preview);
-    std::string LocalHudLayoutJson() const;
+    std::uint64_t _debugNextFocusRetryMs = 0;
 };

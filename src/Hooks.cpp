@@ -1,16 +1,22 @@
 #include "pch.h"
 #include "Hooks.h"
 #include "PrismaUI_F4_API.h"
-#include "RadiationEngine.h"
 #include "ClimateRuntime.h"
-#include "RadHud.h"
-
-#ifdef MAX_PATH
-#undef MAX_PATH
-#endif
 
 #ifdef MEM_RELEASE
 #undef MEM_RELEASE
+#endif
+
+#ifdef constant
+#undef constant
+#endif
+
+#include "RadiationEngine.h"
+#include "RadHud.h"
+#include "RadLifecycleDispatch.h"
+
+#ifdef MAX_PATH
+#undef MAX_PATH
 #endif
 
 #include <RE/B/BSInputEventUser.h>
@@ -31,36 +37,6 @@
 
 namespace Hooks
 {
-    class RadInputHandler final : public RE::BSInputEventUser
-    {
-    public:
-        static RadInputHandler* GetSingleton() { static RadInputHandler instance; return &instance; }
-        bool ShouldHandleEvent(const RE::InputEvent* e) override
-        {
-            return e && e->eventType == RE::INPUT_EVENT_TYPE::kButton && e->device == RE::INPUT_DEVICE::kKeyboard;
-        }
-        void OnButtonEvent(const RE::ButtonEvent* e) override
-        {
-            if (!e || !e->QJustPressed() || e->GetBSButtonCode() != RE::BS_BUTTON_CODE::kF8 ||
-                (::GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) return;
-            RadHud::GetSingleton().ToggleDebugMenu();
-            const_cast<RE::ButtonEvent*>(e)->handled = RE::InputEvent::HANDLED_RESULT::kStop;
-        }
-    };
-
-    bool InstallInputHandler()
-    {
-        static bool installed = false;
-        if (installed) return true;
-        auto logger = spdlog::get("FalloutAnomaly");
-        auto* controls = RE::MenuControls::GetSingleton();
-        if (!controls) { if (logger) logger->error("[Input] MenuControls unavailable; Shift+F8 disabled."); return false; }
-        controls->RegisterHandler(RadInputHandler::GetSingleton());
-        installed = true;
-        if (logger) logger->info("[Input] Rad debug handler registered with MenuControls (Shift+F8).");
-        return true;
-    }
-
     // PlayerCharacter::Update is a producer only. Runtime probing established that this vfunc executes
     // on a worker thread in this Fallout 4 runtime, so engine-facing radiation work must never run
     // directly from it.
@@ -79,6 +55,7 @@ namespace Hooks
     static std::atomic<PRISMA_UI_API::IVPrismaUI11*> s_prismaThreadApi{ nullptr };
     static std::mutex s_mainTaskMutex;
     static std::deque<std::function<void()>> s_mainTasks;
+    static constexpr std::size_t kMaxQueuedMainTasks = 128;
 
     // Coalesce producer traffic. PlayerCharacter::Update can run 60-120+ times/s; there is no reason to
     // enqueue another input poll or 4 Hz engine tick while one of the same kind is already waiting.
@@ -327,6 +304,12 @@ namespace Hooks
             return false;
 
         std::lock_guard<std::mutex> lock(s_mainTaskMutex);
+        if (s_mainTasks.size() >= kMaxQueuedMainTasks)
+        {
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->warn("[MainDispatch] fallback queue is full; rejecting non-critical game-main task.");
+            return false;
+        }
         s_mainTasks.emplace_back(std::move(task));
         if (!::PostThreadMessageW(s_gameMainThreadId, s_mainThreadWakeMessage, 0, 0))
         {
@@ -340,6 +323,9 @@ namespace Hooks
 
     static void QueueInputPoll()
     {
+        const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
+        if (generation == 0) return;
+
         bool expected = false;
         if (!s_inputTaskQueued.compare_exchange_strong(expected, true))
             return;
@@ -347,11 +333,11 @@ namespace Hooks
         bool queued = false;
         try
         {
-            queued = QueueMainThreadTask([]() {
+            queued = QueueMainThreadTask([generation]() {
                 try
                 {
-                    RadiationEngine::GetSingleton().PollInput();
-                    RadiationEngine::GetSingleton().UpdateStormDomePosition();
+                    if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
+                        RadiationEngine::GetSingleton().PollInput();
                 }
                 catch (...)
                 {
@@ -374,6 +360,9 @@ namespace Hooks
 
     static void QueueEngineUpdate()
     {
+        const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
+        if (generation == 0) return;
+
         bool expected = false;
         if (!s_updateTaskQueued.compare_exchange_strong(expected, true))
             return;
@@ -381,11 +370,14 @@ namespace Hooks
         bool queued = false;
         try
         {
-            queued = QueueMainThreadTask([]() {
+            queued = QueueMainThreadTask([generation]() {
                 try
                 {
-                    RadiationEngine::GetSingleton().Update();
-                    ClimateRuntime::GetSingleton().Update();
+                    if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
+                    {
+                        RadiationEngine::GetSingleton().Update();
+                        ClimateRuntime::GetSingleton().Update();
+                    }
                 }
                 catch (...)
                 {
@@ -418,8 +410,12 @@ namespace Hooks
             if (!a_this || !a_this->IsPlayerRef())
                 return;
 
+            if (RadLifecycleDispatch::ReadyPlayerUpdateGeneration() == 0) return;
+
             // Preserve per-frame key responsiveness without touching engine state on this worker.
             QueueInputPoll();
+
+            QueueDomeFollow();
 
             // Wall-clock throttle: actor delta-time can be zero in fullscreen menus. At most one engine
             // update is produced every 250 ms. The mutex makes this safe even if Fallout migrates the
@@ -505,7 +501,7 @@ namespace Hooks
             {
                 logger->info("[Hook] Producer hook installed successfully.");
                 logger->debug("  Original function address: 0x{:X}", original_Update.address());
-                logger->debug("  Producer cadence: per-frame input + ~4 Hz engine tick");
+                logger->debug("  Producer cadence: per-frame input + dome follow + ~4 Hz engine tick");
                 logger->debug("  Engine execution thread: verified game-main thread {}", s_gameMainThreadId.load());
             }
             return true;

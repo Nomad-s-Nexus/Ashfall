@@ -4,6 +4,7 @@
 #include "Hooks.h"
 #include "RadCorrectnessPolicy.h"
 #include "RadHud.h"
+#include "RadMaskOwnership.h"
 #include "RadiationEngine.h"
 
 #include <atomic>
@@ -33,6 +34,13 @@ bool RadLifecycle::EnsureEngineActiveOnGameThread()
 
     try
     {
+        if (!RadMaskOwnership::Activate())
+        {
+            RadMaskOwnership::Clear();
+            if (logger)
+                logger->warn("[Lifecycle] Auto-mask ownership event sink unavailable; restored ownership discarded.");
+        }
+
         if (!g_coreInitialized.load(std::memory_order_acquire))
         {
             if (logger) logger->info("Initializing Radiation Engine on verified game-main thread...");

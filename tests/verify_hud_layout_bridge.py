@@ -3,7 +3,7 @@ from html.parser import HTMLParser
 
 
 ROOT = Path(__file__).resolve().parents[1]
-HUD = ROOT / "src" / "RadHud.cpp"
+HUD = ROOT / "src" / "RadHudLayout.cpp"
 RADHUD = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.js"
 RADHUD_HTML = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.html"
 RADHUD_CSS = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.css"
@@ -28,11 +28,12 @@ def main() -> None:
     html = RADHUD_HTML.read_text(encoding="utf-8")
     css = RADHUD_CSS.read_text(encoding="utf-8")
     editor = EDITOR.read_text(encoding="utf-8")
-    assert 'RegisterJSListener(v, "radHudLayout", OnRadHudLayoutCommand);' in native
-    assert 'InteropCall(view, "setLocalHUDLayout", payload);' in native
-    assert 'InteropCall(view, "setEditorPreview", preview ? "1" : "0");' in native
-    assert 'InteropCall(_view, "OpenLocalHudEditor", LocalHudLayoutJson().c_str());' in native
-    assert 'widget == "rad_climate" ? &_climateLayout' in native
+    assert 'api->RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand);' in native
+    assert 'api->InteropCall(_climateView, "setLocalHUDLayout", payload.c_str());' in native
+    assert 'api->InteropCall(_climateView, "setEditorPreview", value);' in native
+    assert 'api->InteropCall(_view, "OpenLocalHudEditor", layout.c_str());' in native
+    assert 'if (id == "rad_climate") return &g_layout.climate;' in native
+    assert '{ "temperatureUnit", g_layout.fahrenheit ? "F" : "C" }' in native
     assert 'window.radHudLayout(JSON.stringify(command));' in editor
     assert 'rad_climate' in editor
     assert 'data-unit-toggle' in editor
@@ -67,7 +68,8 @@ def main() -> None:
     armor_view = view.split("window.setArmorInfo = function(json)", 1)[1].split("window.setHudLayoutStatus", 1)[0]
     for forbidden in ("innerHTML", "setInterval", "setTimeout", "requestAnimationFrame", "cmd(", "radDebug", "PrismaHUD"):
         assert forbidden not in armor_view
-    armor_native = native.split("void RadHud::PushArmor(", 1)[1].split("std::string RadHud::LocalHudLayoutJson", 1)[0]
+    hud_source = (ROOT / "src" / "RadHud.cpp").read_text(encoding="utf-8")
+    armor_native = hud_source.split("void RadHud::PushArmor(", 1)[1].split("void RadHud::ResetDebugMenuForSession", 1)[0]
     assert 'if (serialized == _armorPayload)\n        return;' in armor_native
     assert '!_debugOpen' in armor_native and '_hudApi' not in armor_native
     assert '{ "inPowerArmor", RE::PowerArmor::PlayerInPowerArmor() }' in armor_native

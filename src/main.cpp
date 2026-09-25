@@ -5,6 +5,7 @@
 #include "RadHud.h"
 #include "RadCorrectnessPolicy.h"
 #include "RadLifecycle.h"
+#include "RadLifecycleDispatch.h"
 #include <RE/U/UI.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/C/ControlMap.h>
@@ -22,7 +23,8 @@ namespace
     {
         Unknown,
         OG,
-        NewGen
+        NewGen,
+        AE
     };
 
     GameVersion g_gameVersion = GameVersion::Unknown;
@@ -31,16 +33,19 @@ namespace
     {
         const auto ver = a_f4se->RuntimeVersion();
 
-        // OG: 1.10.162 - 1.10.980
-        if (ver >= F4SE::RUNTIME_1_10_162 && ver < F4SE::RUNTIME_1_10_980)
+        if (ver == F4SE::RUNTIME_1_10_163)
         {
             return GameVersion::OG;
         }
 
-        // New Gen: 1.10.980+
-        if (ver >= F4SE::RUNTIME_1_10_980)
+        if (ver >= F4SE::RUNTIME_1_10_980 && ver <= F4SE::RUNTIME_1_10_984)
         {
             return GameVersion::NewGen;
+        }
+
+        if (ver == F4SE::RUNTIME_1_11_240)
+        {
+            return GameVersion::AE;
         }
 
         return GameVersion::Unknown;
@@ -51,9 +56,11 @@ namespace
         switch (version)
         {
         case GameVersion::OG:
-            return "Original Game (1.10.x)";
+            return "Original Game (1.10.163)";
         case GameVersion::NewGen:
-            return "Next Generation (1.10.980+)";
+            return "Next Generation (1.10.980-1.10.984)";
+        case GameVersion::AE:
+            return "Anniversary Edition (1.11.240)";
         case GameVersion::Unknown:
         default:
             return "UNKNOWN";
@@ -161,6 +168,7 @@ namespace
     void WaitThenCreateRadHud(std::uint64_t generation)
     {
         auto free = std::make_shared<std::atomic<bool>>(false);
+        auto probeQueued = std::make_shared<std::atomic<bool>>(false);
         bool wasFree = false;
         auto freeSince = std::chrono::steady_clock::now();
 
@@ -178,22 +186,25 @@ namespace
                 break;
             }
 
-            // Runtime probing proved F4SE AddTask is not a game-main-thread marshal on this setup.
-            // Reset pessimistically before queuing: if the dispatcher is backlogged, a stale TRUE from
-            // the previous probe must not keep advancing the 5-second world-ready hold timer.
-            free->store(false, std::memory_order_release);
-            if (!Hooks::QueueMainThreadTask([free, generation]() {
-                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
-                            generation, g_radLoadGeneration.load(std::memory_order_acquire)))
-                        return;
-                    auto* ui = RE::UI::GetSingleton();
-                    auto* cm = RE::ControlMap::GetSingleton();
-                    auto* pc = RE::PlayerCharacter::GetSingleton();
-                    const bool ctrl = ui && ui->menuMode == 0 && cm && !cm->ignoreKeyboardMouse && pc && pc->parentCell;
-                    free->store(ctrl, std::memory_order_release);
-                }))
+            bool expectedProbe = false;
+            if (probeQueued->compare_exchange_strong(expectedProbe, true, std::memory_order_acq_rel))
             {
-                if (logger) logger->debug("FalloutAnomaly: radhud world-ready probe deferred until the game-thread dispatcher accepts work.");
+                free->store(false, std::memory_order_release);
+                if (!Hooks::QueueMainThreadTask([free, probeQueued, generation]() {
+                        probeQueued->store(false, std::memory_order_release);
+                        if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                                generation, g_radLoadGeneration.load(std::memory_order_acquire)))
+                            return;
+                        auto* ui = RE::UI::GetSingleton();
+                        auto* cm = RE::ControlMap::GetSingleton();
+                        auto* pc = RE::PlayerCharacter::GetSingleton();
+                        const bool ctrl = ui && ui->menuMode == 0 && cm && !cm->ignoreKeyboardMouse && pc && pc->parentCell;
+                        free->store(ctrl, std::memory_order_release);
+                    }))
+                {
+                    probeQueued->store(false, std::memory_order_release);
+                    if (logger) logger->debug("FalloutAnomaly: radhud world-ready probe deferred until the game-thread dispatcher accepts work.");
+                }
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -210,7 +221,11 @@ namespace
                         const bool createQueued = Hooks::QueueMainThreadTask([generation]() {
                             if (RadCorrectnessPolicy::IsCurrentLoadGeneration(
                                     generation, g_radLoadGeneration.load(std::memory_order_acquire)))
-                                RadHud::GetSingleton().CreateView();
+                            {
+                                auto& hud = RadHud::GetSingleton();
+                                if (!hud.StartPrismaViewRetry())
+                                    hud.CreateView();
+                            }
                         });
                         if (!createQueued)
                         {
@@ -291,7 +306,9 @@ namespace
         case F4SE::MessagingInterface::kPostLoadGame:
         {
             logger->info("========== POST LOAD GAME EVENT ==========");
+            RadLifecycleDispatch::BlockPlayerUpdates();
             const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);
 
             // Reconfigure on every load so a dispatcher that was unavailable during GameDataReady can
             // recover. This is idempotent and does not reinstall the update producer.
@@ -305,7 +322,8 @@ namespace
             // task never completes (queued? entered? which sub-step?). One-shot per load — not spam.
             logger->info("[PostLoad] kPostLoadGame received on thread {}; queuing post-load task.",
                 ::GetCurrentThreadId());
-            if (Hooks::QueueMainThreadTask([loadGeneration]() {
+            RadLifecycleDispatch::QueueWithRetry(
+                &g_radLoadGeneration, loadGeneration, "PostLoad", [loadGeneration]() {
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration,
                             g_radLoadGeneration.load(std::memory_order_acquire)))
@@ -337,18 +355,14 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     StartRadHudWaitIfIdle(loadGeneration);
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(loadGeneration);
                     logger->info("[PostLoad] StartRadHudWaitIfIdle end; post-load task complete.");
                     logger->info("Game save loaded. Radiation Engine ACTIVE.");
                     logger->info("  - Load-state engine mutation completed on game-main thread");
                     logger->info("=========================================");
-                }))
-            {
-                logger->info("[PostLoad] post-load task queued on the verified game-main dispatcher.");
-            }
-            else
-            {
-                logger->critical("[PostLoad] Failed to queue verified game-main work; Radiation Engine remains INACTIVE for this load.");
-            }
+                });
             break;
         }
 
@@ -359,8 +373,10 @@ namespace
         case F4SE::MessagingInterface::kNewGame:
         {
             logger->info("New game started");
+            RadLifecycleDispatch::BlockPlayerUpdates();
             const auto loadGeneration = RadCorrectnessPolicy::BeginNewGameLoad(
                 g_radLoadGeneration, g_radWaiting);
+            RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);
 
             if (!Hooks::InstallMainThreadDispatcher())
             {
@@ -368,7 +384,8 @@ namespace
                 break;
             }
 
-            if (!Hooks::QueueMainThreadTask([loadGeneration]() {
+            RadLifecycleDispatch::QueueWithRetry(
+                &g_radLoadGeneration, loadGeneration, "NewGame", [loadGeneration]() {
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration,
                             g_radLoadGeneration.load(std::memory_order_acquire)))
@@ -400,22 +417,26 @@ namespace
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     StartRadHudWaitIfIdle(loadGeneration);
+                    if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
+                            loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(loadGeneration);
                     logger->debug("  - New-game radiation state reset on game-main thread");
                     logger->debug("  - Update loop: RUNNING");
-                }))
-            {
-                logger->critical("[NewGame] Failed to queue verified game-main work; Radiation Engine remains INACTIVE.");
-            }
+                });
             break;
         }
 
         case F4SE::MessagingInterface::kPreLoadGame:
-            g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel);
+        {
+            RadLifecycleDispatch::BlockPlayerUpdates();
+            const auto loadGeneration = g_radLoadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
+            RadLifecycleDispatch::SetPlayerUpdateGeneration(loadGeneration);
             // Invalidate the current detached waiter and every already-queued probe/CreateView from it
             // before the next load can start a fresh generation.
             g_radWaiting.store(false, std::memory_order_release);
             logger->info("Game loading...");
             break;
+        }
 
         default:
             logger->debug("Unhandled message type: {}", static_cast<int>(a_msg->type));
@@ -426,8 +447,6 @@ namespace
 
 // ---------------------------------------------------------------------------
 // Modern plugin declaration is retained because modern F4SE loaders inspect this
-// export before F4SEPlugin_Load. Runtime support is still deliberately OG-only;
-// F4SEPlugin_Load fails closed on NG before any hooks or messaging callbacks are installed.
 // Legacy F4SEPlugin_Query is retained for OG F4SE.
 // ---------------------------------------------------------------------------
 F4SE_PLUGIN_VERSION = []() noexcept {
@@ -463,11 +482,8 @@ F4SEPlugin_Query(const F4SE::QueryInterface* a_f4se, F4SE::PluginInfo* a_info)
             return false;
         }
 
-        // This build is OG-only. The PlayerCharacter::Update vtable slot and raw
-        // native relocations have not been validated for NG, so reject it rather
-        // than letting an unsupported runtime install the hook.
         g_gameVersion = DetectGameVersion(skse);
-        return g_gameVersion == GameVersion::OG;
+        return g_gameVersion == GameVersion::OG || g_gameVersion == GameVersion::AE;
 }
 
 extern "C" __declspec(dllexport) bool F4SEAPI
@@ -479,8 +495,6 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         // InitializeLogger below). One DLL, one authoritative log.
         F4SE::Init(a_f4se, { .log = false });
 
-        // On NG, F4SEPlugin_Query is not called — detect version here so the same
-        // OG-only guard applies regardless of which loader path F4SE used.
         if (g_gameVersion == GameVersion::Unknown)
         {
             g_gameVersion = DetectGameVersion(a_f4se);
@@ -488,11 +502,11 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 
         InitializeLogger();
 
-        if (g_gameVersion != GameVersion::OG)
+        if (g_gameVersion != GameVersion::OG && g_gameVersion != GameVersion::AE)
         {
             logger->critical(
-                "Unsupported Fallout 4 runtime: {}. This build is OG-only (tested on 1.10.163); "
-                "refusing to install hooks on an unverified runtime.",
+                "Unsupported Fallout 4 runtime: {}. Supported runtimes are OG 1.10.163 and AE 1.11.240; "
+                "NG 1.10.980-1.10.984 remains unsupported.",
                 GameVersionString(g_gameVersion));
             return false;
         }

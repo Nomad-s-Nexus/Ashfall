@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 
 namespace RadCorrectnessPolicy
@@ -19,9 +20,30 @@ namespace RadCorrectnessPolicy
         return { player.x, player.y, player.z + zOffset };
     }
 
+    struct NukePlacement
+    {
+        Position strike;
+        float facingYaw;
+    };
+
+    inline NukePlacement DistantNukePlacementXY(Position player, float originYaw, float distance)
+    {
+        const Position strike{
+            player.x + distance * std::sin(originYaw),
+            player.y + distance * std::cos(originYaw),
+            0.0f
+        };
+        return { strike, std::atan2(player.x - strike.x, player.y - strike.y) };
+    }
+
     constexpr bool StormUsesDome(int theme)
     {
         return theme != 1;
+    }
+
+    constexpr bool ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)
+    {
+        return managedStorm || vanillaRadstorm;
     }
 
     constexpr bool ShouldRecreateDomeForOwner(bool domeUp, [[maybe_unused]] bool sameCell, bool sameWorld)
