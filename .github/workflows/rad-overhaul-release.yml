@@ -79,16 +79,12 @@ jobs:
         with:
           xmake-version: "3.0.4"
 
-      - name: Setup Python for contract tests
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Run release contract tests
         working-directory: Rad-Overhaul-Fallout-4
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
+          python --version
           python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
           python tests/verify_local_hud_editor.py

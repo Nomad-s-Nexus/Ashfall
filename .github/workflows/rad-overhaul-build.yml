@@ -80,11 +80,6 @@ jobs:
         with:
           xmake-version: "3.0.4"
 
-      - name: Setup Python for contract tests
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Setup Node for HUD regression tests
         uses: actions/setup-node@v4
         with:
@@ -95,6 +90,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
+          python --version
           python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
           python tests/verify_local_hud_editor.py
