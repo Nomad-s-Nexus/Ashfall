@@ -23,10 +23,12 @@ concurrency:
 
 jobs:
   build:
-    name: Windows cross-build (clang-cl/xwin)
-    runs-on: [self-hosted, Linux, X64, largepluginmods]
+    name: Windows native build (MSVC)
+    runs-on: [self-hosted, Windows, X64, largepluginmods]
+    defaults:
+      run:
+        shell: pwsh
     env:
-      XWIN_ROOT: ${{ vars.XWIN_ROOT || '/opt/xwin' }}
       RAD_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
@@ -36,126 +38,110 @@ jobs:
           ref: ${{ env.RAD_HEAD_SHA }}
 
       - name: Verify exact PR head checkout
-        shell: bash
         run: |
-          set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "$RAD_HEAD_SHA" || {
-            echo "ERROR: expected exact head $RAD_HEAD_SHA but checked out $actual" >&2
-            exit 1
+          $ErrorActionPreference = 'Stop'
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne $env:RAD_HEAD_SHA) {
+            throw "expected exact head $env:RAD_HEAD_SHA but checked out $actual"
           }
-          echo "exact head: $actual"
+          Write-Host "exact head: $actual"
 
       - name: Checkout commonlib_NonVR (RE authority)
-        shell: bash
         env:
           COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
-          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to the commit that adds the
-          # Rad natives (CreateExplosionAtLocation / ShakeCamera / VTABLE_INDEX::Actor::Update). Bump this
-          # SHA deliberately.
+          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Bump this SHA deliberately.
           # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
           # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          COMMONLIB_SHA="6ab58418bdb639936265db713baf064b36560484"   # commonlib_NonVR main: AE CreateExplosionAtLocation (PR #103), public inventory event sources (PR #102), survival bindings
-          root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
-          commonLib="$root/commonlib_NonVR"
-          rm -rf "$commonLib" "$root/CommonLibF4"
-          git init -q "$commonLib"
-          git -C "$commonLib" remote add origin "https://x-access-token:${COMMONLIB_READ_TOKEN}@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
-          git -C "$commonLib" fetch -q --depth 1 origin "$COMMONLIB_SHA"
-          git -C "$commonLib" checkout -q FETCH_HEAD
-          git -C "$commonLib" submodule update --init --recursive --depth 1
-          test -d "$commonLib/RE-Work" || { echo "ERROR: RE-Work marker missing — checkout is not commonlib_NonVR" >&2; exit 1; }
-          echo "COMMONLIBF4_PATH=$commonLib" >> "$GITHUB_ENV"
+          $commonLibSha = '6ab58418bdb639936265db713baf064b36560484'   # commonlib_NonVR main: AE CreateExplosionAtLocation (PR #103), public inventory event sources (PR #102), survival bindings
+          $root = Split-Path -Parent (Split-Path -Parent $env:GITHUB_WORKSPACE)
+          $commonLib = Join-Path $root 'commonlib_NonVR'
+          foreach ($stale in @($commonLib, (Join-Path $root 'CommonLibF4'))) {
+            if (Test-Path $stale) { Remove-Item -Recurse -Force $stale }
+          }
+          git init -q $commonLib
+          git -C $commonLib remote add origin "https://x-access-token:$($env:COMMONLIB_READ_TOKEN)@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
+          git -C $commonLib fetch -q --depth 1 origin $commonLibSha
+          git -C $commonLib checkout -q FETCH_HEAD
+          git -C $commonLib submodule update --init --recursive --depth 1
+          $pinned = (git -C $commonLib rev-parse HEAD).Trim()
+          if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
+          if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) {
+            throw 'RE-Work marker missing — checkout is not commonlib_NonVR'
+          }
+          Write-Host "commonlib_NonVR: $pinned"
+          "COMMONLIBF4_PATH=$commonLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Setup xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: "3.0.4"
 
+      - name: Setup Python for contract tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup Node for HUD regression tests
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - name: Run correctness policy tests
+      - name: Run contract tests
         working-directory: Rad-Overhaul-Fallout-4
-        shell: bash
         run: |
-          set -euo pipefail
-          python3 tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
-          python3 tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
-          python3 tests/verify_local_hud_editor.py
-          python3 tests/verify_ae_runtime_support.py
-          python3 tests/verify_ghoul_contract.py
-          python3 tests/verify_storm_spawn_ownership.py
-          python3 tests/verify_serialization_policy.py
-          python3 tests/verify_climate_runtime.py
-          python3 tests/verify_climate_protection_config.py
-          python3 tests/verify_climate_protection_runtime.py
-          python3 tests/verify_climate_heat_config.py
-          python3 tests/verify_climate_weather_config.py
-          python3 tests/verify_climate_hud.py
-          python3 tests/verify_hud_layout_bridge.py
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
+          python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
+          python tests/verify_local_hud_editor.py
+          python tests/verify_ae_runtime_support.py
+          python tests/verify_ghoul_contract.py
+          python tests/verify_storm_spawn_ownership.py
+          python tests/verify_serialization_policy.py
+          python tests/verify_climate_runtime.py
+          python tests/verify_climate_protection_config.py
+          python tests/verify_climate_protection_runtime.py
+          python tests/verify_climate_heat_config.py
+          python tests/verify_climate_weather_config.py
+          python tests/verify_climate_hud.py
+          python tests/verify_hud_layout_bridge.py
           node tests/armor_diagnostics_tests.js
           node tests/status_hud_tests.js
-          python3 tests/verify_rad_shelter_cache.py
-          python3 tests/verify_rad_stack_integration.py
-          rm -rf build-policy
-          xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
-          xmake build rad_correctness_policy_tests
-          xmake build climate_policy_tests
-          xmake build climate_weather_policy_tests
-          xmake build climate_wetness_policy_tests
-          xmake build serialization_policy_tests
-          ./build/tests/rad_correctness_policy_tests
-          ./build/tests/climate_policy_tests
-          ./build/tests/climate_weather_policy_tests
-          ./build/tests/climate_wetness_policy_tests
-          ./build/tests/serialization_policy_tests
+          python tests/verify_rad_shelter_cache.py
+          python tests/verify_rad_stack_integration.py
 
-      - name: Verify xwin toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          for tool in clang-cl lld-link llvm-ar llvm-rc llvm-dlltool xmake; do
-            command -v "$tool"
-          done
-          for required in \
-            "$XWIN_ROOT/crt/include" \
-            "$XWIN_ROOT/sdk/include/ucrt" \
-            "$XWIN_ROOT/sdk/lib/um/x86_64"; do
-            test -d "$required" || { echo "missing xwin path: $required" >&2; exit 1; }
-          done
-
-      - name: Prepare case-correct xwin import libs
-        shell: bash
-        run: |
-          set -euo pipefail
-          shim="$GITHUB_WORKSPACE/.xwin-libshim"
-          rm -rf "$shim"
-          mkdir -p "$shim"
-          for name in bcrypt version User32 Ole32 OleAut32 crypt32 Shell32; do
-            src="$(find "$XWIN_ROOT/sdk/lib/um/x86_64" -iname "${name}.lib" | head -1)"
-            [ -n "$src" ] || { echo "no staged ${name}.lib found under $XWIN_ROOT" >&2; exit 1; }
-            ln -sf "$src" "$shim/${name}.lib"
-          done
-          echo "XWIN_LIBSHIM=$shim" >> "$GITHUB_ENV"
-
-      - name: Configure (clang-cl / xwin)
+      - name: Configure (MSVC)
         working-directory: Rad-Overhaul-Fallout-4
-        shell: bash
         run: |
-          set -euo pipefail
-          rm -rf build build-clang .xmake
-          xmake f -F xmake-xwin.lua -p windows -a x64 -m release --builddir=build-clang -y
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          foreach ($dir in @('build', 'build-msvc', '.xmake')) {
+            if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
+          }
+          xmake f -p windows -a x64 -m release --builddir=build-msvc -y
+
+      - name: Build and run policy tests
+        working-directory: Rad-Overhaul-Fallout-4
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tests = @(
+            'rad_correctness_policy_tests',
+            'climate_policy_tests',
+            'climate_weather_policy_tests',
+            'climate_wetness_policy_tests',
+            'serialization_policy_tests'
+          )
+          foreach ($t in $tests) { xmake build -y $t }
+          foreach ($t in $tests) { & ".\build\tests\$t.exe" }
 
       - name: Build
         working-directory: Rad-Overhaul-Fallout-4
-        shell: bash
-        run: xmake build -F xmake-xwin.lua -vD -y
+        run: xmake build -vD -y FalloutAnomalyRadiation
 
       - name: Upload Windows DLL
         uses: actions/upload-artifact@v4
@@ -167,13 +153,13 @@ jobs:
 
       - name: Report build status
         if: always()
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          if [ "${{ job.status }}" = "success" ]; then state=success; else state=failure; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${RAD_HEAD_SHA}" \
-            -f state="$state" \
-            -f context="RadOverhaul/xmake" \
-            -f description="Windows xmake exact-head cross-build (clang-cl/xwin) $state"
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $state = if ('${{ job.status }}' -eq 'success') { 'success' } else { 'failure' }
+          gh api --method POST "repos/$($env:GITHUB_REPOSITORY)/statuses/$($env:RAD_HEAD_SHA)" `
+            -f state="$state" `
+            -f context="RadOverhaul/xmake" `
+            -f description="Windows xmake exact-head native build (MSVC) $state"

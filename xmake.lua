@@ -76,6 +76,9 @@ target("FalloutAnomalyRadiation")
     -- Honours XSE_FO4_MODS_PATH if set; otherwise falls back to the known live modlist path.
     -- Uses trycp + isdir so a missing folder or a file-locked DLL (game running) never fails the build.
     after_build(function (target)
+        if os.getenv("GITHUB_ACTIONS") then
+            return
+        end
         local dll = target:targetfile()
         local dests = {}
         local mods = os.getenv("XSE_FO4_MODS_PATH")
