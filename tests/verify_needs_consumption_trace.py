@@ -17,14 +17,23 @@ activation = trace.split("bool NeedsConsumptionTrace::ActivateOnGameThread()", 1
 assert activation.index("IsGameMainThread") < activation.index("IsTraceEnabledSetting") < activation.index("Register<")
 assert trace.count("g_active.store(true") == 1
 
-for sink in ("ActorEquipManagerEvent::Event", "TESContainerChangedEvent", "TESMagicEffectApplyEvent"):
+for sink in ("ActorEquipManagerEvent::Event", "InventoryInterface::CountChangedEvent",
+             "TESContainerChangedEvent", "TESMagicEffectApplyEvent"):
     assert f"RE::BSTEventSink<RE::{sink}>" in trace, sink
 
-assert "BGSInventoryInterface" not in trace, "CountChanged sources are private bases in commonlib_NonVR"
+assert 'Register<RE::InventoryInterface::CountChangedEvent>(inventory, &countSink, "CountChanged")' in trace
 
-for forbidden in ("write_vfunc", "write_call", "write_branch", "REL::ID", "REL::VariantID", "REL::Relocation",
+assert trace.count("write_vfunc") == 1
+assert "write_vfunc(RE::VTABLE_INDEX::Actor::DrinkPotion, &PlayerDrinkPotionTrace)" in trace
+assert "RE::VTABLE::PlayerCharacter[0]" in trace
+drink = trace.split("bool PlayerDrinkPotionTrace(", 1)[1].split("\n    }\n", 1)[0]
+assert "const bool result = g_originalDrinkPotion(a_this, a_potion, a_stackID);" in drink
+assert drink.rstrip().endswith("return result;")
+assert activation.index("IsTraceEnabledSetting") < activation.index("InstallDrinkPotionTrace()")
+
+for forbidden in ("write_call", "write_branch", "REL::ID", "REL::VariantID", "0x119",
                   "RemoveItem", "AddObjectToContainer", "SetActorValue", "ModActorValue", "RestoreActorValue",
-                  "DrinkPotion(", "QueueMainThreadTask", "GetInventoryObjectCount", "ForEachInventoryItem",
+                  "->DrinkPotion(", "QueueMainThreadTask", "GetInventoryObjectCount", "ForEachInventoryItem",
                   "SetInterval", "std::thread", "localStorage"):
     assert forbidden not in trace, f"diagnostic trace must stay observation-only: {forbidden}"
 
@@ -34,4 +43,4 @@ for line in trace.splitlines():
 activate = lifecycle.split("bool RadLifecycle::EnsureEngineActiveOnGameThread()", 1)[1]
 assert activate.index("Hooks::IsGameMainThread()") < activate.index("NeedsConsumptionTrace::ActivateOnGameThread();")
 
-print("needs consumption trace verified: opt-in, game-main registration, three existing event sources, no hooks or state mutation")
+print("needs consumption trace verified: opt-in, game-main registration, four existing event sources plus a pass-through player DrinkPotion trace, no state mutation")

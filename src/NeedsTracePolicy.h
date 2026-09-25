@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 
 namespace RadNeedsTracePolicy
 {
@@ -42,5 +43,13 @@ namespace RadNeedsTracePolicy
     constexpr bool IsTraceEnabledSetting(int value) noexcept
     {
         return value == 1;
+    }
+
+    constexpr std::int32_t CountDelta(std::int32_t oldCount, std::int32_t newCount) noexcept
+    {
+        const std::int64_t delta = static_cast<std::int64_t>(newCount) - static_cast<std::int64_t>(oldCount);
+        if (delta > std::numeric_limits<std::int32_t>::max()) return std::numeric_limits<std::int32_t>::max();
+        if (delta < std::numeric_limits<std::int32_t>::min()) return std::numeric_limits<std::int32_t>::min();
+        return static_cast<std::int32_t>(delta);
     }
 }

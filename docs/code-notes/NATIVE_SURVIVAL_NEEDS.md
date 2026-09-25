@@ -76,15 +76,19 @@ Before enabling penalties:
 
 `src/NeedsConsumptionTrace.cpp:NeedsConsumptionTrace::ActivateOnGameThread` starts the observation step required by `docs/research/needs-consumption-trace.md`. It is diagnostic only and ships disabled.
 
-- Enable with `[NeedsTrace] Enabled=1` in `Data/F4SE/Plugins/FalloutAnomalyRadiation.ini`. Any other value leaves every sink unregistered, so normal play has no cost.
+- Enable with `[NeedsTrace] Enabled=1` in `Data/F4SE/Plugins/FalloutAnomalyRadiation.ini`. Any other value leaves every sink unregistered and the hook uninstalled, so normal play has no cost.
 - Activation runs from `src/RadLifecycle.cpp:RadLifecycle::EnsureEngineActiveOnGameThread` after the game-main thread check, once per session.
-- Three existing `commonlib_NonVR` event sources are observed, with no hooks, relocations or vtable writes:
+- Four existing `commonlib_NonVR` event sources are observed:
   - `ActorEquipManager` equip/unequip for the player: item FormID, form type, stack ID, and `IsFood`/`IsPoison` for ALCH.
+  - `BGSInventoryInterface` `CountChangedEvent`: raw owner ID, item ID, old/new count and saturated delta. The owner field is logged unfiltered because its identity (handle or FormID) is not yet proven. This source became reachable when `commonlib_NonVR` PR #102 made the event-source bases public.
   - `TESContainerChangedEvent` when the player is the old or new container, labelled left/entered/within by `src/NeedsTracePolicy.h:ClassifyContainerChange`.
   - `TESMagicEffectApplyEvent` targeting the player: effect and caster FormIDs.
+- `PlayerDrinkPotionTrace` is a pass-through `PlayerCharacter` vtable hook at `RE::VTABLE_INDEX::Actor::DrinkPotion`. It logs `drink-enter` (item, stack ID, `IsFood`/`IsPoison`), calls the original with unchanged arguments, then logs `drink-return` with the unmodified result and the entry sequence number. It is installed only when the trace is enabled. It observes calls dispatched through the player's vtable; an explicitly qualified base call bypasses it, as the research notes.
+- A `drink-return` result of true is not consumption success. The research shows DrinkPotion returns true for any non-null item and may queue the actual processing, so success has to be judged from the count and container records that follow.
 - Every record carries a process-wide monotonic `seq`, the dispatching thread ID and a steady-clock millisecond offset, so queued and immediate paths can be ordered without relying on timestamp proximity.
-- Sinks read event payloads and log them. They do not mutate game state, scan inventories, call `DrinkPotion`, or queue work.
-- Not covered yet: `InventoryInterface::CountChangedEvent`, `PlayerCharacter::DrinkPotion` entry/return, the DrinkPotion success callback, `BGSInventoryListEvent`, `TESPerkEntryRunEvent` and animation events. The DrinkPotion slot `0x119` is only a comment in `Actor.h`; `commonlib_NonVR` exposes no `VTABLE_INDEX` for it and no relocation for the callback. `BGSInventoryInterface` inherits its `CountChangedEvent` source privately (`class` base list without `public`) and has no accessor, so registering a sink needs a `commonlib_NonVR` change (public base or `GetEventSource` accessor) rather than a cast around access control. Observing DrinkPotion or the callback likewise needs a vtable index and relocation added to `commonlib_NonVR` first rather than local literals.
-- `tests/verify_needs_consumption_trace.py` guards the opt-in default, game-main registration order and the absence of hooks or state mutation. `tests/needs_trace_policy_tests.cpp` covers container-direction classification and the enable setting.
+- Sinks and the hook read and log only. They do not mutate game state, scan inventories, call `DrinkPotion` themselves, or queue work.
+- Not covered yet: the DrinkPotion success callback (OG 865490 / AE 2231345), whose signature is not recorded in `commonlib_NonVR`, plus `BGSInventoryListEvent`, `TESPerkEntryRunEvent` and animation events.
+- `tests/verify_needs_consumption_trace.py` guards the opt-in default, game-main registration order, the single pass-through hook and the absence of state mutation. `tests/needs_trace_policy_tests.cpp` covers container-direction classification, the enable setting and saturated count deltas.
+- CI pins `commonlib_NonVR` main at `6ab5841`, which carries PR #102 and PR #103.
 
 Capture procedure: enable the trace, perform one matrix row at a time from the research document, note the action and its visible outcome, then collect the `[NeedsTrace]` lines from `FalloutAnomaly.log`. Repeat rows to expose duplicates. The matrix stays NOT CAPTURED until those logs exist; this code alone establishes nothing about consumption.

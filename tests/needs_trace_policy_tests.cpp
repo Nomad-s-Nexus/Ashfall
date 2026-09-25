@@ -1,6 +1,7 @@
 #include "NeedsTracePolicy.h"
 
 #include <cstdlib>
+#include <limits>
 
 namespace
 {
@@ -30,5 +31,11 @@ int main()
     Require(!IsTraceEnabledSetting(2));
     Require(!IsTraceEnabledSetting(-1));
 
+    Require(CountDelta(3, 2) == -1);
+    Require(CountDelta(0, 5) == 5);
+    Require(CountDelta(std::numeric_limits<std::int32_t>::min(), std::numeric_limits<std::int32_t>::max()) ==
+            std::numeric_limits<std::int32_t>::max());
+    Require(CountDelta(std::numeric_limits<std::int32_t>::max(), std::numeric_limits<std::int32_t>::min()) ==
+            std::numeric_limits<std::int32_t>::min());
     return 0;
 }
