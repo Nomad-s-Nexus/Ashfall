@@ -19,6 +19,8 @@
 #include <atomic>
 #include <chrono>
 
+#include <Windows.h>
+
 namespace
 {
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
