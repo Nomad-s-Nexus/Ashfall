@@ -36,6 +36,16 @@
 
     <!-- Vitals HUD moved to PrismaHUD_F4 (position the toxicity widget in PrismaHUD's HUD editor). -->
 
+    <section class="diagnostics" aria-label="Live survival diagnostics">
+      <h2>LIVE DIAGNOSTICS</h2>
+      <div class="diagnostic-grid">
+        <section><h3>BODY &amp; WEATHER</h3><dl id="climateReadout"><dt>Climate</dt><dd>Awaiting data</dd></dl><p id="climateEffect"></p></section>
+        <section><h3>BREATHING AIR</h3><dl id="airReadout"><dt>Air</dt><dd>Awaiting data</dd></dl><p id="airEffect"></p></section>
+        <section><h3>VITALS</h3><dl id="vitalsReadout"><dt>Vitals</dt><dd>Awaiting data</dd></dl></section>
+      </div>
+      <p>WARM tracks body temperature: 28°C = 0%, 37°C = 100%. Climate is observational; hypothermia penalties are not applied. Breathing protection does not block every storm hazard.</p>
+    </section>
+
     <div class="dbg-sec">TRIGGER STORM</div>
     <div class="dbg-row">
       <button onclick="cmd('storm:0')">Ash</button>
@@ -168,12 +178,13 @@
 
     <div class="dbg-pane" id="tab-ghouls">
       <div class="dbg-sec">STORM GHOULS</div>
-      <div class="dbg-help">Controls future lethal-storm rolls. Disable also clears any active hunter pack.</div>
+      <div class="dbg-help">Controls future storm rolls. Disable also clears any active hunter pack. Settings reset when the game restarts.</div>
       <div class="ghoul-state" id="ghoulState">HUNTER PACKS: SYNCING...</div>
       <div class="dbg-row">
         <button class="warn" onclick="setGhoulEnabled(false)">DISABLE + CLEAR</button>
         <button onclick="setGhoulEnabled(true)">ENABLE</button>
       </div>
+
       <div class="dbg-sec">SPAWN CHANCE</div>
       <div class="ghoul-range">
         <label for="ghoulChance">CHANCE</label>
@@ -190,19 +201,68 @@
         <button class="warn" onclick="cmd('ghouls:clear')">CLEAR CURRENT PACK</button>
         <button onclick="resetGhoulSettings()">RESET 40%</button>
       </div>
+      <div class="dbg-help">The state above is synchronized from the game. 0% prevents new packs; DISABLE + CLEAR also removes the current pack.</div>
     </div><!-- /tab-ghouls -->
 
     <div class="dbg-pane" id="tab-armor">
-      <div class="dbg-sec">CLIMATE ARMOR</div>
-      <div class="dbg-help">Current worn armor insulation and thermal coverage. Values are read-only and use the same climate scan as CORE.</div>
-      <div class="armor-summary" id="armorSummary">ARMOR: SYNCING...</div>
-      <div class="armor-list" id="armorList"><div class="armor-empty">WAITING FOR ARMOR DATA...</div></div>
+      <div class="armor-heading"><h2>ARMOR DIAGNOSTICS</h2><span>CLIMATE / READ ONLY</span></div>
+      <div class="armor-status-strip" id="armorSummary" aria-label="Armor status">
+        <section class="armor-status" aria-labelledby="armorInsulationLabel">
+          <h3 id="armorInsulationLabel">ARMOR INSULATION</h3>
+          <strong id="armorInsulation">--</strong><span>COMBINED EQUIPMENT</span>
+          <div class="armor-meter" aria-hidden="true"><i id="armorInsulationMeter"></i></div>
+        </section>
+        <section class="armor-status" aria-labelledby="armorEffectiveLabel">
+          <h3 id="armorEffectiveLabel">EFFECTIVE THERMAL</h3>
+          <strong id="armorEffective">--</strong><span>CURRENT CLIMATE PROTECTION</span>
+          <div class="armor-meter" aria-hidden="true"><i id="armorEffectiveMeter"></i></div>
+        </section>
+        <section class="armor-status" aria-labelledby="armorPowerLabel">
+          <h3 id="armorPowerLabel">POWER ARMOR</h3>
+          <strong id="armorPower">--</strong><span id="armorPowerDetail">AWAITING EQUIPMENT DATA</span>
+        </section>
+      </div>
+      <div class="armor-workspace">
+        <section class="armor-equipment" aria-labelledby="armorEquipmentTitle">
+          <div class="armor-section-heading"><h3 id="armorEquipmentTitle">THERMAL EQUIPMENT</h3><span id="armorThermalCount">-- RECORDS</span></div>
+          <div class="armor-records-scroll" tabindex="0" role="region" aria-label="Equipped armor records">
+            <table class="armor-records" aria-label="Thermal equipment">
+              <colgroup><col class="armor-name-col"><col><col><col class="armor-coverage-col"><col></colgroup>
+              <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">SOURCE</th></tr></thead>
+              <tbody id="armorList"><tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr></tbody>
+            </table>
+            <section class="armor-nonthermal" aria-labelledby="armorNonThermalTitle">
+              <div class="armor-section-heading"><h3 id="armorNonThermalTitle">NON-THERMAL EQUIPMENT</h3><span id="armorNonThermalCount">-- RECORDS</span></div>
+              <table class="armor-records" aria-label="Non-thermal equipment">
+                <colgroup><col class="armor-name-col"><col><col><col class="armor-coverage-col"><col></colgroup>
+                <thead><tr><th scope="col">ITEM NAME</th><th scope="col">WARMTH</th><th scope="col">INSUL.</th><th scope="col">COVERAGE</th><th scope="col">SOURCE</th></tr></thead>
+                <tbody id="armorNonThermalList"><tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr></tbody>
+              </table>
+            </section>
+          </div>
+          <p class="armor-footnote">DEFAULT = shared 45% warmth estimate, not an item-specific rating. OVERRIDE = configured warmth. INSUL. includes coverage; layered values are not additive.</p>
+        </section>
+        <section class="armor-map" aria-labelledby="armorMapTitle">
+          <div class="armor-section-heading"><h3 id="armorMapTitle">BODY COVERAGE</h3><span>THERMAL RECORD MAP</span></div>
+          <div class="armor-schematic">
+            <div class="armor-figure" id="armorFigure" role="img" aria-label="Front-facing Vault suit reference schematic"></div>
+            <section class="armor-region" id="armorRegion-head"><h4>HEAD</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-torso"><h4>TORSO</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-leftArm"><h4>L ARM</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-rightArm"><h4>R ARM</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-leftLeg"><h4>L LEG</h4><ul><li>AWAITING DATA</li></ul></section>
+            <section class="armor-region" id="armorRegion-rightLeg"><h4>R LEG</h4><ul><li>AWAITING DATA</li></ul></section>
+          </div>
+          <p class="armor-footnote">FRONT VIEW / L &amp; R = WEARER'S SIDES / REFERENCE SCHEMATIC</p>
+        </section>
+      </div>
     </div><!-- /tab-armor -->
 
     <div class="dbg-pane" id="tab-hud">
       <div class="dbg-sec">HUD LAYOUT EDITOR</div>
-      <div class="dbg-help">Open the built-in Rad widget editor to preview and save widget layout.</div>
+      <div class="dbg-help">Rad includes a temporary editor for its toxicity, climate and gas-mask widgets. PrismaHUD is not required.</div>
       <div class="dbg-row"><button onclick="cmd('hud:open')">OPEN HUD LAYOUT EDITOR</button></div>
+      <div class="dbg-help">If PrismaHUD is installed, it automatically becomes the layout owner and this button opens the shared PrismaHUD editor instead.</div>
     </div><!-- /tab-hud -->
 
     <div class="dbg-row" style="margin-top:8px;">
@@ -224,5 +284,6 @@
 
   <script src="radhud.js"></script>
   <script src="rad_hud_local_editor.js"></script>
+<script src="rad_diagnostics.js"></script>
 </body>
 </html>

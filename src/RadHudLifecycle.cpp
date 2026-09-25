@@ -6,31 +6,34 @@
 
 namespace
 {
+    void SuppressVanillaMetersOnPrismaThread(void* userData)
+    {
+        auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
+        if (!api11 || !RadHud::GetSingleton().ViewsReady()) return;
+        api11->SuppressHUDWidget("HUDPlayerHealthMeter", true);
+        api11->SuppressHUDWidget("HUDActionPointMeter", true);
+    }
+
     void CreateRadHudViewOnPrismaThread(void* userData)
     {
         auto& hud = RadHud::GetSingleton();
-        hud.CreateView();
-
-        // Do not remove the game's only Health/AP presentation until Rad has valid replacement views.
-        // Once the views exist, use PrismaUI's supported VanillaUI suppression API. This works whether
-        // the visible replacements are Rad's standalone fallback or PrismaHUD's widgets, and avoids any
-        // direct Scaleform/HUDMenu mutation from Rad.
-        if (hud.ViewsReady())
+        auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
+        if (api11)
         {
-            auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
-            if (api11)
-            {
-                api11->SuppressHUDWidget("HUDPlayerHealthMeter", true);
-                api11->SuppressHUDWidget("HUDActionPointMeter", true);
-            }
+            api11->SuppressHUDWidget("HUDPlayerHealthMeter", false);
+            api11->SuppressHUDWidget("HUDActionPointMeter", false);
         }
+        hud.CreateView();
+        if (hud.ViewsReady())
+            SuppressVanillaMetersOnPrismaThread(api11);
     }
 }
 
-void RadHud::StartPrismaViewRetry()
+bool RadHud::StartPrismaViewRetry()
 {
     _threadApi = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI11>();
-    if (!_threadApi || _viewCreateRetry.exchange(true)) return;
+    if (!_threadApi) return false;
+    if (_viewCreateRetry.exchange(true)) return true;
 
     auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(_threadApi);
     auto* retrying = &_viewCreateRetry;
@@ -45,7 +48,8 @@ void RadHud::StartPrismaViewRetry()
                 for (int settle = 0; settle < 10; ++settle)
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                    if (RadHud::GetSingleton().ViewsReady())
+                    if (RadHud::GetSingleton().ViewsReady() &&
+                        api11->DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11))
                     {
                         retrying->store(false);
                         return;
@@ -59,4 +63,5 @@ void RadHud::StartPrismaViewRetry()
         }
         retrying->store(false);
     }).detach();
+    return true;
 }

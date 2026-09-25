@@ -1,6 +1,6 @@
 # Fallout Anomaly - Radiation Overhaul
 
-A radiation and environmental survival overhaul for Fallout 4 (OG / 1.10.163): F4SE DLL +
+A radiation and environmental survival overhaul for Fallout 4 supporting OG 1.10.163 and AE 1.11.240; NG 1.10.980-1.10.984 and other unverified runtimes are intentionally unsupported. The package includes an F4SE DLL +
 `RadiationOverhaul.esp` + optional PrismaUI HUD. The core ESP references `Fallout4.esm`
 (plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The native storm-dome lighting
 currently still resolves two LIGH forms from `KORsAnomaly Stripped.esp`; making those records
@@ -27,7 +27,9 @@ Author: NomadsReach
   and the craftable **Radiation Chelation Compound** do not currently change tissue damage: their
   item-triggered effects are disabled fail-closed pending a verified source-identifying item-use adapter.
 - **PrismaUI HUD** (optional, degrades to no-op without the framework): gas-mask visor, storm
-  banners, debug controls, and positionable toxicity/filter widgets through PrismaHUD_F4 when present.
+  banners, debug controls, and Rad-owned toxicity/filter widgets. The Rad debug menu includes a
+  temporary built-in layout editor for those widgets. When PrismaHUD_F4 is detected, PrismaHUD
+  automatically becomes the layout owner and its shared editor takes over.
 - **Companion patches.** `RadOverhaul_GearPatch.esp` buffs the hazmat suit's radiation resistance;
   `RadOverhaulSurPatch.esp` is also included in the deployment package.
 
@@ -64,8 +66,8 @@ xmake
 
 Close Fallout 4 before redeploying the DLL because a loaded DLL is file-locked.
 
-`xmake.lua` can auto-copy a successful build to a live Fallen World mod directory when
-`XSE_FO4_MODS_PATH` is set. Its hardcoded development-path fallback is local convenience only.
+`xmake.lua` can auto-copy a successful build to a live mod directory when `XSE_FO4_MODS_PATH` is set.
+The local development fallback also covers `C:\Modlists\TMR\mods\Fallout Anomaly - Radiation Overhaul`.
 
 ## Build the ESP
 

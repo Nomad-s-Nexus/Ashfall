@@ -27,10 +27,24 @@ jobs:
     runs-on: [self-hosted, Linux, X64, largepluginmods]
     env:
       XWIN_ROOT: ${{ vars.XWIN_ROOT || '/opt/xwin' }}
+      RAD_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RAD_HEAD_SHA }}
+
+      - name: Verify exact PR head checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$RAD_HEAD_SHA" || {
+            echo "ERROR: expected exact head $RAD_HEAD_SHA but checked out $actual" >&2
+            exit 1
+          }
+          echo "exact head: $actual"
 
       - name: Checkout commonlib_NonVR (RE authority)
         shell: bash
@@ -38,7 +52,13 @@ jobs:
           COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
         run: |
           set -euo pipefail
-          COMMONLIB_SHA="db36d54ef6bf85d78f26a7a188fe2849fc12752a"
+          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
+          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to the commit that adds the
+          # Rad natives (CreateExplosionAtLocation / ShakeCamera / VTABLE_INDEX::Actor::Update). Bump this
+          # SHA deliberately, or repoint at commonlib_NonVR main once that commit is merged there.
+          # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
+          # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
+          COMMONLIB_SHA="961358dd72838417579fc6186a5a0da3b3242d37"   # commonlib_NonVR: verified AE CreateExplosionAtLocation + guarded OG camera shake
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"
@@ -55,6 +75,11 @@ jobs:
         with:
           xmake-version: "3.0.4"
 
+      - name: Setup Node for HUD regression tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Run correctness policy tests
         working-directory: Rad-Overhaul-Fallout-4
         shell: bash
@@ -62,6 +87,11 @@ jobs:
           set -euo pipefail
           python3 tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python3 tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
+          python3 tests/verify_local_hud_editor.py
+          python3 tests/verify_ae_runtime_support.py
+          python3 tests/verify_ghoul_contract.py
+          python3 tests/verify_storm_spawn_ownership.py
+          python3 tests/verify_serialization_policy.py
           python3 tests/verify_climate_runtime.py
           python3 tests/verify_climate_protection_config.py
           python3 tests/verify_climate_protection_runtime.py
@@ -69,7 +99,10 @@ jobs:
           python3 tests/verify_climate_weather_config.py
           python3 tests/verify_climate_hud.py
           python3 tests/verify_hud_layout_bridge.py
+          node tests/armor_diagnostics_tests.js
+          node tests/status_hud_tests.js
           python3 tests/verify_rad_shelter_cache.py
+          python3 tests/verify_rad_stack_integration.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
@@ -142,7 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ job.status }}" = "success" ]; then state=success; else state=failure; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${RAD_HEAD_SHA}" \
             -f state="$state" \
             -f context="RadOverhaul/xmake" \
-            -f description="Windows xmake cross-build (clang-cl/xwin) $state"
+            -f description="Windows xmake exact-head cross-build (clang-cl/xwin) $state"

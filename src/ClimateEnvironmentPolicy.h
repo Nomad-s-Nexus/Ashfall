@@ -69,7 +69,7 @@ namespace RadClimateEnvironmentPolicy
         bool indoors,
         const WeatherClass& weather,
         float gameDays,
-        std::uint32_t month = 9) noexcept
+        std::uint32_t month = 8) noexcept
     {
         if (indoors)
             return kIndoorAmbientC;
@@ -83,7 +83,7 @@ namespace RadClimateEnvironmentPolicy
         bool indoors,
         bool rainy,
         float gameDays,
-        std::uint32_t month = 9) noexcept
+        std::uint32_t month = 8) noexcept
     {
         WeatherClass weather{};
         weather.rainy = rainy;

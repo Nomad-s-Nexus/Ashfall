@@ -49,6 +49,13 @@ for token in (
     "_heat.Reset();",
     "RadClimateSerialization::Snapshot(_state)",
     "RadClimateSerialization::Restore(state)",
+    "QueryPauseInfo()",
+    "RadClimatePolicy::StepTimeJump",
+    "RadClimatePolicy::ElapsedGameSeconds",
+    "RadClimatePolicy::kTimeJumpThresholdDays",
+    "RadClimatePolicy::kMaximumTimeJumpHours",
+    "RadClimatePolicy::kMaximumStepSeconds",
+    "return 8;",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
 
@@ -73,6 +80,8 @@ for token in (
     "RadClimatePolicy::ClimateState _state{};",
     "ClimateShelterRuntime _shelter;",
     "ClimateHeatRuntime _heat;",
+    "float _prevGameDays{ -1.0f };",
+    "PrevGameDays() const noexcept",
 ):
     assert token in header, f"climate runtime state contract missing: {token}"
 
@@ -106,6 +115,7 @@ for token in (
     assert token in heat_runtime, f"climate heat runtime contract missing: {token}"
 
 assert "0x0010C3B6" not in heat_runtime
+assert "timeScale" not in runtime
 assert "_refreshTick" not in shelter_runtime
 assert "_refreshTick" not in shelter_header
 assert "_refreshTick" not in heat_runtime

@@ -1,137 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Rad Overhaul - Toxicity</title>
-<style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none}
-#root{transform-origin:top left;transform:rotate(var(--r,0deg)) scale(var(--s,1));
-  position:fixed;left:0;top:0;width:200px;height:44px;
-  display:flex;flex-direction:column;justify-content:center;gap:3px;
-  font-family:Consolas,"Courier New",monospace;
-  opacity:0;transition:opacity .3s;
-}
-#root.visible{opacity:1}
-#root.fallback{width:260px;height:76px}
-.vital{width:100%;display:flex;align-items:center;gap:7px}
-.fallback-only{display:none}
-#root.fallback .fallback-only{display:flex}
-.label{width:72px;flex:none;color:#d8ded8;font-size:9px;font-weight:bold;letter-spacing:.5px;text-shadow:0 0 3px #000}
-.vicon{
-  width:20px;height:18px;flex:none;background-color:#b07a28;
-  -webkit-mask-image:url("biohazard.png");mask-image:url("biohazard.png");
-  -webkit-mask-size:contain;mask-size:contain;
-  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
-  -webkit-mask-position:center;mask-position:center;
-  filter:drop-shadow(0 0 2px #000);
-}
-.barwrap{flex:1;position:relative;display:flex;align-items:center}
-.barbg{
-  flex:1;height:12px;background:rgba(0,0,0,.7);overflow:hidden;position:relative;
-  box-shadow:inset 0 0 4px rgba(0,0,0,.85);
-  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
-  -webkit-clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
-}
-.bar{height:100%;width:0%;position:relative;transition:width .25s linear;background:#b07a28}
-#hFill{background:#55a65c}
-#hRads{position:absolute;right:0;top:0;height:100%;width:0%;pointer-events:none;transition:width .25s linear;background:#d9822b;z-index:2}
-#apFill{background:#55a65c}
-.bar::after{content:"";position:absolute;left:0;right:0;top:0;height:40%;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(255,255,255,.16),rgba(255,255,255,0))}
-/* permanent (scarred) tissue overlay — hatched, sits at the right end of the current tissue */
-#tperm{position:absolute;top:0;height:100%;width:0%;left:0%;pointer-events:none;
-  transition:width .25s linear,left .25s linear;
-  background:repeating-linear-gradient(-45deg,rgba(150,30,30,.95) 0px,rgba(150,30,30,.95) 2px,rgba(90,20,20,.6) 2px,rgba(90,20,20,.6) 5px)}
-.val{
-  position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
-  text-align:center;color:#f2f6f2;font-size:10px;font-weight:bold;letter-spacing:.5px;
-  text-shadow:0 0 3px #000,0 1px 2px #000,0 0 2px #000;
-  opacity:0;transition:opacity .2s ease;pointer-events:none;z-index:5;
-}
-.val.show{opacity:1}
-</style>
-</head>
-<body>
-<div id="root">
-  <div class="vital fallback-only">
-    <div class="label">HEALTH</div>
-    <div class="barwrap"><div class="barbg"><div class="bar" id="hFill"></div><div id="hRads"></div></div><div class="val show" id="hNum">0</div></div>
-  </div>
-  <div class="vital fallback-only">
-    <div class="label">STAMINA (AP)</div>
-    <div class="barwrap"><div class="barbg"><div class="bar" id="apFill"></div></div><div class="val show" id="apNum">0</div></div>
-  </div>
-  <div class="vital">
-    <div class="label fallback-only">TISSUE</div>
-    <div class="vicon" id="icon"></div>
-    <div class="barwrap">
-      <div class="barbg"><div class="bar" id="tFill"></div><div id="tperm"></div></div>
-      <div class="val" id="tNum">0</div>
-    </div>
-  </div>
-</div>
-<script>
-var MAXT=1000;
-var tFill=document.getElementById('tFill');
-var tperm=document.getElementById('tperm');
-var tNum =document.getElementById('tNum');
-var icon =document.getElementById('icon');
-var root =document.getElementById('root');
-var hFill=document.getElementById('hFill'),hRads=document.getElementById('hRads'),hNum=document.getElementById('hNum');
-var apFill=document.getElementById('apFill'),apNum=document.getElementById('apNum');
-var _visState=false;
-var _preview=false;   // HUD-editor preview
+<html lang="en"><head><meta charset="UTF-8"><title>Vital status</title><link rel="stylesheet" href="hud_status.css"></head>
+<body><div id="root"><div class="status fallback-only" id="health" role="img" aria-label="HEALTH"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21S3 15 3 8a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 7-9 13-9 13Z"/></svg><span class="label">HEALTH</span><b id="healthValue">--</b></div><div class="status fallback-only" id="stamina" role="img" aria-label="AP"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7Z"/></svg><span class="label">AP</span><b id="staminaValue">--</b></div><div class="status fallback-only" id="rads" role="img" aria-label="RADS"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5m-8 9 5-3m11 3-5-3M9 4a9 9 0 0 0-6 10l5-2m8 0 5 2a9 9 0 0 0-6-10M8 17l-3 4h14l-3-4"/></svg><span class="label">RADS</span><b id="radsValue">--</b></div><div class="status " id="tissue" role="img" aria-label="TISSUE"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5m0 8v5M3 12h5m8 0h5M5 5l4 4m6 6 4 4M5 19l4-4m6-6 4-4M9 9h6v6H9Z"/></svg><span class="label">TISSUE</span><b id="tissueValue">--</b></div></div><script>
 
-function setIconSev(sev){ sev=Math.max(0,Math.min(1,sev)); icon.style.backgroundColor='hsl('+Math.round(120*(1-sev))+',80%,55%)'; }
-function setVital(fill,num,current,max){
-  current=Math.max(0,+current||0);max=Math.max(0,+max||0);
-  fill.style.width=(max>0?Math.min(100,current/max*100):(current>0?100:0))+'%';
-  num.textContent=Math.round(current);
+var root=document.getElementById('root'),_visState=false,_preview=false,_lastData=null;
+function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
+function vital(id,value,severity,description){var e=document.getElementById(id);document.getElementById(id+'Value').textContent=pct(value)+'%';e.className='status '+severity;e.title=description;e.setAttribute('aria-label',description);}
+function renderToxic(d){
+ var fallback=!!d.fallback,t=Math.max(0,Math.min(1000,+d.tissue||0)),health=+d.healthMax>0?(+d.health||0)/d.healthMax*100:0,ap=+d.apMax>0?(+d.ap||0)/d.apMax*100:0;
+ ['health','stamina','rads'].forEach(function(id){document.getElementById(id).hidden=!fallback;});
+ vital('health',health,health<=25?'danger':health<=50?'warn':'','Health remaining');
+ vital('stamina',ap,ap<=20?'warn':'','Action points remaining');
+ vital('rads',(+d.rads||0)/Math.max(1,+d.radsMax||1000)*100,(+d.rads||0)>=600?'danger':'','Radiation blocks maximum health');
+ vital('tissue',t/10,t>=600?'danger':t>=150?'warn':'','Tissue damage; permanent scarring '+Math.round(+d.permanentTissue||0));
+ var show=fallback||t>0;_visState=show;root.classList.toggle('visible',show||_preview);window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show||_preview}));
 }
-function setHealthVital(fill,blocked,num,current,max,rads,radsMax){
-  current=Math.max(0,+current||0);max=Math.max(0,+max||0);
-  rads=Math.max(0,+rads||0);radsMax=Math.max(1,+radsMax||1000);
-  var radFrac=Math.max(0,Math.min(1,rads/radsMax));
-  var available=1-radFrac;
-  var good=max>0?Math.max(0,Math.min(available,current/max)):(current>0?available:0);
-  fill.style.width=(good*100)+'%';
-  blocked.style.width=(radFrac*100)+'%';
-  num.textContent=Math.round(current);
-}
-
-// Data push from the Rad Mod DLL: {tissue, permanentTissue}
-window.updateToxic=function(json){
-  try{
-    var d=(typeof json==="string")?JSON.parse(json):json;
-    var fallback=!!d.fallback;
-    root.classList.toggle('fallback',fallback);
-    icon.style.display=fallback?'none':'';
-    if(fallback){setHealthVital(hFill,hRads,hNum,d.health,d.healthMax,d.rads,d.radsMax);setVital(apFill,apNum,d.ap,d.apMax);}
-    var t=Math.max(0,Math.min(MAXT,+d.tissue||0));
-    var perm=Math.min(t,Math.max(0,+d.permanentTissue||0));
-    tFill.style.width=(t/MAXT*100)+'%';
-    if(perm>0.5){ tperm.style.left=((t-perm)/MAXT*100).toFixed(1)+'%'; tperm.style.width=(perm/MAXT*100).toFixed(1)+'%'; }
-    else { tperm.style.width='0%'; }
-    setIconSev(t/600);                 // tissue climbs toward 600 = worst -> redder
-    tNum.textContent=Math.round(t);
-    tNum.classList.toggle('show',fallback||(1-t/600)<=0.75);
-    var show=fallback||t>0;
-    if(show!==_visState){ _visState=show;
-      window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show})); }
-    root.classList.toggle('visible',_visState||_preview);
-  }catch(e){}
-};
-
-// HUD editor preview: force-show a sample toxicity reading while positioning.
-window.setEditorPreview=function(json){
-  _preview=(json==='1'||json===1||json===true);
-  if(_preview){ tFill.style.width='35%'; tperm.style.left='0%'; tperm.style.width='0%'; setIconSev(0.58); tNum.textContent='350'; tNum.classList.add('show'); }
-  root.classList.toggle('visible',_visState||_preview);
-};
+window.updateToxic=function(json){try{var d=typeof json==='string'?JSON.parse(json):json;if(!d||typeof d!=='object')return;_lastData=d;renderToxic(d);}catch(e){}};
+window.setEditorPreview=function(json){_preview=json==='1'||json===1||json===true;if(_preview)renderToxic({fallback:true,health:180,healthMax:300,ap:80,apMax:100,rads:200,tissue:150});else if(_lastData)renderToxic(_lastData);else root.classList.remove('visible');};
 
 var WIDGET_ID='rad_toxic';
-var DEF={xf:30/1920,yf:882/1080,wf:200/1920,hf:44/1080};   // default: just below the rads widget
+var DEF={xf:30/1920,yf:882/1080,wf:240/1920,hf:58/1080};   // default: just below the rads widget
 var _want=null,_lastW=0,_lastH=0;
 function flushPos(){
   if(!_want)return;
@@ -140,12 +27,17 @@ function flushPos(){
   if(W===_lastW&&H===_lastH)return;
   var r=document.getElementById('root');
   r.style.left=(_want.xf*W)+'px';r.style.top=(_want.yf*H)+'px';
-  r.style.setProperty('--s',_want.s);r.style.setProperty('--r',(_want.r||0)+'deg');
+  var explicitSize=_want.w!==null&&_want.h!==null;
+  r.style.width=explicitSize?Math.max(40,_want.w<=1?_want.w*W:_want.w)+'px':'';
+  r.style.height=explicitSize?Math.max(20,_want.h<=1?_want.h*H:_want.h)+'px':'';
+  r.style.setProperty('--s',explicitSize?1:_want.s);r.style.setProperty('--r',(_want.r||0)+'deg');
   window.reportPosition(JSON.stringify({id:WIDGET_ID,x:_want.xf,y:_want.yf,s:_want.s,r:_want.r||0}));
   _lastW=W;_lastH=H;
 }
-function applyPos(xf,yf,s,rot){
-  _want={xf:xf,yf:yf,s:s,r:rot||0};
+function applyPos(xf,yf,s,rot,w,h){
+  _want={xf:xf,yf:yf,s:s,r:rot||0,
+    w:(typeof w==='number'&&isFinite(w)&&w>0)?w:null,
+    h:(typeof h==='number'&&isFinite(h)&&h>0)?h:null};
   _lastW=0;_lastH=0;
   flushPos();
 }
@@ -153,7 +45,9 @@ try{new ResizeObserver(function(){flushPos();}).observe(document.documentElement
 var _posSet=false;
 window.setHUDPosition=function(json){
   _posSet=true;
-  try{var p=JSON.parse(json);applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0));}catch(e){}
+  try{var p=(typeof json==='string')?JSON.parse(json):json;
+    applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0),
+      (typeof p.w==='number'?p.w:null),(typeof p.h==='number'?p.h:null));}catch(e){}
 };
 window.setLocalHUDLayout=function(json){
   try{var p=(typeof json==='string')?JSON.parse(json):json;applyPos(p.x,p.y,p.s,p.r);document.getElementById('root').style.display=p.hidden?'none':'';}catch(e){}

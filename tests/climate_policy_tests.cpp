@@ -8,16 +8,20 @@
 
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <limits>
 #include <vector>
 
 namespace
 {
-    void Require(bool condition)
+    void RequireImpl(bool condition, const char* expr, int line)
     {
         if (!condition)
+        {
+            std::fprintf(stderr, "Require failed at line %d: %s\n", line, expr);
             std::abort();
+        }
     }
 
     bool Near(float lhs, float rhs, float epsilon = 0.001f)
@@ -25,6 +29,8 @@ namespace
         return std::abs(lhs - rhs) <= epsilon;
     }
 }
+
+#define Require(cond) RequireImpl((cond), #cond, __LINE__)
 
 int main()
 {
@@ -47,6 +53,19 @@ int main()
 
     using namespace RadClimateSerialization;
     using namespace RadClimatePolicy;
+
+    Require(Near(BodyWarmth01(28.0f), 0.0f));
+    Require(Near(BodyWarmth01(37.0f), 1.0f));
+    Require(Near(BodyWarmth01(40.0f), 1.0f));
+    Require(Near(BodyWarmth01(20.0f), 0.0f));
+    ClimateState besideFire{};
+    besideFire.coreC = 35.0f;
+    EnvironmentSample fireEnvironment{};
+    fireEnvironment.ambientC = 8.0f;
+    fireEnvironment.heat01 = 0.7f;
+    for (int tick = 0; tick < 3600; ++tick)
+        besideFire = Step(besideFire, fireEnvironment, {}, 0.25f).state;
+    Require(Near(BodyWarmth01(besideFire.coreC), 1.0f));
 
     ClimateState state{};
     state.coreC = 34.75f;
@@ -210,6 +229,109 @@ int main()
     Require(ShouldProbe(true, 11, 10, 0.0f, 0.0f, 0.0f));
     Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));
     Require(ShouldProbe(true, 10, 10, kProbeMoveDistance, 0.0f, 0.0f));
+
+    ClimateState outdoorsFreezing{};
+    outdoorsFreezing.coreC = 36.0f;
+    outdoorsFreezing.wetness01 = 0.5f;
+    outdoorsFreezing = SanitizeState(outdoorsFreezing);
+    EnvironmentSample blizzardEnv{};
+    blizzardEnv.ambientC = -15.0f;
+    blizzardEnv.windMps = 15.0f;
+    blizzardEnv.precipitation01 = 1.0f;
+
+    ClimateState pausedState = outdoorsFreezing;
+    for (int i = 0; i < 1000; ++i)
+    {
+        const auto pausedRes = Step(pausedState, blizzardEnv, {}, 0.0f);
+        pausedState = pausedRes.state;
+        Require(pausedRes.coolingCPerSecond > 0.0f);
+    }
+    Require(Near(pausedState.coreC, outdoorsFreezing.coreC));
+    Require(Near(pausedState.wetness01, outdoorsFreezing.wetness01));
+    Require(pausedState.stage == outdoorsFreezing.stage);
+
+    ClimateState step4x025 = outdoorsFreezing;
+    for (int i = 0; i < 4; ++i)
+        step4x025 = Step(step4x025, blizzardEnv, {}, 0.25f).state;
+
+    ClimateState step1x100 = Step(outdoorsFreezing, blizzardEnv, {}, 1.0f).state;
+    Require(Near(step4x025.coreC, step1x100.coreC, 0.01f));
+    Require(Near(step4x025.wetness01, step1x100.wetness01, 0.01f));
+
+    ClimateState step4x5s = outdoorsFreezing;
+    for (int i = 0; i < 4; ++i)
+        step4x5s = Step(step4x5s, blizzardEnv, {}, kMaximumStepSeconds).state;
+
+    const auto delayed20sResult = StepTimeJump(outdoorsFreezing, blizzardEnv, {}, 20.0f, kMaximumStepSeconds);
+    Require(Near(delayed20sResult.state.coreC, step4x5s.coreC));
+    Require(Near(delayed20sResult.state.wetness01, step4x5s.wetness01));
+    Require(delayed20sResult.state.stage == step4x5s.stage);
+
+    const auto single5sStep = Step(outdoorsFreezing, blizzardEnv, {}, kMaximumStepSeconds);
+    Require(delayed20sResult.state.coreC < single5sStep.state.coreC);
+
+    Require(Near(ElapsedGameSeconds(1.0f / 24.0f), 3600.0f));
+    Require(Near(ElapsedGameSeconds(8.0f / 24.0f), 28800.0f));
+    Require(Near(ElapsedGameSeconds(1.0f), 86400.0f));
+    Require(Near(ElapsedGameSeconds(0.0f), 0.0f));
+    Require(Near(ElapsedGameSeconds(-0.5f), 0.0f));
+    Require(Near(ElapsedGameSeconds(std::numeric_limits<float>::quiet_NaN()), 0.0f));
+
+    const auto clampedStep = Step(outdoorsFreezing, blizzardEnv, {}, 100.0f);
+    const auto maxStep = Step(outdoorsFreezing, blizzardEnv, {}, kMaximumStepSeconds);
+    Require(Near(clampedStep.state.coreC, maxStep.state.coreC));
+    Require(Near(clampedStep.state.wetness01, maxStep.state.wetness01));
+
+    ClimateState coldAndWet{};
+    coldAndWet.coreC = 33.5f;
+    coldAndWet.wetness01 = 0.90f;
+    coldAndWet.stage = HypothermiaStage::kModerate;
+
+    EnvironmentSample indoorBedEnv{};
+    indoorBedEnv.indoors = true;
+    indoorBedEnv.ambientC = 20.0f;
+    indoorBedEnv.shelter01 = 1.0f;
+    indoorBedEnv.precipitationShelter01 = 1.0f;
+    indoorBedEnv.heat01 = 0.5f;
+
+    const auto sleepResult = StepTimeJump(coldAndWet, indoorBedEnv, {}, 28800.0f);
+    Require(Near(sleepResult.state.wetness01, 0.0f));
+    Require(Near(sleepResult.state.coreC, kNormalCoreC));
+    Require(sleepResult.state.stage == HypothermiaStage::kNormal);
+
+    ClimateState mildCold{};
+    mildCold.coreC = 36.0f;
+    mildCold.stage = HypothermiaStage::kChilled;
+    EnvironmentSample unheatedShelter = indoorBedEnv;
+    unheatedShelter.heat01 = 0.0f;
+    const auto mildRecovery = StepTimeJump(mildCold, unheatedShelter, {}, 28800.0f);
+    Require(mildRecovery.state.coreC >= 36.6f);
+    Require(mildRecovery.state.stage == HypothermiaStage::kNormal);
+
+    ClimateState dryOutdoor{};
+    dryOutdoor.coreC = 37.0f;
+    dryOutdoor.wetness01 = 0.0f;
+    dryOutdoor.stage = HypothermiaStage::kNormal;
+
+    EnvironmentSample rainOutdoorEnv{};
+    rainOutdoorEnv.indoors = false;
+    rainOutdoorEnv.ambientC = 5.0f;
+    rainOutdoorEnv.precipitation01 = 1.0f;
+    rainOutdoorEnv.shelter01 = 0.0f;
+
+    const auto rainWaitResult = StepTimeJump(dryOutdoor, rainOutdoorEnv, {}, 14400.0f);
+    Require(Near(rainWaitResult.state.wetness01, 1.0f));
+    Require(rainWaitResult.state.coreC < dryOutdoor.coreC);
+    Require(rainWaitResult.state.stage != HypothermiaStage::kNormal);
+
+    const auto travelResult = StepTimeJump(coldAndWet, indoorBedEnv, {}, 7200.0f);
+    Require(travelResult.state.wetness01 < coldAndWet.wetness01);
+    Require(travelResult.state.coreC > coldAndWet.coreC);
+
+    const auto hugeJump = StepTimeJump(outdoorsFreezing, blizzardEnv, {}, 1000000.0f);
+    Require(std::isfinite(hugeJump.state.coreC));
+    Require(std::isfinite(hugeJump.state.wetness01));
+    Require(hugeJump.state.coreC >= kMinimumCoreC && hugeJump.state.coreC <= kMaximumCoreC);
 
     return 0;
 }

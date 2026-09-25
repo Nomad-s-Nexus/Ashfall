@@ -2,6 +2,7 @@
 #include "ClimateProtectionRuntime.h"
 #include "ClimateInsulationPolicy.h"
 #include "ClimatePowerArmorPolicy.h"
+#include <format>
 
 #include <RE/A/ActorEquipManager.h>
 #include <RE/A/ActorEquipManagerEvent.h>
@@ -14,6 +15,8 @@
 #include <RE/T/TESFile.h>
 #include <RE/T/TESForm.h>
 #include <RE/T/TESObjectARMO.h>
+#include <RE/T/TESNPC.h>
+#include <RE/T/TESRace.h>
 
 namespace
 {
@@ -140,6 +143,7 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
     std::size_t powerArmorPieces = 0;
     bool powerArmorHelmet = false;
     auto& biped = *player->biped;
+    const auto* npc = player->GetNPC();
     for (std::size_t i = 0; i < std::size(biped.object); ++i)
     {
         auto* form = biped.object[i].parent.object;
@@ -147,6 +151,9 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
             continue;
 
         auto* armor = static_cast<RE::TESObjectARMO*>(form);
+        if ((player->race && player->race->formSkin == armor) ||
+            (npc && npc->formSkin == armor))
+            continue;
         auto [it, inserted] = piecesByForm.try_emplace(armor->GetFormID());
         auto& worn = it->second;
         if (inserted)
@@ -191,7 +198,7 @@ RadClimatePolicy::ProtectionSample ClimateProtectionRuntime::Scan(RE::PlayerChar
         ArmorInfo info;
         info.formID = piece.armor->GetFormID();
         const char* name = piece.armor->GetFullName();
-        info.name = name && name[0] ? name : "<unnamed>";
+        info.name = name && name[0] ? name : std::format("Unnamed armor [{:08X}]", info.formID);
         info.warmth01 = RadClimateInsulationPolicy::PieceWarmth(piece.sample);
         info.insulation01 = RadClimateInsulationPolicy::PieceInsulation(piece.sample);
         info.overridden = std::isfinite(piece.sample.overrideInsulation01) &&

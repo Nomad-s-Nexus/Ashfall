@@ -1,7 +1,9 @@
 #include "RadEngine_Internal.h"
 #include "ClimateRuntime.h"
 #include "SerializationPolicy.h"
+#include "RadMaskOwnership.h"
 
+#include <algorithm>
 #include <vector>
 
 using namespace RadInternal;
@@ -69,7 +71,7 @@ bool RadiationEngine::Initialize()
 
         if (!_config->LoadFromFile(dataPath))
         {
-            logger->error("  ✗ Failed to load config from {}", dataPath);
+            logger->error("✗ Failed to load config from {}", dataPath);
             logger->error("  Check logs above for specific parsing errors");
             return false;
         }
@@ -168,6 +170,9 @@ void RadiationEngine::Update()
         bool inRadWeather = false;
         if (_radWeatherList && sky && sky->currentWeather)
             inRadWeather = _radWeatherList->ContainsItem(sky->currentWeather);
+        const std::uint32_t currentWeatherID = sky && sky->currentWeather
+            ? sky->currentWeather->GetFormID() : 0;
+        bool enteredRadWeather = false;
 
         // Dust horizon build-up: during the WARNING phase we only fade the dust sky in on the horizon —
         // the storm hasn't HIT yet, so suppress the FLST-driven choke / CHOKING health / gas-mask
@@ -193,6 +198,10 @@ void RadiationEngine::Update()
             _enclosedCheckTick = kEnclosedRecheckTicks;
             _playerEnclosed    = ComputeEnclosedByStructure();
         }
+
+        RetryStormGhoulCleanup();
+        RetryPendingStormGhouls();
+        RetireUnresolvedStormGhouls();
 
         // Hunter ghoul pack: persists past the storm, so check (throttled) whether the player has
         // left the area and the pack should despawn. Runs every tick regardless of storm/ghoul state.
@@ -342,7 +351,7 @@ void RadiationEngine::Update()
             if (realMasked)
             {
                 // filter drains while worn AND actually exposed to the air it's filtering
-                if (filterSys && maskExposed && _filterCharge > 0.0f)
+                if (filterSys && maskExposed && inRadWeather && _filterCharge > 0.0f)
                     _filterCharge = std::max(0.0f, _filterCharge - (100.0f / _filterDurationSec) * 0.25f);
 
                 // auto replace / repair when empty/broken
@@ -383,6 +392,25 @@ void RadiationEngine::Update()
                                               realMasked ? _filterSparesCache : 0, realMasked);
         }
 
+        const bool airSheltered = IsPlayerSheltered() || IsPlayerInPoweredShelter();
+        const bool airSealed = IsPlayerInPowerArmor();
+        const bool airExposed = inRadWeather && !airSheltered && !airSealed;
+        const bool failedAirMask = realMasked &&
+            ((filterSys && _filterCharge <= 0.0f) || (condSys && _maskCondition <= 0.0f));
+        const float airHealthLoss = _chokingEnabled && airExposed && (!realMasked || failedAirMask)
+            ? _chokeHealthPerSec * (realMasked ? _chokeFailedFactor : 1.0f) : 0.0f;
+        RadHud::GetSingleton().PushAir(json{
+            { "contaminated", inRadWeather }, { "sheltered", airSheltered }, { "sealed", airSealed },
+            { "masked", realMasked }, { "failed", failedAirMask }, { "chokingEnabled", _chokingEnabled },
+            { "healthLoss", actorValue->health ? airHealthLoss : 0.0f },
+            { "radGain", airExposed && failedAirMask && actorValue->rads ? _filterChokeRads : 0.0f },
+            { "filterDrain", airExposed && realMasked && filterSys && _filterCharge > 0.0f
+                ? 100.0f / _filterDurationSec : 0.0f },
+            { "charge", filterSys ? std::round(_filterCharge) : -1.0f },
+            { "condition", condSys ? std::round(_maskCondition) : -1.0f },
+            { "spares", realMasked ? _filterSparesCache : 0 }
+        }.dump());
+
         // ---- Choke-gate diagnostic (opt-in via the `shelter` debug command) ----
         // Dumps the live values behind every mask/choke gate once per second so we can see WHY a
         // feature is (not) firing in-game: the actual current-weather FormID and whether it's in the
@@ -418,7 +446,7 @@ void RadiationEngine::Update()
                 _chokeCalmTicks = 0;
                 if (_chokeTicks < 1000) ++_chokeTicks;
 
-                const float rate = _chokeHealthPerSec * (realMasked ? _chokeFailedFactor : 1.0f);
+            const float rate = airHealthLoss;
                 player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *actorValue->health,
                                       -rate * 0.25f);
 
@@ -468,9 +496,11 @@ void RadiationEngine::Update()
             if (_wasInRadWeather == -1)
             {
                 _wasInRadWeather = inRadNow;   // first eval after load: sync silently
+                _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
             }
             else if (inRadNow != _wasInRadWeather)
             {
+                enteredRadWeather = inRadWeather;
                 if (inRadWeather)
                 {
                     // Player: don an owned mask if not already masked.
@@ -494,6 +524,11 @@ void RadiationEngine::Update()
                 }
                 _wasInRadWeather = inRadNow;
             }
+            else if (inRadWeather && _lastRadWeatherFormID != 0 &&
+                     _lastRadWeatherFormID != currentWeatherID)
+            {
+                enteredRadWeather = true;
+            }
             else if (inRadWeather && --_npcMaskScanTick <= 0)
             {
                 // Still in rad weather: re-scan so NPCs that loaded in mid-storm also mask up
@@ -501,7 +536,10 @@ void RadiationEngine::Update()
                 _npcMaskScanTick = kNpcMaskRescanTicks;
                 EquipNearbyNpcMasks(true);
             }
+            _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
         }
+        if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold))
+            SpawnStormGhouls();
 
         // Apply debuffs based on EFFECTIVE radiation (drives stage perks -> SPECIAL + Pipboy + IMAD).
         ApplyDebuffs(static_cast<uint32_t>(effectiveRads));
@@ -575,6 +613,10 @@ namespace
     constexpr std::uint32_t kStormClockVersion = 1;
     constexpr std::uint32_t kFilterRecord      = 'FILT';  // co-save: gas-mask filter charge + condition
     constexpr std::uint32_t kFilterVersion     = 2;       // v2 adds mask condition after charge
+    constexpr std::uint32_t kMaskOwnershipRecord = 'MOWN';
+    constexpr std::uint32_t kMaskOwnershipVersion = 1;
+    constexpr std::uint32_t kMaskOwnershipHeaderLen = sizeof(std::uint32_t);
+    constexpr std::uint32_t kMaskOwnershipEntryLen = sizeof(std::uint32_t) * 2;
 
     // Storm-clock record payload: three doubles (play, next, lastRadstorm) + one uint8 (scheduled).
     constexpr std::uint32_t kStormClockLen = sizeof(double) * 3 + sizeof(std::uint8_t);
@@ -748,13 +790,11 @@ void RadiationEngine::EnsureEslLoaded()
             _fireHazardForm ? "resolved (firestorm ring spawn enabled)" : "NOT found");
     }
 
-    // Safe firestorm detonation. This spawns our zero-damage, 360-degree cinematic nuke explosion;
-    // the missile Projectile::Launch ABI remains out of scope until it can be tested independently.
     {
-        RE::TESForm* xForm = dh->LookupForm(0x885, kEslName);
+        RE::TESForm* xForm = dh->LookupForm(0x886, kEslName);
         _nukeExplosionForm = (xForm && xForm->GetFormType() == RE::ENUM_FORM_ID::kEXPL)
             ? static_cast<RE::BGSExplosion*>(xForm) : nullptr;
-        logger->info("[ESL] Firestorm distant-strike form (0x885): {}.",
+        logger->info("[ESL] Firestorm distant-strike form (0x886): {}.",
             _nukeExplosionForm ? "resolved" : "MISSING");
     }
 
@@ -1132,6 +1172,22 @@ void RadiationEngine::SaveState(const F4SE::SerializationInterface* a_intfc) con
         a_intfc->WriteRecordData(_filterCharge);
         a_intfc->WriteRecordData(_maskCondition);
     }
+
+    const auto ownership = RadMaskOwnership::Snapshot();
+    if (a_intfc->OpenRecord(kMaskOwnershipRecord, kMaskOwnershipVersion))
+    {
+        const auto count = static_cast<std::uint32_t>(ownership.size());
+        a_intfc->WriteRecordData(count);
+        for (const auto& entry : ownership)
+        {
+            a_intfc->WriteRecordData(entry.actorFormID);
+            a_intfc->WriteRecordData(entry.maskFormID);
+        }
+    }
+    else
+    {
+        logger->error("[Save] Could not open mask-ownership record.");
+    }
 }
 
 
@@ -1146,7 +1202,11 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     // state. Conflicting valid records fail safe and schedule a fresh storm rather than arbitrarily moving
     // the monotonic play clock backward or postponing storms by an unbounded amount.
     std::vector<RadiationSerialization::StormClockState> clockCandidates;
-    int    clockSeen = 0, clockRejected = 0;
+    std::vector<RadiationSerialization::FilterState> filterCandidates;
+    std::vector<std::vector<RadMaskOwnership::Entry>> ownershipCandidates;
+    int clockSeen = 0, clockRejected = 0;
+    int filterSeen = 0, filterRejected = 0;
+    int ownershipSeen = 0, ownershipRejected = 0;
     std::vector<RadClimateSerialization::PersistedState> climateCandidates;
     int climateSeen = 0, climateRejected = 0;
 
@@ -1180,25 +1240,74 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
             climateCandidates.push_back(candidate);
             continue;
         }
+        if (type == kMaskOwnershipRecord)
+        {
+            ++ownershipSeen;
+            if (version != kMaskOwnershipVersion || length < kMaskOwnershipHeaderLen)
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} v{} len {} is unsupported — ignoring.",
+                    ownershipSeen, version, length);
+                continue;
+            }
+
+            std::uint32_t count = 0;
+            if (!readExact(count) || count > RadMaskOwnership::kMaxEntries)
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} has invalid count — ignoring.", ownershipSeen);
+                continue;
+            }
+
+            const auto expectedLength = kMaskOwnershipHeaderLen + count * kMaskOwnershipEntryLen;
+            if (length != expectedLength)
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} bad length {} (expected {}) — ignoring.",
+                    ownershipSeen, length, expectedLength);
+                continue;
+            }
+
+            std::vector<RadMaskOwnership::Entry> candidate;
+            candidate.reserve(count);
+            bool read = true;
+            for (std::uint32_t i = 0; i < count; ++i)
+            {
+                RadMaskOwnership::Entry entry{};
+                if (!readExact(entry.actorFormID) || !readExact(entry.maskFormID))
+                {
+                    read = false;
+                    break;
+                }
+                candidate.push_back(entry);
+            }
+            if (!read || !RadMaskOwnership::IsValidSnapshot(candidate))
+            {
+                ++ownershipRejected;
+                logger->warn("[Load] Mask-ownership record #{} is invalid or truncated — ignoring.", ownershipSeen);
+                continue;
+            }
+            ownershipCandidates.push_back(std::move(candidate));
+            continue;
+        }
         if (type == kFilterRecord)
         {
+            ++filterSeen;
             float charge = 100.0f;
             float condition = 100.0f;
             const bool isV1 = version == 1 && length == kFilterV1Len;
             const bool isV2 = version == kFilterVersion && length == kFilterV2Len;
             const bool read = isV1 ? readExact(charge) :
                               isV2 ? readExact(charge) && readExact(condition) : false;
-            if (!read || !std::isfinite(charge) || charge < 0.0f || charge > 100.0f ||
-                (isV2 && (!std::isfinite(condition) || condition < 0.0f || condition > 100.0f)))
+            const RadiationSerialization::FilterState candidate{ charge, condition };
+            if (!read || !RadiationSerialization::IsValidFilterState(candidate))
             {
-                logger->warn("[Load] Filter record v{} len {} is invalid or truncated — keeping defaults.", version, length);
+                ++filterRejected;
+                logger->warn("[Load] Filter record #{} v{} len {} is invalid or truncated — ignoring.",
+                    filterSeen, version, length);
                 continue;
             }
-            _filterCharge = charge;
-            if (isV2)
-                _maskCondition = condition;
-            logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%).",
-                _filterCharge, _maskCondition);
+            filterCandidates.push_back(candidate);
             continue;
         }
         if (type != kStormClockRecord)
@@ -1277,7 +1386,63 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
             clockSeen, clockRejected);
         ScheduleNextStorm();
     }
-    // No SCLK record at all: RevertState's fresh defaults (run before this callback) stand.
+
+    if (filterCandidates.size() == 1 ||
+        (filterCandidates.size() > 1 && RadiationSerialization::ClassifyFilterCandidates(filterCandidates) ==
+            RadiationSerialization::FilterCandidateDisposition::kRestore))
+    {
+        const auto& filter = filterCandidates.front();
+        _filterCharge = filter.charge;
+        _maskCondition = filter.condition;
+        logger->info("[Load] Gas-mask filter restored (charge {:.0f}%, condition {:.0f}%){}.",
+            _filterCharge, _maskCondition, filterCandidates.size() > 1 ? " [identical duplicates]" : "");
+    }
+    else if (!filterCandidates.empty())
+    {
+        logger->warn("[Load] {} conflicting valid filter records — refusing to choose; keeping fresh defaults.",
+            filterCandidates.size());
+    }
+    else if (filterSeen > 0)
+    {
+        logger->warn("[Load] {} filter record(s) present but none valid ({} rejected) — keeping fresh defaults.",
+            filterSeen, filterRejected);
+    }
+
+    if (RadMaskOwnership::ClassifyCandidates(ownershipCandidates) == RadMaskOwnership::CandidateDisposition::kRestore)
+    {
+        std::vector<RadMaskOwnership::Entry> resolved;
+        resolved.reserve(ownershipCandidates.front().size());
+        for (const auto& entry : ownershipCandidates.front())
+        {
+            const auto actorID = a_intfc->ResolveFormID(entry.actorFormID);
+            const auto maskID = a_intfc->ResolveFormID(entry.maskFormID);
+            if (actorID && maskID)
+                resolved.push_back({ *actorID, *maskID });
+        }
+        std::ranges::sort(resolved, {}, &RadMaskOwnership::Entry::actorFormID);
+        if (RadMaskOwnership::Restore(resolved))
+        {
+            logger->info("[Load] Auto-mask ownership restored ({} of {} entries resolved).",
+                resolved.size(), ownershipCandidates.front().size());
+        }
+        else
+        {
+            RadMaskOwnership::Clear();
+            logger->warn("[Load] Resolved auto-mask ownership was ambiguous — ownership discarded.");
+        }
+    }
+    else if (!ownershipCandidates.empty())
+    {
+        RadMaskOwnership::Clear();
+        logger->warn("[Load] {} conflicting valid mask-ownership records — ownership discarded.",
+            ownershipCandidates.size());
+    }
+    else if (ownershipSeen > 0)
+    {
+        RadMaskOwnership::Clear();
+        logger->warn("[Load] {} mask-ownership record(s) present but none valid ({} rejected) — ownership discarded.",
+            ownershipSeen, ownershipRejected);
+    }
 }
 
 
@@ -1288,11 +1453,14 @@ void RadiationEngine::RevertState()
     _playSeconds      = 0.0;
     _nextStormPlaySec = 0.0;
     _lastRadstormSec  = -1.0e30;
+    _lastRadWeatherFormID = 0;
     _stormScheduled   = false;
+    ResetStormGhoulStateForLoad();
     _filterCharge     = 100.0f;   // fresh full filter for a new game / co-saveless load
     _filterLowWarned  = 0;
     _maskCondition    = 100.0f;
     _conditionLowWarned = 0;
+    RadMaskOwnership::Clear();
     Log()->info("[Revert] Storm clock reset (new game / pre-load).");
 }
 
@@ -1315,6 +1483,9 @@ void RadiationEngine::OnNewGame()
 void RadiationEngine::OnPostLoad()
 {
     auto logger = Log();
+    ResetStormGhoulStateForLoad();
+    _forceClearOnEntry = false;
+    _spawnRadBlockTicks = 0;
 
     // Re-seed tissue fields from globals on every load so switching saves doesn't
     // carry the previous run's in-memory values into a fresh character's session.
@@ -1348,9 +1519,24 @@ void RadiationEngine::OnPostLoad()
     // auto-equip on load); we only act on weather transitions during play. Clear the NPC mask set
     // too — actor pointers/handles do not carry across loads, and the re-scan will repopulate it.
     _wasInRadWeather = -1;
+    _lastRadWeatherFormID = 0;
     _autoMaskEquipped = false;
     _npcMaskScanTick = 0;
     _autoMaskedNpcs.clear();
+    const auto ownership = RadMaskOwnership::Snapshot();
+    if (!ownership.empty())
+    {
+        _wasInRadWeather = 1;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        const auto playerID = player ? player->GetFormID() : 0;
+        for (const auto& entry : ownership)
+        {
+            if (playerID != 0 && entry.actorFormID == playerID)
+                _autoMaskEquipped = true;
+            else
+                _autoMaskedNpcs.insert(entry.actorFormID);
+        }
+    }
 
     // The engine clears kTemporary AV modifiers on load, but our trackers persist in the DLL singleton.
     // Reset them so the radiation SPECIAL penalty re-applies fresh next tick (ApplyClampedSpecial) — a
@@ -1431,6 +1617,7 @@ void RadiationEngine::OnPostLoad()
     // NOTE: _stormScheduled / _nextStormPlaySec intentionally preserved (persisted schedule, see above).
     _stormExposedTicks = 0;
     _weatherForced     = false;
+    _weatherHandoffWaitTicks = 0;
     _debugWeatherHold  = false;   // never let a debug weather hold survive a load
     RadHud::GetSingleton().PushStorm(static_cast<int>(StormPhase::Idle), 0, 0.0f, true, false);
 

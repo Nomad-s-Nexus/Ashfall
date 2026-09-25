@@ -1,10 +1,3 @@
-// Rad Overhaul HUD overlay: gas-mask overlay, filter/condition widget, storm banners,
-// SPECIAL popup, and the debug menu. The vitals HUD (rads/tissue/health/AP bars) moved to
-// PrismaHUD_F4 — its JS (updateRad/toggleHud/loadHudPrefs, drag/resize, prefs persistence)
-// was excised 2026-07-03 along with the matching C++ paths.
-
-// SPECIAL-penalty diagnostic popup, driven by C++ (showSpecialInfo {lines:[...]}). Shows the full
-// multi-line report (the vanilla HUD corner truncated it). Dismissed via the CLOSE button or backdrop.
 window.showSpecialInfo = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
@@ -25,10 +18,6 @@ function closeSpecialInfo() {
   if (p) p.classList.remove("on");
 }
 
-// Fullscreen low-filter visor fog, driven by C++ (updateFilter {charge, condition, spares, masked}).
-// The FILTER/MASK BAR widget moved to the standalone hud_filter.html view (registered with PrismaHUD_F4
-// for positioning); only the fullscreen condensation haze stays here. Fog builds below 30% charge (max
-// at 0), or a fixed haze when the mask is broken; cleared entirely while unmasked.
 window.updateFilter = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
@@ -44,12 +33,7 @@ window.updateFilter = function(json) {
   } catch(e) {}
 };
 
-// First-person gas-mask screen overlay, driven by C++ (setMask {on:bool}). Toggles the CSS fade
-// class on the fullscreen <img>; the engine sends only on state change.
-//   Put-on timing: this mod ships its own mask (no GMW), so there is no external first-person
-//   put-on animation to wait for. Fade in promptly. If we later add our own put-on animation
-//   (e.g. a baked APNG sweep), raise this to hold the static overlay until that finishes.
-var MASK_ON_DELAY = 0.0;   // seconds to wait after equip before the overlay fades in
+var MASK_ON_DELAY = 0.0;
 window.setMask = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
@@ -82,22 +66,25 @@ window.stormPhase = function(json) {
     currentStormTheme = theme; currentStormPhase = phase;
     var banner = document.getElementById("emissionBanner");
     var sub    = document.getElementById("emissionSub");
-    if (phase === 0 || !STORM_THEMES[theme]) { banner.className=""; sub.className=""; return; }
+    if (phase === 0 || !STORM_THEMES[theme]) {
+      clearTimeout(bannerTimer);
+      banner.className=""; sub.className=""; return;
+    }
     if (phaseChanged) {
       var th = STORM_THEMES[theme];
       if (phase === 3) {
-        // Aftermath: the storm is clearing. Show a calmer "passing" banner so the player
-        // knows it's ending, instead of re-flashing the same alarming storm warning.
         banner.textContent = th.name + " - PASSING";
         sub.textContent    = "The storm is clearing - radiation subsiding";
       } else {
         banner.textContent = th.name + (lethal && (phase===1||(phase===2&&!shelter)) ? " - SEEK SHELTER!" : "");
         sub.textContent    = th.sub;
       }
-      banner.className = "on " + th.cls + "-b";
-      sub.className    = "on " + th.cls + "-s";
+      var warning = phase === 1;
+      var blink = warning ? " warning-blink" : "";
+      banner.className = "on " + th.cls + "-b" + blink;
+      sub.className    = "on " + th.cls + "-s" + blink;
       clearTimeout(bannerTimer);
-      bannerTimer = setTimeout(function(){ banner.className=""; sub.className=""; }, 10000);
+      bannerTimer = warning ? 0 : setTimeout(function(){ banner.className=""; sub.className=""; }, 10000);
     }
   } catch(e) {}
 };
@@ -111,9 +98,17 @@ function setGhoulChanceLabel(value) {
   return n;
 }
 
-function setGhoulChance(value) { cmd("ghouls:chance:" + setGhoulChanceLabel(value)); }
-function setGhoulEnabled(enabled) { cmd(enabled ? "ghouls:on" : "ghouls:off"); }
-function resetGhoulSettings() { cmd("ghouls:reset"); }
+function setGhoulChance(value) {
+  cmd("ghouls:chance:" + Math.max(0, Math.min(100, parseInt(value, 10) || 0)));
+}
+
+function setGhoulEnabled(enabled) {
+  cmd(enabled ? "ghouls:on" : "ghouls:off");
+}
+
+function resetGhoulSettings() {
+  cmd("ghouls:reset");
+}
 
 function setGhoulSettings(state) {
   try {
@@ -125,45 +120,91 @@ function setGhoulSettings(state) {
     var status = document.getElementById("ghoulState");
     if (input) input.value = n;
     if (output) output.textContent = n + "%";
-    if (status) status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+    if (status) {
+      status.textContent = "HUNTER PACKS: " + (enabled ? "ON" : "OFF") + " | SPAWN CHANCE: " + n + "%";
+      status.classList.toggle("off", !enabled);
+    }
   } catch (e) {}
 }
+
 
 window.setArmorInfo = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
-    var summary = document.getElementById("armorSummary");
+    if (!d || typeof d !== "object") return;
     var list = document.getElementById("armorList");
-    if (!summary || !list) return;
-    var pieces = Array.isArray(d && d.pieces) ? d.pieces : [];
-    summary.textContent = "ARMOR INSULATION: " + (+d.insulation || 0) + "% | EFFECTIVE THERMAL: " +
-      (+d.effectiveInsulation || 0) + "% | POWER ARMOR: " + (d.powerArmor ? "SEALED" : "NO");
-    list.textContent = "";
-    if (!pieces.length) {
-      var empty = document.createElement("div");
-      empty.className = "armor-empty";
-      empty.textContent = "NO WORN ARMOR";
-      list.appendChild(empty);
-      return;
+    var nonThermalList = document.getElementById("armorNonThermalList");
+    if (!list || !nonThermalList) return;
+    var regions = ["head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"];
+    var labels = ["HEAD", "TORSO", "L ARM", "R ARM", "L LEG", "R LEG"];
+    function percent(value) {
+      var n = Number(value);
+      return isFinite(n) ? Math.round(Math.max(0, Math.min(100, n))) : 0;
     }
-    pieces.forEach(function(piece) {
-      var row = document.createElement("div");
-      row.className = "armor-row";
-      var name = document.createElement("div");
-      name.className = "armor-name";
-      name.textContent = (piece.name || "<unnamed>") + (piece.override ? "  [OVERRIDE]" : "");
-      var detail = document.createElement("div");
-      detail.className = "armor-detail";
-      var coverage = [];
-      if (piece.head) coverage.push("HEAD");
-      if (piece.torso) coverage.push("TORSO");
-      if (piece.leftArm || piece.rightArm) coverage.push("ARMS");
-      if (piece.leftLeg || piece.rightLeg) coverage.push("LEGS");
-      detail.textContent = "WARMTH " + (+piece.warmth || 0) + "% | INSULATION " +
-        (+piece.insulation || 0) + "% | COVER " + (coverage.join("/") || "NONE");
-      row.appendChild(name);
-      row.appendChild(detail);
-      list.appendChild(row);
+    var pieces = (Array.isArray(d.pieces) ? d.pieces : []).filter(function(p) {
+      return p && typeof p === "object";
+    });
+    pieces.sort(function(a, b) {
+      return percent(b.insulation) - percent(a.insulation) || String(a.name || "").localeCompare(String(b.name || ""));
+    });
+    var thermal = [], nonThermal = [];
+    pieces.forEach(function(p) {
+      var contributes = percent(p.insulation) > 0 ||
+        (percent(p.warmth) > 0 && regions.some(function(region) { return !!p[region]; }));
+      (contributes ? thermal : nonThermal).push(p);
+    });
+    document.getElementById("armorInsulation").textContent = percent(d.insulation) + "%";
+    document.getElementById("armorEffective").textContent = percent(d.effectiveInsulation) + "%";
+    document.getElementById("armorInsulationMeter").style.width = percent(d.insulation) + "%";
+    document.getElementById("armorEffectiveMeter").style.width = percent(d.effectiveInsulation) + "%";
+    document.getElementById("armorPower").textContent = d.powerArmor ? "SEALED" : "UNSEALED";
+    document.getElementById("armorPowerDetail").textContent = d.powerArmor ? "COMPLETE SUIT DETECTED" : "NO COMPLETE SUIT DETECTED";
+    var figure = document.getElementById("armorFigure");
+    figure.classList.toggle("power-armor", d.inPowerArmor === true);
+    figure.setAttribute("aria-label", d.inPowerArmor === true ?
+      "Front-facing Power Armor reference schematic" : "Front-facing Vault suit reference schematic");
+    document.getElementById("armorThermalCount").textContent = thermal.length + " RECORDS";
+    document.getElementById("armorNonThermalCount").textContent = nonThermal.length + " RECORDS";
+    function renderRows(target, records, emptyText) {
+      target.textContent = "";
+      if (!records.length) {
+        var empty = document.createElement("tr");
+        var cell = document.createElement("td");
+        cell.className = "armor-empty";
+        cell.colSpan = 5;
+        cell.textContent = emptyText;
+        empty.appendChild(cell);
+        target.appendChild(empty);
+      }
+      records.forEach(function(piece) {
+        var row = document.createElement("tr");
+        row.className = "armor-row";
+        var coverage = regions.filter(function(region) { return !!piece[region]; }).map(function(region) {
+          return labels[regions.indexOf(region)];
+        });
+        [piece.name || "<unnamed>", coverage.length ? percent(piece.warmth) + "%" : "--", percent(piece.insulation) + "%",
+          coverage.join(" / ") || "NONE", piece.override ? "OVERRIDE" : coverage.length ? "DEFAULT" : "--"].forEach(function(value, index) {
+          var cell = document.createElement("td");
+          cell.textContent = value;
+          if (index === 4 && piece.override) cell.className = "armor-override";
+          row.appendChild(cell);
+        });
+        target.appendChild(row);
+      });
+    }
+    renderRows(list, thermal, pieces.length ? "NO THERMAL CONTRIBUTION" : "NO WORN ARMOR");
+    renderRows(nonThermalList, nonThermal, "NONE EQUIPPED");
+    regions.forEach(function(region) {
+      var zone = document.getElementById("armorRegion-" + region);
+      var names = thermal.filter(function(piece) { return !!piece[region]; });
+      var items = zone.querySelector("ul");
+      zone.classList.toggle("covered", names.length > 0);
+      items.textContent = "";
+      (names.length ? names : [{name: "NO THERMAL COVERAGE"}]).forEach(function(piece) {
+        var item = document.createElement("li");
+        item.textContent = piece.name || "<unnamed>";
+        items.appendChild(item);
+      });
     });
   } catch (e) {}
 };
@@ -181,7 +222,6 @@ window.SetDebugMenu = function(on) {
   }
 };
 
-// Debug-menu tabs: "rad" (Rad Mod controls) | "wthr" (force-weather list) | "armor" (climate gear).
 function showTab(which) {
   var tabs = ["rad", "wthr", "ghouls", "armor", "hud"];
   for (var i = 0; i < tabs.length; i++) {
@@ -192,5 +232,8 @@ function showTab(which) {
     if (btn)  { if (on) btn.classList.add("on");  else btn.classList.remove("on"); }
   }
   var panel = document.getElementById("debugPanel");
-  if (panel) panel.scrollTop = 0;
+  if (panel) {
+    panel.classList.toggle("armor-view", which === "armor");
+    panel.scrollTop = 0;
+  }
 }

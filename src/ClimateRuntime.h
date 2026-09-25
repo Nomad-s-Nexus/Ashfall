@@ -31,6 +31,7 @@ public:
     [[nodiscard]] const std::vector<ClimateProtectionRuntime::ArmorInfo>& LastArmor() const noexcept { return _protection.LastArmor(); }
     [[nodiscard]] bool LastRoofed() const noexcept { return _shelter.LastRoofed(); }
     [[nodiscard]] float LastHeat01() const noexcept { return _heat.LastHeat01(); }
+    [[nodiscard]] float PrevGameDays() const noexcept { return _prevGameDays; }
 
 private:
     ClimateRuntime() = default;
@@ -43,6 +44,7 @@ private:
     RadClimatePolicy::HypothermiaStage _lastLoggedStage{ RadClimatePolicy::HypothermiaStage::kNormal };
     float _lastAmbientC{ RadClimatePolicy::kNeutralAmbientC };
     float _lastEffectiveInsulation01{ 0.0f };
+    float _prevGameDays{ -1.0f };
     bool _lastRainy{ false };
     bool _lastIndoors{ false };
     bool _weatherConfigLoaded{ false };

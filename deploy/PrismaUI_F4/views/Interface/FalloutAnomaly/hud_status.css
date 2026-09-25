@@ -1,0 +1,13 @@
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;user-select:none}
+#root{position:fixed;left:0;top:0;transform-origin:top left;transform:rotate(var(--r,0deg)) scale(var(--s,1));font:10px Consolas,"Courier New",monospace;color:#b9d4a6;opacity:0;transition:opacity .2s;display:flex;gap:4px}
+#root.visible,#root.on{opacity:1}
+.status{width:56px;height:58px;flex:none;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;background:rgba(7,15,8,.72);border-bottom:1px solid #536d45;text-shadow:0 1px 2px #000}
+.status svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.status .label{font-size:8px;letter-spacing:.7px;color:#9cad90}
+.status b{font-size:10px;font-weight:normal;white-space:nowrap}
+.status.warn{color:#d9c18a;border-color:#998358}
+.status.danger{color:#e59a83;border-color:#b36f58}
+.status.dim{color:#819378}
+.status[hidden]{display:none}
+.status:focus-visible{outline:1px solid currentColor}

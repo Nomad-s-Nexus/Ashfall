@@ -114,8 +114,8 @@ void RadiationEngine::DebugClearAll()
 {
     _tissueDamage = 0.0f;
     _permanentTissueDamage = 0.0f;
-    if (_tissueGlobal)          _tissueGlobal->value = 0.0f;
-    if (_permanentTissueGlobal) _permanentTissueGlobal->value = 0.0f;
+    if (_tissueGlobal)          _tissueGlobal->value = _tissueDamage;
+    if (_permanentTissueGlobal) _permanentTissueGlobal->value = _permanentTissueDamage;
     auto* player = RE::PlayerCharacter::GetSingleton();
     auto* av = RE::ActorValue::GetSingleton();
     if (player && av && av->rads)
@@ -137,9 +137,9 @@ void RadiationEngine::HandleDebugCommand(const char* action)
     _pendingDebugCmds.emplace_back(action);
 }
 
-int RadiationEngine::StormGhoulChancePercent() const noexcept
+void RadiationEngine::PushGhoulSettingsToHud()
 {
-    return static_cast<int>(std::lround(std::clamp(_stormGhoulSpawnChance, 0.0f, 1.0f) * 100.0f));
+    RadHud::GetSingleton().PushGhoulSettings(_stormGhoulsEnabled, _stormGhoulSpawnChance);
 }
 
 
@@ -148,6 +148,20 @@ void RadiationEngine::DrainDebugCommands()
     std::vector<std::string> cmds;
     {
         std::lock_guard<std::mutex> lock(_debugCmdMutex);
+        if (_prevRads < 0.0f)
+        {
+            _maskOverride = -1;
+            _debugShelter = false;
+            _filterSparesCache = 0;
+            _filterCountTick = 0;
+            _enclosedCheckTick = 0;
+            _weatherReturnTarget = nullptr;
+            _weatherReturnCaptured = false;
+            _releaseWeatherOverrideWhenSettled = false;
+            _weatherHandoffSettleTicks = 0;
+            _pendingDebugCmds.clear();
+            return;
+        }
         if (_pendingDebugCmds.empty()) return;
         cmds.swap(_pendingDebugCmds);
     }
@@ -164,7 +178,6 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     Log()->warn("[DIAG] DispatchDebugCommand (main thread): '{}'", a);
 
     // Commands: "storm:0".."storm:4", "endstorm", "tissue:150", "perm:40",
-    // "rads:600", "clear", "close".
     auto numAfter = [&](const char* prefix) -> float {
         return static_cast<float>(std::atof(a.c_str() + std::strlen(prefix)));
     };
@@ -197,50 +210,44 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "weather:clear")        DebugClearWeather();
     else if (a.rfind("forceweather:", 0) == 0) DebugForceWeatherByForm(a.substr(std::strlen("forceweather:")));
     else if (a.rfind("weather:", 0) == 0) DebugPreviewWeather(static_cast<int>(numAfter("weather:")));
-    else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
-    else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
-    else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);
-    else if (a == "fixstats")             DebugFixSpecial();
     else if (a == "ghouls:on")
     {
         _stormGhoulsEnabled = true;
-        RadHud::GetSingleton().PushGhoulSettings(true, static_cast<int>(_stormGhoulSpawnChance * 100.0f + 0.5f));
-        Notify("[DEBUG] Storm ghoul rolls enabled.", false);
+        PushGhoulSettingsToHud();
+        Notify("[DEBUG] Storm ghoul packs enabled for future storms.", false);
     }
     else if (a == "ghouls:off")
     {
         _stormGhoulsEnabled = false;
         ClearStormGhouls();
-        RadHud::GetSingleton().PushGhoulSettings(false, static_cast<int>(_stormGhoulSpawnChance * 100.0f + 0.5f));
-        Notify("[DEBUG] Storm ghoul rolls disabled; active pack cleared.", false);
-    }
-    else if (a.rfind("ghouls:chance:", 0) == 0)
-    {
-        _stormGhoulSpawnChance = std::clamp(numAfter("ghouls:chance:"), 0.0f, 100.0f) / 100.0f;
-        RadHud::GetSingleton().PushGhoulSettings(_stormGhoulsEnabled,
-            static_cast<int>(_stormGhoulSpawnChance * 100.0f + 0.5f));
-        Notify("[DEBUG] Storm ghoul spawn chance updated.", false);
-    }
-    else if (a == "ghouls:reset")
-    {
-        _stormGhoulsEnabled = true;
-        _stormGhoulSpawnChance = 0.40f;
-        RadHud::GetSingleton().PushGhoulSettings(true, 40);
-        Notify("[DEBUG] Storm ghoul settings reset (40%).", false);
+        PushGhoulSettingsToHud();
+        Notify("[DEBUG] Storm ghoul packs disabled and the current pack cleared.", false);
     }
     else if (a == "ghouls:clear")
     {
         ClearStormGhouls();
-        Notify("[DEBUG] Active storm ghoul pack cleared.", false);
+        Notify("[DEBUG] Current storm ghoul pack cleared.", false);
     }
-    else if (a == "hud:open")
+    else if (a == "ghouls:reset")
     {
-        RadHud::GetSingleton().OpenHudEditor();
+        _stormGhoulsEnabled = true;
+        _stormGhoulSpawnChance = kDefaultStormGhoulSpawnChance;
+        PushGhoulSettingsToHud();
+        Notify("[DEBUG] Storm ghoul packs reset: enabled, 40% chance.", false);
     }
-    else if (a.rfind("hud:layout:", 0) == 0)
+    else if (a.rfind("ghouls:chance:", 0) == 0)
     {
-        RadHud::GetSingleton().HandleHudLayoutCommand(a.substr(std::strlen("hud:layout:")));
+        const float percent = std::clamp(numAfter("ghouls:chance:"), 0.0f, 100.0f);
+        _stormGhoulSpawnChance = percent / 100.0f;
+        PushGhoulSettingsToHud();
+        char m[96];
+        std::snprintf(m, sizeof(m), "[DEBUG] Storm ghoul spawn chance = %.0f%%.", percent);
+        Notify(m, false);
     }
+    else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
+    else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
+    else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);
+    else if (a == "fixstats")             DebugFixSpecial();
     else if (a == "shelter")
     {
         _debugShelter = !_debugShelter;
@@ -260,9 +267,11 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "filter:replace")       ReplaceFilter(false);
     else if (a == "give:repairkit")       DebugGiveItem(kGasMaskRepairKitID, kEslName, 5);
     else if (a == "cond:full")            { _maskCondition = 100.0f; _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 100%.", false); }
-    else if (a == "cond:low")             { _maskCondition = 18.0f;  _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 18%.", false); }
-    else if (a == "cond:broken")          { _maskCondition = 0.0f;   _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 0%.", false); }
+    else if (a == "cond:low")             { _maskCondition = 18.0f; _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 18%.", false); }
+    else if (a == "cond:broken")          { _maskCondition = 0.0f; _conditionLowWarned = 0; Notify("[DEBUG] Mask condition = 0%.", false); }
     else if (a == "cond:repair")          RepairMask(false);
+    else if (a == "hud:open")             RadHud::GetSingleton().OpenHudLayoutEditor();
+    else if (a.rfind("hudlayout:", 0) == 0) RadHud::GetSingleton().ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")));
     else if (a == "close")                RadHud::GetSingleton().SetDebugMenu(false);
 }
 
@@ -455,6 +464,10 @@ void RadiationEngine::DebugForceWeatherByForm(const std::string& spec)
     // dominated by the PREVIOUS weather ("Clear looks like Overcast") and precipitation never started
     // (rain only renders at full pct). ForceWeather(override=true) applies it immediately at full pct.
     // The smooth path stays for real storms, where the gradual roll-in is the point.
+    CaptureWeatherReturnTarget();
+    _releaseWeatherOverrideWhenSettled = false;
+    _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
     _debugWeatherHold = true;   // hold the vetoes down or CheckRadstormWarning reverts this
     if (auto* sky2 = RE::Sky::GetSingleton())
         sky2->ForceWeather(static_cast<RE::TESWeather*>(f), true);
@@ -478,6 +491,7 @@ void RadiationEngine::DebugPreviewWeather(int idx)
         // in-game behaviour — a gradual roll-in, no jarring snap, no purple flash.
         RE::TESWeather* prev = sky->currentWeather;
         dlog->warn("[DIAG]   BeginSmoothWeather...");
+        CaptureWeatherReturnTarget();
         _debugWeatherHold = true;     // stand the radstorm/dust vetoes down (they'd revert this to clear)
         BeginSmoothWeather(w);        // visual only — does NOT run the storm gameplay
         dlog->warn("[DIAG]   transition armed.");
@@ -521,7 +535,6 @@ void RadiationEngine::DebugScanWornMask()
 
 void RadiationEngine::DebugClearWeather()
 {
-    // Force the Commonwealth clear sky AND silence any lingering storm/radstorm audio. (Uses
     // ForceWeather, which is interior-safe — NOT Sky::ResetWeather, which CTDs in interiors.)
     _debugWeatherHold = false;   // release the veto hold — the region system takes back over
     ForceClearAndSilence();

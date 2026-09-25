@@ -11,6 +11,8 @@ namespace RadClimatePolicy
     inline constexpr float kMaximumCoreC = 37.0f;
     inline constexpr float kNeutralAmbientC = 20.0f;
     inline constexpr float kMaximumStepSeconds = 5.0f;
+    inline constexpr float kTimeJumpThresholdDays = 0.01f;
+    inline constexpr float kMaximumTimeJumpHours = 24.0f;
 
     enum class HypothermiaStage : std::uint8_t
     {
@@ -72,6 +74,11 @@ namespace RadClimatePolicy
         if (!std::isfinite(value))
             return 0.0f;
         return std::clamp(value, 0.0f, 1.0f);
+    }
+
+    [[nodiscard]] inline float BodyWarmth01(float coreC) noexcept
+    {
+        return Clamp01((coreC - kMinimumCoreC) / (kNormalCoreC - kMinimumCoreC));
     }
 
     [[nodiscard]] inline HypothermiaStage StageForCore(float coreC) noexcept
@@ -208,5 +215,40 @@ namespace RadClimatePolicy
         state.stage = StageForCore(state.coreC);
 
         return { state, insulation, coolingCPerSecond, warmingCPerSecond };
+    }
+
+    [[nodiscard]] inline StepResult StepTimeJump(
+        ClimateState state,
+        const EnvironmentSample& environment,
+        const ProtectionSample& protection,
+        float totalSeconds,
+        float substepSeconds = kMaximumStepSeconds) noexcept
+    {
+        state = SanitizeState(state);
+        const float maxDuration = kMaximumTimeJumpHours * 3600.0f;
+        float remaining = std::clamp(
+            std::isfinite(totalSeconds) ? totalSeconds : 0.0f,
+            0.0f,
+            maxDuration);
+        const float dt = std::clamp(
+            std::isfinite(substepSeconds) && substepSeconds > 0.0f ? substepSeconds : kMaximumStepSeconds,
+            0.1f,
+            kMaximumStepSeconds);
+
+        StepResult current{ state, EffectiveInsulation(protection), 0.0f, 0.0f };
+        while (remaining > 0.0f)
+        {
+            const float stepDt = std::min(remaining, dt);
+            current = Step(current.state, environment, protection, stepDt);
+            remaining -= stepDt;
+        }
+        return current;
+    }
+
+    [[nodiscard]] inline float ElapsedGameSeconds(float gameDaysElapsed) noexcept
+    {
+        if (!std::isfinite(gameDaysElapsed) || gameDaysElapsed <= 0.0f)
+            return 0.0f;
+        return gameDaysElapsed * 86400.0f;
     }
 }

@@ -95,7 +95,7 @@ def check_behavior():
 
 def check_source(html_path, source_path):
     html = Path(html_path).read_text(encoding="utf-8")
-    for marker in ('HEALTH', 'STAMINA (AP)', 'TISSUE', 'id="hRads"', '#hFill{background:#55a65c}', 'background:#d9822b', 'setHealthVital', 'd.rads,d.radsMax', "fallback=!!d.fallback", "var show=fallback||t>0"):
+    for marker in ('HEALTH', 'AP', 'TISSUE', 'id="rads"', 'id="health"', 'id="stamina"', 'hud_status.css', "fallback=!!d.fallback", "var show=fallback||t>0"):
         if marker not in html:
             raise SystemExit(f"missing HUD fallback contract: {marker}")
 
@@ -104,6 +104,9 @@ def check_source(html_path, source_path):
         "if(W===_lastW&&H===_lastH)return;",
         "_lastW=W;_lastH=H;",
         "r.style.setProperty('--r',(_want.r||0)+'deg');",
+        "var explicitSize=_want.w!==null&&_want.h!==null;",
+        "typeof p.w==='number'?p.w:null",
+        "typeof p.h==='number'?p.h:null",
         'new ResizeObserver(function(){flushPos();})',
     )
     for view in (Path(html_path), Path(html_path).with_name('hud_filter.html')):
@@ -151,6 +154,63 @@ def check_source(html_path, source_path):
         if marker not in source:
             raise SystemExit(f'cross-thread HUD callback bridge must use atomic publication: {marker}')
 
+    storm_source = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in (
+            'RadEngine_Storm.cpp',
+            'RadEngine_Storm_Weather.cpp',
+            'RadEngine_Storm_Dome.cpp',
+            'RadEngine_Storm_Actors.cpp',
+            'RadEngine_Storm_FX.cpp',
+            'RadEngine_Storm_Update.cpp',
+        )
+    )
+    for marker in (
+        'UpdateWeatherHandoff();',
+        'CaptureWeatherReturnTarget();',
+        'BeginSmoothWeather(target, /*lockOverride=*/true);',
+        '_weatherReturnCaptured ? _weatherReturnTarget',
+        'region control releases only after the blend is stable',
+        'RadCorrectnessPolicy::DistantNukePlacement',
+        'facingPlayerYaw',
+        'sky->ForceWeather(_clearWeather, false);',
+    ):
+        if marker not in storm_source:
+            raise SystemExit(f'missing smooth storm-weather return contract: {marker}')
+    storm_weather_source = Path(source_path).with_name('RadEngine_Storm_Weather.cpp').read_text(encoding='utf-8')
+    force_clear_start = storm_weather_source.index('void RadiationEngine::ForceClearAndSilence()')
+    force_clear_body = storm_weather_source[force_clear_start:storm_weather_source.index('\n}\n', force_clear_start)]
+    if 'ReleaseStormWeather();' in force_clear_body:
+        raise SystemExit('ForceClearAndSilence must abort the handoff directly')
+
+    weather_source = Path(source_path).with_name('RadEngine_Weather.cpp').read_text(encoding='utf-8')
+    for marker in (
+        'void RadiationEngine::UpdateWeatherHandoff()',
+        'const bool resetSessionState = _forceClearOnEntry',
+        '_weatherReturnTarget = nullptr;',
+        '_weatherReturnCaptured = false;',
+        '_releaseWeatherOverrideWhenSettled = false;',
+        '_weatherHandoffSettleTicks = 0;',
+        '_weatherReturnTarget',
+        '_weatherHandoffSettleTicks < 8',
+        'std::isfinite(sky->currentWeatherPct)',
+        '_weatherHandoffWaitTicks > 240',
+        'vanilla region weather control restored',
+        'RadCorrectnessPolicy::ShouldReturnToClear',
+    ):
+        if marker not in weather_source:
+            raise SystemExit(f'missing weather return handoff contract: {marker}')
+
+    debug_source = Path(source_path).with_name('RadEngine_Debug.cpp').read_text(encoding='utf-8')
+    for marker in (
+        'CaptureWeatherReturnTarget();',
+        '_releaseWeatherOverrideWhenSettled = false;',
+        'BeginSmoothWeather(w);',
+        'ForceWeather(static_cast<RE::TESWeather*>(f), true);',
+    ):
+        if marker not in debug_source:
+            raise SystemExit(f'missing debug weather return contract: {marker}')
+
     lifecycle = Path(source_path).with_name('RadHudLifecycle.cpp').read_text(encoding='utf-8')
     for marker in (
         'RadHud::GetSingleton().ViewsReady()',
@@ -159,7 +219,38 @@ def check_source(html_path, source_path):
         if marker not in lifecycle:
             raise SystemExit(f'missing PrismaUI startup retry contract: {marker}')
 
-    hooks = Path(source_path).with_name('Hooks.cpp').read_text(encoding='utf-8')
+    storm_modules = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in ('RadEngine_Storm.cpp', 'RadEngine_Storm_Dome.cpp', 'RadEngine_Storm_FX.cpp',
+                     'RadEngine_Storm_Update.cpp', 'RadEngine_Storm_Weather.cpp')
+    )
+    begin = storm_modules.split('void RadiationEngine::BeginStorm(int typeIndex)', 1)[1].split('\n}', 1)[0]
+    assert 'dome-only lead' not in begin
+    assert 'EnableCloudDome' not in storm_modules
+    stage_diag = storm_modules.split('void RadiationEngine::DumpQuestStageTable(RE::TESQuest* quest)', 1)[1].split('void RadiationEngine::TriggerStormFX(bool on)', 1)[0]
+    assert 'InitSearchTables' not in stage_diag
+    active = storm_modules.split('case StormPhase::Active:', 1)[1].split('case StormPhase::', 1)[0]
+    for marker in (
+        '++_nukeAttempts;',
+        '_stormNukeFired = SpawnDistantNuke();',
+        '_firestormAwaitingNuke = false;',
+    ):
+        assert marker in active, f'missing bounded Firestorm retry contract: {marker}'
+    assert '_stormNukeFired = true' not in active
+    for symbol in ('SpawnStormDome', 'UpdateStormDomeLifecycle'):
+        body = storm_modules.split('void RadiationEngine::' + symbol + '()', 1)[1].split('\n}', 1)[0]
+        assert 'StormUsesDome(kStormTypes[_activeStormType].themeId)' in body
+    papyrus_fx = storm_modules.split('void RadiationEngine::TriggerStormFX(bool on)', 1)[1].split('\n}', 1)[0]
+    firestorm_fx = papyrus_fx.split('if (st.themeId == 1)', 1)[1].split('else if', 1)[0]
+    assert '_stormFXQuest->SetStage(20);' in firestorm_fx
+    assert 'return;' in firestorm_fx
+    engine = Path(source_path).with_name('RadiationEngine.cpp').read_text(encoding='utf-8')
+    assert 'filterSys && maskExposed && inRadWeather && _filterCharge > 0.0f' in engine
+    assert 'RadHud::GetSingleton().PushAir(json{' in engine
+    hooks = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in ('Hooks.cpp', 'Hooks_Input.cpp', 'Hooks_DomeFollow.cpp')
+    )
     for marker in (
         'class RadInputHandler final : public RE::BSInputEventUser',
         'RE::MenuControls::GetSingleton()',
@@ -173,9 +264,77 @@ def check_source(html_path, source_path):
         'if (IsPrismaModuleLoaded())',
         'PrismaUI absent; installed Win32 fallback',
         'if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())',
+        's_domeFollowTaskQueued',
+        's_domeFollowActive',
+        's_stormImadFadeActive',
+        'SetDomeFollowActive',
+        'SetStormIMADFadeActive',
+        'void QueueDomeFollow()',
+        'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
+        'RadiationEngine::GetSingleton().UpdateStormIMADFade();',
+        'QueueDomeFollow();',
+        'kDomeFollowInterval',
+        'std::chrono::milliseconds(33)',
+        's_domeFollowActive.load(std::memory_order_acquire)',
+        's_stormImadFadeActive.load(std::memory_order_acquire)',
+        'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
+        'kMaxQueuedMainTasks',
+        's_mainTasks.size() >= kMaxQueuedMainTasks',
     ):
         if marker not in hooks:
             raise SystemExit(f'missing non-blocking game-thread dispatch contract: {marker}')
+    dome_queue_idx = hooks.index('QueueDomeFollow();')
+    dome_throttle_idx = hooks.index('if (elapsed < kUpdateInterval)', dome_queue_idx)
+    if dome_queue_idx > dome_throttle_idx:
+        raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
+    dome_producer_idx = hooks.index('void QueueDomeFollow()')
+    dome_active_gate_idx = hooks.index('s_domeFollowActive.load(std::memory_order_acquire)', dome_producer_idx)
+    imad_active_gate_idx = hooks.index('s_stormImadFadeActive.load(std::memory_order_acquire)', dome_producer_idx)
+    dome_gate_idx = hooks.index('if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;', dome_producer_idx)
+    dome_dispatch_idx = hooks.index('queued = QueueMainThreadTask', dome_producer_idx)
+    if max(dome_active_gate_idx, imad_active_gate_idx) > dome_gate_idx:
+        raise SystemExit('storm visual active flags must be checked before cadence throttling')
+    if dome_gate_idx > dome_dispatch_idx:
+        raise SystemExit('storm dome follow cadence must be gated before main-thread dispatch')
+
+    storm_source = '\n'.join(
+        Path(source_path).with_name(name).read_text(encoding='utf-8')
+        for name in (
+            'RadEngine_Storm.cpp',
+            'RadEngine_Storm_Weather.cpp',
+            'RadEngine_Storm_Dome.cpp',
+            'RadEngine_Storm_Actors.cpp',
+            'RadEngine_Storm_FX.cpp',
+            'RadEngine_Storm_Update.cpp',
+        )
+    )
+    for marker in (
+        'void RadiationEngine::UpdateStormDomeLifecycle()',
+        'void RadiationEngine::UpdateStormDomeFollow()',
+        'kStormDomeFollowDistanceThreshold',
+        'needsMove',
+        'ref->Get3D()',
+        'playerWorld != _stormDomeWorld',
+        'UpdateStormDomeLifecycle();',
+        'ref->Update3DPosition(true);',
+        'IsValidDomeOwner',
+        'IsValidDomeReference',
+        'cell->worldSpace == world',
+    ):
+        if marker not in storm_source:
+            raise SystemExit(f'missing smooth dome follow contract: {marker}')
+    for forbidden in ('ShouldFollowDomeOnTick', '_stormDomeFollowTick', 'Called once per player update'):
+        if forbidden in storm_source:
+            raise SystemExit(f'obsolete tick-throttled dome follow state remains: {forbidden}')
+
+    engine_header = Path(source_path).with_name('RadiationEngine.h').read_text(encoding='utf-8')
+    if 'void UpdateStormDomeFollow();' not in engine_header:
+        raise SystemExit('RadiationEngine must expose per-frame dome follow')
+    if 'void UpdateStormIMADFade();' not in engine_header:
+        raise SystemExit('RadiationEngine must expose bounded IMAD fade updates')
+    if '_stormDomeFollowTick' in engine_header:
+        raise SystemExit('obsolete dome follow tick member must not return')
+
     for forbidden in (
         'WaitForPrismaDispatcher',
         'PrismaDispatcherProbe',
@@ -256,9 +415,10 @@ def check_source(html_path, source_path):
             'DispatchToGameThread',
         ),
         'PrismaHUD_F4_API.h': (
-            'enum class InterfaceVersion : uint8_t { V1, V2, V3 };',
+            'enum class InterfaceVersion : uint8_t { V1, V2, V3, V4 };',
             'class IVPrismaHUD2',
             'class IVPrismaHUD3',
+            'class IVPrismaHUD4',
         ),
     }
     for name, markers in headers.items():
