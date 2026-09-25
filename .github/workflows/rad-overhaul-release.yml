@@ -28,7 +28,7 @@ concurrency:
 jobs:
   release:
     name: Build, package & publish (MSVC, self-hosted Windows)
-    runs-on: [self-hosted, Windows, X64, largepluginmods]
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
         shell: pwsh

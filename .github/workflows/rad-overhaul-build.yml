@@ -24,7 +24,7 @@ concurrency:
 jobs:
   build:
     name: Windows native build (MSVC)
-    runs-on: [self-hosted, Windows, X64, largepluginmods]
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
         shell: pwsh
