@@ -58,7 +58,7 @@ jobs:
           # SHA deliberately.
           # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
           # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          COMMONLIB_SHA="2545815d2613dbbfaf1193ee643ec0a24035c86b"   # commonlib_NonVR main: verified AE CreateExplosionAtLocation (PR #103) + survival bindings
+          COMMONLIB_SHA="6ab58418bdb639936265db713baf064b36560484"   # commonlib_NonVR main: AE CreateExplosionAtLocation (PR #103), public inventory event sources (PR #102), survival bindings
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"
