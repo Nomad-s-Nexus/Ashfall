@@ -2,6 +2,7 @@
 #include "RadLifecycle.h"
 
 #include "Hooks.h"
+#include "NeedsConsumptionTrace.h"
 #include "RadCorrectnessPolicy.h"
 #include "RadHud.h"
 #include "RadMaskOwnership.h"
@@ -40,6 +41,8 @@ bool RadLifecycle::EnsureEngineActiveOnGameThread()
             if (logger)
                 logger->warn("[Lifecycle] Auto-mask ownership event sink unavailable; restored ownership discarded.");
         }
+
+        NeedsConsumptionTrace::ActivateOnGameThread();
 
         if (!g_coreInitialized.load(std::memory_order_acquire))
         {

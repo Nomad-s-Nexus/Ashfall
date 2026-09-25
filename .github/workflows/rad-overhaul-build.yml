@@ -103,6 +103,7 @@ jobs:
           node tests/status_hud_tests.js
           python3 tests/verify_rad_shelter_cache.py
           python3 tests/verify_rad_stack_integration.py
+          python3 tests/verify_needs_consumption_trace.py
           rm -rf build-policy
           xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
           xmake build rad_correctness_policy_tests
@@ -110,12 +111,14 @@ jobs:
           xmake build climate_weather_policy_tests
           xmake build climate_wetness_policy_tests
           xmake build needs_policy_tests
+          xmake build needs_trace_policy_tests
           xmake build serialization_policy_tests
           ./build/tests/rad_correctness_policy_tests
           ./build/tests/climate_policy_tests
           ./build/tests/climate_weather_policy_tests
           ./build/tests/climate_wetness_policy_tests
           ./build/tests/needs_policy_tests
+          ./build/tests/needs_trace_policy_tests
           ./build/tests/serialization_policy_tests
 
       - name: Verify xwin toolchain
