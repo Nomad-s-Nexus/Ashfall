@@ -1,0 +1,54 @@
+{
+  "sourceHead": "49b9ba9a3de50951f2446b08586d9d008386babd",
+  "serializer": "Spriggit.Json.Fallout4 0.40.1",
+  "serializerSourceCommit": "da8152cdfd0313fbf08b217acffc6ac0b6b1b5b5",
+  "originalSha256": "e2429ce27931bf30a1a920118ef18fb49c491b247837c7ac42a85c723c0702b7",
+  "roundtripSha256": "ac567648979296af9d7733385b9d2ab7ae0053ee7d5cb82b53c18c6e681d7232",
+  "deployBinaryChanged": false,
+  "jsonFileCount": 215,
+  "jsonTreesEqual": true,
+  "jsonTreeSha256": "31656c5d743e6353b6efe73d3557821ec64e9723c42b297b80c9c4640fda0700",
+  "masterOrder": [
+    "DLCCoast.esm",
+    "DLCNukaWorld.esm",
+    "Fallout4.esm"
+  ],
+  "recordTypes": {
+    "ACTI": 4,
+    "ALCH": 83,
+    "ARMO": 8,
+    "COBJ": 2,
+    "ENCH": 1,
+    "EXPL": 8,
+    "FLST": 1,
+    "GDRY": 1,
+    "GLOB": 5,
+    "GMST": 1,
+    "HAZD": 2,
+    "IMAD": 7,
+    "KYWD": 1,
+    "LENS": 1,
+    "LIGH": 2,
+    "MGEF": 2,
+    "MISC": 2,
+    "PERK": 17,
+    "PROJ": 1,
+    "QUST": 1,
+    "SPEL": 52,
+    "STAT": 1,
+    "TES4": 1,
+    "WTHR": 11
+  },
+  "recordCountIncludingTES4": 215,
+  "recordTypesAndFormKeysEqual": true,
+  "absentSelfOwnedFormKeys": [
+    "000854:RadiationOverhaul.esp",
+    "000870:RadiationOverhaul.esp"
+  ],
+  "retainedSelfOwnedFormKeys": [
+    "000819:RadiationOverhaul.esp",
+    "000829:RadiationOverhaul.esp",
+    "000871:RadiationOverhaul.esp"
+  ],
+  "scope": "Current deploy ESP only. Missing external generator and live save compatibility are not proven."
+}
