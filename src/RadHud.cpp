@@ -511,6 +511,12 @@ void RadHud::ResetDebugMenuForSession()
     _debugNextFocusRetryMs = 0;
     SetLocalHudEditorPreview(false);
     SetDebugMenu(false);
+    _needsPayload.clear();
+    if (_api && _needsView)
+    {
+        auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+        if (api->IsValid(_needsView)) api->Hide(_needsView);
+    }
 }
 
 void RadHud::ToggleDebugMenu()
