@@ -1,5 +1,7 @@
 # Rad Mod - Release Status
 
+> Current completion audit: [2026-09-26 review](RAD_COMPLETION_REVIEW.md). The expanded survival scope in issue #69 is incomplete. The historical release list below predates the current PR heads and is not a full-system completion claim.
+
 **Last updated:** 2026-08-18
 
 Single authoritative list of what is not finished. Historical detail lives in `CHANGELOG.md` and
