@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace RadNeedsPolicy
 {
@@ -70,6 +71,28 @@ namespace RadNeedsPolicy
         state.sleepDebt01 = advanceNeed(state.sleepDebt01, sleepRate);
         return state;
     }
+
+    struct CalendarState
+    {
+        NeedsState state{};
+        double previousDays{ -1.0 };
+
+        void Observe(double days, const HourlyRates& rates) noexcept
+        {
+            if (!std::isfinite(days) || days < 0.0)
+            {
+                previousDays = -1.0;
+                return;
+            }
+            if (previousDays >= 0.0 && days > previousDays)
+            {
+                const double hours = std::min((days - previousDays) * 24.0,
+                    static_cast<double>(std::numeric_limits<float>::max()));
+                state = Advance(state, static_cast<float>(hours), rates);
+            }
+            previousDays = days;
+        }
+    };
 
     [[nodiscard]] inline NeedsState ApplyRelief(NeedsState state, const Relief& relief) noexcept
     {
