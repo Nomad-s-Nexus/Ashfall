@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Needs status</title><link rel="stylesheet" href="hud_status.css"></head>
+<body><div id="root">
+<div class="status" id="hunger" role="img" aria-label="Hunger: awaiting data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v6a3 3 0 0 0 6 0V3M8 3v18M18 3c-3 4-3 8 0 9V3Zm0 9v9"/></svg><span class="label">HUNGER</span><b id="hungerValue">--</b></div>
+<div class="status" id="thirst" role="img" aria-label="Thirst: awaiting data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2S4 11 4 16a8 8 0 0 0 16 0c0-5-8-14-8-14Z"/></svg><span class="label">THIRST</span><b id="thirstValue">--</b></div>
+<div class="status" id="sleepDebt" role="img" aria-label="Sleep debt: awaiting data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 16A9 9 0 0 1 8 4a9 9 0 1 0 11 12Z"/></svg><span class="label">FATIGUE</span><b id="sleepDebtValue">--</b></div>
+</div><script>
+var root=document.getElementById('root'),_preview=false,_lastData=null;
+function renderNeeds(d){
+ ['hunger','thirst','sleepDebt'].forEach(function(id){
+  var value=Math.round(Math.max(0,Math.min(100,d[id]))),e=document.getElementById(id);
+  document.getElementById(id+'Value').textContent=value+'%';
+  e.className='status '+(value>=75?'danger':value>=50?'warn':'');
+  var description=(id==='sleepDebt'?'Sleep debt':id==='hunger'?'Hunger':'Thirst')+' '+value+'% - observation only';
+  e.setAttribute('aria-label',description);e.title=description;
+ });
+ root.className='visible';
+ window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));
+}
+window.updateNeeds=function(json){
+ try{
+  var d=typeof json==='string'?JSON.parse(json):json;
+  if(!d||typeof d!=='object'||!['hunger','thirst','sleepDebt'].every(function(id){return typeof d[id]==='number'&&isFinite(d[id]);}))return;
+  _lastData=d;if(!_preview)renderNeeds(d);
+ }catch(e){}
+};
+window.setEditorPreview=function(json){
+ _preview=json==='1'||json===1||json===true;
+ if(_preview)renderNeeds({hunger:35,thirst:62,sleepDebt:80});
+ else if(_lastData)renderNeeds(_lastData);
+ else root.className='';
+};
+
+var WIDGET_ID='rad_needs';
+var DEF={xf:22/1920,yf:812/1080,wf:176/1920,hf:58/1080};
+var _want=null,_lastW=0,_lastH=0;
+function flushPos(){
+  if(!_want)return;
+  var W=window.innerWidth,H=window.innerHeight;
+  if(!(W>1)||!(H>1))return;
+  if(W===_lastW&&H===_lastH)return;
+  root.style.left=(_want.xf*W)+'px';root.style.top=(_want.yf*H)+'px';
+  var explicitSize=_want.w!==null&&_want.h!==null;
+  root.style.width=explicitSize?Math.max(40,_want.w<=1?_want.w*W:_want.w)+'px':'';
+  root.style.height=explicitSize?Math.max(20,_want.h<=1?_want.h*H:_want.h)+'px':'';
+  root.style.setProperty('--s',explicitSize?1:_want.s);root.style.setProperty('--r',(_want.r||0)+'deg');
+  window.reportPosition(JSON.stringify({id:WIDGET_ID,x:_want.xf,y:_want.yf,s:_want.s,r:_want.r||0}));
+  _lastW=W;_lastH=H;
+}
+function applyPos(xf,yf,s,rot,w,h){_want={xf:xf,yf:yf,s:s,r:rot||0,w:(typeof w==='number'&&isFinite(w)&&w>0)?w:null,h:(typeof h==='number'&&isFinite(h)&&h>0)?h:null};_lastW=0;_lastH=0;flushPos();}
+try{new ResizeObserver(function(){flushPos();}).observe(document.documentElement);}catch(e){}
+var _posSet=false;
+window.setHUDPosition=function(json){
+  _posSet=true;
+  try{var p=(typeof json==='string')?JSON.parse(json):json;
+    applyPos(p.x,p.y,(typeof p.s==='number'?p.s:1),(typeof p.r==='number'?p.r:0),
+      (typeof p.w==='number'?p.w:null),(typeof p.h==='number'?p.h:null));}catch(e){}
+};
+window.setLocalHUDLayout=function(json){
+  try{var p=(typeof json==='string')?JSON.parse(json):json;applyPos(p.x,p.y,p.s,p.r);_posSet=true;document.getElementById('root').style.display=p.hidden?'none':'';}catch(e){}
+};
+window.releaseLocalHUDLayout=function(){document.getElementById('root').style.display='';};
+window.reportPosition=window.reportPosition||function(){};
+window.reportVisibility=window.reportVisibility||function(){};
+setTimeout(function(){if(!_posSet)applyPos(DEF.xf,DEF.yf,1,0);},50);
+</script>
+</body>
+</html>
