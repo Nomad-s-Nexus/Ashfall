@@ -1,15 +1,16 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-source = (root / "src" / "RadiationEngine.cpp").read_text(encoding="utf-8")
+source = (root / "src" / "RadEngine_Serialization.cpp").read_text(encoding="utf-8")
+engine = (root / "src" / "RadiationEngine.cpp").read_text(encoding="utf-8")
 lifecycle = (root / "src" / "RadLifecycle.cpp").read_text(encoding="utf-8")
 mask_source = (root / "src" / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
 ownership_header = (root / "src" / "RadMaskOwnership.h").read_text(encoding="utf-8")
 ownership_source = (root / "src" / "RadMaskOwnership.cpp").read_text(encoding="utf-8")
 save = source.split("void RadiationEngine::SaveState", 1)[1].split("void RadiationEngine::LoadState", 1)[0]
 load = source.split("void RadiationEngine::LoadState", 1)[1].split("void RadiationEngine::RevertState", 1)[0]
-revert = source.split("void RadiationEngine::RevertState", 1)[1].split("void RadiationEngine::Notify", 1)[0]
-postload = source.split("void RadiationEngine::OnPostLoad", 1)[1]
+revert = engine.split("void RadiationEngine::RevertState", 1)[1].split("void RadiationEngine::Notify", 1)[0]
+postload = engine.split("void RadiationEngine::OnPostLoad", 1)[1]
 
 for marker in (
     "std::vector<RadiationSerialization::FilterState> filterCandidates;",
