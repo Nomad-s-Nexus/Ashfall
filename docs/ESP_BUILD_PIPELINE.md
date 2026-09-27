@@ -1,5 +1,26 @@
 # RadiationOverhaul.esp — Data → Build → Compile Pipeline
 
+## Verified recovery and audit (2026-09-26)
+
+The old generator/source directory documented below was absent on this host. The deployed ESP at source head `49b9ba9a3de50951f2446b08586d9d008386babd` was instead audited through a task-local copy of the pinned official [Spriggit 0.40.1 release](https://github.com/Mutagen-Modding/Spriggit/releases/tag/0.40.1). This recovers the serializer, not the missing generator. No generator or compiled deploy file was changed.
+
+Run from `Rad-Overhaul-Fallout-4` in the task worktree, with new output directories:
+
+```powershell
+dotnet tool install Spriggit.Json.Fallout4 --version 0.40.1 --tool-path ./build-msvc/spriggit-0.40.1 --add-source https://api.nuget.org/v3/index.json
+$serializer = './build-msvc/spriggit-0.40.1/Spriggit.Json.Fallout4.exe'
+& $serializer serialize -i ./deploy/RadiationOverhaul.esp -o ./build-msvc/esp-audit/baseline/RadiationOverhaul.esp -g Fallout4 -p Spriggit.Json.Fallout4 -v 0.40.1 -u true
+New-Item -ItemType Directory -Path ./build-msvc/esp-audit/roundtrip -Force
+& $serializer deserialize -i ./build-msvc/esp-audit/baseline/RadiationOverhaul.esp -o ./build-msvc/esp-audit/roundtrip/RadiationOverhaul.esp
+& $serializer serialize -i ./build-msvc/esp-audit/roundtrip/RadiationOverhaul.esp -o ./build-msvc/esp-audit/roundtrip-json/RadiationOverhaul.esp -g Fallout4 -p Spriggit.Json.Fallout4 -v 0.40.1 -u true
+```
+
+The output directory must exist before deserialization. Both serializations fail on unknown fields. All 215 JSON files were structurally identical after the round trip; master order and record types/FormKeys also matched. Binary hashes differ, so the original deploy ESP was retained. Evidence: [audit report](proof/esp-audit-20260926.json).
+
+Issue #67's self-owned `000854:RadiationOverhaul.esp` and `000870:RadiationOverhaul.esp` are already absent, as is the obsolete quest EditorID. The intentional `RadOverhaul_Stage1000`, `RadOverhaul_Perk1000` and `RadOverhaul_StormFXQuest` remain. References to `000854:Fallout4.esm` in vanilla ingestible overrides are a different FormKey and were preserved. `tests/verify_ghoul_contract.py` now checks the compiled ESP as well as the native source to prevent the obsolete records from returning.
+
+The remaining historical pipeline below records the former generator workflow and paths; its unavailable generator cannot be certified by this round trip.
+
 **Last updated:** 2026-07-18 (path corrections only — see note below; the pipeline mechanics
 below are unchanged from 2026-06-06 and were not re-verified end-to-end this pass)
 **Tool:** Spriggit 0.40.1 (`Spriggit.Json.Fallout4` serializer)
