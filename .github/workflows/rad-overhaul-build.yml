@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  statuses: write
 
 concurrency:
   group: rad-overhaul-${{ github.event.pull_request.number || github.ref }}
@@ -23,136 +22,97 @@ concurrency:
 
 jobs:
   build:
-    name: Windows cross-build (clang-cl/xwin)
-    runs-on: [self-hosted, Linux, X64, largepluginmods]
+    name: Windows native build (MSVC)
+    runs-on: largepluginmods-windows
+    defaults:
+      run:
+        shell: pwsh
     env:
-      XWIN_ROOT: ${{ vars.XWIN_ROOT || '/opt/xwin' }}
       RAD_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: https://github.com/actions/checkout@v4
         with:
           ref: ${{ env.RAD_HEAD_SHA }}
 
       - name: Verify exact PR head checkout
-        shell: bash
         run: |
-          set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "$RAD_HEAD_SHA" || {
-            echo "ERROR: expected exact head $RAD_HEAD_SHA but checked out $actual" >&2
-            exit 1
+          $ErrorActionPreference = 'Stop'
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne $env:RAD_HEAD_SHA) {
+            throw "expected exact head $env:RAD_HEAD_SHA but checked out $actual"
           }
-          echo "exact head: $actual"
+          Write-Host "exact head: $actual"
 
-      - name: Checkout commonlib_NonVR (RE authority)
-        shell: bash
-        env:
-          COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
+      - name: Verify commonlib_NonVR reference
         run: |
-          set -euo pipefail
-          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
-          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to the commit that adds the
-          # Rad natives (CreateExplosionAtLocation / ShakeCamera / VTABLE_INDEX::Actor::Update). Bump this
-          # SHA deliberately, or repoint at commonlib_NonVR main once that commit is merged there.
-          # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
-          # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          COMMONLIB_SHA="961358dd72838417579fc6186a5a0da3b3242d37"   # commonlib_NonVR: verified AE CreateExplosionAtLocation + guarded OG camera shake
-          root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
-          commonLib="$root/commonlib_NonVR"
-          rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
-          git init -q "$commonLib"
-          git -C "$commonLib" remote add origin "https://x-access-token:${COMMONLIB_READ_TOKEN}@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
-          git -C "$commonLib" fetch -q --depth 1 origin "$COMMONLIB_SHA"
-          git -C "$commonLib" checkout -q FETCH_HEAD
-          git -C "$commonLib" submodule update --init --recursive --depth 1
-          # Fail loud if this is somehow not commonlib_NonVR (RE-Work/ is unique to our fork).
-          test -d "$commonLib/RE-Work" || { echo "ERROR: RE-Work marker missing — checkout is not commonlib_NonVR" >&2; exit 1; }
-          echo "COMMONLIBF4_PATH=$commonLib" >> "$GITHUB_ENV"
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $commonLibSha = '961358dd72838417579fc6186a5a0da3b3242d37'
+          $commonLib = $env:COMMONLIBF4_PREVIOUS_PATH
+          if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
+          $pinned = (git -C $commonLib rev-parse HEAD).Trim()
+          if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
+          if (git -C $commonLib status --porcelain --untracked-files=no) { throw 'CommonLib reference has tracked changes' }
+          git -C $commonLib submodule foreach --recursive 'git diff --exit-code HEAD'
+          $submodule = (git -C $commonLib submodule status --recursive) -join "`n"
+          if ($submodule -match '(?m)^[+U-]') { throw 'CommonLib submodule does not match its pin' }
+          if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) { throw 'CommonLib RE-Work marker missing' }
+          Write-Host "commonlib_NonVR: $pinned"
+          "COMMONLIBF4_PATH=$commonLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Setup xmake
-        uses: xmake-io/github-action-setup-xmake@v1
-        with:
-          xmake-version: "3.0.4"
+      - name: Verify runner tools
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          xmake --version
+          node --version
+          python --version
 
-      - name: Run correctness policy tests
+      - name: Run contract tests
         working-directory: Rad-Overhaul-Fallout-4
-        shell: bash
         run: |
-          set -euo pipefail
-          python3 tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
-          python3 tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
-          python3 tests/verify_local_hud_editor.py
-          python3 tests/verify_ae_runtime_support.py
-          python3 tests/verify_ghoul_contract.py
-          python3 tests/verify_storm_spawn_ownership.py
-          python3 tests/verify_serialization_policy.py
-          rm -rf build-policy
-          xmake f -p linux -a x86_64 -m release --builddir=build-policy -y
-          xmake build rad_correctness_policy_tests
-          xmake build serialization_policy_tests
-          ./build/tests/rad_correctness_policy_tests
-          ./build/tests/serialization_policy_tests
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          python --version
+          python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
+          python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
+          python tests/verify_local_hud_editor.py
+          python tests/verify_ae_runtime_support.py
+          python tests/verify_ghoul_contract.py
+          python tests/verify_storm_spawn_ownership.py
+          python tests/verify_serialization_policy.py
 
-      - name: Verify xwin toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          for tool in clang-cl lld-link llvm-ar llvm-rc llvm-dlltool xmake; do
-            command -v "$tool"
-          done
-          for required in \
-            "$XWIN_ROOT/crt/include" \
-            "$XWIN_ROOT/sdk/include/ucrt" \
-            "$XWIN_ROOT/sdk/lib/um/x86_64"; do
-            test -d "$required" || { echo "missing xwin path: $required" >&2; exit 1; }
-          done
-
-      - name: Prepare case-correct xwin import libs
-        shell: bash
-        run: |
-          set -euo pipefail
-          shim="$GITHUB_WORKSPACE/.xwin-libshim"
-          rm -rf "$shim"
-          mkdir -p "$shim"
-          for name in bcrypt version User32 Ole32 OleAut32 crypt32 Shell32; do
-            src="$(find "$XWIN_ROOT/sdk/lib/um/x86_64" -iname "${name}.lib" | head -1)"
-            [ -n "$src" ] || { echo "no staged ${name}.lib found under $XWIN_ROOT" >&2; exit 1; }
-            ln -sf "$src" "$shim/${name}.lib"
-          done
-          echo "XWIN_LIBSHIM=$shim" >> "$GITHUB_ENV"
-
-      - name: Configure (clang-cl / xwin)
+      - name: Configure (MSVC)
         working-directory: Rad-Overhaul-Fallout-4
-        shell: bash
         run: |
-          set -euo pipefail
-          rm -rf build build-clang .xmake
-          xmake f -F xmake-xwin.lua -p windows -a x64 -m release --builddir=build-clang -y
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          xmake f -p windows -a x64 -m release --builddir=build-msvc -y
+
+      - name: Build and run policy tests
+        working-directory: Rad-Overhaul-Fallout-4
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tests = @('rad_correctness_policy_tests', 'serialization_policy_tests')
+          foreach ($t in $tests) { xmake build -y $t }
+          foreach ($t in $tests) { & ".\build\tests\$t.exe" }
 
       - name: Build
         working-directory: Rad-Overhaul-Fallout-4
-        shell: bash
-        run: xmake build -F xmake-xwin.lua -vD -y
+        run: xmake build -vD -y FalloutAnomalyRadiation
 
       - name: Upload Windows DLL
-        uses: actions/upload-artifact@v4
+        uses: https://github.com/actions/upload-artifact@v3
         with:
           name: FalloutAnomalyRadiation-windows-x64
           path: Rad-Overhaul-Fallout-4/build/release/FalloutAnomalyRadiation.dll
           if-no-files-found: error
           retention-days: 7
 
-      - name: Report build status
-        if: always()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if [ "${{ job.status }}" = "success" ]; then state=success; else state=failure; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${RAD_HEAD_SHA}" \
-            -f state="$state" \
-            -f context="RadOverhaul/xmake" \
-            -f description="Windows xmake exact-head cross-build (clang-cl/xwin) $state"
