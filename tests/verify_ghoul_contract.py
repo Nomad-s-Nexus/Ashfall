@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from verify_mask_catalog import form_key, master_names, records, subrecords
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 
@@ -109,4 +111,22 @@ for token in forbidden_player:
 assert "Player-ghoulification (globals 0x854 / quest 0x870) was removed" in internal
 assert "RadOverhaul_GhoulRace.esp" not in readme
 
-print("ghoul contract verified: storm/NPC handling present, same-cell peak scope enforced, player ghoulification absent")
+plugin = (ROOT / "deploy/RadiationOverhaul.esp").read_bytes()
+masters = master_names(plugin)
+plugin_records = {}
+for kind, flags, form_id, payload in records(plugin, 0, len(plugin)):
+    if kind == b"TES4":
+        continue
+    key = form_key(form_id, masters)
+    assert key not in plugin_records, f"duplicate plugin FormKey: {key}"
+    plugin_records[key] = kind
+    for tag, value in subrecords(payload, flags):
+        if tag == b"EDID":
+            assert value.rstrip(b"\0") != b"RadOverhaul_GhoulQuest", "obsolete player ghoul quest returned"
+
+for local_id in (0x854, 0x870):
+    assert ("RadiationOverhaul.esp", local_id) not in plugin_records, f"obsolete player ghoul record returned: {local_id:06X}"
+for local_id, kind in ((0x819, b"SPEL"), (0x829, b"PERK"), (0x871, b"QUST")):
+    assert plugin_records.get(("RadiationOverhaul.esp", local_id)) == kind, f"required severity/storm record missing: {local_id:06X}"
+
+print("ghoul contract verified: storm/NPC handling present; obsolete player records absent from source and compiled ESP; severity/storm records retained")
