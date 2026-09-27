@@ -1,5 +1,25 @@
 # Native Survival Needs Phase
 
+## Calendar observation and persistence (2026-09-26)
+
+`src/RadHudNeeds.cpp:RadHud::PushNeeds` presents a read-only snapshot from `src/NeedsRuntime.cpp:NeedsRuntime::Update` after its state lock is released. Hunger, thirst and sleep debt are rounded to percentages and sent only when the payload changes. The view's DOM-ready callback publishes only its handle; widget registration, layout and Interop calls run from the existing game-main update and require that ready handle to match the current view. `src/RadHudLayout.cpp` and `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_hud_local_editor.js` include Needs in the existing layout save/reset/preview paths. `hud_needs.html` reuses the status styling and layout protocol, labels values as observation-only, rejects malformed data and restores the latest native values after preview. Browser checks do not establish live PrismaUI rendering or save/load acceptance.
+
+`deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/{hud_needs,hud_climate,hud_filter,hud_toxic}.html:setLocalHUDLayout` marks an applied local position before the delayed default callback can overwrite it. The browser preview exposed the early local layout being replaced after 50 ms; `tests/status_hud_tests.js` now dispatches those delayed callbacks and failed with `22px` instead of the requested `384px` before the fix. This uses the same existing position marker as PrismaHUD positioning. `src/RadHud.cpp:RadHud::ResetDebugMenuForSession` clears and hides Needs until a fresh native payload arrives after a session change.
+
+`src/RadEngine_Serialization.cpp:RadiationEngine::SaveState` and `RadiationEngine::LoadState` were moved together with their private record constants out of the oversized engine file to satisfy the existing source-size guard. The member signatures, co-save formats and iterator ownership are unchanged by the move. The reader collects valid candidates before restoring; field-identical duplicate records are accepted and conflicting valid records fail safe. `src/RadiationEngine.cpp:RadiationEngine::RevertState` retains the new-game/pre-load defaults. Filter state uses its own record independently of the storm clock. The source-contract checks now read the serialization module directly.
+
+`src/NeedsPolicy.h:CalendarState::Observe` advances only from positive elapsed game days, converted to hours. Repeated time samples do nothing; invalid samples clear the baseline, backward time reanchors without progression, and load/reset starts with a fresh baseline. Large jumps saturate the normalized needs through the existing policy. No timescale multiplier is applied to an already elapsed calendar interval.
+
+`src/NeedsRuntime.cpp:NeedsRuntime::Update` samples the same public Calendar surface used by climate, on the existing generation-guarded game-main update in `src/Hooks.cpp:QueueEngineUpdate`. It loads `needs.json` rates once. These are provisional observation rates, not accepted gameplay balance. Missing/invalid settings leave progression disabled with zero rates. State snapshots/reset/restore use a mutex and never read or modify vanilla Survival state. This stage does not apply penalties or infer consumption or sleep relief.
+
+`src/NeedsRuntime.cpp:NeedsRuntime::Update` deliberately retains its time baseline during a temporary missing-player/cell interval: positive game time elapsed during wait/travel still contributes when the player returns. Load, revert and new game explicitly reset that baseline. This is a calendar-time model, not an active-rendering-time model; real seconds without a calendar advance add nothing.
+
+`src/main.cpp:SaveCallback` writes the three normalized needs values as the existing version-1 NEED format. `src/RadEngine_Serialization.cpp:LoadState` remains the only co-save iterator, validates NEED version/size/read length/ranges and defers restoration until the complete scan. `src/NeedsSerializationPolicy.h:RecordCandidates` retains one candidate in constant space, accepts identical duplicates, ignores invalid candidates, and rejects conflicting valid records regardless of order. Resetting before the scan prevents missing/corrupt records from inheriting another save's state. New-game and revert clear state too.
+
+`src/NeedsSerializationPolicy.h:RecordCandidates::Read` leaves unsupported or partial payloads for F4SE to discard. The official open-source [F4SE Serialization.cpp](https://github.com/ianpatt/f4se/blob/master/f4se/Serialization.cpp) was inspected on 2026-09-26: `Serialization::GetNextRecordInfo` calls `FlushReadRecord`, which skips the unread bytes in the current chunk before reading the next header. This matches the existing CLIM reader's skip behavior.
+
+`tests/needs_policy_tests.cpp` exercises calendar progression, repeated/backward/invalid time, large jumps, reset/restore baselines and ambiguous records. The same `src/NeedsSerializationPolicy.h:Write` and `RecordCandidates::Read` used by the plugin round-trip three floats through an in-memory byte stream; unsupported versions/sizes, truncated payloads, invalid values and failed record opening are rejected. This is portable serialization proof, not a live F4SE co-save test. In-game consumption, sleep recovery, persistence callback scheduling, and HUD acceptance remain separate proof gates; the following original phase plan is still incomplete.
+
 Tracking issue: #69
 
 This phase starts the native survival overhaul inside the existing `FalloutAnomalyRadiation.dll` without replacing Bethesda's `HC_Manager` and without modifying ESP/ESL records.
@@ -55,7 +75,7 @@ Do not add compatibility FormLists or plugin records.
 
 The `NEED` policy record is versioned independently from climate/disease state.
 
-The live record must eventually be dispatched through the planned single-owner `SurvivalSerialization` iterator together with `CLIM`, rather than adding another independent F4SE reader.
+`src/RadEngine_Serialization.cpp:RadiationEngine::LoadState` currently dispatches the live `NEED` record together with `CLIM` through its existing sole iterator. Extracting a separately named `SurvivalSerialization` owner is deferred; no second F4SE reader is needed.
 
 ## Proof gates
 
