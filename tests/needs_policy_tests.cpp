@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <limits>
+#include <cstring>
+#include <vector>
 
 namespace
 {
@@ -17,6 +19,34 @@ namespace
     {
         return std::abs(lhs - rhs) <= epsilon;
     }
+
+    struct Stream
+    {
+        mutable std::vector<char> bytes;
+        mutable std::size_t cursor{};
+        bool writable{ true };
+
+        bool OpenRecord(std::uint32_t type, std::uint32_t version) const
+        {
+            Require(type == RadNeedsSerialization::kRecord && version == RadNeedsSerialization::kVersion);
+            return writable;
+        }
+
+        bool WriteRecordData(float value) const
+        {
+            const auto* begin = reinterpret_cast<const char*>(&value);
+            bytes.insert(bytes.end(), begin, begin + sizeof(value));
+            return writable;
+        }
+
+        std::size_t ReadRecordData(float& value) const
+        {
+            const auto count = std::min(sizeof(value), bytes.size() - cursor);
+            std::memcpy(&value, bytes.data() + cursor, count);
+            cursor += count;
+            return count;
+        }
+    };
 }
 
 int main()
@@ -89,5 +119,60 @@ int main()
     Require(Near(fallback.sleepDebt01, 0.0f));
 
     Require(kVersion == 1);
+
+    CalendarState clock;
+    clock.Observe(10.0, rates);
+    Require(Near(clock.state.hunger01, 0.0f));
+    clock.Observe(10.0 + 2.0 / 24.0, rates);
+    Require(Near(clock.state.hunger01, advanced.hunger01));
+    clock.Observe(10.0 + 2.0 / 24.0, rates);
+    Require(Near(clock.state.hunger01, advanced.hunger01));
+    clock.Observe(9.0, rates);
+    Require(Near(clock.state.hunger01, advanced.hunger01));
+    clock.Observe(std::numeric_limits<double>::quiet_NaN(), rates);
+    clock.Observe(30.0, rates);
+    Require(Near(clock.state.hunger01, advanced.hunger01));
+    clock = { restored };
+    clock.Observe(200.0, rates);
+    Require(Near(clock.state.hunger01, advanced.hunger01));
+    clock.Observe(201.0, rates);
+    Require(Near(clock.state.hunger01, 1.0f));
+    clock = {};
+    clock.Observe(500.0, rates);
+    Require(Near(clock.state.hunger01, 0.0f));
+    clock.Observe(std::numeric_limits<double>::max(), rates);
+    Require(Near(clock.state.hunger01, 1.0f));
+
+    RecordCandidates candidates;
+    Require(Near(candidates.RestoreState().hunger01, 0.0f));
+    candidates.Accept(saved);
+    candidates.Accept(badSave);
+    candidates.Accept(saved);
+    Require(Near(candidates.RestoreState().hunger01, advanced.hunger01));
+    candidates.Accept({0.7f, 0.5f, 0.3f});
+    Require(Near(candidates.RestoreState().hunger01, 0.0f));
+    candidates.Accept(saved);
+    Require(Near(candidates.RestoreState().hunger01, 0.0f));
+
+    Stream stream;
+    Require(Write(stream, saved));
+    Require(stream.bytes.size() == kPayloadSize);
+    RecordCandidates loaded;
+    Require(!loaded.Read(stream, kVersion + 1, kPayloadSize));
+    Require(!loaded.Read(stream, kVersion, kPayloadSize - 1));
+    Require(stream.cursor == 0);
+    Require(loaded.Read(stream, kVersion, kPayloadSize));
+    Require(Near(loaded.RestoreState().thirst01, saved.thirst01));
+    stream.cursor = 0;
+    stream.bytes.pop_back();
+    loaded = {};
+    Require(!loaded.Read(stream, kVersion, kPayloadSize));
+    Require(Near(loaded.RestoreState().thirst01, 0.0f));
+    stream = {};
+    Require(!Write(stream, badSave));
+    Require(stream.bytes.empty());
+    stream.writable = false;
+    Require(!Write(stream, saved));
+    Require(stream.bytes.empty());
     return 0;
 }
