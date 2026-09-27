@@ -2,6 +2,7 @@
 #include "Hooks.h"
 #include "PrismaUI_F4_API.h"
 #include "ClimateRuntime.h"
+#include "NeedsRuntime.h"
 
 #ifdef MEM_RELEASE
 #undef MEM_RELEASE
@@ -377,6 +378,7 @@ namespace Hooks
                     {
                         RadiationEngine::GetSingleton().Update();
                         ClimateRuntime::GetSingleton().Update();
+                        NeedsRuntime::GetSingleton().Update();
                     }
                 }
                 catch (...)
