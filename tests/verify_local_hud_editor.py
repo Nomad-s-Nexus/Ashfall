@@ -114,7 +114,7 @@ assert 'if (action == "unit")' in rad_layout
 assert 'hud_layout.json' in rad_layout
 
 poll_input = radiation_engine.split("void RadiationEngine::PollInput()", 1)[1].split(
-    "namespace\n{\n    constexpr std::uint32_t kStormClockRecord", 1
+    "void RadiationEngine::EnsureEslLoaded()", 1
 )[0]
 assert poll_input.count("RadHud::GetSingleton().ToggleDebugMenu();") == 1
 assert "RadHud::GetSingleton().ToggleDebugMenu();" not in hooks_input
