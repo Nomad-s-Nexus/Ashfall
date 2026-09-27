@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "RadiationEngine.h"
 #include "ClimateRuntime.h"
+#include "NeedsRuntime.h"
 #include "Hooks.h"
 #include "RadHud.h"
 #include "RadCorrectnessPolicy.h"
@@ -130,6 +131,12 @@ namespace
     void SaveCallback(const F4SE::SerializationInterface* a_intfc)
     {
         RadiationEngine::GetSingleton().SaveState(a_intfc);
+        const auto needs = NeedsRuntime::GetSingleton().SnapshotForSave();
+        if (!RadNeedsSerialization::Write(*a_intfc, needs))
+        {
+            if (logger)
+                logger->error("[Save] Needs record write failed; continuing with climate.");
+        }
         const auto climate = ClimateRuntime::GetSingleton().SnapshotForSave();
         if (!a_intfc->OpenRecord(RadClimateSerialization::kRecord, RadClimateSerialization::kVersion))
         {
@@ -153,6 +160,7 @@ namespace
     {
         RadiationEngine::GetSingleton().RevertState();
         ClimateRuntime::GetSingleton().Reset();
+        NeedsRuntime::GetSingleton().Reset();
     }
 
     std::atomic<bool> g_radWaiting{ false };
@@ -408,6 +416,7 @@ namespace
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnPostLoad();   // reset per-load tracking
                     ClimateRuntime::GetSingleton().Reset();
+                    NeedsRuntime::GetSingleton().Reset();
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
                     engine.OnNewGame();    // arm clear-weather-on-first-exterior
