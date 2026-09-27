@@ -2,6 +2,7 @@
   var defaults = {
     rad_toxic: { name: "Fallback vitals: Health + Rads / Stamina (AP) / Tissue", x: 30 / 1920, y: 882 / 1080, s: 1, r: 0, hidden: false },
     rad_filter: { name: "Gas mask filter", x: 22 / 1920, y: 1014 / 1080, s: 1, r: 0, hidden: false },
+    rad_needs: { name: "Needs: hunger / thirst / fatigue", x: 22 / 1920, y: 812 / 1080, s: 1, r: 0, hidden: false },
     rad_climate: { name: "Climate: CORE / AIR / WET / WARM / HEAT", x: 22 / 1920, y: 944 / 1080, s: 1, r: 0, hidden: false }
   };
   var editor = null;
@@ -133,7 +134,7 @@
     editor.innerHTML =
       '<div class="rad-local-title">BUILT-IN RAD HUD EDITOR</div>' +
       '<div class="dbg-help">Without PrismaHUD, Rad supplies Health with radiation loss, Stamina/AP, Tissue, and the gas-mask filter. PrismaHUD takes over automatically when installed.</div>' +
-      cardHtml("rad_toxic") + cardHtml("rad_filter") + cardHtml("rad_climate") +
+      cardHtml("rad_toxic") + cardHtml("rad_filter") + cardHtml("rad_climate") + cardHtml("rad_needs") +
       '<div class="rad-local-actions"><button id="radLocalSave">SAVE</button><button id="radLocalReset" class="warn">RESET</button><button id="radLocalClose" class="close">DONE</button></div>' +
       '<div class="rad-local-status" id="radLocalStatus">READY</div>';
     document.getElementById("tab-hud").appendChild(editor);
@@ -143,6 +144,7 @@
       sendUpdate("rad_toxic", true);
       sendUpdate("rad_filter", true);
       sendUpdate("rad_climate", true);
+      sendUpdate("rad_needs", true);
       status.textContent = "SAVING...";
     };
     document.getElementById("radLocalReset").onclick = function () {
@@ -151,6 +153,7 @@
       sendUpdate("rad_toxic", true);
       sendUpdate("rad_filter", true);
       sendUpdate("rad_climate", true);
+      sendUpdate("rad_needs", true);
       status.textContent = "SAVING...";
     };
     document.getElementById("radLocalClose").onclick = function () {
