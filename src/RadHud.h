@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ClimateProtectionRuntime.h"
+#include "NeedsPolicy.h"
 
 #include <atomic>
 #include <cstdint>
@@ -26,6 +27,7 @@ public:
     void PushClimate(const RadClimatePolicy::ClimateState& state,
         const RadClimatePolicy::EnvironmentSample& environment, const RadClimatePolicy::StepResult& result);
     void PushAir(const std::string& payload);
+    void PushNeeds(const RadNeedsPolicy::NeedsState& state);
     void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
     void PushGhoulSettings(bool enabled, float chance);
@@ -81,6 +83,10 @@ private:
     std::string _airPayload;
     std::string _toxicPayload;
     std::string _armorPayload;
+    uint64_t _needsView = 0;
+    std::atomic<uint64_t> _needsReadyView{ 0 };
+    bool _needsWidgetRegistered = false;
+    std::string _needsPayload;
 
     int _maskPushed = -1;
 
