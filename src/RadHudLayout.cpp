@@ -21,6 +21,7 @@ namespace
     {
         WidgetLayout toxic{ 30.0f / 1920.0f, 882.0f / 1080.0f, 1.0f, 0.0f, false };
         WidgetLayout filter{ 22.0f / 1920.0f, 1014.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout needs{ 22.0f / 1920.0f, 812.0f / 1080.0f, 1.0f, 0.0f, false };
         WidgetLayout climate{ 22.0f / 1920.0f, 944.0f / 1080.0f, 1.0f, 0.0f, false };
         bool fahrenheit{ false };
         bool loaded{ false };
@@ -29,12 +30,15 @@ namespace
         std::uint64_t toxicAppliedGeneration{ 0 };
         std::uint64_t filterAppliedGeneration{ 0 };
         std::uint64_t climateAppliedGeneration{ 0 };
+        std::uint64_t needsAppliedGeneration{ 0 };
         PrismaView toxicAppliedView{ 0 };
         PrismaView filterAppliedView{ 0 };
         PrismaView climateAppliedView{ 0 };
+        PrismaView needsAppliedView{ 0 };
         PrismaView toxicReleasedView{ 0 };
         PrismaView filterReleasedView{ 0 };
         PrismaView climateReleasedView{ 0 };
+        PrismaView needsReleasedView{ 0 };
         PrismaView listenerView{ 0 };
     };
 
@@ -91,6 +95,7 @@ namespace
             { "rad_toxic", WidgetJson(g_layout.toxic) },
             { "rad_filter", WidgetJson(g_layout.filter) },
             { "rad_climate", WidgetJson(g_layout.climate) },
+            { "rad_needs", WidgetJson(g_layout.needs) },
             { "temperatureUnit", g_layout.fahrenheit ? "F" : "C" }
         };
     }
@@ -123,6 +128,7 @@ namespace
             if (saved.contains("rad_toxic")) LoadWidget(saved["rad_toxic"], g_layout.toxic);
             if (saved.contains("rad_filter")) LoadWidget(saved["rad_filter"], g_layout.filter);
             if (saved.contains("rad_climate")) LoadWidget(saved["rad_climate"], g_layout.climate);
+            if (saved.contains("rad_needs")) LoadWidget(saved["rad_needs"], g_layout.needs);
             const auto unit = saved.find("temperatureUnit");
             if (unit != saved.end() && unit->is_string()) g_layout.fahrenheit = unit->get<std::string>() == "F";
         }
@@ -172,6 +178,7 @@ namespace
         if (id == "rad_toxic") return &g_layout.toxic;
         if (id == "rad_filter") return &g_layout.filter;
         if (id == "rad_climate") return &g_layout.climate;
+        if (id == "rad_needs") return &g_layout.needs;
         return nullptr;
     }
 
@@ -190,12 +197,15 @@ void RadHud::InvalidateLocalHudLayoutViews()
     g_layout.toxicAppliedGeneration = 0;
     g_layout.filterAppliedGeneration = 0;
     g_layout.climateAppliedGeneration = 0;
+    g_layout.needsAppliedGeneration = 0;
     g_layout.toxicAppliedView = 0;
     g_layout.filterAppliedView = 0;
     g_layout.climateAppliedView = 0;
+    g_layout.needsAppliedView = 0;
     g_layout.toxicReleasedView = 0;
     g_layout.filterReleasedView = 0;
     g_layout.climateReleasedView = 0;
+    g_layout.needsReleasedView = 0;
     g_layout.listenerView = 0;
 }
 
@@ -217,6 +227,8 @@ void RadHud::SyncLocalHudLayout()
                          g_layout.climateAppliedGeneration != g_layout.generation))
         api->InteropCall(_climateView, "setClimateUnit", g_layout.fahrenheit ? "\"F\"" : "\"C\"");
 
+    const bool needsReady = _needsView != 0 && _needsReadyView.load() == _needsView && api->IsValid(_needsView);
+
     if (_hudApi)
     {
         if (climateReady && g_layout.climateReleasedView != _climateView)
@@ -225,6 +237,13 @@ void RadHud::SyncLocalHudLayout()
             g_layout.climateReleasedView = _climateView;
             g_layout.climateAppliedView = _climateView;
             g_layout.climateAppliedGeneration = g_layout.generation;
+        }
+        if (needsReady && g_layout.needsReleasedView != _needsView)
+        {
+            api->InteropCall(_needsView, "releaseLocalHUDLayout", "");
+            g_layout.needsReleasedView = _needsView;
+            g_layout.needsAppliedView = _needsView;
+            g_layout.needsAppliedGeneration = g_layout.generation;
         }
         if (_toxicView != 0 && _toxicDomReady.load() && api->IsValid(_toxicView) &&
             g_layout.toxicReleasedView != _toxicView)
@@ -275,6 +294,14 @@ void RadHud::SyncLocalHudLayout()
         g_layout.climateAppliedView = _climateView;
         g_layout.climateAppliedGeneration = g_layout.generation;
     }
+    if (needsReady && (g_layout.needsAppliedView != _needsView ||
+                         g_layout.needsAppliedGeneration != g_layout.generation))
+    {
+        const auto payload = WidgetJson(g_layout.needs).dump();
+        api->InteropCall(_needsView, "setLocalHUDLayout", payload.c_str());
+        g_layout.needsAppliedView = _needsView;
+        g_layout.needsAppliedGeneration = g_layout.generation;
+    }
 }
 
 void RadHud::SetLocalHudEditorPreview(bool on)
@@ -292,6 +319,8 @@ void RadHud::SetLocalHudEditorPreview(bool on)
         api->InteropCall(_filterView, "setEditorPreview", value);
     if (_climateView != 0 && _climateDomReady.load() && api->IsValid(_climateView))
         api->InteropCall(_climateView, "setEditorPreview", value);
+    if (_needsView != 0 && _needsReadyView.load() == _needsView && api->IsValid(_needsView))
+        api->InteropCall(_needsView, "setEditorPreview", value);
 
     if (!g_layout.preview && _view != 0 && _domReady.load() && api->IsValid(_view))
         api->InteropCall(_view, "CloseLocalHudEditor", "");
