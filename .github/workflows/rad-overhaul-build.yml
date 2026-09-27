@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  statuses: write
 
 concurrency:
   group: rad-overhaul-${{ github.event.pull_request.number || github.ref }}
@@ -24,7 +23,7 @@ concurrency:
 jobs:
   build:
     name: Windows native build (MSVC)
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: largepluginmods-windows
     defaults:
       run:
         shell: pwsh
@@ -33,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: https://github.com/actions/checkout@v4
         with:
           ref: ${{ env.RAD_HEAD_SHA }}
 
@@ -46,44 +45,30 @@ jobs:
           }
           Write-Host "exact head: $actual"
 
-      - name: Checkout commonlib_NonVR (RE authority)
-        env:
-          COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
+      - name: Verify commonlib_NonVR reference
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
-          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Bump this SHA deliberately.
-          # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
-          # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          $commonLibSha = '6ab58418bdb639936265db713baf064b36560484'   # commonlib_NonVR main: AE CreateExplosionAtLocation (PR #103), public inventory event sources (PR #102), survival bindings
-          $root = Split-Path -Parent (Split-Path -Parent $env:GITHUB_WORKSPACE)
-          $commonLib = Join-Path $root 'commonlib_NonVR'
-          foreach ($stale in @($commonLib, (Join-Path $root 'CommonLibF4'))) {
-            if (Test-Path $stale) { Remove-Item -Recurse -Force $stale }
-          }
-          git init -q $commonLib
-          git -C $commonLib remote add origin "https://x-access-token:$($env:COMMONLIB_READ_TOKEN)@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
-          git -C $commonLib fetch -q --depth 1 origin $commonLibSha
-          git -C $commonLib checkout -q FETCH_HEAD
-          git -C $commonLib submodule update --init --recursive --depth 1
+          $commonLibSha = '6ab58418bdb639936265db713baf064b36560484'
+          $commonLib = $env:COMMONLIBF4_PATH
+          if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
           $pinned = (git -C $commonLib rev-parse HEAD).Trim()
           if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
-          if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) {
-            throw 'RE-Work marker missing — checkout is not commonlib_NonVR'
-          }
+          if (git -C $commonLib status --porcelain --untracked-files=no) { throw 'CommonLib reference has tracked changes' }
+          git -C $commonLib submodule foreach --recursive 'git diff --exit-code HEAD'
+          $submodule = (git -C $commonLib submodule status --recursive) -join "`n"
+          if ($submodule -match '(?m)^[+U-]') { throw 'CommonLib submodule does not match its pin' }
+          if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) { throw 'CommonLib RE-Work marker missing' }
           Write-Host "commonlib_NonVR: $pinned"
           "COMMONLIBF4_PATH=$commonLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Setup xmake
-        uses: xmake-io/github-action-setup-xmake@v1
-        with:
-          xmake-version: "3.0.4"
-
-      - name: Setup Node for HUD regression tests
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - name: Verify runner tools
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          xmake --version
+          node --version
+          python --version
 
       - name: Run contract tests
         working-directory: Rad-Overhaul-Fallout-4
@@ -115,9 +100,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          foreach ($dir in @('build', 'build-msvc', '.xmake')) {
-            if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
-          }
           xmake f -p windows -a x64 -m release --builddir=build-msvc -y
 
       - name: Build and run policy tests
@@ -140,22 +122,10 @@ jobs:
         run: xmake build -vD -y FalloutAnomalyRadiation
 
       - name: Upload Windows DLL
-        uses: actions/upload-artifact@v4
+        uses: https://github.com/actions/upload-artifact@v3
         with:
           name: FalloutAnomalyRadiation-windows-x64
           path: Rad-Overhaul-Fallout-4/build/release/FalloutAnomalyRadiation.dll
           if-no-files-found: error
           retention-days: 7
 
-      - name: Report build status
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          $state = if ('${{ job.status }}' -eq 'success') { 'success' } else { 'failure' }
-          gh api --method POST "repos/$($env:GITHUB_REPOSITORY)/statuses/$($env:RAD_HEAD_SHA)" `
-            -f state="$state" `
-            -f context="RadOverhaul/xmake" `
-            -f description="Windows xmake exact-head native build (MSVC) $state"
