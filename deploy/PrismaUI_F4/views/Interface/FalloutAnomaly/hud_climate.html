@@ -49,7 +49,7 @@ window.setHUDPosition=function(json){
       (typeof p.w==='number'?p.w:null),(typeof p.h==='number'?p.h:null));}catch(e){}
 };
 window.setLocalHUDLayout=function(json){
-  try{var p=(typeof json==='string')?JSON.parse(json):json;applyPos(p.x,p.y,p.s,p.r);document.getElementById('root').style.display=p.hidden?'none':'';}catch(e){}
+  try{var p=(typeof json==='string')?JSON.parse(json):json;applyPos(p.x,p.y,p.s,p.r);_posSet=true;document.getElementById('root').style.display=p.hidden?'none':'';}catch(e){}
 };
 window.releaseLocalHUDLayout=function(){document.getElementById('root').style.display='';};
 window.reportPosition=window.reportPosition||function(){};
