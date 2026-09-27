@@ -151,7 +151,7 @@ def check_generation_behavior():
     if not source.exists():
         check("generation gate behavior", False, "RadLifecycleDispatch.cpp missing")
         return
-    compiler = shutil.which("g++") or shutil.which("clang++")
+    compiler = shutil.which("cl") or shutil.which("g++") or shutil.which("clang++")
     if not compiler:
         check("generation gate behavior", False, "no host C++ compiler")
         return
@@ -162,12 +162,14 @@ def check_generation_behavior():
         (tmp / "pch.h").write_text(STUB_PCH, encoding="utf-8")
         (tmp / "Hooks.h").write_text(STUB_HOOKS, encoding="utf-8")
         (tmp / "harness.cpp").write_text(HARNESS, encoding="utf-8")
-        exe = tmp / "harness"
-        build = subprocess.run([compiler, "-std=c++20", "-pthread", "-I", str(tmp),
-                                str(tmp / "harness.cpp"), str(tmp / "RadLifecycleDispatch.cpp"),
-                                "-o", str(exe)], capture_output=True, text=True)
+        exe = tmp / ("harness.exe" if os.name == "nt" else "harness")
+        flags = (["/nologo", "/std:c++20", "/EHsc", f"/Fe{exe}"]
+                 if Path(compiler).stem.lower() == "cl"
+                 else ["-std=c++20", "-pthread", "-o", str(exe)])
+        build = subprocess.run([compiler, *flags, "harness.cpp", "RadLifecycleDispatch.cpp"],
+                               cwd=tmp, capture_output=True, text=True)
         if build.returncode != 0:
-            check("generation gate behavior", False, build.stderr.strip()[:400])
+            check("generation gate behavior", False, (build.stdout + build.stderr).strip()[:400])
             return
         run = subprocess.run([str(exe)], capture_output=True, text=True)
         check("stale-generation callbacks cannot execute; current-generation callbacks execute",
