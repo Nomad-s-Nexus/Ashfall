@@ -80,6 +80,7 @@ jobs:
           if (-not $vs) { throw 'Visual Studio C++ tools not found' }
           & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           python --version
+          python tests/verify_ci_deploy.py
           python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
           python tests/verify_local_hud_editor.py
@@ -115,4 +116,3 @@ jobs:
           path: Rad-Overhaul-Fallout-4/build/release/FalloutAnomalyRadiation.dll
           if-no-files-found: error
           retention-days: 7
-
