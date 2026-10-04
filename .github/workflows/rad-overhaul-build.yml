@@ -136,4 +136,3 @@ jobs:
           path: Rad-Overhaul-Fallout-4/build/release/FalloutAnomalyRadiation.dll
           if-no-files-found: error
           retention-days: 7
-
