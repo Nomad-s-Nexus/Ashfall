@@ -47,6 +47,7 @@ jobs:
 
       - name: Checkout commonlib_NonVR (RE authority)
         env:
+          RE_COMMONLIB_READ_USER: ${{ vars.RE_COMMONLIB_READ_USER || 'nomad' }}
           RE_COMMONLIB_READ_TOKEN: ${{ secrets.RE_COMMONLIB_READ_TOKEN }}
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
@@ -68,7 +69,7 @@ jobs:
           }
           git init -q $commonLib
           git -C $commonLib remote add origin 'https://re.nomadicinteractive.dev/ReverseEng/commonlib_NonVR.git'
-          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$($env:RE_COMMONLIB_READ_TOKEN)"))
+          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($env:RE_COMMONLIB_READ_USER):$($env:RE_COMMONLIB_READ_TOKEN)"))
           Write-Host "::add-mask::$basic"
           git -C $commonLib -c credential.helper= `
             -c "http.extraHeader=Authorization: Basic $basic" `
