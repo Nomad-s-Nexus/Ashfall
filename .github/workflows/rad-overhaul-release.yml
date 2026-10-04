@@ -59,7 +59,7 @@ jobs:
           # Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to an immutable SHA for
           # reproducible releases (the commit adding the Rad natives). Bump deliberately. Auth via the
           # COMMONLIB_READ_TOKEN repo secret; Actions masks it in logs.
-          COMMONLIB_SHA="961358dd72838417579fc6186a5a0da3b3242d37"   # commonlib_NonVR: verified AE CreateExplosionAtLocation + guarded OG camera shake
+          COMMONLIB_SHA="1b2f8583b809e560cd80c67e239480f4a55023f6"   # commonlib_NonVR: AE CreateExplosionAtLocation id 2192306 (#72) + guarded OG camera shake
           root="$(dirname "$(dirname "$GITHUB_WORKSPACE")")"
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
