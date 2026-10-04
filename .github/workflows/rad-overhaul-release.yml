@@ -52,9 +52,14 @@ jobs:
       - name: Checkout commonlib_NonVR (RE authority)
         shell: bash
         env:
-          COMMONLIB_READ_TOKEN: ${{ secrets.COMMONLIB_READ_TOKEN }}
+          RE_COMMONLIB_READ_TOKEN: ${{ secrets.RE_COMMONLIB_READ_TOKEN }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           set -euo pipefail
+          for v in RE_COMMONLIB_READ_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [ -n "${!v:-}" ] || { echo "ERROR: secret $v is not set" >&2; exit 1; }
+          done
           # Release builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) — never
           # Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Pinned to an immutable SHA for
           # reproducible releases (the commit adding the Rad natives). Bump deliberately. Auth via the
@@ -64,8 +69,14 @@ jobs:
           commonLib="$root/commonlib_NonVR"
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
           git init -q "$commonLib"
-          git -C "$commonLib" remote add origin "https://x-access-token:${COMMONLIB_READ_TOKEN}@github.com/PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR.git"
-          git -C "$commonLib" fetch -q --depth 1 origin "$COMMONLIB_SHA"
+          git -C "$commonLib" remote add origin "https://re.nomadicinteractive.dev/ReverseEng/commonlib_NonVR.git"
+          basic="$(printf 'x-access-token:%s' "$RE_COMMONLIB_READ_TOKEN" | base64 -w0)"
+          echo "::add-mask::$basic"
+          git -C "$commonLib" -c credential.helper= \
+            -c http.extraHeader="Authorization: Basic $basic" \
+            -c http.extraHeader="CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -c http.extraHeader="CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            fetch -q --depth 1 origin "$COMMONLIB_SHA"
           git -C "$commonLib" checkout -q FETCH_HEAD
           git -C "$commonLib" submodule update --init --recursive --depth 1
           test -d "$commonLib/RE-Work" || { echo "ERROR: RE-Work marker missing — checkout is not commonlib_NonVR" >&2; exit 1; }
