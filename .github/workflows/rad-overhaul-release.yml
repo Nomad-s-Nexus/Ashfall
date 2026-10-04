@@ -52,6 +52,7 @@ jobs:
       - name: Checkout commonlib_NonVR (RE authority)
         shell: bash
         env:
+          RE_COMMONLIB_READ_USER: ${{ vars.RE_COMMONLIB_READ_USER || 'nomad' }}
           RE_COMMONLIB_READ_TOKEN: ${{ secrets.RE_COMMONLIB_READ_TOKEN }}
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
@@ -70,7 +71,7 @@ jobs:
           rm -rf "$commonLib" "$root/CommonLibF4"   # drop any stale Dear-Modding/other checkout too
           git init -q "$commonLib"
           git -C "$commonLib" remote add origin "https://re.nomadicinteractive.dev/ReverseEng/commonlib_NonVR.git"
-          basic="$(printf 'x-access-token:%s' "$RE_COMMONLIB_READ_TOKEN" | base64 -w0)"
+          basic="$(printf '%s:%s' "$RE_COMMONLIB_READ_USER" "$RE_COMMONLIB_READ_TOKEN" | base64 -w0)"
           echo "::add-mask::$basic"
           git -C "$commonLib" -c credential.helper= \
             -c http.extraHeader="Authorization: Basic $basic" \
