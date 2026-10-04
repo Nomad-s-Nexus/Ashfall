@@ -55,7 +55,7 @@ jobs:
           # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Bump this SHA deliberately.
           # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
           # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
-          $commonLibSha = '6ab58418bdb639936265db713baf064b36560484'   # commonlib_NonVR main: AE CreateExplosionAtLocation (PR #103), public inventory event sources (PR #102), survival bindings
+          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'   # commonlib_NonVR: AE CreateExplosionAtLocation 2192306 (#72), public inventory event sources, survival bindings
           $root = Split-Path -Parent (Split-Path -Parent $env:GITHUB_WORKSPACE)
           $commonLib = Join-Path $root 'commonlib_NonVR'
           foreach ($stale in @($commonLib, (Join-Path $root 'CommonLibF4'))) {

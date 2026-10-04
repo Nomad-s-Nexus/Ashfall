@@ -49,7 +49,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $commonLibSha = '6ab58418bdb639936265db713baf064b36560484'
+          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'
           $commonLib = $env:COMMONLIBF4_PATH
           if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
           $pinned = (git -C $commonLib rev-parse HEAD).Trim()

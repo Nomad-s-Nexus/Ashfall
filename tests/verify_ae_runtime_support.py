@@ -39,7 +39,7 @@ fmodule = (shared / "src" / "REX" / "FModule.cpp").read_text(encoding="utf-8")
 variant = (shared / "include" / "REL" / "VariantID.h").read_text(encoding="utf-8")
 iddb_header = (shared / "include" / "REL" / "IDDB.h").read_text(encoding="utf-8")
 
-assert re.search(r"CreateExplosionAtLocation\s*\{\s*1105815\s*,\s*0\s*,\s*2192300\s*\}", ids)
+assert re.search(r"CreateExplosionAtLocation\s*\{\s*1105815\s*,\s*0\s*,\s*2192306\s*\}", ids)
 assert re.search(r"Get\s*\{\s*1330136\s*,\s*2194566\s*\}", ids)
 assert re.search(r"GetbhkWorld\s*\{\s*1326073\s*,\s*2200260\s*\}", ids)
 assert re.search(r"Pick\s*\{\s*434717\s*,\s*2200263\s*\}", ids)
@@ -95,7 +95,7 @@ assert header_ae_builds == bin_ae_builds
 
 ae_builds = tuple(sorted(header_ae_builds))
 required_ae_ids = {
-    "CreateExplosionAtLocation": 2192300,
+    "CreateExplosionAtLocation": 2192306,
     "GridCellArray::Get": 2194566,
     "TESObjectCELL::GetbhkWorld": 2200260,
     "TESObjectCELL::Pick": 2200263,
@@ -115,7 +115,7 @@ for build in ae_builds:
     ae_offsets[build] = build_offsets
 
 assert 240 in ae_offsets
-assert ae_offsets[240]["CreateExplosionAtLocation"] == 0x2E4D60
+assert ae_offsets[240]["CreateExplosionAtLocation"] == 0x2E6570
 print("AE CreateExplosionAtLocation coverage: " + ", ".join(
     f"1.11.{build}=0x{offsets['CreateExplosionAtLocation']:X}"
     for build, offsets in ae_offsets.items()))
