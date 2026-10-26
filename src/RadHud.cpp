@@ -185,6 +185,12 @@ void RadHud::RequestAPI()
     StartPrismaViewRetry();
 }
 
+bool RadHud::PlayerInWorld() const
+{
+    // Constraint: view creation is deferred until the world exists, so no widget is built on a menu.
+    return IsPlayerInWorld();
+}
+
 void RadHud::CreateView()
 {
     auto logger = spdlog::get("FalloutAnomaly");
@@ -434,7 +440,8 @@ bool RadHud::ShowSpecialInfo(const std::vector<std::string>& lines)
     // nlohmann::json handles escaping + the array build.
     json j;
     j["lines"] = lines;
-    api->InteropCall(_view, "showSpecialInfo", j.dump().c_str());
+    // Constraint: a mod-supplied string can carry invalid UTF-8; replace it instead of throwing.
+    api->InteropCall(_view, "showSpecialInfo", j.dump(-1, ' ', false, json::error_handler_t::replace).c_str());
     return true;
 }
 
@@ -494,7 +501,7 @@ void RadHud::PushArmor(
         });
     }
 
-    const std::string serialized = payload.dump();
+    const std::string serialized = payload.dump(-1, ' ', false, json::error_handler_t::replace);
     if (serialized == _armorPayload)
         return;
     _armorPayload = serialized;

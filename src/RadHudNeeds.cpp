@@ -12,6 +12,9 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         _needsReadyView.store(0);
         _needsWidgetRegistered = false;
         _needsPayload.clear();
+        // Constraint: build views through the shared retry and only once the player is in the world.
+        StartPrismaViewRetry();
+        if (!PlayerInWorld()) return;
         _needsView = api->CreateView("Interface/FalloutAnomaly/hud_needs.html", [](PrismaView view) {
             RadHud::GetSingleton()._needsReadyView.store(view);
         });

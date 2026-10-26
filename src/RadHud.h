@@ -47,6 +47,7 @@ public:
     void PumpDeferredDebug();
     void OnBlockingMenuOpened();
 
+    [[nodiscard]] bool PlayerInWorld() const;
     [[nodiscard]] bool Available() const { return _api != nullptr; }
     [[nodiscard]] bool HudLayoutAvailable() const { return _hudApi != nullptr; }
     [[nodiscard]] bool ViewsReady() const

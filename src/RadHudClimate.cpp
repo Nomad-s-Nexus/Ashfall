@@ -109,6 +109,12 @@ void RadHud::PushClimate(const RadClimatePolicy::ClimateState& state,
     const RadClimatePolicy::EnvironmentSample& environment, const RadClimatePolicy::StepResult& result)
 {
     if (!_api) return;
+    // Constraint: build views through the shared retry and only once the player is in the world.
+    if (_climateView == 0 || !static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api)->IsValid(_climateView))
+    {
+        StartPrismaViewRetry();
+        if (!PlayerInWorld()) return;
+    }
     EnsureClimateView();
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     if (!_climateView || !api->IsValid(_climateView) || !_climateDomReady) return;
@@ -129,7 +135,8 @@ void RadHud::PushClimate(const RadClimatePolicy::ClimateState& state,
         { "cooling", rate(result.coolingCPerSecond) },
         { "warming", rate(result.warmingCPerSecond) }
     };
-    const auto payload = data.dump();
+    // Constraint: invalid UTF-8 in a mod string must not throw out of the tick.
+    const auto payload = data.dump(-1, ' ', false, json::error_handler_t::replace);
     if (payload == _climatePayload) return;
     _climatePayload = payload;
     api->InteropCall(_climateView, "updateClimate", payload.c_str());
