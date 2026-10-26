@@ -306,6 +306,32 @@ Reference: `RadSurvivalDiseases.psc:ConsumeItem`, `RadSurvivalDiseases.psc:Expos
 
 **Authoring note for the next record.** FO4IDE's MCP host drops the open plugin after a slow call: `create_record` with form-list entries or a magic-effect entry sometimes times out and still lands the record, and the next call answers `PluginNotLoaded`. The safe loop is create, then `save_plugin`, then re-`open_plugin`, and never to retry a timed-out write before checking `list_record_types`.
 
+## Shipped-plugin validation findings (2026-10-26)
+
+Reference: `deploy/RadSurvival.esp`, `deploy/RadiationOverhaul.esp`, `deploy/RadOverhaulSurPatch.esp`, `tests/verify_av_ownership.py`, `docs/ESP_BUILD_PIPELINE.md`.
+
+FO4IDE's contract checker (`FO4RecordEditor.exe --check <plugin> --scripts <dir> --json`) is run on the three shipped plugins. Two report findings and one is clean; the split below is the decision for each, with the command that reproduces it.
+
+| Plugin | Findings | Verdict | Action |
+| --- | --- | --- | --- |
+| `RadSurvival.esp` | none (one `MASTER_CHECK_SKIPPED` info: the CLI has no active profile) | clean | none |
+| `RadiationOverhaul.esp` | 10 x `EFFECT_LIST_EMPTY` on `RadOverhaul_Stage100`-`Stage1000`; 1 x `HEDR_RECORD_COUNT_MISMATCH` | first is real and deliberate; second is a check-context artifact | keep, documented below |
+| `RadOverhaulSurPatch.esp` | 82 x `SCRIPT_MISSING` over two `SMO:` scripts; 1 x `HEDR_RECORD_COUNT_MISMATCH` | both are check-context artifacts | keep, documented below |
+
+**`RadiationOverhaul.esp` empty abilities are the AV ownership placeholder.** The ten `RadOverhaul_Stage*` spells carry a `SPIT` and no `EFID`, which is exactly what `EFFECT_LIST_EMPTY` reports: granted by `RadOverhaul_Perk100`-`Perk1000`, they modify nothing. Populating them would name an actor value, and that value then has a second Rad owner next to the survival layer - the decision `tests/verify_av_ownership.py` exists to intercept (it fails the moment one of them gains an effect). They stay empty until that decision is made; the check finding is the cost of shipping the placeholder rather than deleting the perks.
+
+**`RadOverhaulSurPatch.esp` script findings are the absent dependency.** All 82 are the namespaced scripts `SMO:HC_SMO_Effect_DiseaseHandler` (81) and `SMO:DiseaseEffects:HC_SMO_VoicesEnd` (1). The `SMO:` namespace belongs to `Survival Mode Overhaul`, which is this plugin's second master (`Fallout4.esm`, `Survival Mode Overhaul.esp`) and is not installed in TMR, so the compiled `.pex` files are not on any script path the checker is given - pointing `--scripts` anywhere in this repo cannot satisfy them. The plugin therefore ships disabled; enabling it without that master crashes the load, and that is why `plugins.txt` leaves it out.
+
+**`HEDR_RECORD_COUNT_MISMATCH` is the known counting quirk.** `--check` compares `HEDR::numRecords` against its own records-plus-groups total: it reports 238 for a total of 237 in `RadiationOverhaul.esp`, and 116 against 117 in `RadOverhaulSurPatch.esp`. `RadSurvival.esp`, which FO4IDE itself saved, is clean, so the writer and the checker agree on their own model and the two older plugins disagree with it by one either way. The field is ignored by the engine and rewritten by xEdit on load, so it is reported upstream with the other FO4IDE quirks rather than hand-patched.
+
+Reproduce:
+
+```
+FO4RecordEditor.exe --check deploy\RadSurvival.esp --scripts deploy\Scripts --json
+FO4RecordEditor.exe --check deploy\RadiationOverhaul.esp --scripts deploy\Scripts --json
+FO4RecordEditor.exe --check deploy\RadOverhaulSurPatch.esp --scripts deploy\Scripts --json
+```
+
 ## Actor-value ownership (2026-10-26)
 
 Reference: `RadSurvivalQuest.psc:ApplyStagePenalty`, `RadSurvivalQuest.psc:UpdatePenaltyStages`, `RadSurvivalDiseases.psc:Reconcile`, `tools/rad_penalty_spells.json`, `tools/rad_diseases.json`, `tests/verify_av_ownership.py`.

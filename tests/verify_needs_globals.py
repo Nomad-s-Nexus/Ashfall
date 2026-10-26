@@ -44,6 +44,8 @@ check("_clock" not in needs_header and "CalendarState" not in needs_header,
 # The HUD payload must carry what the reader produces.
 for key in ('"hunger"', '"thirst"', '"sleepDebt"', '"risk"', '"disease"'):
     check(key in hud_needs, f"RadHudNeeds.cpp must publish {key}")
+check("risk01" in needs_runtime and "diseasePacked" in needs_runtime,
+      "the payload must carry the exposure pool and the packed disease state, not just the pools")
 
 # Nothing may write the old co-save record, but an old save must still load.
 check("kRecord" in serialization, "LoadState must still recognise the legacy NEED record")
