@@ -12,7 +12,6 @@ COMPILED = ROOT / "deploy/Scripts/RadSurvivalQuest.pex"
 DISEASE_SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalDiseases.psc"
 DISEASE_COMPILED = ROOT / "deploy/Scripts/RadSurvivalDiseases.pex"
 PLUGIN = ROOT / "deploy/RadSurvival.esp"
-NATIVE_NEEDS = ROOT / "deploy/F4SE/Plugins/FalloutAnomaly/needs.json"
 
 PEX_MAGIC = bytes((0xDE, 0xC0, 0x57, 0xFA))
 SCRIPT_NAME = "RadSurvivalQuest"
@@ -480,13 +479,16 @@ def constant(source_code, name):
     return float(match.group(1)) if match else None
 
 
-native = json.loads(text(NATIVE_NEEDS))["hourlyRates"]
-for prop, key in (("HourlyHunger", "hunger"), ("HourlyThirst", "thirst"), ("HourlySleepDebt", "sleepDebt")):
+# Constraint: the quest script is the only rate owner now that the native clock is gone.
+for prop, expected in (("HourlyHunger", 0.05), ("HourlyThirst", 0.10), ("HourlySleepDebt", 0.025)):
     value = constant(source, prop)
     check(value is not None, f"missing tuning constant {prop}")
     if value is not None:
-        check(abs(value - float(native[key])) < 1e-9,
-              f"{prop} diverged from the native needs runtime ({value} vs {native[key]})")
+        check(abs(value - expected) < 1e-9,
+              f"{prop} is {value}, expected {expected}: the quest script owns the pool rates")
+readme = ROOT / "README.md"
+check("needs.json" not in text(readme) if readme.is_file() else True,
+      "the README must not still describe the removed needs.json rates")
 
 # Invariant: disease risk is time-driven, staged on a ladder, and curable by rest.
 for name in ("RadSurvival_Risk", "RadSurvival_Disease"):

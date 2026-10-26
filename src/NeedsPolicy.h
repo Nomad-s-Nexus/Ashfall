@@ -2,10 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace RadNeedsPolicy
 {
+    // Constraint: RadSurvival.esp owns these pools; this side only reads them for the HUD.
     struct NeedsState
     {
         float hunger01{ 0.0f };
@@ -13,19 +13,17 @@ namespace RadNeedsPolicy
         float sleepDebt01{ 0.0f };
     };
 
-    struct HourlyRates
+    struct NeedsSnapshot
     {
-        float hungerPerHour{ 0.0f };
-        float thirstPerHour{ 0.0f };
-        float sleepDebtPerHour{ 0.0f };
+        NeedsState pools{};
+        float risk01{ 0.0f };
+        int diseasePacked{ 0 };
     };
 
-    struct Relief
-    {
-        float hunger01{ 0.0f };
-        float thirst01{ 0.0f };
-        float sleepDebt01{ 0.0f };
-    };
+    inline constexpr int kDiseaseNone = 0;
+    inline constexpr int kDiseaseMaxId = 2;
+    inline constexpr int kDiseaseMaxStage = 3;
+    inline constexpr int kDiseasePackedMax = kDiseaseMaxId * 10 + kDiseaseMaxStage;
 
     [[nodiscard]] inline float Clamp01(float value) noexcept
     {
@@ -42,64 +40,13 @@ namespace RadNeedsPolicy
         return state;
     }
 
-    [[nodiscard]] inline NeedsState Advance(
-        NeedsState state,
-        float elapsedGameHours,
-        const HourlyRates& rates) noexcept
+    // Constraint: the disease GLOB packs DiseaseId * 10 + Stage, so an out-of-range read is discarded.
+    [[nodiscard]] inline NeedsSnapshot Sanitize(NeedsSnapshot snapshot) noexcept
     {
-        state = Sanitize(state);
-        const float hours = std::isfinite(elapsedGameHours)
-            ? std::max(0.0f, elapsedGameHours)
-            : 0.0f;
-        const float hungerRate = std::isfinite(rates.hungerPerHour)
-            ? std::max(0.0f, rates.hungerPerHour)
-            : 0.0f;
-        const float thirstRate = std::isfinite(rates.thirstPerHour)
-            ? std::max(0.0f, rates.thirstPerHour)
-            : 0.0f;
-        const float sleepRate = std::isfinite(rates.sleepDebtPerHour)
-            ? std::max(0.0f, rates.sleepDebtPerHour)
-            : 0.0f;
-
-        const auto advanceNeed = [hours](float value, float rate) {
-            if (hours <= 0.0f || rate <= 0.0f || value >= 1.0f)
-                return Clamp01(value);
-            return rate > (1.0f - value) / hours ? 1.0f : Clamp01(value + rate * hours);
-        };
-        state.hunger01 = advanceNeed(state.hunger01, hungerRate);
-        state.thirst01 = advanceNeed(state.thirst01, thirstRate);
-        state.sleepDebt01 = advanceNeed(state.sleepDebt01, sleepRate);
-        return state;
-    }
-
-    struct CalendarState
-    {
-        NeedsState state{};
-        double previousDays{ -1.0 };
-
-        void Observe(double days, const HourlyRates& rates) noexcept
-        {
-            if (!std::isfinite(days) || days < 0.0)
-            {
-                previousDays = -1.0;
-                return;
-            }
-            if (previousDays >= 0.0 && days > previousDays)
-            {
-                const double hours = std::min((days - previousDays) * 24.0,
-                    static_cast<double>(std::numeric_limits<float>::max()));
-                state = Advance(state, static_cast<float>(hours), rates);
-            }
-            previousDays = days;
-        }
-    };
-
-    [[nodiscard]] inline NeedsState ApplyRelief(NeedsState state, const Relief& relief) noexcept
-    {
-        state = Sanitize(state);
-        state.hunger01 = Clamp01(state.hunger01 - Clamp01(relief.hunger01));
-        state.thirst01 = Clamp01(state.thirst01 - Clamp01(relief.thirst01));
-        state.sleepDebt01 = Clamp01(state.sleepDebt01 - Clamp01(relief.sleepDebt01));
-        return state;
+        snapshot.pools = Sanitize(snapshot.pools);
+        snapshot.risk01 = Clamp01(snapshot.risk01);
+        if (snapshot.diseasePacked < kDiseaseNone || snapshot.diseasePacked > kDiseasePackedMax)
+            snapshot.diseasePacked = kDiseaseNone;
+        return snapshot;
     }
 }

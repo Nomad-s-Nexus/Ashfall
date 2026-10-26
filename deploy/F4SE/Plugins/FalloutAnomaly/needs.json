@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "hourlyRates": {
-    "hunger": 0.05,
-    "thirst": 0.1,
-    "sleepDebt": 0.025
-  }
-}

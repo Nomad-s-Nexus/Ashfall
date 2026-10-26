@@ -3,7 +3,7 @@
 #include "PrismaUI_F4_API.h"
 #include "PrismaHUD_F4_API.h"
 
-void RadHud::PushNeeds(const RadNeedsPolicy::NeedsState& state)
+void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
 {
     if (!_api) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
@@ -35,9 +35,11 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsState& state)
         return static_cast<int>(std::lround(RadNeedsPolicy::Clamp01(value) * 100.0f));
     };
     const auto payload = json{
-        { "hunger", percent(state.hunger01) },
-        { "thirst", percent(state.thirst01) },
-        { "sleepDebt", percent(state.sleepDebt01) }
+        { "hunger", percent(snapshot.pools.hunger01) },
+        { "thirst", percent(snapshot.pools.thirst01) },
+        { "sleepDebt", percent(snapshot.pools.sleepDebt01) },
+        { "risk", percent(snapshot.risk01) },
+        { "disease", snapshot.diseasePacked }
     }.dump();
     if (payload == _needsPayload) return;
     _needsPayload = payload;

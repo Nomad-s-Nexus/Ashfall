@@ -131,12 +131,6 @@ namespace
     void SaveCallback(const F4SE::SerializationInterface* a_intfc)
     {
         RadiationEngine::GetSingleton().SaveState(a_intfc);
-        const auto needs = NeedsRuntime::GetSingleton().SnapshotForSave();
-        if (!RadNeedsSerialization::Write(*a_intfc, needs))
-        {
-            if (logger)
-                logger->error("[Save] Needs record write failed; continuing with climate.");
-        }
         const auto climate = ClimateRuntime::GetSingleton().SnapshotForSave();
         if (!a_intfc->OpenRecord(RadClimateSerialization::kRecord, RadClimateSerialization::kVersion))
         {

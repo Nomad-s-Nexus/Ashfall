@@ -206,9 +206,9 @@ The quest VMAD carries one script, `RadSurvivalQuest`, with object properties `R
 
 **Two FO4IDE quirks.** `create_record` leaves `MGEF\DualCastingScale` at 0 while vanilla ability effects use 1.0; the field is now exposed, so all nine are set to 1.0 (harmless for a constant-effect ability, but the shape now matches vanilla). Separately, `HEDR::numRecords` counts groups as well as records (26 for 22 records; it was 6 for 4 before the SPEL/MGEF set). Engine and xEdit ignore it, so it is reported upstream rather than hand-patched; a future FO4IDE build that fixes it needs a re-save, not a rebuild.
 
-**HUD.** Every pool change is mirrored into the matching `GLOB` through `GlobalVariable.SetValue`, so PR #71's native HUD can read the pools as `TESGlobal` with no Papyrus-to-native bridge.
+**HUD.** Every pool change is mirrored into the matching `GLOB` through `GlobalVariable.SetValue` in `RadSurvivalQuest.psc:MirrorToGlobal`, and `src/NeedsRuntime.cpp:Update` reads them back: `RadSurvival_Hunger`, `_Thirst` and `_Sleep` for the three pool chips, `RadSurvival_Risk` and `RadSurvival_Disease` for the disease row. The native side therefore holds no needs state of its own - no clock, no hourly rates, no co-save record - and the globals are the single contract between the two halves.
 
-**Tuning.** Code constants mirror `needs.json` `hourlyRates` (hunger 0.05, thirst 0.10, sleep debt 0.025 per game hour); `tests/verify_survival.py` fails if the two diverge.
+**Tuning.** `RadSurvivalQuest.psc` owns the rates outright (hunger 0.05, thirst 0.10, sleep debt 0.025 per game hour). The former `needs.json` fed the native clock and was deleted with it; `tests/verify_survival.py` pins the three constants and `tests/verify_needs_globals.py:check` fails if the native reader stops looking up the globals.
 
 ## Diseases: prerequisite findings before implementation (2026-10-26)
 
@@ -238,7 +238,7 @@ Reference: `RadSurvivalDiseases.psc:AccrueRisk`, `RadSurvivalDiseases.psc:Advanc
 
 **Gating.** `RadSurvivalDiseases.psc:Reconcile` applies the ability only when the caller reports an active layer, `DiseasesEnabled` is on and the stage is past incubation, and the game-time tick calls `ReconcileDiseases` next to the penalty reconcile, so switching to vanilla Survival strips the disease ability at the same tick as the penalties and switching back restores it. `AdvanceDisease` also refuses to run while suspended, so an illness cannot progress during the interval Rad is not in control.
 
-**HUD contract.** `RadSurvival_Risk` mirrors the pool directly. `RadSurvival_Disease` packs the state as `DiseaseId * 10 + DiseaseStage` (fever incubating 10, fever stage 3 13, wasting stage 2 22, healthy 0), so the native HUD can show a name and a severity from one `TESGlobal` without a Papyrus-to-native bridge.
+**HUD contract.** `RadSurvival_Risk` mirrors the pool directly, and `RadSurvival_Disease` packs the state as `DiseaseId * 10 + DiseaseStage` (fever incubating 10, fever stage 3 13, wasting stage 2 22, healthy 0). `src/NeedsRuntime.cpp:Update` decodes both into the needs payload as `risk` (percent) and `disease` (packed), so the exposure and illness chips read the two globals the Papyrus layer writes, still without a Papyrus-to-native bridge.
 
 **Untested in game.** The magnitudes, the risk pace and the 4h/10h/24h ladder are conservative starting values, not measured ones. Nothing in this repository can execute Papyrus, so the contracts cover record shape, mirror wiring, gating and the presence of every rule; how it feels is an in-game acceptance item.
 

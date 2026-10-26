@@ -1,6 +1,7 @@
 #include "RadEngine_Internal.h"
 #include "ClimateRuntime.h"
 #include "NeedsRuntime.h"
+#include "NeedsSerializationPolicy.h"
 #include "SerializationPolicy.h"
 #include "RadMaskOwnership.h"
 
@@ -73,7 +74,6 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     auto logger = Log();
     ClimateRuntime::GetSingleton().Reset();
     NeedsRuntime::GetSingleton().Reset();
-    RadNeedsSerialization::RecordCandidates needsCandidates;
     std::uint32_t type = 0, version = 0, length = 0;
 
 
@@ -97,10 +97,8 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     {
         if (type == RadNeedsSerialization::kRecord)
         {
-            if (!needsCandidates.Read(*a_intfc, version, length))
-            {
-                logger->warn("[Load] Needs record is invalid, truncated, or unsupported; ignoring.");
-            }
+            // Constraint: an old save still carries the NEED record; it is read and dropped.
+            logger->info("[Load] Legacy NEED record v{} len {} ignored; needs are plugin globals.", version, length);
             continue;
         }
         if (type == RadClimateSerialization::kRecord)
@@ -229,8 +227,6 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
         }
         clockCandidates.push_back(candidate);
     }
-
-    NeedsRuntime::GetSingleton().RestoreFromSave(needsCandidates.RestoreState());
 
     if (climateCandidates.size() == 1 ||
         (climateCandidates.size() > 1 && RadClimateSerialization::ClassifyCandidates(climateCandidates) ==

@@ -30,7 +30,7 @@ ScriptName RadSurvivalQuest extends Quest
 ; =============================================================================
 
 ; -----------------------------------------------------------------------------
-; tuning - mirrors deploy/F4SE/Plugins/FalloutAnomaly/needs.json
+; tuning - the only source of the pool rates; the three GLOBs are the HUD contract
 ; -----------------------------------------------------------------------------
 
 float Property HourlyHunger = 0.05 Auto Const

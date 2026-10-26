@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NeedsSerializationPolicy.h"
+#include "NeedsPolicy.h"
 
 #include <mutex>
 
@@ -15,13 +15,16 @@ public:
 
     void Update();
     void Reset();
-    [[nodiscard]] RadNeedsSerialization::PersistedState SnapshotForSave() const;
-    void RestoreFromSave(const RadNeedsPolicy::NeedsState& state);
 
 private:
     NeedsRuntime() = default;
+    void ResolveGlobals();
+
     mutable std::mutex _mutex;
-    RadNeedsPolicy::CalendarState _clock;
-    RadNeedsPolicy::HourlyRates _rates;
-    bool _configLoaded{ false };
+    // Constraint: opaque so this header stays free of engine types; the .cpp owns the casts.
+    void* _hunger{ nullptr };
+    void* _thirst{ nullptr };
+    void* _sleep{ nullptr };
+    void* _risk{ nullptr };
+    void* _disease{ nullptr };
 };
