@@ -263,3 +263,21 @@ Reference: `RadSurvivalQuest.psc:OnHit`, `RadSurvivalQuest.psc:OnPlayerSwimming`
 **Amounts.** A qualifying hit is worth `RiskPerHit` (0.01) behind a two-second real-time cooldown; an automatic weapon can otherwise deliver dozens of hits in a second and would fill the pool instantly. Vanilla charges 0.05 per hit with no cooldown, against a roll threshold of 0.25 - the per-hit figure here is deliberately smaller because this pool triggers outright at 1.0 instead of rolling against it. Swimming is worth `RiskPerSwim` (0.03) per 0.1 game days, which is vanilla's own swimming pair copied unchanged. Both numbers are conservative starting values and are in `tools/rad_diseases.json`, where `tests/verify_survival.py` checks them against the script.
 
 **One rule, three sources.** Both events and the ambient tick answer to `AddRisk`, which applies the same gates everywhere: the layer must be active, `DiseasesEnabled` on, no illness already live, and an immunity window absorbs exposure instead of pausing it. That is what stops a hit taken while the layer is suspended at difficulty 6 from starting an illness, and it is why the exposure path could be added without touching the escalation or cure logic - a full pool still enters the same `StartDisease` and the same 4h/10h/24h ladder.
+
+## Actor-value ownership (2026-10-26)
+
+Reference: `RadSurvivalQuest.psc:ApplyStagePenalty`, `RadSurvivalQuest.psc:UpdatePenaltyStages`, `RadSurvivalDiseases.psc:Reconcile`, `tools/rad_penalty_spells.json`, `tools/rad_diseases.json`, `tests/verify_av_ownership.py`.
+
+Every effect this layer applies is a constant-effect ability carrying one peak-value modifier, and modifiers on the same actor value add together. Two Rad systems on one actor value would therefore stack without a message, without a log line, and with no way to tell from the game which one is responsible. The partition below is the contract: one owner per actor value, and `tests/verify_av_ownership.py` fails if a second one appears.
+
+| Actor value | Sole Rad owner | Carrier | Stage 1 / 2 / 3 |
+| --- | --- | --- | --- |
+| `CarryWeight` (`0002DC:Fallout4.esm`) | hunger penalty | `RadSurvival_HungerPenaltySpell1`-`3` | -10 / -25 / -45 |
+| `ActionPoints` (`0002D5:Fallout4.esm`) | thirst penalty | `RadSurvival_ThirstPenaltySpell1`-`3` | -5 / -15 / -30 |
+| `HealRateMult` (`000358:Fallout4.esm`) | exhaustion penalty | `RadSurvival_SleepPenaltySpell1`-`3` | -0.15 / -0.30 / -0.50 |
+| `SpeedMult` (`0002DA:Fallout4.esm`) | wasting | `RadSurvival_WastingSpell1`-`3` | -5 / -10 / -15 |
+| `DamageResist` (`0002E3:Fallout4.esm`) | fever | `RadSurvival_FeverSpell1`-`3` | -10 / -25 / -40 |
+
+**Vanilla Survival is the other owner, and it gets the whole set back.** The five actor values above are also what `HC_ManagerScript.psc` moves, so the layer yields all of them together rather than trying to share one. `IsActive()` false - the enable switch, or difficulty 6 - reaches `RadSurvivalQuest.psc:UpdatePenaltyStages`, which calls `ClearAllPenalties`, and the same tick calls `ReconcileDiseases`, which passes `abActive` into `RadSurvivalDiseases.psc:Reconcile` and so removes the disease ability too. Both sets therefore leave the actor on the first tick after the gate closes (0.25 game hours), not at the next stage boundary, and the pools stop advancing so nothing rebuilds behind the gate. Nothing in either layer writes an actor value directly - `ModValue` and friends appear nowhere in `src/` or in the scripts - which is what makes the removal exact: the spell is the only carrier, and removing it removes the modifier.
+
+**The base plugin's radiation stages own nothing today.** `RadiationOverhaul.esp` ships ten perks (`RadOverhaul_Perk100`-`RadOverhaul_Perk1000`) that grant ten ability spells (`RadOverhaul_Stage100`-`RadOverhaul_Stage1000`), and every one of those spells has a `SPIT` but no `EFID`: they are empty abilities, so they modify no actor value and cannot stack with anything. If they are ever populated - the radiation-sickness debuffs they were clearly meant to carry - they become a second Rad owner of whichever actor value they name, and the ownership table is the place to decide whether that value moves to them. `tests/verify_av_ownership.py` fails the moment one of those spells gains an effect, so the decision cannot be skipped by accident.
