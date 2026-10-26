@@ -159,6 +159,9 @@ Event OnTimerGameTime(int aiTimerID)
         LastGameTime = Utility.GetCurrentGameTime()
     endif
 
+    ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
+    UpdatePenaltyStages()
+
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
 
@@ -425,34 +428,30 @@ Function UpdatePenaltyStages()
         return
     endif
 
+    ; Invariant: reconcile all three pools every call; ApplyStagePenalty is idempotent per pool.
+    ; Constraint: the trackers below gate only the notifications, never the reconcile.
     int hunger = StageFor(HungerDebt)
-    if hunger != HungerStage
-        int previous = HungerStage
-        HungerStage = hunger
-        ApplyStagePenalty("hunger", hunger)
-        if hunger > previous
-            NotifyStage("hunger", hunger)
-        endif
+    bool hungerRose = hunger > HungerStage
+    HungerStage = hunger
+    ApplyStagePenalty("hunger", hunger)
+    if hungerRose
+        NotifyStage("hunger", hunger)
     endif
 
     int thirst = StageFor(ThirstDebt)
-    if thirst != ThirstStage
-        int previousThirst = ThirstStage
-        ThirstStage = thirst
-        ApplyStagePenalty("thirst", thirst)
-        if thirst > previousThirst
-            NotifyStage("thirst", thirst)
-        endif
+    bool thirstRose = thirst > ThirstStage
+    ThirstStage = thirst
+    ApplyStagePenalty("thirst", thirst)
+    if thirstRose
+        NotifyStage("thirst", thirst)
     endif
 
     int sleep = StageFor(SleepDebt)
-    if sleep != SleepStage
-        int previousSleep = SleepStage
-        SleepStage = sleep
-        ApplyStagePenalty("sleep", sleep)
-        if sleep > previousSleep
-            NotifyStage("sleep", sleep)
-        endif
+    bool sleepRose = sleep > SleepStage
+    SleepStage = sleep
+    ApplyStagePenalty("sleep", sleep)
+    if sleepRose
+        NotifyStage("sleep", sleep)
     endif
 EndFunction
 

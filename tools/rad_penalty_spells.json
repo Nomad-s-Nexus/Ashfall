@@ -1,6 +1,6 @@
 {
   "plugin": "RadSurvival.esp",
-  "summary": "Stage 1-3 penalties for the three survival pools. Record skeletons are authored with FO4IDE (MGEF fields, ability spell fields, form ids); tools/apply_spell_effects.py appends the effect entry (EFID/EFIT) that FO4IDE cannot express, because the magnitude lives in the spell's effect list, not in the MGEF.",
+  "summary": "Stage 1-3 penalties for the three survival pools. This file is tuning and record contract only: FO4IDE authors the MGEF fields, the ability spell fields and the spell effect entry (add_magic_effect), and tests/verify_survival.py checks the shipped plugin against these values.",
   "mgefDefaults": {
     "archetype": 34,
     "archetypeName": "Peak Value Modifier",
@@ -8,7 +8,9 @@
     "castingTypeName": "Constant Effect",
     "delivery": 0,
     "flags": 2562,
-    "flagsMeaning": "Recover | No Duration | No Area"
+    "flagsMeaning": "Recover | No Duration | No Area",
+    "dualCastingScale": 1.0,
+    "dualCastingScaleMeaning": "vanilla ability shape; DATA+112"
   },
   "spellDefaults": {
     "type": 4,

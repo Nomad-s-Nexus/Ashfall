@@ -137,8 +137,32 @@ clear_calls = function_body(code, "Function ClearAllPenalties()")
 for pool in ("hunger", "thirst", "sleep"):
     check(f'ApplyStagePenalty("{pool}", 0)' in clear_calls,
           f"ClearAllPenalties must clear the {pool} spell")
-check("ClearAllPenalties()" in function_body(code, "Function UpdatePenaltyStages()"),
+update_body = function_body(code, "Function UpdatePenaltyStages()")
+check("ClearAllPenalties()" in update_body,
       "a suspended layer must clear its penalties")
+
+# Invariant: every pool is reconciled on every call, never only on a stage change.
+for pool in ("hunger", "thirst", "sleep"):
+    check(f'ApplyStagePenalty("{pool}", {pool})' in update_body,
+          f"UpdatePenaltyStages must reconcile the {pool} spell on every call")
+# Constraint: the calls must sit at function indent; nested deeper they are back inside a guard.
+update_calls = [line for line in update_body.splitlines() if "ApplyStagePenalty(" in line]
+check(update_calls == [f'    ApplyStagePenalty("{pool}", {pool})'
+                       for pool in ("hunger", "thirst", "sleep")],
+      "each pool must be reconciled exactly once, unconditionally, at function indent")
+check(re.search(r"!=\s*\w*Stage\b", update_body) is None,
+      "UpdatePenaltyStages must not gate reconciliation on a stage change")
+check("NotifyStage(" in update_body,
+      "the stage trackers still have to drive the stage notifications")
+check("if applied == wanted" in hook_body,
+      "ApplyStagePenalty must be idempotent so reconciling every call is free")
+
+# Constraint: the tick must reconcile after the active/suspended branch, not inside one of them.
+timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
+check("UpdatePenaltyStages()" in timer_body,
+      "the game-time tick must reconcile penalties")
+check("UpdatePenaltyStages()" in timer_body[timer_body.rfind("endif"):],
+      "the tick must reconcile after the active/suspended branch, not inside one of them")
 
 for forbidden in ("HC_Manager", "HC_", "GetHardcore", "SurvivalModeEnabled"):
     check(forbidden not in code, f"must not touch vanilla survival state ({forbidden})")
@@ -193,14 +217,16 @@ if PLUGIN.is_file():
                   f"VMAD property value is not bound to 0x{form_id:08X}")
 
 
-sys.path.insert(0, str(ROOT / "tools"))
-import apply_spell_effects as penalty_spells
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import plugin_reader
 
 manifest_path = ROOT / "tools/rad_penalty_spells.json"
 check(manifest_path.is_file(), "missing tools/rad_penalty_spells.json")
 manifest = json.loads(text(manifest_path)) if manifest_path.is_file() else {"spells": []}
 entries = manifest.get("spells", [])
 check(manifest.get("plugin") == "RadSurvival.esp", "the spell manifest must target RadSurvival.esp")
+check(abs(float(manifest.get("mgefDefaults", {}).get("dualCastingScale", 0)) - 1.0) < 1e-6,
+      "the manifest must record vanilla's DualCastingScale of 1.0")
 check(len(entries) == 9, "the penalty table must hold 9 spells (3 pools x 3 stages)")
 pools = {(entry.get("pool"), entry.get("stage")) for entry in entries}
 check(pools == {(pool, stage) for pool in ("hunger", "thirst", "sleep") for stage in (1, 2, 3)},
@@ -227,7 +253,7 @@ for pool in ("hunger", "thirst", "sleep"):
           f"{pool} penalties must grow with the stage")
 
 if PLUGIN.is_file():
-    parser = penalty_spells
+    parser = plugin_reader
     try:
         tree = parser.parse(esp)
     except parser.PluginError as exc:
@@ -235,11 +261,7 @@ if PLUGIN.is_file():
         check(False, f"RadSurvival.esp does not parse as a plugin: {exc}")
 
     def plugin_records(signature):
-        found = {}
-        for node in parser.walk(tree):
-            if node.kind == "record" and node.sig == signature:
-                found[struct.unpack_from("<I", esp, node.offset + 12)[0]] = node
-        return found
+        return parser.records_by_form_id(esp, tree, signature)
 
     magic_effects = plugin_records(b"MGEF")
     ability_spells = plugin_records(b"SPEL")
@@ -263,8 +285,11 @@ if PLUGIN.is_file():
             (actor_value,) = struct.unpack_from("<I", data, 68)
             (casting_type,) = struct.unpack_from("<I", data, 80)
             (flags,) = struct.unpack_from("<I", data, 0)
+            (dual_cast,) = struct.unpack_from("<f", data, 112)
             check(archetype == 34, f"{entry['mgefEditorId']} must be a Peak Value Modifier")
             check(casting_type == 0, f"{entry['mgefEditorId']} must be a Constant Effect")
+            check(abs(dual_cast - 1.0) < 1e-6,
+                  f"{entry['mgefEditorId']} must keep vanilla's DualCastingScale of 1.0 (DATA+112)")
             check(actor_value == int(entry["actorValueFormId"].split(":")[0], 16),
                   f"{entry['mgefEditorId']} targets the wrong actor value")
             check(flags & 0x800, f"{entry['mgefEditorId']} must be area-less")
@@ -280,7 +305,8 @@ if PLUGIN.is_file():
             check(cast_type == 0, f"{entry['spellEditorId']} must be a Constant Effect")
 
         efid = spell_node.field(esp, b"EFID")
-        check(efid is not None, f"{entry['spellEditorId']} has no effect entry; run tools/apply_spell_effects.py")
+        check(efid is not None,
+              f"{entry['spellEditorId']} has no effect entry; author it with FO4IDE add_magic_effect")
         if efid:
             (linked,) = struct.unpack("<I", efid)
             check(linked == int(entry["mgefFormId"], 16),
