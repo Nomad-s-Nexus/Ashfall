@@ -90,7 +90,6 @@ Event OnInit()
     ArmSleepWaitEvents()
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
-    EnsureGlobals()
     MirrorAll()
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] ready at game day " + LastGameTime)
@@ -123,7 +122,6 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
     RestartTimer()
-    EnsureGlobals()
     MirrorAll()
     Debug.Trace("[RadSurvivalQuest] post-load anchor H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt)
 EndEvent
@@ -383,20 +381,6 @@ EndFunction
 ; GLOB mirrors - the native HUD reads these through TESGlobal
 ; -----------------------------------------------------------------------------
 
-Function EnsureGlobals()
-    ; The ESP binds these properties once the record set is authored. Until that
-    ; binding exists (or if a VMAD value is missing) resolve the records by the
-    ; documented editor contract so the HUD mirror still works.
-    if !RadSurvival_Hunger
-        RadSurvival_Hunger = Game.GetFormFromFile(0x01000801, "RadSurvival.esp") as GlobalVariable
-    endif
-    if !RadSurvival_Thirst
-        RadSurvival_Thirst = Game.GetFormFromFile(0x01000802, "RadSurvival.esp") as GlobalVariable
-    endif
-    if !RadSurvival_Sleep
-        RadSurvival_Sleep = Game.GetFormFromFile(0x01000803, "RadSurvival.esp") as GlobalVariable
-    endif
-EndFunction
 
 Function MirrorAll()
     MirrorToGlobal(RadSurvival_Hunger, HungerDebt)

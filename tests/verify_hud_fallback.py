@@ -410,7 +410,7 @@ def check_source(html_path, source_path):
         raise SystemExit('Rad HUD must use the normal engine tick, not a second UI refresh path')
     headers = {
         'PrismaUI_F4_API.h': (
-            'enum class InterfaceVersion : uint8_t { V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12 };',
+            'V9 = 136, V10 = 137, V11 = 138, V12 = 139',
             'class IVPrismaUI11',
             'DispatchToGameThread',
         ),

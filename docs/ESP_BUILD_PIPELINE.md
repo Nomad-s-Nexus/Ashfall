@@ -339,7 +339,6 @@ It owns no vanilla overrides and declares `Fallout4.esm` as its single master.
 | `01000802` | GLOB (float) | `RadSurvival_Thirst` | 0..1 thirst pool, mirrored for the native HUD |
 | `01000803` | GLOB (float) | `RadSurvival_Sleep` | 0..1 sleep debt, mirrored for the native HUD |
 
-The quest VMAD holds the `RadSurvivalQuest` script with object properties of the same three names.
-`tests/verify_survival.py` asserts the plugin contains the quest, the script binding, the three float
-globals and the property names. Property values are not bound yet; see
-`docs/code-notes/Rad-Overhaul-Fallout-4.md` for the current fallback.
+The quest VMAD holds the `RadSurvivalQuest` script with object properties bound to those three
+`GLOB` records. `tests/verify_survival.py` asserts the plugin contains the quest, the script binding,
+the three float globals, the `Fallout4.esm` master and the bound property values.

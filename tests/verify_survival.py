@@ -103,7 +103,6 @@ for name in PROPERTY_NAMES:
           f"missing GLOB property declaration: {name}")
 mirror_body = function_body(code, "Function MirrorToGlobal(GlobalVariable akTarget, float afValue)")
 check(".SetValue(" in mirror_body, "pool changes must be mirrored into the GLOB records")
-check("EnsureGlobals(" in code, "unbound GLOB properties need a runtime fallback")
 check("Function ApplyStagePenalty(string asPool, int aiStage)" in code,
       "the single penalty hook is missing")
 hook_body = function_body(code, "Function ApplyStagePenalty(string asPool, int aiStage)")
@@ -152,6 +151,14 @@ if PLUGIN.is_file():
     for form_id in (0x01000800, 0x01000801, 0x01000802, 0x01000803):
         check(form_id.to_bytes(4, "little") in esp,
               f"missing record form id 0x{form_id:08X}")
+    vmad_at = esp.find(b"VMAD")
+    check(vmad_at > 0, "the quest record has no VMAD")
+    if vmad_at > 0:
+        vmad_size = int.from_bytes(esp[vmad_at + 4:vmad_at + 6], "little")
+        vmad = esp[vmad_at + 6:vmad_at + 6 + vmad_size]
+        for form_id in (0x01000801, 0x01000802, 0x01000803):
+            check(form_id.to_bytes(4, "little") in vmad,
+                  f"VMAD property value is not bound to 0x{form_id:08X}")
 
 
 def constant(source_code, name):

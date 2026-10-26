@@ -180,7 +180,7 @@ Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc`, `deploy/Scripts/Ra
 | `01000802` | GLOB (float) | `RadSurvival_Thirst` | 0..1 pool, mirrored for the HUD |
 | `01000803` | GLOB (float) | `RadSurvival_Sleep` | 0..1 sleep debt, mirrored for the HUD |
 
-The quest VMAD carries one script, `RadSurvivalQuest`, with object properties `RadSurvival_Hunger`, `RadSurvival_Thirst` and `RadSurvival_Sleep`. Their **values are not bound yet**: the current FO4IDE MCP surface can add VMAD scripts and properties but exposes no setter for property values, so `EnsureGlobals()` resolves the three records by editor id until the binding exists. The plugin declares `Fallout4.esm` as its single master (index 0); its own records sit at master index 1, so their full form ids are `0x010008xx`, and `deploy/Scripts/Source/User/RadSurvivalQuest.psc:EnsureGlobals` resolves them with those ids.
+The quest VMAD carries one script, `RadSurvivalQuest`, with object properties `RadSurvival_Hunger`, `RadSurvival_Thirst` and `RadSurvival_Sleep`, each bound to its own `GLOB` record (`0x01000801`-`0x01000803`). The plugin declares `Fallout4.esm` as its single master (index 0) and its own records sit at master index 1, so their full form ids are `0x010008xx`. The record set is authored with FO4IDE: `add_masters` for the master, `create_record` for the records, `add_script`/`add_script_property` for the VMAD structure and `set_script_value` for the bound property values; `deploy/Scripts/Source/User/RadSurvivalQuest.psc` only reads the properties.
 
 **Penalties.** `ApplyStagePenalty(string asPool, int aiStage)` is the single hook and stays inert until `SPEL` records exist; `Actor.AddSpell`/`RemoveSpell` are the follow-up. No actor-value mutation exists anywhere in the script.
 
