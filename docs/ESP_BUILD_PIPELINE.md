@@ -312,36 +312,37 @@ in the DLL constants.**
 
 ### `RadSurvival.esp` (survival quest records)
 
-Authored with FO4IDE rather than this Spriggit pipeline, and shipped alongside `RadiationOverhaul.esp`.
-It owns no vanilla overrides and declares `Fallout4.esm` as its single master.
+Hand-authored with FO4IDE rather than through this Spriggit pipeline, and shipped alongside
+`RadiationOverhaul.esp`. It overrides no vanilla record and declares `Fallout4.esm` as its single
+master, so every record below is a new form at master index 1 and the full id is `0x010008xx`.
 
 | Form-ID | Type | EditorID | Notes |
 |---|---|---|---|
-| `01000800` | QUST | `RadSurvivalQuest` | Flags 9 (Start Game Enabled + Starts Enabled), priority 0, script `RadSurvivalQuest` |
-| `01000801` | GLOB (float) | `RadSurvival_Hunger` | 0..1 hunger pool, mirrored for the native HUD |
-| `01000802` | GLOB (float) | `RadSurvival_Thirst` | 0..1 thirst pool, mirrored for the native HUD |
-| `01000803` | GLOB (float) | `RadSurvival_Sleep` | 0..1 sleep debt, mirrored for the native HUD |
+| `01000800` | QUST | `RadSurvivalQuest` | Flags `0x09` (Start Game Enabled + Starts Enabled), priority 0, two VMAD scripts |
+| `01000801`-`01000803` | GLOB (float) | `RadSurvival_Hunger`, `_Thirst`, `_Sleep` | 0..1 pools, mirrored for the native HUD |
+| `01000804`-`01000806` | MGEF | `RadSurvival_HungerPenalty1-3` | Peak Value Modifier on CarryWeight: -10 / -25 / -45 |
+| `01000807`-`01000809` | MGEF | `RadSurvival_ThirstPenalty1-3` | Peak Value Modifier on ActionPoints: -5 / -15 / -30 |
+| `0100080A`-`0100080C` | MGEF | `RadSurvival_SleepPenalty1-3` | Peak Value Modifier on HealRateMult: -0.15 / -0.3 / -0.5 |
+| `0100080D`-`01000815` | SPEL (Ability) | `RadSurvival_HungerPenaltySpell1-3`, `_ThirstPenaltySpell1-3`, `_SleepPenaltySpell1-3` | constant effect, self, one effect each |
+| `01000816`-`01000818` | MGEF | `RadSurvival_Fever1-3` | Peak Value Modifier on DamageResist: -10 / -25 / -40 |
+| `01000819`-`0100081B` | MGEF | `RadSurvival_Wasting1-3` | Peak Value Modifier on SpeedMult: -5 / -10 / -15 |
+| `0100081C`-`0100081E` | SPEL (Ability) | `RadSurvival_FeverSpell1-3` | constant effect, self |
+| `0100081F`-`01000821` | SPEL (Ability) | `RadSurvival_WastingSpell1-3` | constant effect, self |
+| `01000822` | GLOB (float) | `RadSurvival_Risk` | 0..1 disease exposure pool |
+| `01000823` | GLOB (float) | `RadSurvival_Disease` | `DiseaseId * 10 + DiseaseStage`; 0 while healthy, stage 0 while incubating |
 
-The quest VMAD holds the `RadSurvivalQuest` script with object properties of the same three names.
-`tests/verify_survival.py` asserts the plugin contains the quest, the script binding, the three float
-globals and the property names. Property *values* are not bound yet; see
-`docs/code-notes/Rad-Overhaul-Fallout-4.md` for the current fallback.
+The quest VMAD holds two scripts, and each owns its own properties. `RadSurvivalQuest` carries the
+object properties `RadSurvival_Hunger`, `RadSurvival_Thirst`, `RadSurvival_Sleep`,
+`RadSurvival_Risk` and `RadSurvival_Disease`, each bound to the `GLOB` of the same name, plus a
+`Diseases` property bound to the quest form itself. `RadSurvivalDiseases` holds the disease state and
+registers no events. `tests/verify_survival.py` asserts the record set, the spell effect lists, the
+VMAD ownership and binding, the QUST flags, the magnitudes, and that the shipped plugin still matches
+the tuning manifests in `tools/rad_penalty_spells.json` and `tools/rad_diseases.json`.
 
-### `RadSurvival.esp` (survival quest records)
-
-Authored with FO4IDE rather than this Spriggit pipeline, and shipped alongside `RadiationOverhaul.esp`.
-It owns no vanilla overrides and declares `Fallout4.esm` as its single master.
-
-| Form-ID | Type | EditorID | Notes |
-|---|---|---|---|
-| `01000800` | QUST | `RadSurvivalQuest` | Flags 9 (Start Game Enabled + Starts Enabled), priority 0, script `RadSurvivalQuest` |
-| `01000801` | GLOB (float) | `RadSurvival_Hunger` | 0..1 hunger pool, mirrored for the native HUD |
-| `01000802` | GLOB (float) | `RadSurvival_Thirst` | 0..1 thirst pool, mirrored for the native HUD |
-| `01000803` | GLOB (float) | `RadSurvival_Sleep` | 0..1 sleep debt, mirrored for the native HUD |
-
-The quest VMAD holds the `RadSurvivalQuest` script with object properties bound to those three
-`GLOB` records. `tests/verify_survival.py` asserts the plugin contains the quest, the script binding,
-the three float globals, the `Fallout4.esm` master and the bound property values.
+**Hand-authored, not Spriggit.** There is no YAML serialization of this plugin and no Spriggit
+round-trip in CI. FO4IDE over MCP is the only authoring path, `tests/plugin_reader.py` is the
+read-only binary checker used by the contract test, and a record change means re-authoring through
+the tool, re-saving the plugin into `deploy/`, and re-running `tests/verify_survival.py`.
 
 ### Papyrus artifacts (`deploy/Scripts`)
 
