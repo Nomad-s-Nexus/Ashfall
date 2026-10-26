@@ -49,8 +49,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $commonLibSha = '1b2f8583b809e560cd80c67e239480f4a55023f6'
-          $commonLib = $env:COMMONLIBF4_PREVIOUS_PATH
+          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'
+          $commonLib = $env:COMMONLIBF4_PATH
           if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
           $pinned = (git -C $commonLib rev-parse HEAD).Trim()
           if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
