@@ -163,6 +163,21 @@ check("NotifyStage(" in update_body,
 check("if applied == wanted" in hook_body,
       "ApplyStagePenalty must be idempotent so reconciling every call is free")
 
+# Constraint: a steady-state reconcile must not resolve the same stage through the form table.
+resolver_body = function_body(code, "Spell Function PenaltySpellFor(string asPool, int aiStage)")
+check(resolver_body.count("GetFormFromFile(") == 1,
+      "PenaltySpellFor must resolve from the plugin in exactly one place")
+check("return cachedSpell" in resolver_body and
+      resolver_body.index("return cachedSpell") < resolver_body.index("GetFormFromFile("),
+      "PenaltySpellFor must return the memoised spell before it resolves again")
+check("if !resolved" in resolver_body,
+      "a failed resolve must not be memoised, or a missing plugin never retries")
+for name in ("CachedHungerStage", "CachedThirstStage", "CachedSleepStage"):
+    check(f"int {name} = -1" in code, f"missing penalty spell cache {name}")
+check("Function ClearPenaltyCache()" in code, "the penalty spell cache needs a reset")
+check("ClearPenaltyCache()" in function_body(code, "Function ResyncPenalties()"),
+      "a load must drop the penalty cache so a retuned table is picked up")
+
 # Constraint: the tick must reconcile after the active/suspended branch, not inside one of them.
 timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
 check("UpdatePenaltyStages()" in timer_body,

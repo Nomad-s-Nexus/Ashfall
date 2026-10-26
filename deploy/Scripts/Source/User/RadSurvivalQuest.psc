@@ -92,6 +92,14 @@ Spell AppliedHungerSpell = None
 Spell AppliedThirstSpell = None
 Spell AppliedSleepSpell = None
 
+; invariant: a reconcile must not resolve the same stage twice
+int CachedHungerStage = -1
+Spell CachedHungerSpell = None
+int CachedThirstStage = -1
+Spell CachedThirstSpell = None
+int CachedSleepStage = -1
+Spell CachedSleepSpell = None
+
 ; -----------------------------------------------------------------------------
 ; lifecycle
 ; -----------------------------------------------------------------------------
@@ -511,6 +519,8 @@ Function ResyncPenalties()
     ; Recount the stages from the pools, then let ApplyStagePenalty reconcile the spells.
     ; Applied*Spell is saved state, so an unchanged stage does nothing and a retuned
     ; table is picked up on the next load instead of doubling a spell.
+    ; Constraint: the cache must be dropped on every load so a retuned table is picked up.
+    ClearPenaltyCache()
     HungerStage = StageFor(HungerDebt)
     ThirstStage = StageFor(ThirstDebt)
     SleepStage = StageFor(SleepDebt)
@@ -520,23 +530,64 @@ Function ResyncPenalties()
 EndFunction
 
 Spell Function PenaltySpellFor(string asPool, int aiStage)
-    int first = 0
-    if asPool == "hunger"
-        first = HungerPenaltySpellBase
-    elseif asPool == "thirst"
-        first = ThirstPenaltySpellBase
-    elseif asPool == "sleep"
-        first = SleepPenaltySpellBase
-    else
-        return None
-    endif
     if aiStage < 1
         return None
     endif
     if aiStage > 3
         aiStage = 3
     endif
-    return Game.GetFormFromFile(first + aiStage - 1, PenaltyPlugin) as Spell
+
+    int first = 0
+    int cachedStage = -1
+    Spell cachedSpell = None
+    if asPool == "hunger"
+        first = HungerPenaltySpellBase
+        cachedStage = CachedHungerStage
+        cachedSpell = CachedHungerSpell
+    elseif asPool == "thirst"
+        first = ThirstPenaltySpellBase
+        cachedStage = CachedThirstStage
+        cachedSpell = CachedThirstSpell
+    elseif asPool == "sleep"
+        first = SleepPenaltySpellBase
+        cachedStage = CachedSleepStage
+        cachedSpell = CachedSleepSpell
+    else
+        return None
+    endif
+
+    ; Invariant: a repeated stage must not hit the form table again.
+    if cachedStage == aiStage
+        if cachedSpell
+            return cachedSpell
+        endif
+    endif
+
+    ; Constraint: a failed resolve must not be cached, or a missing plugin never retries.
+    Spell resolved = Game.GetFormFromFile(first + aiStage - 1, PenaltyPlugin) as Spell
+    if !resolved
+        return None
+    endif
+    if asPool == "hunger"
+        CachedHungerStage = aiStage
+        CachedHungerSpell = resolved
+    elseif asPool == "thirst"
+        CachedThirstStage = aiStage
+        CachedThirstSpell = resolved
+    elseif asPool == "sleep"
+        CachedSleepStage = aiStage
+        CachedSleepSpell = resolved
+    endif
+    return resolved
+EndFunction
+
+Function ClearPenaltyCache()
+    CachedHungerStage = -1
+    CachedHungerSpell = None
+    CachedThirstStage = -1
+    CachedThirstSpell = None
+    CachedSleepStage = -1
+    CachedSleepSpell = None
 EndFunction
 
 Spell Function AppliedPenalty(string asPool)
