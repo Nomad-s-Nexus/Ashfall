@@ -309,3 +309,37 @@ These FormIDs are the contract between the ESP and the DLL — the DLL hardcodes
 `kNextEmissionGlobalID = 0x852`, and the storm weather IDs 0x840–0x843 in the DLL
 `kStormTypes[]` table). **Changing a FormID in `gen_esl.py` requires a matching change
 in the DLL constants.**
+
+### `RadSurvival.esp` (survival quest records)
+
+Authored with FO4IDE rather than this Spriggit pipeline, and shipped alongside `RadiationOverhaul.esp`.
+It owns no vanilla overrides and declares `Fallout4.esm` as its single master.
+
+| Form-ID | Type | EditorID | Notes |
+|---|---|---|---|
+| `01000800` | QUST | `RadSurvivalQuest` | Flags 9 (Start Game Enabled + Starts Enabled), priority 0, script `RadSurvivalQuest` |
+| `01000801` | GLOB (float) | `RadSurvival_Hunger` | 0..1 hunger pool, mirrored for the native HUD |
+| `01000802` | GLOB (float) | `RadSurvival_Thirst` | 0..1 thirst pool, mirrored for the native HUD |
+| `01000803` | GLOB (float) | `RadSurvival_Sleep` | 0..1 sleep debt, mirrored for the native HUD |
+
+The quest VMAD holds the `RadSurvivalQuest` script with object properties of the same three names.
+`tests/verify_survival.py` asserts the plugin contains the quest, the script binding, the three float
+globals and the property names. Property *values* are not bound yet; see
+`docs/code-notes/Rad-Overhaul-Fallout-4.md` for the current fallback.
+
+### `RadSurvival.esp` (survival quest records)
+
+Authored with FO4IDE rather than this Spriggit pipeline, and shipped alongside `RadiationOverhaul.esp`.
+It owns no vanilla overrides and declares `Fallout4.esm` as its single master.
+
+| Form-ID | Type | EditorID | Notes |
+|---|---|---|---|
+| `01000800` | QUST | `RadSurvivalQuest` | Flags 9 (Start Game Enabled + Starts Enabled), priority 0, script `RadSurvivalQuest` |
+| `01000801` | GLOB (float) | `RadSurvival_Hunger` | 0..1 hunger pool, mirrored for the native HUD |
+| `01000802` | GLOB (float) | `RadSurvival_Thirst` | 0..1 thirst pool, mirrored for the native HUD |
+| `01000803` | GLOB (float) | `RadSurvival_Sleep` | 0..1 sleep debt, mirrored for the native HUD |
+
+The quest VMAD holds the `RadSurvivalQuest` script with object properties of the same three names.
+`tests/verify_survival.py` asserts the plugin contains the quest, the script binding, the three float
+globals and the property names. Property values are not bound yet; see
+`docs/code-notes/Rad-Overhaul-Fallout-4.md` for the current fallback.

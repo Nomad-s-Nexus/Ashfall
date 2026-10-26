@@ -1,9 +1,0 @@
-{
-	"globalFunctions": [
-		{
-			"eventName": "OnGameDataReady",
-			"scriptName": "RadSurvival",
-			"functionName": "OnGameDataReady"
-		}
-	]
-}

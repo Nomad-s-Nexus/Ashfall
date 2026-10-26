@@ -104,7 +104,7 @@ jobs:
           python tests/verify_ghoul_contract.py
           python tests/verify_storm_spawn_ownership.py
           python tests/verify_serialization_policy.py
-          python tests/verify_survival_hydra.py
+          python tests/verify_survival.py
 
       - name: Configure (MSVC)
         working-directory: Rad-Overhaul-Fallout-4
