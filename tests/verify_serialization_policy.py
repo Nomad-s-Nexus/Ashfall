@@ -2,7 +2,9 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 source = (root / "src" / "RadEngine_Serialization.cpp").read_text(encoding="utf-8")
+# Constraint: revert and post-load live in the session module, so the load path reads both files.
 engine = (root / "src" / "RadiationEngine.cpp").read_text(encoding="utf-8")
+engine += (root / "src" / "RadEngine_Session.cpp").read_text(encoding="utf-8")
 lifecycle = (root / "src" / "RadLifecycle.cpp").read_text(encoding="utf-8")
 mask_source = (root / "src" / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
 ownership_header = (root / "src" / "RadMaskOwnership.h").read_text(encoding="utf-8")

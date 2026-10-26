@@ -177,8 +177,9 @@ void RadiationEngine::RetireUnresolvedStormGhouls()
 }
 void RadiationEngine::ResetStormGhoulStateForLoad()
 {
-    _stormGhoulRefs.clear();
-    _stormGhoulPendingRefs.clear();
+    // Constraint: retire the hunters before the handles go - a dropped handle cannot be deleted.
+    ClearStormGhouls();
+    // Constraint: old-world handles never resolve again, so the retry queue is dropped, not retried.
     _stormGhoulCleanupRefs.clear();
     _stormGhoulPendingTicks = 0;
     _stormGhoulUnresolvedTicksByHandle.clear();

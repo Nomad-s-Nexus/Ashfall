@@ -293,3 +293,347 @@ Reference: `tools/stamp_papyrus.py`, `tests/verify_papyrus_pex.py`, `deploy/Scri
 **The recorded source path, which could not be removed.** The built-in engine writes the source path it was given into the `.pex` header at offset 16 - the leading string of the string table, before the script's own name. Compiling with the documented absolute source argument therefore produces `E:\Projects\Forgejo\...\deploy\Scripts\Source\User\<Script>.psc` inside the shipped bytecode. Three attempts to avoid it: a repo-relative source argument is canonicalised back to an absolute path; compiling from a staging folder with `cwd` set there records the staging folder instead, so the absolute path merely changes address; compiling a folder records the folder. There is no flag on `compile_papyrus` for it, and editing the string is exactly the binary patcher that was retired. The stamp therefore records the string each `.pex` carries, so a build made on another machine or with a toolchain that stops writing it fails the check rather than drifting, and the limitation is stated in `docs/ESP_BUILD_PIPELINE.md`. This is an upstream FO4IDE item, filed with the `HEDR` `numRecords` quirk.
 
 **Wiring.** Both Rad workflows now run the four survival contracts (`verify_survival.py`, `verify_needs_globals.py`, `verify_av_ownership.py`, `verify_papyrus_pex.py`); the build workflow already ran `verify_survival.py` and the release workflow ran it too, so the additions sit next to them rather than in a new lane.
+## Wave 3 module notes moved out of the source (2026-10-26)
+
+Reference: `src/RadEngine_ESL.cpp:RadiationEngine::EnsureEslLoaded`, `src/RadEngine_Session.cpp:RadiationEngine::OnPostLoad`, `src/RadEngine_Session.cpp:RadiationEngine::RevertState`.
+
+The split of `src/RadiationEngine.cpp` moved these two blocks into their own translation units.
+Repository policy keeps explanation out of source, so the per-site rationale that travelled with
+them is recorded here instead, in the order it appeared. Nothing below is a new claim; it is the
+same text, relocated so the source carries only constraints.
+
+### `RadEngine_ESL.cpp`
+
+- Report the plugin's load-order slot. By design (see gen_esl.py) the plugin
+- ships as a REGULAR full ESP — not ESL/light — so it loads LAST and wins
+- conflicts over the rest of the load order. LookupForm() below resolves forms
+- correctly regardless of slot type, so a full plugin is the expected case.
+- Check the light index first: an ESL plugin reports a real light index AND the
+- shared full index 0xFE, so testing the full index first would misclassify it.
+
+### `RadEngine_ESL.cpp`
+
+- (The radiation-sickness screen tint is an HTML overlay now; the engine IMAD 0x830 is no
+- longer resolved or triggered — the record remains in the ESP, unused.)
+
+### `RadEngine_ESL.cpp`
+
+- Resolve the rad-weather FormList (optional). Drives the auto-mask-equip feature: when the
+- current weather is in this list, a worn mask is auto-donned. Data-driven so the rad-weather
+- set is editable in xEdit without a rebuild.
+
+### `RadEngine_ESL.cpp`
+
+- Resolve the gas-mask filter consumable (optional). Enables the filter system: the mask drains
+- this while worn, and replacing it consumes one from the player's inventory.
+
+### `RadEngine_ESL.cpp`
+
+- and auto-equip fail closed instead of treating bandanas or cosmetic mouth armor as respirators.
+
+### `RadEngine_ESL.cpp`
+
+- Resolve the gas-mask repair kit consumable (optional). Repairs the mask's condition.
+
+### `RadEngine_ESL.cpp`
+
+- Resolve the persistent tissue-damage global (Pillar I). Seed our cached value
+- from it so accumulated tissue damage survives save/load.
+
+### `RadEngine_ESL.cpp`
+
+- Permanent (scarred) tissue global — no doctor or item cure path is active until a verified
+- source-identifying adapter is implemented.
+
+### `RadEngine_ESL.cpp`
+
+- Storm FX quest — Papyrus script drives lethal-storm camera/controller shake (stage 10/20).
+
+### `RadEngine_ESL.cpp`
+
+- NOTE: EnsureQuestRunning is currently a no-op (the VM Quest.Start() path crashed — see
+- its body). StartGameEnabled starts these quests on a NEW GAME automatically; on saves
+- made before the quests existed they stay dormant until we add a crash-safe start path.
+
+### `RadEngine_ESL.cpp`
+
+- Fire hazard object for Firestorm ring spawn (from base game — always present).
+- DN121FireHazard: a large fire hazard that spawns fire particles + light + damage.
+
+### `RadEngine_ESL.cpp`
+
+- Storm dome layers: our scriptless FARO_StormDome01..04 ACTI copies (0x805-0x808), meshes bundled
+- (KORs_Anomaly_CloudArena01, which carries KORsCloudArenaActScript + defaultdisablehavokonload)
+- natively from the 4Hz worker-thread hook crashed the game in BSScript VM ObjectBindPolicy +
+- Havok behavior-graph binding (same worker-thread VM hazard that killed SetStage). The clouds are
+- lit by a separately-spawned scriptless arena LIGHT instead (see _stormDomeLight below) — no VM.
+
+### `RadEngine_ESL.cpp`
+
+- Arena lights for the effect-lit cloud shapes (scriptless LIGH). These were historically resolved
+- from "KORsAnomaly Stripped.esp" (ArenaLight01 0x025334, ArenaLight02 0x02626D), which made KORs a
+- hidden runtime requirement. The two LIGH records (plus their GodRays/LensFlare sub-records) are now
+- owned by RadiationOverhaul.esp itself — copied in with permission — so KORs is no longer required.
+- BOTH lights together make the glowing vortex (broad illumination + bright lens-flare eye).
+
+### `RadEngine_ESL.cpp`
+
+- Storm weathers (forced sky per type) — optional; storms still run with just the
+- screen FX if a weather record is missing.
+
+### `RadEngine_ESL.cpp`
+
+- Per-storm fog, written to the record (the engine re-reads fogData live each frame in
+- Sky::UpdateFog, so this fully controls the on-screen fog). Distance fog (near/far/power)
+- sets the visibility wall; height fog (mid/range/HighDensityScale) gives real ground-fog
+- depth instead of the flat "painted" tint the generated records shipped (all height fields
+- were 0). The Dust Storm gets the CommonwealthDusty full-height-wall profile; the roll-in
+- (UpdateDustFogRoll) animates it inward from clear at Active-entry.
+
+### `RadEngine_ESL.cpp`
+
+- Dust Storm: attach the vanilla camera-dust particle VisualEffect (the screen-filling
+- blowing dust that actually reads as "blinding" — fog alone is only a haze). This is the
+- weather's referenceEffect (record field "VisualEffect", TESWeather+0xFC0); vanilla
+- CommonwealthDusty uses this exact effect. Set at runtime (no ESP/master-order surgery) so
+- the engine attaches it when the dust sky goes current. FXCameraAttachExplosionDustVE
+- (Fallout4.esm 0x1EB2D6), flags AttachToCamera + InheritRotation.
+
+### `RadEngine_ESL.cpp`
+
+- Heavy camera-dust ArtObject for the WALL-ARRIVAL BURST: a short (~4s) heavier dust
+- gust fired on the player (attach-to-camera) the moment the roll-in wall reaches full,
+- layered over the steady dust VE. Nuka World's DLC04CameraAttachDustHeavyAO; fall back
+- to the vanilla FXCameraAttachExplosionDust art if Nuka World isn't present.
+
+### `RadEngine_ESL.cpp`
+
+- PURPLE-SKY FIX: the generated dust weather inherited the CommonwealthGSRadstorm base
+- template's per-time IMAGESPACES (0x224586-0x224593 — blue/purple rad-storm colour
+- grades). An imagespace tints the WHOLE scene, so it rendered purple regardless of the
+- brown sky colours, and disabling our IMAD never touched it. Repoint all 8 time-of-day
+- slots to vanilla CommonwealthDusty's brown dust grades (CW_Dusty*). imageSpace[] order
+- = {Sunrise, Day, Sunset, Night, EarlySunrise, LateSunrise, EarlySunset, LateSunset}.
+
+### `RadEngine_ESL.cpp`
+
+- AURORA CLEAR — ALL STORMS (2026-07-12): every generated storm inherited the radstorm
+- template's AURORA, Sky\RadStormSkyEffect.nif (TESWeather+0xF78) — a full-sky-dome shimmer
+- effect that renders OVER the sky colours and doesn't fit any of these storms (fire/ash/
+- sulfur/acid/dust). On dust it read as a muddy dome (the "purple"); on the others it makes
+- the transition look less clean than dust. Clear it so each storm's sky is just its (correct)
+- colours + fog + IMAD. Dust proved this reads clean.
+
+### `RadEngine_ESL.cpp`
+
+- ENGINE CRASH GUARD (confirmed via crash-2026-07-07-18-21-18): Sky::UpdateSound
+- carries a Thunder-type sound. Our generated storm weathers ship ThunderFreq (weatherData
+- index 0xA) == 0, so that integer modulo divides by zero on the BSJobs audio worker thread
+- -> EXCEPTION_INT_DIVIDE_BY_ZERO the moment the storm's sky becomes current. The dust storm
+- hit it first; ash/sulfur/acid/firestorm carry the same bad byte and are equally at risk.
+- Clamp any zero to a high non-zero value: the divisor is now safe, and a high frequency
+- makes real thunder ~never fire (these are dust/ash/chem storms, not thunderstorms).
+
+### `RadEngine_ESL.cpp`
+
+- TRANSITION SPEED (weatherData[kTransDelta], TESWeather+0xA6F). Decompile-verified in
+- `weatherData[3]/255 * (transMax - transMin) + transMin` in-game hours — i.e. this byte is a
+- normalized 0-255 knob for how LONG our BeginSmoothWeather cross-fade takes. The ESL
+- generator left it at whatever it happened to be, so the five storms rolled in at random,
+- inconsistent speeds. Author it deterministically so every storm's sky rolls in at the same
+- deliberate pace, and so it matches the ~8 s dome/siren onset sequence. Small byte = fast.
+- (Exact transMin/transMax engine constants aren't named yet, so this is tuned by feel, not
+- converted from a target duration — but it is now CONSISTENT and controllable, which it
+- was not before.) See ReverseEngineering\Organized\1.10.163\README-Weather.md.
+
+### `RadEngine_ESL.cpp`
+
+- Four weatherData[] bytes drive the global shader wind, all normalized 0-255 (GetWeatherData
+- rule) and all weather-transition-blended like fog:
+- [0]    kWindSpeed      -> BSShaderManager::fWindMagnitude (cloud scroll + shader wind)
+- [0x13] kWindTurbulence -> fWindFrequency / fWindMinSpeed / fWindMaxSpeed (gust freq + variance)
+- [0x11] kWindDir        -> fWindAngle (base direction)
+- [0x12] kWindDirRange   -> direction jitter range
+- Our generated storm records left these unauthored, so the storms were DEAD CALM — clouds
+- didn't scroll and there was no shader wind, which reads badly for what are literally
+- wind-driven dust / ash / chem storms. Author them by theme: the dust storm HOWLS, the
+- others scale down. weatherData is int8_t but the engine reads each byte UNSIGNED, so store
+- the byte pattern of the 0-255 value. Indices are decompile-verified; the magnitudes are a
+- design knob (transMin/transMax aren't named, so tuned by feel — but consistent now).
+
+### `RadEngine_ESL.cpp`
+
+- README-Weather.md). The weather's camera-attached VisualEffect (our Dust Storm's
+- referenceEffect = FXCameraAttachExplosionDustVE, the blowing-dust motes) does NOT spawn at
+- transition start: the engine waits until `currentWeatherPct >= weatherData[kBeginEffect]/255`
+- to instantiate it, and tears the outgoing one down at `>= weatherData[kEndEffect]/255`. Both
+- are per-record CK bytes our generator left unauthored — so the dust VE appeared at a random
+- point in the roll-in (or, if the byte was high, barely at all). Author them so the camera
+- dust rolls in EARLY with the storm and clears promptly when it ends. Harmless on storms
+- with no referenceEffect (nothing to gate). Indices are CommonLibF4-named + decompile-confirmed.
+
+### `RadEngine_ESL.cpp`
+
+- Commonwealth clear weather (vanilla) — forced once on a new game's first exterior so the
+- player never spawns into a rad storm (vault exit / alt-start). Matches console `fw 0002b52a`.
+
+### `RadEngine_ESL.cpp`
+
+- Gas Masks of the Wasteland dust/sand storms (+ vanilla CommonwealthDusty). Not radioactive, but
+- they look like a storm and the region can roll one at spawn. We resolve their runtime FormIDs so
+- the new-game grace / clear-on-entry safety treat them as "bad weather to suppress at startup".
+- Absent GMW, the lookups just fail and the set stays empty (no effect).
+
+### `RadEngine_ESL.cpp`
+
+- Next-storm global — used only as an "is the storm system installed" gate; the actual
+- schedule (next-storm time + the _playSeconds play-clock) persists across saves via the F4SE
+- after a load is exactly what starved the mod's own storms (they never reached their trigger).
+
+### `RadEngine_ESL.cpp`
+
+- Console debug-trigger global (optional). set RadOverhaul_ForceStorm to 1-4 in-game.
+
+### `RadEngine_ESL.cpp`
+
+- Storm atmosphere IMADs (0x880-0x884), one per storm type, persistent color grading.
+
+### `RadEngine_ESL.cpp`
+
+- Feral ghoul leveled lists from Fallout4.esm — spawned during lethal storms.
+
+### `RadEngine_ESL.cpp`
+
+- ActorTypeGhoul keyword — used to spare/heal ghoul NPCs during storms (they thrive in rads).
+
+### `RadEngine_ESL.cpp`
+
+- ArmorTypePower keyword — marks PA armor pieces. A full PA suit fully blocks rads + storm HP loss.
+
+### `RadEngine_ESL.cpp`
+
+- WorkshopNPC faction — settlers; spared from the lethal-storm peak burst.
+
+### `RadEngine_Session.cpp`
+
+- ---------------------------------------------------------------------------
+- STORM SYSTEM — our self-contained versions of NAC's rad storms.
+- Lethal blowouts (Ash Fallout, Firestorm) + ambient hazards (Sulfur, Acid Rain).
+- ---------------------------------------------------------------------------
+
+### `RadEngine_Session.cpp`
+
+- GameDaysPassed global is the reliable game-time source. (Calendar::rawDaysPassed
+- reads 0 in practice on this runtime, which broke the old scheduler.)
+
+### `RadEngine_Session.cpp`
+
+- Runs on new game and before each load: clean defaults so a fresh game / a save with no
+- co-save data starts the clock at 0 rather than inheriting the previous game's state.
+
+### `RadEngine_Session.cpp`
+
+- Vanilla HUD corner message — works with or without PrismaUI. throttle=true so a
+- repeated message doesn't spam the queue.
+
+### `RadEngine_Session.cpp`
+
+- Arm the one-shot clear-weather safety; fired by UpdateStorm on the first exterior tick.
+
+### `RadEngine_Session.cpp`
+
+- Re-seed tissue fields from globals on every load so switching saves doesn't
+- carry the previous run's in-memory values into a fresh character's session.
+
+### `RadEngine_Session.cpp`
+
+- Reset the delta baseline and any verified RadAway window so a cross-save rads/HP change
+- cannot receive a stale cure signal.
+- -1 sentinel: also skips the sheltered rad-gain refund on that first tick, which otherwise
+- read the entire saved rad pool as "gain since last tick" and erased it whenever the player
+- loaded in power armor / a powered shelter / sheltered rad weather.
+
+### `RadEngine_Session.cpp`
+
+- Re-sync the gas-mask fade tracker so an already-worn mask on load syncs silently (no blink),
+- and cancel any pending fade-back from the previous session.
+
+### `RadEngine_Session.cpp`
+
+- Choking trackers are session-local: reset so a different save doesn't inherit the previous
+- one's grace/hysteresis state (e.g. skipping the 2s grace on its first exposure).
+
+### `RadEngine_Session.cpp`
+
+- Re-sync the rad-weather auto-equip tracker so loading into rad weather syncs silently (no
+- auto-equip on load); we only act on weather transitions during play. Clear the NPC mask set
+- too — actor pointers/handles do not carry across loads, and the re-scan will repopulate it.
+
+### `RadEngine_Session.cpp`
+
+- The engine clears kTemporary AV modifiers on load, but our trackers persist in the DLL singleton.
+- Reset them so the radiation SPECIAL penalty re-applies fresh next tick (ApplyClampedSpecial) — a
+- stale non-zero tracker would otherwise match `desired` and silently skip re-applying the penalty.
+
+### `RadEngine_Session.cpp`
+
+- Same for the tissue-wasting penalties: the engine drops kTemporary modifiers on load, so a stale
+- non-zero tracker would match `desired` and silently skip re-applying the penalty.
+
+### `RadEngine_Session.cpp`
+
+- Force-heal any SPECIAL stat that loaded in below the game floor of 1 (corruption / foreign
+- negative modifiers — the reported "-10"). Safe: only ever touches a genuinely broken stat.
+
+### `RadEngine_Session.cpp`
+
+- NOTE: quest force-start is done in EnsureEslLoaded (after the quests resolve). OnPostLoad
+- runs BEFORE that lazy ESL load on first load, so the quests are still null here.
+
+### `RadEngine_Session.cpp`
+
+- Storm: a forced weather override never survives a load, so abandon any ACTIVE storm event
+- (reset the phase to Idle, clear its FX/refs). We deliberately do NOT touch _stormScheduled /
+- _nextStormPlaySec on a normal mid-gap load — the schedule and the _playSeconds play-clock
+- persist via the F4SE co-save, so the next storm keeps its place across reloads instead of
+- being pushed a fresh 35-90 min into the future every load (which previously meant the mod's
+- storms never fired).
+- EXCEPTION: if the persisted schedule is already PAST DUE (the save was made during/after the
+- storm it triggered), leaving it be would instantly fire a brand-new, differently-typed storm
+- on the very first Idle tick after EVERY reload of that save.
+- This used to re-arm a deliberately SHORT 4-8 min window ("the abandoned storm returns soon").
+- That was the #1 cause of the "storms are back-to-back" reports: storms are lethal, so players
+- die -> reload -> the save is past-due -> a storm hits 4-8 min later -> they die -> reload...
+- a storm death-spiral. Any save made during/after a storm reproduces it on EVERY load.
+- Re-arm the FULL configured gap instead ([Storm] MinMinutes/MaxMinutes) so a reload can never
+- produce a short-gap storm.
+
+### `RadEngine_Session.cpp`
+
+- Native dome refs are temporary (not force-persisted), so a load leaves stale handles in our
+- vector pointing at refs the engine already dropped — reset the tracker so the next storm starts
+- clean. (handle.get() on a dead ref returns null, so this is safe even if the refs are gone.)
+
+### `RadEngine_Session.cpp`
+
+- On the session's FIRST load the quest/IMAD forms are still null (EnsureEslLoaded runs on the
+- first Update tick), so the two calls above no-op — latch a re-fire for after form resolution,
+- otherwise a save made mid-storm resumes its persisted Papyrus rumble loop with no stopper.
+
+### `RadEngine_Session.cpp`
+
+- NOTE: _stormScheduled / _nextStormPlaySec intentionally preserved (persisted schedule, see above).
+
+### `RadEngine_Session.cpp`
+
+- Sleep / wait healing: measure elapsed game time since the last save loaded.
+
+### `RadEngine_Session.cpp`
+
+- Sanity bounds: ignore sub-30-min loads (fast travel, quick saves)
+- and implausible jumps >48 h that suggest a time-skip or first load.
+
+### `RadEngine_Session.cpp`
+
+- Same per-game-hour rate as live rest, gated on current rads.
+

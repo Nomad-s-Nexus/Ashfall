@@ -505,6 +505,7 @@ private:
     void RetryStormGhoulCleanup();
     void RetireUnresolvedStormGhouls();
     void ResetStormGhoulStateForLoad();
+    void ResetStormDomeForLoad();
     void SpawnStormGhouls();   // % chance to unleash a 5-20 strong persistent hunter pack (lethal storms)
     void ClearStormGhouls();   // disable + delete all spawned ghoul refs
     void CheckGhoulPackCleanup();  // despawn the pack once the player leaves the area

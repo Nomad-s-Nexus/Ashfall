@@ -15,7 +15,9 @@ hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
 dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
+# Constraint: the revert and post-load bodies live in the session module.
 radiation_engine = (SRC / "RadiationEngine.cpp").read_text(encoding="utf-8")
+radiation_engine += (SRC / "RadEngine_Session.cpp").read_text(encoding="utf-8")
 radiation_header = (SRC / "RadiationEngine.h").read_text(encoding="utf-8")
 radhud = (SRC / "RadHud.cpp").read_text(encoding="utf-8")
 
@@ -129,14 +131,24 @@ load_reset = actors.split("void RadiationEngine::ResetStormGhoulStateForLoad()",
     "void RadiationEngine::SpawnStormGhouls()", 1
 )[0]
 for token in (
-    "_stormGhoulRefs.clear();",
-    "_stormGhoulPendingRefs.clear();",
+    "ClearStormGhouls();",
     "_stormGhoulCleanupRefs.clear();",
     "_stormGhoulPendingTicks = 0;",
     "_stormGhoulUnresolvedTicksByHandle.clear();",
     "_ghoulPackWorldID = 0;",
 ):
     assert token in load_reset, f"load ghoul state reset is missing: {token}"
+assert load_reset.index("ClearStormGhouls();") < load_reset.index("_stormGhoulCleanupRefs.clear();"), \
+    "a load must retire the hunters before it drops the handles that name them"
+
+dome_for_load = dome.split("void RadiationEngine::ResetStormDomeForLoad()", 1)[1].split(
+    "void RadiationEngine::UpdateStormDomeLifecycle()", 1
+)[0]
+for token in ("_stormDomeRefs.clear();", "_stormDomeUp = false;", "_stormDomeCell = nullptr;",
+              "Hooks::SetDomeFollowActive(false);"):
+    assert token in dome_for_load, f"storm dome load reset is missing: {token}"
+assert "->Disable()" not in dome_for_load and "SetDelete" not in dome_for_load, \
+    "the dome load reset must not dereference handles the load already killed"
 
 update_body = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
     "void RadiationEngine::PollInput()", 1

@@ -223,6 +223,18 @@ void RadiationEngine::ClearStormDome()
     Log()->info("[StormFX] Storm dome cleared ({} layers).", cleared);
 }
 
+void RadiationEngine::ResetStormDomeForLoad()
+{
+    // Constraint: a load kills the layer handles; drop them without resolving a stale pointer.
+    _stormDomeRefs.clear();
+    _stormDomeUp = false;
+    _stormDomeAnimStarted = false;
+    _stormDomeRespawnRetryTicks = 0;
+    _stormDomeCell = nullptr;
+    _stormDomeWorld = nullptr;
+    Hooks::SetDomeFollowActive(false);
+}
+
 void RadiationEngine::UpdateStormDomeLifecycle()
 {
     if (_activeStormType < 0 || _activeStormType >= kStormTypeTableSize ||
