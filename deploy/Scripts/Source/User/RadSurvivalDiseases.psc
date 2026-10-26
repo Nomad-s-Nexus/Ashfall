@@ -18,6 +18,8 @@ float Property HourlyRisk = 0.012 Auto Const
 float Property RiskPerWeakStage = 0.008 Auto Const
 float Property RiskPerHit = 0.01 Auto Const
 float Property RiskPerSwim = 0.03 Auto Const
+float Property RiskPerRadHour = 0.08 Auto Const
+float Property RiskPerRainHour = 0.02 Auto Const
 float Property SwimIntervalGameDays = 0.1 Auto Const
 float Property HitCooldownSeconds = 2.0 Auto Const
 float Property IncubationHours = 4.0 Auto Const
@@ -32,6 +34,13 @@ string Property DiseasePlugin = "RadSurvival.esp" Auto Const
 ; 0x81C / 0x81F: first-stage ability of each illness; stages must run +0..+2
 int Property FeverSpellBase = 2076 Auto Const
 int Property WastingSpellBase = 2079 Auto Const
+; Constraint: weathers resolve by file name, because one master forbids a cross-plugin VMAD binding.
+string Property StormWeatherPlugin = "RadiationOverhaul.esp" Auto Const
+; 0x840..0x844: the five storm weathers the DLL forces; 0x1C3D5E is vanilla CommonwealthGSRadstorm
+int Property StormWeatherBase = 2112 Auto Const
+int Property StormWeatherCount = 5 Auto Const
+int Property VanillaRadStormFormId = 1850718 Auto Const
+int Property RainClassification = 2 Auto Const
 
 ; -----------------------------------------------------------------------------
 ; pool mirrors for the native HUD - Risk 0..1, Disease packs id*10+stage
@@ -54,6 +63,7 @@ float ImmunityUntil = -1.0
 float LastHitRealTime = -1.0
 float NextSwimAllowed = 0.0
 Spell AppliedDiseaseSpell = None
+Form[] RadWeatherForms
 
 ; -----------------------------------------------------------------------------
 ; entry points - RadSurvivalQuest must be the only caller (it owns the events)
@@ -78,6 +88,7 @@ Function Resync(bool abActive)
         DiseaseProgress = 0.0
     endif
     RiskDebt = Clamp01(RiskDebt)
+    RadWeatherForms = new Form[0]
     if NextSwimAllowed < 0.0
         NextSwimAllowed = 0.0
     endif
@@ -164,6 +175,72 @@ Function ExposureSwim(bool abActive)
     endif
     NextSwimAllowed = now + SwimIntervalGameDays
     AddRisk(RiskPerSwim, abActive)
+EndFunction
+
+Function ExposureWeather(float afHours, bool abActive)
+    ; Constraint: the sky is sampled on the pool tick, so an interval that never elapsed adds nothing.
+    if afHours <= 0.0 || !abActive || !DiseasesEnabled || DiseaseId > 0
+        return
+    endif
+    Actor player = Game.GetPlayer()
+    if !player || player.IsInInterior()
+        return
+    endif
+    Form sky = Weather.GetCurrentWeather() as Form
+    if !sky
+        return
+    endif
+    if IsRadWeather(sky)
+        AddRisk(RiskPerRadHour * afHours, abActive)
+        return
+    endif
+    Weather current = sky as Weather
+    if current && current.GetClassification() >= RainClassification
+        AddRisk(RiskPerRainHour * afHours, abActive)
+    endif
+EndFunction
+
+bool Function IsRadWeather(Form akWeather)
+    if !akWeather
+        return false
+    endif
+    Form[] weathers = RadWeatherForms
+    if !weathers || weathers.Length == 0
+        weathers = ResolveRadWeather()
+    endif
+    int i = 0
+    while i < weathers.Length
+        if weathers[i] == akWeather
+            return true
+        endif
+        i += 1
+    endwhile
+    return false
+EndFunction
+
+Form[] Function ResolveRadWeather()
+    ; Constraint: a failed resolve is never cached, so a missing plugin is retried, not remembered.
+    Form[] resolved = new Form[0]
+    Weather vanilla = Game.GetFormFromFile(VanillaRadStormFormId, "Fallout4.esm") as Weather
+    if vanilla
+        resolved.Add(vanilla)
+    else
+        Debug.Trace("[RadSurvivalDiseases] missing vanilla rad weather " + VanillaRadStormFormId)
+    endif
+    int i = 0
+    while i < StormWeatherCount
+        Weather storm = Game.GetFormFromFile(StormWeatherBase + i, StormWeatherPlugin) as Weather
+        if storm
+            resolved.Add(storm)
+        endif
+        i += 1
+    endwhile
+    if resolved.Length == 0
+        Debug.Trace("[RadSurvivalDiseases] no rad weather resolved from " + StormWeatherPlugin)
+        return resolved
+    endif
+    RadWeatherForms = resolved
+    return resolved
 EndFunction
 
 Function AddRisk(float afAmount, bool abActive)

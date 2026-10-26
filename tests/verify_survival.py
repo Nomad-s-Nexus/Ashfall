@@ -507,6 +507,11 @@ check("RadSurvivalDiseases Property Diseases Auto" in code,
       "the quest script must bind the disease script")
 accrue_body = function_body(code, "Function Accrue(float afHours)")
 check("TickDiseases(" in accrue_body, "every elapsed interval must feed the disease layer")
+weather_tick = function_body(code, "Function TickDiseases(float afHours)")
+check("Diseases.ExposureWeather(" in weather_tick,
+      "the sky exposure must ride the same interval as the disease tick")
+check("afHours" in weather_tick.split("Diseases.ExposureWeather(", 1)[1][:40],
+      "the sky exposure must be given the elapsed interval, or it charges the wrong amount")
 for call, signature in (("Diseases.Tick(", "Function TickDiseases(float afHours)"),
                         ("Diseases.TryRestCure(", "Function RestCureDiseases(float afHours, bool abInterrupted)"),
                         ("Diseases.Reconcile(", "Function ReconcileDiseases()"),
@@ -537,6 +542,31 @@ check("SwimIntervalGameDays" in swim_exposure and "GetCurrentGameTime(" in swim_
       "swimming is throttled on game time because the event repeats while in water")
 check("RiskPerSwim" in swim_exposure, "swimming must add the tuned amount")
 check("AddRisk(" in swim_exposure, "swimming must go through the shared exposure rule")
+weather_exposure = function_body(disease_code, "Function ExposureWeather(float afHours, bool abActive)")
+check("IsInInterior()" in weather_exposure,
+      "sky exposure must stop at an interior cell, or a shelter offers no protection")
+check("Weather.GetCurrentWeather()" in weather_exposure, "sky exposure must read the active weather")
+check("IsRadWeather(" in weather_exposure, "a rad storm must be told apart from ordinary rain")
+check("GetClassification()" in weather_exposure and "RainClassification" in weather_exposure,
+      "contaminated rain must key off the weather classification")
+check("RiskPerRadHour" in weather_exposure, "a rad storm must add the tuned hourly amount")
+check("RiskPerRainHour" in weather_exposure, "rain must add the tuned hourly amount")
+check(weather_exposure.count("AddRisk(") == 2,
+      "both sky sources must go through the shared exposure rule, not their own pond")
+check("afHours" in weather_exposure, "sky exposure must scale with the elapsed interval")
+for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
+    check(guard in weather_exposure, f"sky exposure must be gated by {guard}")
+rad_weather = function_body(disease_code, "bool Function IsRadWeather(Form akWeather)")
+check("RadWeatherForms" in rad_weather, "the rad weather set must be cached, not resolved per tick")
+resolved_weather = function_body(disease_code, "Form[] Function ResolveRadWeather()")
+check("GetFormFromFile(" in resolved_weather,
+      "weather forms live in another plugin, so they resolve by file name, not by VMAD binding")
+check("StormWeatherPlugin" in resolved_weather and "StormWeatherCount" in resolved_weather,
+      "the storm weather set must come from the tuned plugin and count")
+check("RadWeatherForms = resolved" in resolved_weather,
+      "a successful resolve must be cached")
+check("resolved.Length == 0" in resolved_weather,
+      "an empty resolve must not be cached, or a missing plugin is never retried")
 add_risk = function_body(disease_code, "Function AddRisk(float afAmount, bool abActive)")
 for guard in ("abActive", "DiseasesEnabled", "IsImmune(", "DiseaseId > 0"):
     check(guard in add_risk, f"exposure must be gated by {guard}")
@@ -598,12 +628,31 @@ for prop, key in (("HourlyRisk", "hourlyRisk"), ("RiskPerWeakStage", "riskPerWea
                   ("Stage3Hours", "stage3Hours"), ("RestCureBaseHours", "restCureBaseHours"),
                   ("ImmunityHours", "immunityHours"), ("RiskPerHit", "riskPerHit"),
                   ("RiskPerSwim", "riskPerSwim"), ("SwimIntervalGameDays", "swimIntervalGameDays"),
-                  ("HitCooldownSeconds", "hitCooldownSeconds")):
+                  ("HitCooldownSeconds", "hitCooldownSeconds"), ("RiskPerRadHour", "riskPerRadHour"),
+                  ("RiskPerRainHour", "riskPerRainHour")):
     value = constant(disease_source, prop)
     check(value is not None, f"missing disease tuning constant {prop}")
     if value is not None:
         check(abs(value - float(diseases["timing"][key])) < 1e-9,
               f"{prop} diverged from tools/rad_diseases.json ({value} vs {diseases['timing'][key]})")
+
+
+# Constraint: the weather set and its ids are shared with the manifest, not restated by hand.
+weather = diseases.get("weather", {})
+for prop, key in (("StormWeatherBase", "stormWeatherBaseDecimal"),
+                  ("StormWeatherCount", "stormWeatherCount"),
+                  ("VanillaRadStormFormId", "vanillaRadStormDecimal"),
+                  ("RainClassification", "rainClassification")):
+    match = re.search(rf"int Property {prop} = ([0-9]+) Auto Const", disease_source)
+    check(match is not None, f"missing weather constant {prop}")
+    if match and key in weather:
+        check(int(match.group(1)) == int(weather[key]),
+              f"{prop} diverged from tools/rad_diseases.json ({match.group(1)} vs {weather[key]})")
+plugin_match = re.search(r'string Property StormWeatherPlugin = "([^"]+)" Auto Const', disease_source)
+check(plugin_match is not None, "missing StormWeatherPlugin constant")
+if plugin_match and "stormWeatherPlugin" in weather:
+    check(plugin_match.group(1) == weather["stormWeatherPlugin"],
+          "StormWeatherPlugin diverged from tools/rad_diseases.json")
 
 # The design rationale keeps the removed runtime's name; shipped files must not.
 for path in ROOT.rglob("*"):

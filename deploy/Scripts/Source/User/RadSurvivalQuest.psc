@@ -665,6 +665,8 @@ Function TickDiseases(float afHours)
         return
     endif
     Diseases.Tick(afHours, IsActive(), StageFor(HungerDebt), StageFor(ThirstDebt), StageFor(SleepDebt))
+    ; Invariant: sky exposure rides the same interval, through the same AddRisk rule.
+    Diseases.ExposureWeather(afHours, IsActive())
 EndFunction
 
 Function RestCureDiseases(float afHours, bool abInterrupted)
