@@ -15,11 +15,11 @@ assert.equal(needs.elements.hungerValue.textContent,'0%');
 assert.equal(needs.elements.thirstValue.textContent,'63%');
 assert.equal(needs.elements.sleepDebtValue.textContent,'100%');
 assert.equal(needs.elements.sleepDebt.className,'status danger');
-assert.match(needs.elements.sleepDebt['aria-label'],/observation only/);
+assert.match(needs.elements.sleepDebt['aria-label'],/severity 3 of 3/);
 needs.context.updateNeeds('{invalid');
 needs.context.updateNeeds({hunger:NaN,thirst:1,sleepDebt:1});
 assert.equal(needs.elements.thirstValue.textContent,'63%');
-needs.context.setEditorPreview(1);
+needs.context.updateNeeds({hunger:12,thirst:20,sleepDebt:8});assert.ok(needs.elements.hunger.hidden&&needs.elements.thirst.hidden&&needs.elements.sleepDebt.hidden);assert.ok(!needs.elements.root.classes.has('visible'));needs.context.updateNeeds({hunger:33,thirst:34,sleepDebt:0});assert.equal(needs.elements.hunger.hidden,true);assert.equal(needs.elements.thirst.className,'status warn');assert.ok(needs.elements.root.classes.has('visible'));needs.context.setEditorPreview(1);
 needs.context.updateNeeds({hunger:18,thirst:24,sleepDebt:32});
 needs.context.setEditorPreview(0);
 assert.equal(needs.elements.hungerValue.textContent,'18%');
@@ -36,10 +36,10 @@ climate.context.updateClimate({core:28,warmth:0,ambient:15,wetness:200,stage:5})
 assert.equal(climate.elements.warmValue.textContent,'0%');assert.equal(climate.elements.wetValue.textContent,'100%');
 assert.equal(climate.elements.warm.className,'status danger');
 const filter=load('hud_filter.html');
-filter.context.updateAir({contaminated:false,masked:false});assert.equal(filter.elements.breathValue.textContent,'CLEAN');assert.equal(filter.elements.filter.hidden,true);
+filter.context.updateAir({contaminated:false,masked:false});assert.equal(filter.elements.breathValue.textContent,'CLEAN');assert.equal(filter.elements.filter.hidden,true);assert.ok(!filter.elements.root.classes.has('on'));filter.context.updateAir({contaminated:true,masked:true,charge:100,condition:100});assert.ok(filter.elements.root.classes.has('on'));filter.context.updateAir({contaminated:false,masked:true,charge:40,condition:100});assert.ok(filter.elements.root.classes.has('on'));filter.context.updateAir({contaminated:false,masked:true,charge:100,condition:100});assert.ok(!filter.elements.root.classes.has('on'));
 for(const [payload,expected] of [[{contaminated:true},'EXPOSED'],[{contaminated:true,masked:true,charge:80,condition:50},'FILTERED'],[{contaminated:true,masked:true,failed:true,charge:0,condition:50},'EXPOSED'],[{contaminated:true,sealed:true},'SEALED'],[{contaminated:true,sheltered:true},'COVERED']]){filter.context.updateAir(payload);assert.equal(filter.elements.breathValue.textContent,expected);}
 filter.context.updateAir({masked:true,charge:-1,condition:-1});assert.equal(filter.elements.filter.hidden,true);assert.equal(filter.elements.mask.hidden,true);
-const toxic=load('hud_toxic.html');
+climate.context.updateClimate({core:37,warmth:100,wetness:0,ambient:21,wind:3,stage:0,warming:0,cooling:0});assert.equal(climate.elements.root.className,'');climate.context.updateClimate({core:35.8,warmth:87,wetness:62,ambient:-4,wind:12,stage:1});assert.match(climate.elements.root.className,/visible/);const toxic=load('hud_toxic.html');
 toxic.context.updateToxic({fallback:true,health:50,healthMax:100,ap:20,apMax:100,rads:300,radsMax:1000,tissue:150,permanentTissue:40});
 assert.equal(toxic.elements.healthValue.textContent,'50%');assert.equal(toxic.elements.radsValue.textContent,'30%');assert.equal(toxic.elements.tissueValue.textContent,'15%');
 toxic.context.updateToxic({fallback:false,tissue:0});assert.equal(toxic.elements.health.hidden,true);assert.ok(!toxic.elements.root.classes.has('visible'));

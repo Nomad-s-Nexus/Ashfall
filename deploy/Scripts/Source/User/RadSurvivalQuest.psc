@@ -114,6 +114,9 @@ Event OnInit()
     ArmSleepWaitEvents()
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
+    ; OnPlayerLoadGame is an Actor remote event, so it must be registered or the handler never fires.
+    UnregisterForRemoteEvent(player, "OnPlayerLoadGame")
+    RegisterForRemoteEvent(player, "OnPlayerLoadGame")
     MirrorAll()
     ResyncPenalties()
     ResyncDiseases()
@@ -144,9 +147,12 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     WaitStartTime = -1.0
     ClearPending()
 
-    ; Only the remote item event is re-registered here.
+    ; Only the remote item and load events are re-registered here; the sleep/wait
+    ; registrations survive a load and re-arming them would double every event.
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
+    UnregisterForRemoteEvent(player, "OnPlayerLoadGame")
+    RegisterForRemoteEvent(player, "OnPlayerLoadGame")
     RestartTimer()
     MirrorAll()
     ResyncPenalties()

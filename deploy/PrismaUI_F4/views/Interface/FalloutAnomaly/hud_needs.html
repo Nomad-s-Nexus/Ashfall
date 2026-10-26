@@ -1,21 +1,28 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Needs status</title><link rel="stylesheet" href="hud_status.css"></head>
 <body><div id="root">
-<div class="status" id="hunger" role="img" aria-label="Hunger: awaiting data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v6a3 3 0 0 0 6 0V3M8 3v18M18 3c-3 4-3 8 0 9V3Zm0 9v9"/></svg><span class="label">HUNGER</span><b id="hungerValue">--</b></div>
-<div class="status" id="thirst" role="img" aria-label="Thirst: awaiting data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2S4 11 4 16a8 8 0 0 0 16 0c0-5-8-14-8-14Z"/></svg><span class="label">THIRST</span><b id="thirstValue">--</b></div>
-<div class="status" id="sleepDebt" role="img" aria-label="Sleep debt: awaiting data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 16A9 9 0 0 1 8 4a9 9 0 1 0 11 12Z"/></svg><span class="label">FATIGUE</span><b id="sleepDebtValue">--</b></div>
+<div class="status" id="hunger" role="img" aria-label="Hunger: fine"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.319c0 3.102 .444 5.319 2.222 7.978c1.351 1.797 3.156 2.247 5.08 .988c.426 -.268 .97 -.268 1.397 0c1.923 1.26 3.728 .809 5.079 -.988c1.778 -2.66 2.222 -4.876 2.222 -7.977c0 -2.661 -1.99 -5.32 -4.444 -5.32c-1.267 0 -2.41 .693 -3.22 1.44a.5 .5 0 0 1 -.672 0c-.809 -.746 -1.953 -1.44 -3.22 -1.44c-2.454 0 -4.444 2.66 -4.444 5.319"/><path d="M7 12c0 -1.47 .454 -2.34 1.5 -3"/><path d="M12 7c0 -1.2 .867 -4 3 -4"/></svg><span class="label">HUNGER</span><b id="hungerValue">--</b></div>
+<div class="status" id="thirst" role="img" aria-label="Thirst: fine"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546"/></svg><span class="label">THIRST</span><b id="thirstValue">--</b></div>
+<div class="status" id="sleepDebt" role="img" aria-label="Fatigue: fine"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008"/></svg><span class="label">FATIGUE</span><b id="sleepDebtValue">--</b></div>
 </div><script>
 var root=document.getElementById('root'),_preview=false,_lastData=null;
+var STAGE1=34,STAGE2=67,STAGE3=90;
+function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
+function stageOf(v){return v<STAGE1?0:v<STAGE2?1:v<STAGE3?2:3;}
 function renderNeeds(d){
- ['hunger','thirst','sleepDebt'].forEach(function(id){
-  var value=Math.round(Math.max(0,Math.min(100,d[id]))),e=document.getElementById(id);
+ var any=false;
+ [['hunger','Hunger'],['thirst','Thirst'],['sleepDebt','Sleep debt']].forEach(function(pair){
+  var id=pair[0],value=pct(d[id]),stage=stageOf(value),e=document.getElementById(id);
   document.getElementById(id+'Value').textContent=value+'%';
-  e.className='status '+(value>=75?'danger':value>=50?'warn':'');
-  var description=(id==='sleepDebt'?'Sleep debt':id==='hunger'?'Hunger':'Thirst')+' '+value+'% - observation only';
+  e.hidden=stage===0;
+  e.className='status '+(stage>=2?'danger':'warn');
+  if(stage>0)any=true;
+  var description=pair[1]+' '+value+'%, severity '+stage+' of 3';
   e.setAttribute('aria-label',description);e.title=description;
  });
- root.className='visible';
- window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));
+ var show=any||_preview;
+ root.classList.toggle('visible',show);
+ window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));
 }
 window.updateNeeds=function(json){
  try{
@@ -26,9 +33,9 @@ window.updateNeeds=function(json){
 };
 window.setEditorPreview=function(json){
  _preview=json==='1'||json===1||json===true;
- if(_preview)renderNeeds({hunger:35,thirst:62,sleepDebt:80});
+ if(_preview)renderNeeds({hunger:40,thirst:72,sleepDebt:95});
  else if(_lastData)renderNeeds(_lastData);
- else root.className='';
+ else root.classList.remove('visible');
 };
 
 var WIDGET_ID='rad_needs';

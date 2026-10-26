@@ -1,16 +1,30 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Breathing protection</title><link rel="stylesheet" href="hud_status.css"></head>
-<body><div id="root"><div class="status " id="breath" role="img" aria-label="BREATH"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18a5 5 0 0 1 0-10 7 7 0 0 1 13 0 5 5 0 0 1 0 10H5Zm3-7h8m-8 3h8"/></svg><span class="label">BREATH</span><b id="breathValue">--</b></div><div class="status " id="filter" role="img" aria-label="FILTER"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5V3Zm3 4h8m-8 5h8m-8 5h8"/></svg><span class="label">FILTER</span><b id="filterValue">--</b></div><div class="status " id="mask" role="img" aria-label="MASK"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10l-5 6H9l-5-6V5Zm1 3h5v5H5m9-5h5v5h-5m-4 2h4v4h-4"/></svg><span class="label">MASK</span><b id="maskValue">--</b></div></div><script>
+<body><div id="root"><div class="status" id="breath" role="img" aria-label="BREATH"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.081 20c1.612 0 2.919 -1.335 2.919 -2.98v-9.763c0 -.694 -.552 -1.257 -1.232 -1.257c-.205 0 -.405 .052 -.584 .15l-.13 .083c-1.46 1.059 -2.432 2.647 -3.404 5.824c-.42 1.37 -.636 2.962 -.648 4.775c-.012 1.675 1.261 3.054 2.877 3.161l.203 .007"/><path d="M17.92 20c-1.613 0 -2.92 -1.335 -2.92 -2.98v-9.763c0 -.694 .552 -1.257 1.233 -1.257c.204 0 .405 .052 .584 .15l.13 .083c1.46 1.059 2.432 2.647 3.405 5.824c.42 1.37 .636 2.962 .648 4.775c.012 1.675 -1.261 3.054 -2.878 3.161l-.202 .007"/><path d="M9 12a3 3 0 0 0 3 -3a3 3 0 0 0 3 3"/><path d="M12 4v5"/></svg><span class="label">BREATH</span><b id="breathValue">--</b></div><div class="status" id="filter" role="img" aria-label="FILTER"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227"/></svg><span class="label">FILTER</span><b id="filterValue">--</b></div><div class="status" id="mask" role="img" aria-label="MASK"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12"/></svg><span class="label">MASK</span><b id="maskValue">--</b></div></div><script>
 
 var root=document.getElementById('root'),_visState=false,_preview=false,_lastAir=null,_lastFilter=null;
 function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
+function num(n){n=+n;return isFinite(n)?n:-1;}
 function renderFilter(){
  var a=_lastAir||{},d=_lastFilter||{},masked=_lastAir?!!a.masked:!!d.masked;
  var state=!a.contaminated?'CLEAN':a.sealed?'SEALED':a.sheltered?'COVERED':masked&&!a.failed?'FILTERED':'EXPOSED';
- var breath=document.getElementById('breath');document.getElementById('breathValue').textContent=state;
- breath.className='status '+(state==='EXPOSED'?'danger':a.contaminated?'warn':'');breath.setAttribute('aria-label','Breathing air: '+state);breath.title='Breathing air: '+state;
- [['filter',_lastAir?a.charge:d.charge],['mask',_lastAir?a.condition:d.condition]].forEach(function(pair){var e=document.getElementById(pair[0]),n=pct(pair[1]);e.hidden=!masked||+pair[1]<0;e.className='status '+(n===0?'danger':n<=25?'warn':'');document.getElementById(pair[0]+'Value').textContent=n+'%';});
- _visState=true;root.classList.add('on');window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:true}));
+ var breath=document.getElementById('breath');
+ document.getElementById('breathValue').textContent=state;
+ breath.className='status '+(state==='EXPOSED'?'danger':a.contaminated?'warn':'');
+ breath.setAttribute('aria-label','Breathing air: '+state);breath.title='Breathing air: '+state;
+ var charge=masked?num(a.charge):-1,condition=masked?num(a.condition):-1;
+ var degrading=false;
+ [['filter',charge],['mask',condition]].forEach(function(pair){
+  var e=document.getElementById(pair[0]),n=pct(pair[1]);
+  e.hidden=!masked||pair[1]<0;
+  e.className='status '+(n<=25?'danger':n<=60?'warn':'');
+  document.getElementById(pair[0]+'Value').textContent=n+'%';
+  if(masked&&pair[1]>=0&&n<100)degrading=true;
+ });
+ var show=_preview||!!a.contaminated||!!a.failed||degrading;
+ _visState=show;
+ root.classList.toggle('on',show);
+ window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));
 }
 window.updateAir=function(json){try{_lastAir=typeof json==='string'?JSON.parse(json):json;if(!_preview)renderFilter();}catch(e){}};
 window.updateFilter=function(json){try{_lastFilter=typeof json==='string'?JSON.parse(json):json;if(!_preview)renderFilter();}catch(e){}};

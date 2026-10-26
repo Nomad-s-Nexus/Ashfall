@@ -72,6 +72,14 @@ for required in (
 
 check("Event Actor.OnPlayerLoadGame(Actor akSender)" in code,
       "the script must re-anchor on load")
+for required in ('RegisterForRemoteEvent(player, "OnPlayerLoadGame")',
+                 'UnregisterForRemoteEvent(player, "OnPlayerLoadGame")'):
+    check(required in code, f"missing load-event wiring: {required}")
+check('RegisterForRemoteEvent(player, "OnPlayerLoadGame")' in function_body(code, "Event OnInit()"),
+      "OnPlayerLoadGame is an Actor remote event, so OnInit must register it or the handler never fires")
+check('RegisterForRemoteEvent(player, "OnPlayerLoadGame")'
+      in function_body(code, "Event Actor.OnPlayerLoadGame(Actor akSender)"),
+      "the load handler must re-arm its own registration")
 check("Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)" in code,
       "the remote item event handler signature is wrong")
 check("Event OnPlayerSleepStart(" in code, "sleep start must be handled")
