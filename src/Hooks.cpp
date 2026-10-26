@@ -205,8 +205,11 @@ namespace Hooks
         }
         if (IsPrismaModuleLoaded())
         {
-            if (logger)
-                logger->info("[MainDispatch] PrismaUI module detected; V11 dispatcher not ready yet, startup work will be deferred.");
+            static std::atomic_bool s_v11MissingLogged{ false };
+            if (logger && !s_v11MissingLogged.exchange(true))
+                logger->critical("[MainDispatch] PrismaUI is loaded but its V11 dispatcher is not registered. "
+                                 "Rad Overhaul needs PrismaUI F4 2.2.0 or newer (API V11 = 138); 2.1.1 and older "
+                                 "never expose it. Install 2.2.0+ and let PrismaUI start before this plugin defers.");
             return true;
         }
 
@@ -372,19 +375,28 @@ namespace Hooks
         try
         {
             queued = QueueMainThreadTask([generation]() {
-                try
-                {
-                    if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
+                // Constraint: one subsystem's failure must not abort the other two on the same tick.
+                const auto step = [](const char* label, auto&& work) {
+                    try
                     {
-                        RadiationEngine::GetSingleton().Update();
-                        ClimateRuntime::GetSingleton().Update();
-                        NeedsRuntime::GetSingleton().Update();
+                        work();
                     }
-                }
-                catch (...)
+                    catch (const std::exception& ex)
+                    {
+                        if (auto logger = spdlog::get("FalloutAnomaly"))
+                            logger->error("[Tick] {} threw: {}", label, ex.what());
+                    }
+                    catch (...)
+                    {
+                        if (auto logger = spdlog::get("FalloutAnomaly"))
+                            logger->error("[Tick] {} threw an unknown exception.", label);
+                    }
+                };
+                if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
                 {
-                    s_updateTaskQueued.store(false);
-                    throw;
+                    step("Radiation", [] { RadiationEngine::GetSingleton().Update(); });
+                    step("Climate", [] { ClimateRuntime::GetSingleton().Update(); });
+                    step("Needs", [] { NeedsRuntime::GetSingleton().Update(); });
                 }
                 s_updateTaskQueued.store(false);
             });
@@ -398,6 +410,13 @@ namespace Hooks
         }
         if (!queued)
             s_updateTaskQueued.store(false);
+    }
+
+    void ResetQueuedTaskFlags() noexcept
+    {
+        // Constraint: a task queued when the session ends may never run, so its flag is cleared here.
+        s_inputTaskQueued.store(false, std::memory_order_release);
+        s_updateTaskQueued.store(false, std::memory_order_release);
     }
 
     // Worker-thread hook: call the original and produce main-thread work only.
@@ -466,7 +485,8 @@ namespace Hooks
         }
         if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())
         {
-            if (logger) logger->critical("[Hook] Refusing update-hook install without a main-thread dispatcher.");
+            if (logger) logger->critical("[Hook] Refusing update-hook install: no main-thread dispatcher. "
+                                         "PrismaUI F4 2.2.0 or newer (API V11 = 138) is required when PrismaUI is installed.");
             return false;
         }
         InstallInputHandler();
@@ -477,6 +497,13 @@ namespace Hooks
         }
 
         if (logger) logger->info("[Hook] Installing PlayerCharacter::Update producer hook...");
+        // Constraint: a second write would capture our own hook as the original and recurse forever.
+        static std::atomic_bool s_updateHookWriteAttempted{ false };
+        if (s_updateHookWriteAttempted.exchange(true))
+        {
+            if (logger) logger->critical("[Hook] PlayerCharacter::Update slot was already written by this plugin; refusing a second install.");
+            return false;
+        }
         try
         {
             // PlayerCharacter::Update overrides Actor::Update at the same vtable slot. The slot index is
@@ -488,6 +515,12 @@ namespace Hooks
             if (original_Update.address() == 0)
             {
                 if (logger) logger->error("[Hook] PlayerCharacter::Update original function was null.");
+                return false;
+            }
+            // Constraint: an original that is this hook would recurse; never accept our own address.
+            if (original_Update.address() == reinterpret_cast<std::uintptr_t>(&PlayerCharacter_Update_Hook))
+            {
+                if (logger) logger->critical("[Hook] PlayerCharacter::Update original resolved to the Rad producer itself; refusing the hook.");
                 return false;
             }
 

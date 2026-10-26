@@ -37,6 +37,8 @@ namespace RadLifecycleDispatch
     void BlockPlayerUpdates() noexcept
     {
         g_playerUpdateGeneration.store(0, std::memory_order_release);
+        // Constraint: a task queued when updates stop never runs, so its coalescing flag is cleared here.
+        Hooks::ResetQueuedTaskFlags();
     }
 
     void SetPlayerUpdateGeneration(std::uint64_t generation) noexcept

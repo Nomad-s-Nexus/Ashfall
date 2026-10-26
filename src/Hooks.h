@@ -22,5 +22,8 @@ namespace Hooks
     // no-PrismaUI Win32 fallback cannot accept/wake the task. Callers may safely retry later.
     bool QueueMainThreadTask(std::function<void()> task);
 
+    // Constraint: clears the producer flags, or a lifecycle boundary strands the tick forever.
+    void ResetQueuedTaskFlags() noexcept;
+
     bool IsGameMainThread();
 }
