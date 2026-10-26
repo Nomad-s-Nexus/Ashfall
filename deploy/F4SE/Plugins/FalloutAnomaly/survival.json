@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "_note": "Rad Survival Core tuning. Reads the same hourlyRates as the native needs runtime so both layers agree once the DLL bridge lands.",
+  "enabled": 1.0,
+  "skipWhenVanillaSurvival": 1.0,
+  "debug": 0.0,
+  "notify": 1.0,
+  "tickSeconds": 900.0,
+  "hourlyRates": {
+    "hunger": 0.05,
+    "thirst": 0.1,
+    "sleepDebt": 0.025
+  },
+  "recovery": {
+    "foodScale": 0.2,
+    "drinkScale": 0.25,
+    "sleepPerHour": 0.12,
+    "interruptedScale": 0.5
+  }
+}

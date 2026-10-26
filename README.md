@@ -30,6 +30,13 @@ Author: NomadsReach
   banners, debug controls, and Rad-owned toxicity/filter widgets. The Rad debug menu includes a
   temporary built-in layout editor for those widgets. When PrismaHUD_F4 is detected, PrismaHUD
   automatically becomes the layout owner and its shared editor takes over.
+- **Needs observation (Hydra runtime).** Hunger, thirst and sleep debt advance on a game-time
+  timer, persist in the F4SE co-save, and are relieved by real food/drink use and real sleep.
+  Consumption is confirmed by an inventory count change, so dropping, storing, selling and
+  crafting cannot feed the player. `HC_Manager` and every `HC_*` form are untouched. This layer
+  requires the **Hydra Papyrus Script Extender**; without it the scripts never run and nothing
+  else changes. Stage penalties stay dormant until the DLL bridge in
+  [docs/code-notes/Rad-Overhaul-Fallout-4.md](docs/code-notes/Rad-Overhaul-Fallout-4.md) is added.
 - **Companion patches.** `RadOverhaul_GearPatch.esp` buffs the hazmat suit's radiation resistance;
   `RadOverhaulSurPatch.esp` is also included in the deployment package.
 
