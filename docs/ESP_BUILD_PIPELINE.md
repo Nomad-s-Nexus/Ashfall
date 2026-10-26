@@ -358,8 +358,14 @@ compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/
                 output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts
                 imports=<vanilla script sources, e.g. git/papyrus-base-20261025>
                 flags=Institute_Papyrus_Flags.flg
+                debug_info=false
                 engine=builtin
 ```
+
+`debug_info` defaults to `true` in the tool, which writes a different (larger) header and debug
+player, so it is not the shape the committed bytecode has: a compile without it fails the byte
+comparison even when the source is unchanged. Every shipped `.pex` here was built with
+`debug_info=false`, and `tools/stamp_papyrus.py` records that invocation.
 
 The engine is deterministic: recompiling an unchanged source reproduces the committed `.pex` byte for
 byte, which is what makes a hash gate meaningful.
@@ -371,13 +377,15 @@ checkout and an LF one agree), refuses bytecode that names a source other than i
 every `.pex` in the folder to be stamped. That check runs in both Rad workflows, so a source edit
 without a recompile fails CI even though CI cannot compile Papyrus itself.
 
-**Known limitation - the recorded source path.** The built-in compiler writes the source *path* it
-was handed into the `.pex` header, and there is no flag to suppress it. Compiling with an absolute
-source argument therefore ships a developer's disk layout inside the bytecode (`E:\Projects\...`),
-and compiling from a staging folder only swaps that path for another absolute one. Hand-patching the
-string is the retired binary-patcher route and is not used. `papyrus-build.json` records the exact
-string each `.pex` carries, so a toolchain that stops writing it, or a build made somewhere else,
-shows up as a stamp mismatch instead of drifting silently. Reported upstream with the `HEDR`
+**Known limitation - the recorded source path.** The built-in compiler writes the source *path* into
+the `.pex` header, and there is no flag to suppress it. It resolves whatever it is given, so a
+relative source argument is recorded as an absolute one: compiling
+`deploy/Scripts/Source/User/RadSurvivalQuest.psc` (FO4IDE `1ee68cf38`, checked 2026-10-26) still wrote
+`E:\Projects\...\deploy\Scripts\Source\User\RadSurvivalQuest.psc` into the header. Compiling from a
+staging folder only swaps that path for another absolute one, so the string cannot be removed through
+the compiler interface, and rewriting the bytes by hand is the retired binary-patcher route.
+`papyrus-build.json` records the exact string each `.pex` carries, so a toolchain that stops writing
+it, or a build made somewhere else, shows up as a stamp mismatch instead of drifting silently. Reported upstream with the `HEDR`
 `numRecords` quirk; a FO4IDE build that omits the path needs a recompile and a re-stamp, not a code
 change.
 

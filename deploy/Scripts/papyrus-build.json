@@ -1,6 +1,6 @@
 {
   "compiler": "FO4IDE built-in Papyrus engine (compile_papyrus, engine=builtin)",
-  "command": "compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/<Script>.psc output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts imports=<vanilla script sources> flags=Institute_Papyrus_Flags.flg engine=builtin",
+  "command": "compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/<Script>.psc output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts imports=<vanilla script sources> flags=Institute_Papyrus_Flags.flg debug_info=false engine=builtin",
   "sourceRoot": "deploy/Scripts/Source/User",
   "scripts": [
     {
