@@ -350,8 +350,8 @@ if PLUGIN.is_file():
 
     magic_effects = plugin_records(b"MGEF")
     ability_spells = plugin_records(b"SPEL")
-    check(len(magic_effects) == 15,
-          f"RadSurvival.esp must hold 15 magic effects (9 penalty + 6 disease), found {len(magic_effects)}")
+    check(len(magic_effects) == 16,
+          f"RadSurvival.esp must hold 16 magic effects (9 penalty + 6 disease + 1 cure), found {len(magic_effects)}")
     check(len(ability_spells) == 15,
           f"RadSurvival.esp must hold 15 abilities (9 penalty + 6 disease), found {len(ability_spells)}")
 
@@ -635,6 +635,57 @@ for prop, key in (("HourlyRisk", "hourlyRisk"), ("RiskPerWeakStage", "riskPerWea
     if value is not None:
         check(abs(value - float(diseases["timing"][key])) < 1e-9,
               f"{prop} diverged from tools/rad_diseases.json ({value} vs {diseases['timing'][key]})")
+
+# Invariant: one confirmed consumption reaches the disease script, which routes taint and cure.
+relief_body = function_body(code, "Function ApplyRelief(Form akItem, int aiCount)")
+check("Diseases.ConsumeItem(" in relief_body,
+      "a confirmed consumption must reach the disease script")
+check("Diseases != None" in relief_body or "Diseases == None" in relief_body,
+      "relief must survive a quest whose disease script is not bound")
+equip_body = function_body(
+    code, "Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)")
+check("IsCureItem(" in equip_body,
+      "the cure item must be armed for the count-drop confirmation like food")
+consume_body = function_body(disease_code, "Function ConsumeItem(Form akItem, int aiCount, bool abActive)")
+check("IsCureItem(" in consume_body, "a consumed item must be tested for the cure first")
+check("CureDisease()" in consume_body,
+      "the cure item must clear the state through the existing cure path")
+check("ExposureConsume(" in consume_body, "a consumed item must charge the taint exposure")
+taint_body = function_body(disease_code, "Function ExposureConsume(Form akItem, int aiCount, bool abActive)")
+for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
+    check(guard in taint_body, f"taint consumption must be gated by {guard}")
+check("AddRisk(" in taint_body, "taint must charge the pool through the shared exposure rule")
+check("CategoryRisk(" in taint_body, "the per-category amount must come from the tuning")
+category_body = function_body(disease_code, "int Function ExposureCategory(Form akItem)")
+for name in ("TaintedFoodList", "TaintedWaterList", "ContaminatedList"):
+    check(name in category_body, f"the category rule must consult {name}")
+for name in ("KeywordTaintedFood", "KeywordTaintedWater", "KeywordContaminated"):
+    check(name in category_body, f"the keyword opt-in must be consulted: {name}")
+list_body = function_body(disease_code, "bool Function ListHas(FormList akList, Form akItem)")
+check("HasForm(" in list_body, "list membership must read the authored form list")
+check("!akList" in list_body, "a missing list must be fail-open, not a charge")
+fallback_body = function_body(disease_code, "Function TraceTaintLists()")
+check("Debug.Trace(" in fallback_body, "a missing taint list must be traced, not silent")
+check("TraceTaintLists()" in function_body(disease_code, "Function Resync(bool abActive)"),
+      "a load must report a missing taint list")
+cure_test = function_body(disease_code, "bool Function IsCureItem(Form akItem)")
+check("CureItemFormId" in cure_test and "KeywordCureItem" in cure_test,
+      "the cure test must resolve the shipped item and accept the keyword")
+taint_manifest = diseases.get("taint", {})
+for entry in taint_manifest.get("keywords", []):
+    prop = entry.get("riskProperty")
+    if not prop:
+        continue
+    value = constant(disease_source, prop)
+    check(value is not None, f"missing taint tuning constant {prop}")
+    if value is not None:
+        check(abs(value - float(entry["risk"])) < 1e-9,
+              f"{prop} diverged from tools/rad_diseases.json ({value} vs {entry['risk']})")
+cure_match = re.search(r"int Property CureItemFormId = ([0-9]+) Auto Const", disease_source)
+check(cure_match is not None, "the disease script must carry the cure item's local form id")
+if cure_match:
+    check(int(cure_match.group(1)) == int(taint_manifest.get("cure", {}).get("itemFormId", "0x0"), 16) & 0xFFFFFF,
+          "CureItemFormId does not resolve the cure item the manifest ships")
 
 
 # Constraint: the weather set and its ids are shared with the manifest, not restated by hand.

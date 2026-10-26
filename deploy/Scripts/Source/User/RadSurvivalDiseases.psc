@@ -49,6 +49,21 @@ int Property RainClassification = 2 Auto Const
 GlobalVariable Property RadSurvival_Risk Auto
 GlobalVariable Property RadSurvival_Disease Auto
 
+; Constraint: the taint records are authored; the lists decide membership, the keywords opt in.
+FormList Property TaintedFoodList Auto
+FormList Property TaintedWaterList Auto
+FormList Property ContaminatedList Auto
+Keyword Property KeywordTaintedFood Auto
+Keyword Property KeywordTaintedWater Auto
+Keyword Property KeywordContaminated Auto
+Keyword Property KeywordCureItem Auto
+; tuning - must mirror the taint block of tools/rad_diseases.json
+float Property RiskPerTaintedFood = 0.10 Auto Const
+float Property RiskPerTaintedWater = 0.15 Auto Const
+float Property RiskPerContaminated = 0.05 Auto Const
+; 0x82C: the shipped cure ingestible; the record tool has no keyword write path
+int Property CureItemFormId = 2092 Auto Const
+
 ; -----------------------------------------------------------------------------
 ; state - saved with the quest, must stay versioned by SavedStateVersion
 ; -----------------------------------------------------------------------------
@@ -95,6 +110,7 @@ Function Resync(bool abActive)
     Reconcile(abActive)
     MirrorRisk()
     MirrorDisease()
+    TraceTaintLists()
 EndFunction
 
 Function Reconcile(bool abActive)
@@ -197,6 +213,80 @@ Function ExposureWeather(float afHours, bool abActive)
     Weather current = sky as Weather
     if current && current.GetClassification() >= RainClassification
         AddRisk(RiskPerRainHour * afHours, abActive)
+    endif
+EndFunction
+
+Function ConsumeItem(Form akItem, int aiCount, bool abActive)
+    if !akItem || aiCount <= 0
+        return
+    endif
+    ; Constraint: the cure item clears the same state a rest cure clears.
+    if IsCureItem(akItem)
+        CureDisease()
+        return
+    endif
+    ExposureConsume(akItem, aiCount, abActive)
+EndFunction
+
+bool Function IsCureItem(Form akItem)
+    if !akItem
+        return false
+    endif
+    ; Constraint: the shipped item carries no KWDA, so it resolves by form id first.
+    Form cure = Game.GetFormFromFile(CureItemFormId, DiseasePlugin)
+    if cure && akItem == cure
+        return true
+    endif
+    return akItem.HasKeyword(KeywordCureItem)
+EndFunction
+
+int Function ExposureCategory(Form akItem)
+    if ListHas(TaintedFoodList, akItem) || akItem.HasKeyword(KeywordTaintedFood)
+        return 1
+    endif
+    if ListHas(TaintedWaterList, akItem) || akItem.HasKeyword(KeywordTaintedWater)
+        return 2
+    endif
+    if ListHas(ContaminatedList, akItem) || akItem.HasKeyword(KeywordContaminated)
+        return 3
+    endif
+    return 0
+EndFunction
+
+bool Function ListHas(FormList akList, Form akItem)
+    ; Constraint: a missing list charges nothing, so a short load order is fail-open.
+    if !akList || !akItem
+        return false
+    endif
+    return akList.HasForm(akItem)
+EndFunction
+
+float Function CategoryRisk(int aiCategory)
+    if aiCategory == 1
+        return RiskPerTaintedFood
+    elseif aiCategory == 2
+        return RiskPerTaintedWater
+    elseif aiCategory == 3
+        return RiskPerContaminated
+    endif
+    return 0.0
+EndFunction
+
+Function ExposureConsume(Form akItem, int aiCount, bool abActive)
+    if aiCount <= 0 || !abActive || !DiseasesEnabled || DiseaseId > 0
+        return
+    endif
+    int category = ExposureCategory(akItem)
+    if category <= 0
+        return
+    endif
+    AddRisk(CategoryRisk(category) * (aiCount as float), abActive)
+    Debug.Trace("[RadSurvivalDiseases] tainted " + akItem + " x" + aiCount + " category " + category)
+EndFunction
+
+Function TraceTaintLists()
+    if !TaintedFoodList || !TaintedWaterList || !ContaminatedList
+        Debug.Trace("[RadSurvivalDiseases] a taint form list is unbound; that category charges nothing")
     endif
 EndFunction
 

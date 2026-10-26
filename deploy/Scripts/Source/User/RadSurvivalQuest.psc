@@ -171,7 +171,7 @@ Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference ak
     if !player || akSender != player
         return
     endif
-    if !akBaseObject || !IsFoodOrDrink(akBaseObject)
+    if !akBaseObject || (!IsFoodOrDrink(akBaseObject) && (Diseases == None || Diseases.IsCureItem(akBaseObject) == false))
         return
     endif
 
@@ -265,6 +265,11 @@ EndFunction
 Function ApplyRelief(Form akItem, int aiCount)
     if aiCount <= 0
         return
+    endif
+
+    ; Constraint: taint and cure route through the disease script on a confirmed count drop.
+    if Diseases != None
+        Diseases.ConsumeItem(akItem, aiCount, IsActive())
     endif
 
     bool ate = akItem.HasKeyword(KeywordFood())

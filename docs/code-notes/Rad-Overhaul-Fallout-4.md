@@ -276,6 +276,36 @@ Reference: `RadSurvivalDiseases.psc:ExposureWeather`, `RadSurvivalDiseases.psc:I
 
 **It is the same rule, not a fourth one.** Both branches call `AddRisk`, so the active-layer gate, `DiseasesEnabled`, the live-illness check and the immunity window apply exactly as they do to hits and swimming, and a full pool enters the same `StartDisease` ladder. `tests/verify_survival.py` pins the two branches (two `AddRisk` calls, no private pool), the interior guard, the classification threshold, the cached set and the manifest parity for the four ids and two rates.
 
+## Taint shortlists and the carried cure (2026-10-26)
+
+Reference: `RadSurvivalDiseases.psc:ConsumeItem`, `RadSurvivalDiseases.psc:ExposureCategory`, `RadSurvivalDiseases.psc:ExposureConsume`, `RadSurvivalDiseases.psc:IsCureItem`, `RadSurvivalDiseases.psc:TraceTaintLists`, `RadSurvivalQuest.psc:ApplyRelief`, `RadSurvivalQuest.psc:OnItemEquipped`, `deploy/RadSurvival.esp`, `tools/rad_diseases.json`, `tests/verify_survival.py`, `tests/verify_survival_diseases.py`.
+
+**This section supersedes "Why ambient and not per-item" and the "Resolution" paragraph above.** Both were written when FO4IDE could not author the records: the ambient-only route and the rest-only cure were the reduced design. The build of 2026-10-26 14:48 can mint `KYWD`, fill an `FLST` and create an `ALCH`, so the item-driven route the earlier note called "layered on top later" is now the shipped one. The ambient, hit, swim and weather paths are unchanged; taint consumption is a fifth caller of the same `AddRisk` rule, and the rest cure is still there beside the item.
+
+**Record table.** All nine records are Rad-owned in `RadSurvival.esp`; no vanilla record is overridden and `Fallout4.esm` stays the only master.
+
+| Record | Form-ID | Contents |
+| --- | --- | --- |
+| `KYWD RadSurvival_Keyword_TaintedFood` | `0x01000824` | category 1, raw food |
+| `KYWD RadSurvival_Keyword_TaintedWater` | `0x01000825` | category 2, tainted water |
+| `KYWD RadSurvival_Keyword_Contaminated` | `0x01000826` | category 3, contaminated source |
+| `KYWD RadSurvival_Keyword_CureItem` | `0x01000827` | opt-in cure marker |
+| `FLST RadSurvival_TaintedFood` | `0x01000828` | 8 entries: Molerat, Radroach and Mirelurk meat, Brahmin and Radstag meat, Mutfruit, Tato, Dogfood |
+| `FLST RadSurvival_TaintedWater` | `0x01000829` | 4 entries: Dirty Water, `HC_SippableDirtyWater`, Drugged Water, Dirty Wastelander |
+| `FLST RadSurvival_Contaminated` | `0x0100082A` | 5 entries: Glowing Fungus, Brain Fungus, Glowing One Blood, Glowing Blood Pack, Moldy Food |
+| `MGEF RadSurvival_CureEffect` | `0x0100082B` | Script archetype, flags 2562, silent: the ingestible's required effect entry |
+| `ALCH RadSurvival_CureItem` | `0x0100082C` | one effect (the MGEF above), value 125, weight 0.5, Medicine flag |
+
+**Why three lists and not one.** A `FormList` carries no per-entry data, so a single list cannot say *which* category an item belongs to, and the items are vanilla, so the category cannot be a keyword on them without overriding food records. One list per category is the only shape where the record says both "these are tainted" and "this is how tainted". The keywords carry the same three categories for a different purpose: an item that is not in any list opts into one by carrying the keyword, which is the extension point an add-on or a later Rad-authored ingestible uses, and it keeps the category vocabulary a record rather than a string in the script.
+
+**Consumption is the existing count-drop path, not a new event.** `OnItemEquipped` cannot tell a use from an equip, which is why the layer already arms a pending item there and confirms it on the next tick by watching `GetItemCount` fall (`ConfirmConsumption`). The cure item is armed by the same gate - `IsFoodOrDrink` or `Diseases.IsCureItem` - and `ApplyRelief`, the one function a confirmed drop reaches, now forwards it to `RadSurvivalDiseases.psc:ConsumeItem`. That function tests the cure first and calls `CureDisease`, so the item clears exactly the state a long rest clears: the same immunity window, the same spell removal, the same HUD mirrors, no second cure path to keep in step. Anything else that was consumed goes to `ExposureConsume`, which resolves the category and charges `RiskPerTaintedFood` (0.10), `RiskPerTaintedWater` (0.15) or `RiskPerContaminated` (0.05) per item through `AddRisk`.
+
+**Why the item is resolved by form id.** This FO4IDE build exposes no write path for a record's `FULL` name and none for its `KWDA` keyword list: `set_field` refuses `Authoring\FULL`, `ALCH\Name` and `FULL`, and `create_record` silently ignores `name`/`fullName` for `ALCH`. The shipped ingestible therefore has no display name and carries no keyword - it still passes `--check` - so `IsCureItem` resolves it with `Game.GetFormFromFile(2092, "RadSurvival.esp")` and accepts `KeywordCureItem` from an item the Creation Kit authors later. In game it appears as an unnamed Aid entry; the recovery notification from `CureDisease` is the feedback. This is an upstream FO4IDE gap, filed with the `HEDR` `numRecords` quirk and the recorded-source-path limitation above.
+
+**Fallback when a list is missing.** `ListHas` treats an unbound or empty list as "not tainted" rather than failing, so a plugin whose VMAD lost a list charges nothing for that category instead of charging the wrong one, and `TraceTaintLists` names the gap once on every resync. The risk pool still fills from the ambient, hit, swim and weather paths, so the layer degrades instead of going silent. The list ids, entries, keyword ids, per-category amounts, cure item ids, value, weight, effect archetype and flags all live in `tools/rad_diseases.json`. Two contracts read that manifest, split because `tests/verify_survival.py` sits at the repository's 750-line cap: `tests/verify_survival_diseases.py` parses the shipped plugin with `tests/plugin_reader.py` and checks each `KYWD` editor id, each `FLST`'s `LNAM` list against the manifest order, the `ALCH` effect/value/weight, the effect's flags and archetype at the documented `DATA` offsets, and the seven VMAD bindings on the disease script; `tests/verify_survival.py` checks the script's use of the lists and the cure keyword, the three per-category amounts and `CureItemFormId`. Both run in the build and release workflows.
+
+**Authoring note for the next record.** FO4IDE's MCP host drops the open plugin after a slow call: `create_record` with form-list entries or a magic-effect entry sometimes times out and still lands the record, and the next call answers `PluginNotLoaded`. The safe loop is create, then `save_plugin`, then re-`open_plugin`, and never to retry a timed-out write before checking `list_record_types`.
+
 ## Actor-value ownership (2026-10-26)
 
 Reference: `RadSurvivalQuest.psc:ApplyStagePenalty`, `RadSurvivalQuest.psc:UpdatePenaltyStages`, `RadSurvivalDiseases.psc:Reconcile`, `tools/rad_penalty_spells.json`, `tools/rad_diseases.json`, `tests/verify_av_ownership.py`.
