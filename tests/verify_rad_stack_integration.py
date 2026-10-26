@@ -89,7 +89,8 @@ HARNESS = r'''
 #include <cstdio>
 #include <deque>
 static std::deque<std::function<void()>> g_queue;
-namespace Hooks { bool QueueMainThreadTask(std::function<void()> task) { g_queue.push_back(std::move(task)); return true; } }
+static int g_resetCalls = 0;
+namespace Hooks { bool QueueMainThreadTask(std::function<void()> task) { g_queue.push_back(std::move(task)); return true; } void ResetQueuedTaskFlags() noexcept { ++g_resetCalls; } }
 static int g_ran = 0;
 static void Produce()
 {
@@ -107,6 +108,7 @@ int main()
     RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(1);
     Produce();
     RadLifecycleDispatch::BlockPlayerUpdates();
+    if (g_resetCalls != 1) { std::puts("FAIL BlockPlayerUpdates did not reset the queued task flags"); ++failures; }
     RadLifecycleDispatch::SetPlayerUpdateGeneration(2);
     RadLifecycleDispatch::MarkPlayerUpdateGenerationReady(2);
     Drain();
@@ -142,7 +144,7 @@ inline std::shared_ptr<logger> get(const char*) { return nullptr; }
 STUB_HOOKS = r'''
 #pragma once
 #include <functional>
-namespace Hooks { bool QueueMainThreadTask(std::function<void()> task); }
+namespace Hooks { bool QueueMainThreadTask(std::function<void()> task); void ResetQueuedTaskFlags() noexcept; }
 '''
 
 
