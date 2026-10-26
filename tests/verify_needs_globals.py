@@ -29,8 +29,12 @@ main_source = text(SRC / "main.cpp")
 # Requires one lookup per pool, plus the two disease mirrors the HUD renders.
 for form in ("0x000801", "0x000802", "0x000803", "0x000822", "0x000823"):
     check(form in needs_runtime, f"NeedsRuntime.cpp no longer looks up {form}")
-check(needs_runtime.count("LookupForm<RE::TESGlobal>") >= 5,
-      "NeedsRuntime.cpp must resolve every pool and mirror as a TESGlobal")
+check(needs_runtime.count("ResolveGlobal(data, ") >= 5,
+      "NeedsRuntime.cpp must resolve every pool and mirror through the global reader")
+check("RE::ENUM_FORM_ID::kGLOB" in needs_runtime,
+      "every resolved pool must be type-checked as a GLOB")
+check("LookupForm(a_formID, kPlugin)" in needs_runtime,
+      "the resolution must go through TESDataHandler::LookupForm")
 check("RadSurvival.esp" in needs_runtime, "the lookup must name RadSurvival.esp")
 check("RE::TESDataHandler" in needs_runtime, "the lookup must go through the data handler")
 check("Reset" in needs_header, "a load must clear the cached global pointers")

@@ -21,6 +21,14 @@ namespace
     constexpr std::uint32_t kRiskForm = 0x000822;
     constexpr std::uint32_t kDiseaseForm = 0x000823;
 
+    // Constraint: non-template LookupForm; TESForm::As lives in TESFormUtil.h, absent from this TU.
+    RE::TESGlobal* ResolveGlobal(RE::TESDataHandler* a_data, std::uint32_t a_formID)
+    {
+        RE::TESForm* form = a_data->LookupForm(a_formID, kPlugin);
+        return (form && form->GetFormType() == RE::ENUM_FORM_ID::kGLOB)
+            ? static_cast<RE::TESGlobal*>(form) : nullptr;
+    }
+
     float ReadGlobal(void* a_global)
     {
         const auto* global = static_cast<const RE::TESGlobal*>(a_global);
@@ -35,11 +43,11 @@ void NeedsRuntime::ResolveGlobals()
     auto* data = RE::TESDataHandler::GetSingleton();
     if (!data)
         return;
-    if (!_hunger) _hunger = data->LookupForm<RE::TESGlobal>(kHungerForm, kPlugin);
-    if (!_thirst) _thirst = data->LookupForm<RE::TESGlobal>(kThirstForm, kPlugin);
-    if (!_sleep) _sleep = data->LookupForm<RE::TESGlobal>(kSleepForm, kPlugin);
-    if (!_risk) _risk = data->LookupForm<RE::TESGlobal>(kRiskForm, kPlugin);
-    if (!_disease) _disease = data->LookupForm<RE::TESGlobal>(kDiseaseForm, kPlugin);
+    if (!_hunger) _hunger = ResolveGlobal(data, kHungerForm);
+    if (!_thirst) _thirst = ResolveGlobal(data, kThirstForm);
+    if (!_sleep) _sleep = ResolveGlobal(data, kSleepForm);
+    if (!_risk) _risk = ResolveGlobal(data, kRiskForm);
+    if (!_disease) _disease = ResolveGlobal(data, kDiseaseForm);
 }
 
 void NeedsRuntime::Update()
