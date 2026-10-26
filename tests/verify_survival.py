@@ -2,6 +2,7 @@
 
 import json
 import re
+import struct
 import sys
 from pathlib import Path
 
@@ -106,9 +107,38 @@ check(".SetValue(" in mirror_body, "pool changes must be mirrored into the GLOB 
 check("Function ApplyStagePenalty(string asPool, int aiStage)" in code,
       "the single penalty hook is missing")
 hook_body = function_body(code, "Function ApplyStagePenalty(string asPool, int aiStage)")
-for forbidden in ("AddSpell", "RemoveSpell", "SetValue", "ModValue"):
+check("AddSpell(" in hook_body, "ApplyStagePenalty must add the staged ability spell")
+check("RemoveSpell(" in hook_body, "ApplyStagePenalty must remove the previous stage spell")
+check("PenaltiesEnabled" in hook_body, "the penalty hook must honour the enable switch")
+check("AppliedPenalty(" in hook_body and "SetAppliedPenalty(" in hook_body,
+      "the hook must reconcile the spell on the player instead of stacking another one")
+for forbidden in ("SetValue", "ModValue", "DamageValue", "RestoreValue", "ForceActorValue"):
     check(forbidden not in hook_body,
-          f"ApplyStagePenalty must stay inert until SPEL records exist ({forbidden})")
+          f"penalties must be spell abilities, not actor-value writes ({forbidden})")
+
+for name, base in (("HungerPenaltySpellBase", 2061), ("ThirstPenaltySpellBase", 2064),
+                   ("SleepPenaltySpellBase", 2067)):
+    check(f"int Property {name} = {base} Auto Const" in code,
+          f"missing or retuned penalty spell base {name}")
+check('string Property PenaltyPlugin = "RadSurvival.esp" Auto Const' in code,
+      "penalty spells must resolve from RadSurvival.esp")
+check("bool Property PenaltiesEnabled = true Auto Const" in code,
+      "penalties need an enable switch that does not require a rebuild")
+
+resync_body = function_body(code, "Function ResyncPenalties()")
+for pool in ("hunger", "thirst", "sleep"):
+    check(f'ApplyStagePenalty("{pool}"' in resync_body,
+          f"ResyncPenalties must reconcile the {pool} spell")
+check("StageFor(" in resync_body, "ResyncPenalties must recount stages from the pools")
+for event in ("Event OnInit()", "Event Actor.OnPlayerLoadGame(Actor akSender)"):
+    check("ResyncPenalties()" in function_body(code, event),
+          f"{event} must reconcile penalties")
+clear_calls = function_body(code, "Function ClearAllPenalties()")
+for pool in ("hunger", "thirst", "sleep"):
+    check(f'ApplyStagePenalty("{pool}", 0)' in clear_calls,
+          f"ClearAllPenalties must clear the {pool} spell")
+check("ClearAllPenalties()" in function_body(code, "Function UpdatePenaltyStages()"),
+      "a suspended layer must clear its penalties")
 
 for forbidden in ("HC_Manager", "HC_", "GetHardcore", "SurvivalModeEnabled"):
     check(forbidden not in code, f"must not touch vanilla survival state ({forbidden})")
@@ -161,6 +191,108 @@ if PLUGIN.is_file():
         for form_id in (0x01000801, 0x01000802, 0x01000803):
             check(form_id.to_bytes(4, "little") in vmad,
                   f"VMAD property value is not bound to 0x{form_id:08X}")
+
+
+sys.path.insert(0, str(ROOT / "tools"))
+import apply_spell_effects as penalty_spells
+
+manifest_path = ROOT / "tools/rad_penalty_spells.json"
+check(manifest_path.is_file(), "missing tools/rad_penalty_spells.json")
+manifest = json.loads(text(manifest_path)) if manifest_path.is_file() else {"spells": []}
+entries = manifest.get("spells", [])
+check(manifest.get("plugin") == "RadSurvival.esp", "the spell manifest must target RadSurvival.esp")
+check(len(entries) == 9, "the penalty table must hold 9 spells (3 pools x 3 stages)")
+pools = {(entry.get("pool"), entry.get("stage")) for entry in entries}
+check(pools == {(pool, stage) for pool in ("hunger", "thirst", "sleep") for stage in (1, 2, 3)},
+      "stage -> spell mapping is not 1:1 across the three pools")
+check(len({entry.get("spellFormId") for entry in entries}) == len(entries),
+      "penalty spell form ids must be unique")
+check(len({entry.get("mgefFormId") for entry in entries}) == len(entries),
+      "penalty magic effect form ids must be unique")
+
+SPELL_BASE = {"hunger": 0x80D, "thirst": 0x810, "sleep": 0x813}
+for entry in entries:
+    base = SPELL_BASE.get(entry.get("pool"), 0)
+    expected = f"0x{0x01000000 | (base + int(entry.get('stage', 0)) - 1):08x}"
+    check(entry.get("spellFormId", "").lower() == expected,
+          f"{entry.get('spellEditorId')} does not match its script base form id {expected}")
+    check(isinstance(entry.get("magnitude"), (int, float)) and entry["magnitude"] < 0,
+          f"{entry.get('spellEditorId')} needs a negative magnitude")
+
+for pool in ("hunger", "thirst", "sleep"):
+    staged = sorted((entry for entry in entries if entry.get("pool") == pool),
+                    key=lambda entry: entry.get("stage", 0))
+    magnitudes = [abs(float(entry["magnitude"])) for entry in staged if isinstance(entry.get("magnitude"), (int, float))]
+    check(len(magnitudes) == 3 and magnitudes[0] < magnitudes[1] < magnitudes[2],
+          f"{pool} penalties must grow with the stage")
+
+if PLUGIN.is_file():
+    parser = penalty_spells
+    try:
+        tree = parser.parse(esp)
+    except parser.PluginError as exc:
+        tree = []
+        check(False, f"RadSurvival.esp does not parse as a plugin: {exc}")
+
+    def plugin_records(signature):
+        found = {}
+        for node in parser.walk(tree):
+            if node.kind == "record" and node.sig == signature:
+                found[struct.unpack_from("<I", esp, node.offset + 12)[0]] = node
+        return found
+
+    magic_effects = plugin_records(b"MGEF")
+    ability_spells = plugin_records(b"SPEL")
+    check(len(magic_effects) == 9, f"RadSurvival.esp must hold 9 penalty magic effects, found {len(magic_effects)}")
+    check(len(ability_spells) == 9, f"RadSurvival.esp must hold 9 penalty abilities, found {len(ability_spells)}")
+
+    for entry in entries:
+        mgef_node = magic_effects.get(int(entry["mgefFormId"], 16))
+        spell_node = ability_spells.get(int(entry["spellFormId"], 16))
+        check(mgef_node is not None, f"missing magic effect {entry['mgefEditorId']}")
+        check(spell_node is not None, f"missing ability spell {entry['spellEditorId']}")
+        if mgef_node is None or spell_node is None:
+            continue
+
+        check(parser.editor_id(esp, mgef_node) == entry["mgefEditorId"],
+              f"{entry['mgefFormId']} is not {entry['mgefEditorId']}")
+        data = mgef_node.field(esp, b"DATA")
+        check(data is not None and len(data) >= 84, f"{entry['mgefEditorId']} has no usable DATA")
+        if data:
+            (archetype,) = struct.unpack_from("<I", data, 64)
+            (actor_value,) = struct.unpack_from("<I", data, 68)
+            (casting_type,) = struct.unpack_from("<I", data, 80)
+            (flags,) = struct.unpack_from("<I", data, 0)
+            check(archetype == 34, f"{entry['mgefEditorId']} must be a Peak Value Modifier")
+            check(casting_type == 0, f"{entry['mgefEditorId']} must be a Constant Effect")
+            check(actor_value == int(entry["actorValueFormId"].split(":")[0], 16),
+                  f"{entry['mgefEditorId']} targets the wrong actor value")
+            check(flags & 0x800, f"{entry['mgefEditorId']} must be area-less")
+
+        check(parser.editor_id(esp, spell_node) == entry["spellEditorId"],
+              f"{entry['spellFormId']} is not {entry['spellEditorId']}")
+        spit = spell_node.field(esp, b"SPIT")
+        check(spit is not None and len(spit) == 36, f"{entry['spellEditorId']} has no SPIT")
+        if spit:
+            (spell_type,) = struct.unpack_from("<I", spit, 8)
+            (cast_type,) = struct.unpack_from("<I", spit, 16)
+            check(spell_type == 4, f"{entry['spellEditorId']} must be an Ability spell")
+            check(cast_type == 0, f"{entry['spellEditorId']} must be a Constant Effect")
+
+        efid = spell_node.field(esp, b"EFID")
+        check(efid is not None, f"{entry['spellEditorId']} has no effect entry; run tools/apply_spell_effects.py")
+        if efid:
+            (linked,) = struct.unpack("<I", efid)
+            check(linked == int(entry["mgefFormId"], 16),
+                  f"{entry['spellEditorId']} applies the wrong magic effect")
+        efit = spell_node.field(esp, b"EFIT")
+        check(efit is not None and len(efit) == 12, f"{entry['spellEditorId']} has no EFIT")
+        if efit:
+            (magnitude, area, duration) = struct.unpack("<fII", efit)
+            check(abs(magnitude - float(entry["magnitude"])) < 1e-6,
+                  f"{entry['spellEditorId']} magnitude {magnitude} != {entry['magnitude']}")
+            check(area == 0 and duration == 0,
+                  f"{entry['spellEditorId']} must be a permanent, area-less ability")
 
 
 def constant(source_code, name):

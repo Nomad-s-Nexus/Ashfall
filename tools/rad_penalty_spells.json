@@ -1,0 +1,122 @@
+{
+  "plugin": "RadSurvival.esp",
+  "summary": "Stage 1-3 penalties for the three survival pools. Record skeletons are authored with FO4IDE (MGEF fields, ability spell fields, form ids); tools/apply_spell_effects.py appends the effect entry (EFID/EFIT) that FO4IDE cannot express, because the magnitude lives in the spell's effect list, not in the MGEF.",
+  "mgefDefaults": {
+    "archetype": 34,
+    "archetypeName": "Peak Value Modifier",
+    "castingType": 0,
+    "castingTypeName": "Constant Effect",
+    "delivery": 0,
+    "flags": 2562,
+    "flagsMeaning": "Recover | No Duration | No Area"
+  },
+  "spellDefaults": {
+    "type": 4,
+    "typeName": "Ability",
+    "castType": 0,
+    "castTypeName": "Constant Effect",
+    "targetType": 0,
+    "targetTypeName": "Self"
+  },
+  "spells": [
+    {
+      "pool": "hunger",
+      "stage": 1,
+      "mgefEditorId": "RadSurvival_HungerPenalty1",
+      "mgefFormId": "0x01000804",
+      "spellEditorId": "RadSurvival_HungerPenaltySpell1",
+      "spellFormId": "0x0100080D",
+      "actorValue": "CarryWeight",
+      "actorValueFormId": "0x0002DC:Fallout4.esm",
+      "magnitude": -10
+    },
+    {
+      "pool": "hunger",
+      "stage": 2,
+      "mgefEditorId": "RadSurvival_HungerPenalty2",
+      "mgefFormId": "0x01000805",
+      "spellEditorId": "RadSurvival_HungerPenaltySpell2",
+      "spellFormId": "0x0100080E",
+      "actorValue": "CarryWeight",
+      "actorValueFormId": "0x0002DC:Fallout4.esm",
+      "magnitude": -25
+    },
+    {
+      "pool": "hunger",
+      "stage": 3,
+      "mgefEditorId": "RadSurvival_HungerPenalty3",
+      "mgefFormId": "0x01000806",
+      "spellEditorId": "RadSurvival_HungerPenaltySpell3",
+      "spellFormId": "0x0100080F",
+      "actorValue": "CarryWeight",
+      "actorValueFormId": "0x0002DC:Fallout4.esm",
+      "magnitude": -45
+    },
+    {
+      "pool": "thirst",
+      "stage": 1,
+      "mgefEditorId": "RadSurvival_ThirstPenalty1",
+      "mgefFormId": "0x01000807",
+      "spellEditorId": "RadSurvival_ThirstPenaltySpell1",
+      "spellFormId": "0x01000810",
+      "actorValue": "ActionPoints",
+      "actorValueFormId": "0x0002D5:Fallout4.esm",
+      "magnitude": -5
+    },
+    {
+      "pool": "thirst",
+      "stage": 2,
+      "mgefEditorId": "RadSurvival_ThirstPenalty2",
+      "mgefFormId": "0x01000808",
+      "spellEditorId": "RadSurvival_ThirstPenaltySpell2",
+      "spellFormId": "0x01000811",
+      "actorValue": "ActionPoints",
+      "actorValueFormId": "0x0002D5:Fallout4.esm",
+      "magnitude": -15
+    },
+    {
+      "pool": "thirst",
+      "stage": 3,
+      "mgefEditorId": "RadSurvival_ThirstPenalty3",
+      "mgefFormId": "0x01000809",
+      "spellEditorId": "RadSurvival_ThirstPenaltySpell3",
+      "spellFormId": "0x01000812",
+      "actorValue": "ActionPoints",
+      "actorValueFormId": "0x0002D5:Fallout4.esm",
+      "magnitude": -30
+    },
+    {
+      "pool": "sleep",
+      "stage": 1,
+      "mgefEditorId": "RadSurvival_SleepPenalty1",
+      "mgefFormId": "0x0100080A",
+      "spellEditorId": "RadSurvival_SleepPenaltySpell1",
+      "spellFormId": "0x01000813",
+      "actorValue": "HealRateMult",
+      "actorValueFormId": "0x000358:Fallout4.esm",
+      "magnitude": -0.15
+    },
+    {
+      "pool": "sleep",
+      "stage": 2,
+      "mgefEditorId": "RadSurvival_SleepPenalty2",
+      "mgefFormId": "0x0100080B",
+      "spellEditorId": "RadSurvival_SleepPenaltySpell2",
+      "spellFormId": "0x01000814",
+      "actorValue": "HealRateMult",
+      "actorValueFormId": "0x000358:Fallout4.esm",
+      "magnitude": -0.3
+    },
+    {
+      "pool": "sleep",
+      "stage": 3,
+      "mgefEditorId": "RadSurvival_SleepPenalty3",
+      "mgefFormId": "0x0100080C",
+      "spellEditorId": "RadSurvival_SleepPenaltySpell3",
+      "spellFormId": "0x01000815",
+      "actorValue": "HealRateMult",
+      "actorValueFormId": "0x000358:Fallout4.esm",
+      "magnitude": -0.5
+    }
+  ]
+}

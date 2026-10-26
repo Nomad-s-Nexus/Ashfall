@@ -51,6 +51,14 @@ bool Property Enabled = true Auto Const
 bool Property SkipWhenVanillaSurvival = true Auto Const
 bool Property ShowNotifications = true Auto Const
 
+; penalties are staged ability spells; clear this to ship them off without a rebuild
+bool Property PenaltiesEnabled = true Auto Const
+string Property PenaltyPlugin = "RadSurvival.esp" Auto Const
+; 0x80D / 0x810 / 0x813: first-stage ability of each pool, stages run +0..+2
+int Property HungerPenaltySpellBase = 2061 Auto Const
+int Property ThirstPenaltySpellBase = 2064 Auto Const
+int Property SleepPenaltySpellBase = 2067 Auto Const
+
 ; -----------------------------------------------------------------------------
 ; pool mirrors for the native HUD (assigned when the GLOB records exist)
 ; -----------------------------------------------------------------------------
@@ -76,6 +84,11 @@ int HungerStage = 0
 int ThirstStage = 0
 int SleepStage = 0
 
+; spell actually on the player per pool, so a stage change can replace it exactly once
+Spell AppliedHungerSpell = None
+Spell AppliedThirstSpell = None
+Spell AppliedSleepSpell = None
+
 ; -----------------------------------------------------------------------------
 ; lifecycle
 ; -----------------------------------------------------------------------------
@@ -91,6 +104,7 @@ Event OnInit()
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
     MirrorAll()
+    ResyncPenalties()
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] ready at game day " + LastGameTime)
 EndEvent
@@ -123,6 +137,7 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     RegisterForRemoteEvent(player, "OnItemEquipped")
     RestartTimer()
     MirrorAll()
+    ResyncPenalties()
     Debug.Trace("[RadSurvivalQuest] post-load anchor H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt)
 EndEvent
 
@@ -395,11 +410,18 @@ Function MirrorToGlobal(GlobalVariable akTarget, float afValue)
 EndFunction
 
 ; -----------------------------------------------------------------------------
-; penalties - stage policy only, inert until the SPEL records exist
+; penalties - staged ability spells authored in RadSurvival.esp
+;
+; One spell per pool per stage (1-3), 1:1 with the stage the pools compute. A stage
+; change removes the spell that is on the player and adds the new one, so penalties
+; never stack and relief takes the spell off. Stage 0 means no spell at all.
 ; -----------------------------------------------------------------------------
 
 Function UpdatePenaltyStages()
     if !IsActive()
+        ; Suspended (disabled, or vanilla Survival owns the player): no Rad penalty may
+        ; survive the gate. The pools keep their values and resume with the layer.
+        ClearAllPenalties()
         return
     endif
 
@@ -448,8 +470,87 @@ int Function StageFor(float afDebt)
 EndFunction
 
 Function ApplyStagePenalty(string asPool, int aiStage)
-    ; Single hook for staged penalties. Stays inert until the SPEL records
-    ; exist; nothing here mutates actor values or adds spells on its own.
+    Actor player = Game.GetPlayer()
+    if !player
+        return
+    endif
+
+    Spell wanted = None
+    if PenaltiesEnabled && aiStage > 0
+        wanted = PenaltySpellFor(asPool, aiStage)
+    endif
+
+    Spell applied = AppliedPenalty(asPool)
+    if applied == wanted
+        return
+    endif
+    if applied
+        player.RemoveSpell(applied)
+    endif
+    if wanted
+        player.AddSpell(wanted, false)
+    endif
+    SetAppliedPenalty(asPool, wanted)
+    Debug.Trace("[RadSurvivalQuest] penalty " + asPool + " stage " + aiStage + " -> " + wanted)
+EndFunction
+
+Function ClearAllPenalties()
+    ApplyStagePenalty("hunger", 0)
+    ApplyStagePenalty("thirst", 0)
+    ApplyStagePenalty("sleep", 0)
+EndFunction
+
+Function ResyncPenalties()
+    ; Recount the stages from the pools, then let ApplyStagePenalty reconcile the spells.
+    ; Applied*Spell is saved state, so an unchanged stage does nothing and a retuned
+    ; table is picked up on the next load instead of doubling a spell.
+    HungerStage = StageFor(HungerDebt)
+    ThirstStage = StageFor(ThirstDebt)
+    SleepStage = StageFor(SleepDebt)
+    ApplyStagePenalty("hunger", HungerStage)
+    ApplyStagePenalty("thirst", ThirstStage)
+    ApplyStagePenalty("sleep", SleepStage)
+EndFunction
+
+Spell Function PenaltySpellFor(string asPool, int aiStage)
+    int first = 0
+    if asPool == "hunger"
+        first = HungerPenaltySpellBase
+    elseif asPool == "thirst"
+        first = ThirstPenaltySpellBase
+    elseif asPool == "sleep"
+        first = SleepPenaltySpellBase
+    else
+        return None
+    endif
+    if aiStage < 1
+        return None
+    endif
+    if aiStage > 3
+        aiStage = 3
+    endif
+    return Game.GetFormFromFile(first + aiStage - 1, PenaltyPlugin) as Spell
+EndFunction
+
+Spell Function AppliedPenalty(string asPool)
+    if asPool == "hunger"
+        return AppliedHungerSpell
+    elseif asPool == "thirst"
+        return AppliedThirstSpell
+    elseif asPool == "sleep"
+        return AppliedSleepSpell
+    endif
+    return None
+EndFunction
+
+Function SetAppliedPenalty(string asPool, Spell akSpell)
+    if asPool == "hunger"
+        AppliedHungerSpell = akSpell
+    elseif asPool == "thirst"
+        AppliedThirstSpell = akSpell
+    elseif asPool == "sleep"
+        AppliedSleepSpell = akSpell
+    endif
 EndFunction
 
 Function NotifyStage(string asPool, int aiStage)
