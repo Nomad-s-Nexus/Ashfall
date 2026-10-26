@@ -261,7 +261,8 @@ Function ApplySpell(Spell akWanted)
     if !player
         return
     endif
-    if AppliedDiseaseSpell == akWanted
+    ; Constraint: an ability lost to a dispel must be re-applied on the next reconcile.
+    if AppliedDiseaseSpell == akWanted && (!akWanted || player.HasSpell(akWanted))
         return
     endif
     if AppliedDiseaseSpell
@@ -289,7 +290,11 @@ Spell Function DiseaseSpellFor(int aiDisease, int aiStage)
     if aiStage > 3
         aiStage = 3
     endif
-    return Game.GetFormFromFile(first + aiStage - 1, DiseasePlugin) as Spell
+    Spell resolved = Game.GetFormFromFile(first + aiStage - 1, DiseasePlugin) as Spell
+    if !resolved
+        Debug.Trace("[RadSurvivalDiseases] missing ability " + (first + aiStage - 1) + " in " + DiseasePlugin)
+    endif
+    return resolved
 EndFunction
 
 string Function DiseaseLabel(int aiDisease)
@@ -315,6 +320,13 @@ EndFunction
 Function EnsureStateVersion()
     if SavedStateVersion >= CurrentStateVersion
         return
+    endif
+    ; Constraint: an ability already on the actor must come off before the state is reset.
+    if AppliedDiseaseSpell
+        Actor player = Game.GetPlayer()
+        if player
+            player.RemoveSpell(AppliedDiseaseSpell)
+        endif
     endif
     ; Constraint: a save from the penalty-only build has no disease state; initialise it once.
     DiseaseId = 0

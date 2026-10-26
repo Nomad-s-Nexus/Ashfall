@@ -1,37 +1,9 @@
 ScriptName RadSurvivalQuest extends Quest
 
-; =============================================================================
-; Rad survival core - vanilla Papyrus quest script.
-;
-; Event source is vanilla Papyrus only, so no script extender is required:
-;   Actor.OnItemEquipped      - ingestible use (vanilla HC_Manager uses it too)
-;   OnPlayerSleepStart/Stop   - real sleep, including abInterrupted
-;   OnPlayerWaitStart/Stop    - waiting is explicitly not rest
-;   OnTimerGameTime           - progression in game hours, pauses with the game
-;
-; HC_Manager and every HC_* form are read and written nowhere: this script
-; listens to the same engine events and keeps its own pools. Vanilla Survival is
-; left to own its own state, and the double-apply gate below keeps both systems
-; from running at once by default.
-;
-; Consumption model (the part native could not prove):
-;   equipping an ingestible arms a candidate -> the player's inventory count is
-;   re-checked on a later tick. Relief is applied exactly once, only when the
-;   count actually decreased. Dropping, storing, selling, crafting and failed
-;   use therefore cannot grant relief.
-;
-; Shipped base sources have no OnItemAdded/OnItemRemoved event on
-; ObjectReference/Actor, so a quest cannot register for them remotely; the tick
-; check is the confirmation mechanism, not a fallback.
-;
-; State lives in this quest instance and is saved with the quest. The three
-; GlobalVariable properties are mirrors so the native HUD can read the pools
-; through TESGlobal without a Papyrus-to-native bridge.
-; =============================================================================
+; Constraint: HC_Manager and every HC_* form are read and written nowhere here.
+; Constraint: relief needs a confirmed inventory count drop, never the equip event.
 
-; -----------------------------------------------------------------------------
 ; tuning - the only source of the pool rates; the three GLOBs are the HUD contract
-; -----------------------------------------------------------------------------
 
 float Property HourlyHunger = 0.05 Auto Const
 float Property HourlyThirst = 0.10 Auto Const
@@ -44,6 +16,7 @@ float Property AlcoholHydrationScale = 0.25 Auto Const
 float Property TickGameHours = 0.25 Auto Const
 float Property MaxElapsedHours = 240.0 Auto Const
 float Property PendingExpirySeconds = 2.0 Auto Const
+float Property StageHysteresis = 0.04 Auto Const
 int Property kTimerID = 10 Auto Const
 int Property kVanillaSurvivalDifficulty = 6 Auto Const
 
@@ -59,9 +32,7 @@ int Property HungerPenaltySpellBase = 2061 Auto Const
 int Property ThirstPenaltySpellBase = 2064 Auto Const
 int Property SleepPenaltySpellBase = 2067 Auto Const
 
-; -----------------------------------------------------------------------------
 ; pool mirrors for the native HUD (assigned when the GLOB records exist)
-; -----------------------------------------------------------------------------
 
 GlobalVariable Property RadSurvival_Hunger Auto
 GlobalVariable Property RadSurvival_Thirst Auto
@@ -70,9 +41,7 @@ GlobalVariable Property RadSurvival_Sleep Auto
 ; Invariant: the disease layer is a second script on this quest, never a second event owner.
 RadSurvivalDiseases Property Diseases Auto
 
-; -----------------------------------------------------------------------------
 ; state - saved with the quest instance
-; -----------------------------------------------------------------------------
 
 float HungerDebt = 0.0
 float ThirstDebt = 0.0
@@ -83,6 +52,9 @@ float WaitStartTime = -1.0
 Form PendingForm = None
 int PendingCount = 0
 float PendingRealTime = -1.0
+Form PendingForm2 = None
+int PendingCount2 = 0
+float PendingRealTime2 = -1.0
 int HungerStage = 0
 int ThirstStage = 0
 int SleepStage = 0
@@ -100,9 +72,7 @@ Spell CachedThirstSpell = None
 int CachedSleepStage = -1
 Spell CachedSleepSpell = None
 
-; -----------------------------------------------------------------------------
 ; lifecycle
-; -----------------------------------------------------------------------------
 
 Event OnInit()
     Actor player = Game.GetPlayer()
@@ -163,9 +133,7 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     Debug.Trace("[RadSurvivalQuest] post-load anchor H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt)
 EndEvent
 
-; -----------------------------------------------------------------------------
 ; timer - StartTimerGameTime is one-shot, so the handler re-arms it
-; -----------------------------------------------------------------------------
 
 Event OnTimerGameTime(int aiTimerID)
     if aiTimerID != kTimerID
@@ -193,9 +161,7 @@ Function RestartTimer()
     StartTimerGameTime(TickGameHours, kTimerID)
 EndFunction
 
-; -----------------------------------------------------------------------------
 ; consumption
-; -----------------------------------------------------------------------------
 
 Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)
     if !IsActive()
@@ -209,11 +175,7 @@ Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference ak
         return
     endif
 
-    ; Arm: remember the live form and the count at equip time. The live form is
-    ; held as a script variable so the confirm step never re-resolves a form id.
-    PendingForm = akBaseObject
-    PendingCount = player.GetItemCount(akBaseObject)
-    PendingRealTime = Utility.GetCurrentRealTime()
+    ArmPending(akBaseObject, player.GetItemCount(akBaseObject))
 EndEvent
 
 Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked, string apMaterial)
@@ -238,39 +200,66 @@ Event Actor.OnPlayerSwimming(Actor akSender)
     Diseases.ExposureSwim(IsActive())
 EndEvent
 
-Function ExpirePending()
+Function ArmPending(Form akItem, int aiCount)
+    ; Constraint: a second item used before the tick must not overwrite the first.
+    if PendingForm && PendingForm2
+        ConfirmConsumption(PendingForm, PendingCount)
+        PendingForm = PendingForm2
+        PendingCount = PendingCount2
+        PendingRealTime = PendingRealTime2
+        PendingForm2 = None
+        PendingCount2 = 0
+        PendingRealTime2 = -1.0
+    endif
     if !PendingForm
-        return
+        PendingForm = akItem
+        PendingCount = aiCount
+        PendingRealTime = Utility.GetCurrentRealTime()
+    else
+        PendingForm2 = akItem
+        PendingCount2 = aiCount
+        PendingRealTime2 = Utility.GetCurrentRealTime()
     endif
-    if PendingRealTime < 0.0
-        ClearPending()
-        return
-    endif
-    ; Give the engine a moment to finish the use, then decide from the count.
-    if Utility.GetCurrentRealTime() - PendingRealTime < PendingExpirySeconds
-        return
-    endif
-    ConfirmConsumption(PendingForm)
 EndFunction
 
-Function ConfirmConsumption(Form akItem)
+Function ExpirePending()
+    if PendingForm && PendingRealTime >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime >= PendingExpirySeconds
+        Form first = PendingForm
+        int firstCount = PendingCount
+        PendingForm = PendingForm2
+        PendingCount = PendingCount2
+        PendingRealTime = PendingRealTime2
+        PendingForm2 = None
+        PendingCount2 = 0
+        PendingRealTime2 = -1.0
+        ConfirmConsumption(first, firstCount)
+    endif
+    if PendingForm2 && PendingRealTime2 >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime2 >= PendingExpirySeconds
+        Form second = PendingForm2
+        int secondCount = PendingCount2
+        ClearPending()
+        ConfirmConsumption(second, secondCount)
+    endif
+EndFunction
+
+Function ConfirmConsumption(Form akItem, int aiArmed)
     Actor player = Game.GetPlayer()
     if !player || !akItem
-        ClearPending()
         return
     endif
-    int armed = PendingCount
     int now = player.GetItemCount(akItem)
-    if armed >= 0 && now < armed
-        ApplyRelief(akItem, armed - now)
+    if aiArmed >= 0 && now < aiArmed
+        ApplyRelief(akItem, aiArmed - now)
     endif
-    ClearPending()
 EndFunction
 
 Function ClearPending()
     PendingForm = None
     PendingCount = 0
     PendingRealTime = -1.0
+    PendingForm2 = None
+    PendingCount2 = 0
+    PendingRealTime2 = -1.0
 EndFunction
 
 Function ApplyRelief(Form akItem, int aiCount)
@@ -309,9 +298,7 @@ float Function PortionFor(Form akItem)
     return portion
 EndFunction
 
-; -----------------------------------------------------------------------------
 ; sleep and wait
-; -----------------------------------------------------------------------------
 
 Event OnPlayerSleepStart(float afSleepStartTime, float afDesiredSleepEndTime, ObjectReference akBed)
     SleepStartTime = Utility.GetCurrentGameTime()
@@ -380,9 +367,7 @@ Event OnPlayerWaitStop(bool abInterrupted)
     Debug.Trace("[RadSurvivalQuest] wait ended hours=" + hours + " sleep=" + SleepDebt)
 EndEvent
 
-; -----------------------------------------------------------------------------
 ; progression
-; -----------------------------------------------------------------------------
 
 Function AdvanceTo(float nowDays)
     if LastGameTime < 0.0
@@ -442,9 +427,7 @@ float Function Clamp01(float afValue)
     return afValue
 EndFunction
 
-; -----------------------------------------------------------------------------
 ; GLOB mirrors - the native HUD reads these through TESGlobal
-; -----------------------------------------------------------------------------
 
 
 Function MirrorAll()
@@ -477,7 +460,7 @@ Function UpdatePenaltyStages()
 
     ; Invariant: reconcile all three pools every call; ApplyStagePenalty is idempotent per pool.
     ; Constraint: the trackers below gate only the notifications, never the reconcile.
-    int hunger = StageFor(HungerDebt)
+    int hunger = StageForHeld(HungerDebt, HungerStage)
     bool hungerRose = hunger > HungerStage
     HungerStage = hunger
     ApplyStagePenalty("hunger", hunger)
@@ -485,7 +468,7 @@ Function UpdatePenaltyStages()
         NotifyStage("hunger", hunger)
     endif
 
-    int thirst = StageFor(ThirstDebt)
+    int thirst = StageForHeld(ThirstDebt, ThirstStage)
     bool thirstRose = thirst > ThirstStage
     ThirstStage = thirst
     ApplyStagePenalty("thirst", thirst)
@@ -493,13 +476,27 @@ Function UpdatePenaltyStages()
         NotifyStage("thirst", thirst)
     endif
 
-    int sleep = StageFor(SleepDebt)
+    int sleep = StageForHeld(SleepDebt, SleepStage)
     bool sleepRose = sleep > SleepStage
     SleepStage = sleep
     ApplyStagePenalty("sleep", sleep)
     if sleepRose
         NotifyStage("sleep", sleep)
     endif
+EndFunction
+
+int Function StageForHeld(float afDebt, int aiCurrent)
+    ; Constraint: a held stage only steps down after clearing its threshold by the band.
+    if aiCurrent >= 3 && afDebt >= 0.90 - StageHysteresis
+        return 3
+    endif
+    if aiCurrent >= 2 && afDebt >= 0.67 - StageHysteresis
+        return 2
+    endif
+    if aiCurrent >= 1 && afDebt >= 0.34 - StageHysteresis
+        return 1
+    endif
+    return StageFor(afDebt)
 EndFunction
 
 int Function StageFor(float afDebt)
@@ -527,7 +524,8 @@ Function ApplyStagePenalty(string asPool, int aiStage)
     endif
 
     Spell applied = AppliedPenalty(asPool)
-    if applied == wanted
+    ; Constraint: a spell lost to another mod's dispel must be re-applied on the next reconcile.
+    if applied == wanted && (!wanted || player.HasSpell(wanted))
         return
     endif
     if applied
@@ -597,6 +595,7 @@ Spell Function PenaltySpellFor(string asPool, int aiStage)
     ; Constraint: a failed resolve must not be cached, or a missing plugin never retries.
     Spell resolved = Game.GetFormFromFile(first + aiStage - 1, PenaltyPlugin) as Spell
     if !resolved
+        Debug.Trace("[RadSurvivalQuest] missing penalty spell " + (first + aiStage - 1) + " in " + PenaltyPlugin)
         return None
     endif
     if asPool == "hunger"
@@ -659,9 +658,7 @@ Function NotifyStage(string asPool, int aiStage)
     Debug.Notification(text)
 EndFunction
 
-; -----------------------------------------------------------------------------
 ; invariant: RadSurvivalDiseases owns the state, this script owns the events
-; -----------------------------------------------------------------------------
 
 Function TickDiseases(float afHours)
     if Diseases == None
@@ -691,9 +688,7 @@ Function ResyncDiseases()
     Diseases.Resync(IsActive())
 EndFunction
 
-; -----------------------------------------------------------------------------
 ; gating
-; -----------------------------------------------------------------------------
 
 bool Function IsActive()
     if !Enabled
@@ -706,9 +701,7 @@ bool Function IsActive()
     return true
 EndFunction
 
-; -----------------------------------------------------------------------------
 ; classification keywords (Fallout4.esm)
-; -----------------------------------------------------------------------------
 
 Keyword Function KeywordFood()
     return Game.GetFormFromFile(0x00055ECC, "Fallout4.esm") as Keyword
