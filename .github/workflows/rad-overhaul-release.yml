@@ -105,6 +105,9 @@ jobs:
           python tests/verify_storm_spawn_ownership.py
           python tests/verify_serialization_policy.py
           python tests/verify_survival.py
+          python tests/verify_needs_globals.py
+          python tests/verify_av_ownership.py
+          python tests/verify_papyrus_pex.py
 
       - name: Configure (MSVC)
         working-directory: Rad-Overhaul-Fallout-4

@@ -342,3 +342,45 @@ It owns no vanilla overrides and declares `Fallout4.esm` as its single master.
 The quest VMAD holds the `RadSurvivalQuest` script with object properties bound to those three
 `GLOB` records. `tests/verify_survival.py` asserts the plugin contains the quest, the script binding,
 the three float globals, the `Fallout4.esm` master and the bound property values.
+
+### Papyrus artifacts (`deploy/Scripts`)
+
+The survival layer is vanilla Papyrus: `RadSurvivalQuest.psc` owns the pools, the events and the
+stage abilities, `RadSurvivalDiseases.psc` owns the disease state, and `RadStormFX.psc` is the storm
+visual effect. Every one of them ships as committed bytecode next to its source, so a mod build needs
+no compiler at all - but a source edit that never reached the `.pex` would ship stale behaviour.
+
+**Compile.** FO4IDE's built-in engine, no Creation Kit:
+
+```
+compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/<Script>.psc
+                output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts
+                imports=<vanilla script sources, e.g. git/papyrus-base-20261025>
+                flags=Institute_Papyrus_Flags.flg
+                engine=builtin
+```
+
+The engine is deterministic: recompiling an unchanged source reproduces the committed `.pex` byte for
+byte, which is what makes a hash gate meaningful.
+
+**Stamp.** `tools/stamp_papyrus.py` writes `deploy/Scripts/papyrus-build.json` immediately after a
+compile, recording each source and bytecode hash. Commit the `.psc`, the `.pex` and the stamp
+together. `tests/verify_papyrus_pex.py` recomputes both hashes (normalising line endings, so a CRLF
+checkout and an LF one agree), refuses bytecode that names a source other than its own, and requires
+every `.pex` in the folder to be stamped. That check runs in both Rad workflows, so a source edit
+without a recompile fails CI even though CI cannot compile Papyrus itself.
+
+**Known limitation - the recorded source path.** The built-in compiler writes the source *path* it
+was handed into the `.pex` header, and there is no flag to suppress it. Compiling with an absolute
+source argument therefore ships a developer's disk layout inside the bytecode (`E:\Projects\...`),
+and compiling from a staging folder only swaps that path for another absolute one. Hand-patching the
+string is the retired binary-patcher route and is not used. `papyrus-build.json` records the exact
+string each `.pex` carries, so a toolchain that stops writing it, or a build made somewhere else,
+shows up as a stamp mismatch instead of drifting silently. Reported upstream with the `HEDR`
+`numRecords` quirk; a FO4IDE build that omits the path needs a recompile and a re-stamp, not a code
+change.
+
+**CI cannot compile Papyrus.** `FO4RecordEditor.exe` is a Windows binary and the Rad build job runs on
+the MSVC Windows runner without FO4IDE installed, so the workflows run the stamp check rather than
+the compiler. If FO4IDE is ever provisioned on that runner, `compare`-style compilation can be added
+in front of the stamp step.

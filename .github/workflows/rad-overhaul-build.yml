@@ -101,6 +101,9 @@ jobs:
           python tests/verify_rad_shelter_cache.py
           python tests/verify_rad_stack_integration.py
           python tests/verify_survival.py
+          python tests/verify_needs_globals.py
+          python tests/verify_av_ownership.py
+          python tests/verify_papyrus_pex.py
 
       - name: Configure (MSVC)
         working-directory: Rad-Overhaul-Fallout-4

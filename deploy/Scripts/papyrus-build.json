@@ -1,0 +1,31 @@
+{
+  "compiler": "FO4IDE built-in Papyrus engine (compile_papyrus, engine=builtin)",
+  "command": "compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/<Script>.psc output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts imports=<vanilla script sources> flags=Institute_Papyrus_Flags.flg engine=builtin",
+  "sourceRoot": "deploy/Scripts/Source/User",
+  "scripts": [
+    {
+      "script": "RadStormFX",
+      "source": "deploy/Scripts/Source/User/RadStormFX.psc",
+      "sourceSha256": "599971c5017244aa6438244d3ba9788fd9dadac9612e490378d04cf21dc62f69",
+      "pex": "deploy/Scripts/RadStormFX.pex",
+      "pexSha256": "7ae9b24ee9636be43d170b95e08fccb25ad43453a0e6f623704257ccb300e06a",
+      "recordedSource": "RadStormFX.psc"
+    },
+    {
+      "script": "RadSurvivalDiseases",
+      "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
+      "sourceSha256": "b7320e95e02918184a6ca17422fa3d4b8c0f7e4d3a473f1242ee5799ffefa67f",
+      "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
+      "pexSha256": "8f2a165ac64c5a574bc4b13683be472b097bdf7c5834ce24435397fea5918a86",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
+    },
+    {
+      "script": "RadSurvivalQuest",
+      "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
+      "sourceSha256": "1141cfa8d9827017583a64f8ff19777c3402704c978edd771d81543203ee4d30",
+      "pex": "deploy/Scripts/RadSurvivalQuest.pex",
+      "pexSha256": "6db18203aa34c0f494b912d38bffd670b1c9534e2657bfc86cf0b8517a13c7de",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
+    }
+  ]
+}
