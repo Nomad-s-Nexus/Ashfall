@@ -16,6 +16,10 @@ ScriptName RadSurvivalDiseases extends Quest
 
 float Property HourlyRisk = 0.012 Auto Const
 float Property RiskPerWeakStage = 0.008 Auto Const
+float Property RiskPerHit = 0.01 Auto Const
+float Property RiskPerSwim = 0.03 Auto Const
+float Property SwimIntervalGameDays = 0.1 Auto Const
+float Property HitCooldownSeconds = 2.0 Auto Const
 float Property IncubationHours = 4.0 Auto Const
 float Property Stage2Hours = 10.0 Auto Const
 float Property Stage3Hours = 24.0 Auto Const
@@ -47,6 +51,8 @@ int SavedStateVersion = 0
 float DiseaseProgress = 0.0
 float RiskDebt = 0.0
 float ImmunityUntil = -1.0
+float LastHitRealTime = -1.0
+float NextSwimAllowed = 0.0
 Spell AppliedDiseaseSpell = None
 
 ; -----------------------------------------------------------------------------
@@ -72,6 +78,9 @@ Function Resync(bool abActive)
         DiseaseProgress = 0.0
     endif
     RiskDebt = Clamp01(RiskDebt)
+    if NextSwimAllowed < 0.0
+        NextSwimAllowed = 0.0
+    endif
     Reconcile(abActive)
     MirrorRisk()
     MirrorDisease()
@@ -114,6 +123,58 @@ Function AccrueRisk(float afHours, bool abActive, int aiHungerStage, int aiThirs
 
     float hourly = HourlyRisk + RiskPerWeakStage * ((aiHungerStage + aiThirstStage + aiSleepStage) as float)
     RiskDebt = Clamp01(RiskDebt + hourly * afHours)
+    MirrorRisk()
+    if RiskDebt >= 1.0
+        StartDisease(abActive)
+    endif
+EndFunction
+
+bool Function QualifiesAsWound(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Actor akPlayer)
+    ; Constraint: only a wound from another actor counts; self-inflicted and hazard hits do not.
+    Actor hurt = akTarget as Actor
+    if !akPlayer || !hurt || hurt != akPlayer
+        return false
+    endif
+    Actor attacker = akAggressor as Actor
+    if !attacker || attacker == akPlayer
+        return false
+    endif
+    ; Constraint: a cloak or radiation spell is a hazard field, not a bite or a bullet.
+    if akSource as Spell
+        return false
+    endif
+    return true
+EndFunction
+
+Function ExposureHit(bool abActive)
+    ; Constraint: a real-time cooldown, or an automatic burst floods the pool in one burst.
+    float now = Utility.GetCurrentRealTime()
+    if LastHitRealTime > 0.0 && now - LastHitRealTime < HitCooldownSeconds
+        return
+    endif
+    LastHitRealTime = now
+    AddRisk(RiskPerHit, abActive)
+EndFunction
+
+Function ExposureSwim(bool abActive)
+    ; Constraint: the swim event repeats while in water, so it is throttled on game time.
+    float now = Utility.GetCurrentGameTime()
+    if NextSwimAllowed > 0.0 && now < NextSwimAllowed
+        return
+    endif
+    NextSwimAllowed = now + SwimIntervalGameDays
+    AddRisk(RiskPerSwim, abActive)
+EndFunction
+
+Function AddRisk(float afAmount, bool abActive)
+    ; Constraint: exposure is one rule, shared, and never runs while the layer is suspended.
+    if afAmount <= 0.0 || !abActive || !DiseasesEnabled || DiseaseId > 0
+        return
+    endif
+    if IsImmune()
+        return
+    endif
+    RiskDebt = Clamp01(RiskDebt + afAmount)
     MirrorRisk()
     if RiskDebt >= 1.0
         StartDisease(abActive)

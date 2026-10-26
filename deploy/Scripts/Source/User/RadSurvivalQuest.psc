@@ -112,11 +112,7 @@ Event OnInit()
 
     LastGameTime = Utility.GetCurrentGameTime()
     ArmSleepWaitEvents()
-    UnregisterForRemoteEvent(player, "OnItemEquipped")
-    RegisterForRemoteEvent(player, "OnItemEquipped")
-    ; OnPlayerLoadGame is an Actor remote event, so it must be registered or the handler never fires.
-    UnregisterForRemoteEvent(player, "OnPlayerLoadGame")
-    RegisterForRemoteEvent(player, "OnPlayerLoadGame")
+    ArmPlayerEvents(player)
     MirrorAll()
     ResyncPenalties()
     ResyncDiseases()
@@ -134,6 +130,17 @@ Function ArmSleepWaitEvents()
     RegisterForPlayerWait()
 EndFunction
 
+Function ArmPlayerEvents(Actor player)
+    UnregisterForRemoteEvent(player, "OnItemEquipped")
+    RegisterForRemoteEvent(player, "OnItemEquipped")
+    UnregisterForRemoteEvent(player, "OnPlayerLoadGame")
+    RegisterForRemoteEvent(player, "OnPlayerLoadGame")
+    UnRegisterForHitEvent(player)
+    RegisterForHitEvent(player)
+    UnregisterForRemoteEvent(player, "OnPlayerSwimming")
+    RegisterForRemoteEvent(player, "OnPlayerSwimming")
+EndFunction
+
 Event Actor.OnPlayerLoadGame(Actor akSender)
     Actor player = Game.GetPlayer()
     if !player
@@ -147,12 +154,8 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     WaitStartTime = -1.0
     ClearPending()
 
-    ; Only the remote item and load events are re-registered here; the sleep/wait
-    ; registrations survive a load and re-arming them would double every event.
-    UnregisterForRemoteEvent(player, "OnItemEquipped")
-    RegisterForRemoteEvent(player, "OnItemEquipped")
-    UnregisterForRemoteEvent(player, "OnPlayerLoadGame")
-    RegisterForRemoteEvent(player, "OnPlayerLoadGame")
+    ; Only the remote and hit events are re-armed here; sleep/wait survive a load.
+    ArmPlayerEvents(player)
     RestartTimer()
     MirrorAll()
     ResyncPenalties()
@@ -211,6 +214,28 @@ Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference ak
     PendingForm = akBaseObject
     PendingCount = player.GetItemCount(akBaseObject)
     PendingRealTime = Utility.GetCurrentRealTime()
+EndEvent
+
+Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked, string apMaterial)
+    Actor player = Game.GetPlayer()
+    if !player
+        return
+    endif
+    ; Constraint: the registration is consumed by each delivery, so it must be re-armed here.
+    RegisterForHitEvent(player)
+    if Diseases == None
+        return
+    endif
+    if Diseases.QualifiesAsWound(akTarget, akAggressor, akSource, player)
+        Diseases.ExposureHit(IsActive())
+    endif
+EndEvent
+
+Event Actor.OnPlayerSwimming(Actor akSender)
+    if Diseases == None
+        return
+    endif
+    Diseases.ExposureSwim(IsActive())
 EndEvent
 
 Function ExpirePending()

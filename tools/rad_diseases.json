@@ -33,11 +33,20 @@
   "timing": {
     "hourlyRisk": 0.012,
     "riskPerWeakStage": 0.008,
+    "riskPerHit": 0.01,
+    "riskPerSwim": 0.03,
+    "swimIntervalGameDays": 0.1,
+    "hitCooldownSeconds": 2.0,
     "incubationHours": 4.0,
     "stage2Hours": 10.0,
     "stage3Hours": 24.0,
     "restCureBaseHours": 4.0,
     "immunityHours": 24.0
+  },
+  "exposure": {
+    "hit": "a weapon or creature hit from another actor; one charge per 2 real seconds so an automatic burst cannot flood the pool",
+    "swim": "one charge per 0.1 game days of swimming, mirroring vanilla HC_ManagerScript",
+    "ignored": "self-inflicted hits, hits with no actor aggressor, and spell sources such as radiation cloaks"
   },
   "diseases": [
     {

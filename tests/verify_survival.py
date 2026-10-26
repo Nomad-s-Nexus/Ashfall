@@ -75,11 +75,35 @@ check("Event Actor.OnPlayerLoadGame(Actor akSender)" in code,
 for required in ('RegisterForRemoteEvent(player, "OnPlayerLoadGame")',
                  'UnregisterForRemoteEvent(player, "OnPlayerLoadGame")'):
     check(required in code, f"missing load-event wiring: {required}")
-check('RegisterForRemoteEvent(player, "OnPlayerLoadGame")' in function_body(code, "Event OnInit()"),
-      "OnPlayerLoadGame is an Actor remote event, so OnInit must register it or the handler never fires")
-check('RegisterForRemoteEvent(player, "OnPlayerLoadGame")'
-      in function_body(code, "Event Actor.OnPlayerLoadGame(Actor akSender)"),
-      "the load handler must re-arm its own registration")
+armed = function_body(code, "Function ArmPlayerEvents(Actor player)")
+check('RegisterForRemoteEvent(player, "OnPlayerLoadGame")' in armed,
+      "OnPlayerLoadGame is an Actor remote event, so arming must register it or the handler never fires")
+check('RegisterForRemoteEvent(player, "OnPlayerSwimming")' in armed,
+      "arming must register the swimming event")
+check('RegisterForHitEvent(player)' in armed, "arming must register the hit event")
+for signature in ("Event OnInit()", "Event Actor.OnPlayerLoadGame(Actor akSender)"):
+    check("ArmPlayerEvents(player)" in function_body(code, signature),
+          f"{signature} must arm the player events")
+
+hit_signature = ("Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, "
+                 "Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, "
+                 "bool abHitBlocked, string apMaterial)")
+check(hit_signature in code, "the hit handler signature must match the engine event")
+check('UnRegisterForHitEvent(player)' in code, "the hit event must be unregisterable")
+hit_body = function_body(code, hit_signature)
+check("RegisterForHitEvent(player)" in hit_body,
+      "a hit event is consumed by its delivery, so the handler must re-arm it")
+check("QualifiesAsWound(" in hit_body, "the hit handler must defer its filters to the wound rule")
+check("Diseases.ExposureHit(" in hit_body, "a landed hit must feed the disease exposure")
+wound_body = function_body(disease_code, "bool Function QualifiesAsWound(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Actor akPlayer)")
+for guard in ("hurt != akPlayer", "attacker == akPlayer", "akSource as Spell"):
+    check(guard in wound_body, f"the wound rule must reject hits where {guard}")
+check("return false" in wound_body, "a rejected hit must not accrue risk")
+check('UnregisterForRemoteEvent(player, "OnPlayerSwimming")' in code,
+      "the swimming event must be unregisterable")
+check("Event Actor.OnPlayerSwimming(Actor akSender)" in code, "the swimming handler is missing")
+check("Diseases.ExposureSwim(" in function_body(code, "Event Actor.OnPlayerSwimming(Actor akSender)"),
+      "swimming must feed the disease exposure")
 check("Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)" in code,
       "the remote item event handler signature is wrong")
 check("Event OnPlayerSleepStart(" in code, "sleep start must be handled")
@@ -501,6 +525,22 @@ check("IsImmune(" in risk_body, "risk must honour the immunity window")
 check("StartDisease(" in risk_body, "a full risk pool must start an illness")
 check("DiseaseId > 0" in risk_body, "risk must not build while an illness is live")
 
+hit_exposure = function_body(disease_code, "Function ExposureHit(bool abActive)")
+check("HitCooldownSeconds" in hit_exposure,
+      "a hit needs a cooldown, or an automatic burst floods the pool")
+check("RiskPerHit" in hit_exposure, "a hit must add the tuned amount")
+check("AddRisk(" in hit_exposure, "a hit must go through the shared exposure rule")
+swim_exposure = function_body(disease_code, "Function ExposureSwim(bool abActive)")
+check("SwimIntervalGameDays" in swim_exposure and "GetCurrentGameTime(" in swim_exposure,
+      "swimming is throttled on game time because the event repeats while in water")
+check("RiskPerSwim" in swim_exposure, "swimming must add the tuned amount")
+check("AddRisk(" in swim_exposure, "swimming must go through the shared exposure rule")
+add_risk = function_body(disease_code, "Function AddRisk(float afAmount, bool abActive)")
+for guard in ("abActive", "DiseasesEnabled", "IsImmune(", "DiseaseId > 0"):
+    check(guard in add_risk, f"exposure must be gated by {guard}")
+check("StartDisease(" in add_risk, "a pool filled by exposure must start an illness")
+check("MirrorRisk()" in add_risk, "exposure must refresh the risk mirror")
+
 immune_body = function_body(disease_code, "bool Function IsImmune()")
 check("ImmunityUntil" in immune_body and "GetCurrentGameTime(" in immune_body,
       "immunity must expire on game time")
@@ -554,7 +594,9 @@ for forbidden in ("HC_", "RegisterFor"):
 for prop, key in (("HourlyRisk", "hourlyRisk"), ("RiskPerWeakStage", "riskPerWeakStage"),
                   ("IncubationHours", "incubationHours"), ("Stage2Hours", "stage2Hours"),
                   ("Stage3Hours", "stage3Hours"), ("RestCureBaseHours", "restCureBaseHours"),
-                  ("ImmunityHours", "immunityHours")):
+                  ("ImmunityHours", "immunityHours"), ("RiskPerHit", "riskPerHit"),
+                  ("RiskPerSwim", "riskPerSwim"), ("SwimIntervalGameDays", "swimIntervalGameDays"),
+                  ("HitCooldownSeconds", "hitCooldownSeconds")):
     value = constant(disease_source, prop)
     check(value is not None, f"missing disease tuning constant {prop}")
     if value is not None:
