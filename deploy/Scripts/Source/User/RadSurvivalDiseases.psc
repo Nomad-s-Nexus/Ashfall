@@ -222,6 +222,11 @@ Function ConsumeItem(Form akItem, int aiCount, bool abActive)
     endif
     ; Constraint: the cure item clears the same state a rest cure clears.
     if IsCureItem(akItem)
+        ; Constraint: a cure taken while healthy must say so instead of vanishing silently.
+        if DiseaseId <= 0
+            NotifyDisease("nothing to cure")
+            return
+        endif
         CureDisease()
         return
     endif
@@ -230,6 +235,11 @@ EndFunction
 
 bool Function IsCureItem(Form akItem)
     if !akItem
+        return false
+    endif
+    ; Constraint: only an ingestible can be the cure, so a weapon or armour equip pays no lookup.
+    Potion potion = akItem as Potion
+    if !potion
         return false
     endif
     ; Constraint: the shipped item carries no KWDA, so it resolves by form id first.

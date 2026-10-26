@@ -106,20 +106,15 @@ if PLUGIN.is_file():
               "the cure effect must keep the manifest's flags and Script archetype")
 
     # Constraint: every authored taint record must be bound on the disease script, never left None.
-    vmad_at = esp.find(b"VMAD")
-    check(vmad_at > 0, "the quest record has no VMAD")
-    if vmad_at > 0:
-        vmad_size = int.from_bytes(esp[vmad_at + 4:vmad_at + 6], "little")
-        vmad = esp[vmad_at + 6:vmad_at + 6 + vmad_size]
-        disease_at = vmad.find(b"RadSurvivalDiseases")
-        check(disease_at > 0, "the quest VMAD must attach the disease script")
-        bindings = [(entry.get("property"), int(entry.get("formKey", "0x0"), 16))
-                    for entry in taint_lists + taint_keywords]
-        for name, form_id in bindings:
-            check(vmad.count(name.encode()) == 1,
-                  f"the quest VMAD must bind {name} exactly once")
-            check(vmad.find(form_id.to_bytes(4, "little")) > disease_at,
-                  f"{name} must bind 0x{form_id:08X} on the disease script")
+    quest = plugin_records(b"QUST").get(0x01000800)
+    scripts = plugin_reader.vmad_properties(esp, quest) if quest is not None else {}
+    check("RadSurvivalDiseases" in scripts, "the quest VMAD must attach the disease script")
+    disease_script = scripts.get("RadSurvivalDiseases", {})
+    for entry in taint_lists + taint_keywords:
+        name = entry.get("property")
+        form_id = int(entry.get("formKey", "0x0"), 16)
+        check(disease_script.get(name) == form_id,
+              f"the disease script must bind {name} to 0x{form_id:08X}, found {disease_script.get(name)}")
 
 if failures:
     print("survival record contract failures:")

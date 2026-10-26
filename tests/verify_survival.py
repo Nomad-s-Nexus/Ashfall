@@ -445,9 +445,16 @@ if PLUGIN.is_file():
                       f"{entry['spellEditorId']} magnitude does not match the manifest")
 
     globals_by_id = plugin_records(b"GLOB")
+    quest_node = plugin_records(b"QUST").get(0x01000800)
+    scripts = parser.vmad_properties(esp, quest_node) if quest_node is not None else {}
+    quest_script = scripts.get("RadSurvivalQuest", {})
+    disease_script = scripts.get("RadSurvivalDiseases", {})
+    check(bool(quest_script) and bool(disease_script),
+          "the quest VMAD must attach both scripts exactly once")
     for key in ("risk", "state"):
         glob = diseases.get(key, {})
-        node = globals_by_id.get(int(glob.get("globFormId", "0x0"), 16))
+        form_id = int(glob.get("globFormId", "0x0"), 16)
+        node = globals_by_id.get(form_id)
         check(node is not None, f"missing disease GLOB {glob.get('globEditorId')}")
         if node is None:
             continue
@@ -455,23 +462,16 @@ if PLUGIN.is_file():
               f"{glob.get('globFormId')} is not {glob.get('globEditorId')}")
         check(node.field(esp, b"FNAM") == b"f",
               f"{glob.get('globEditorId')} must be a float global")
-        check(int(glob["globFormId"], 16).to_bytes(4, "little") in vmad,
-              f"the quest VMAD does not bind {glob.get('globEditorId')}")
+        property_name = glob.get("globEditorId")
+        check(disease_script.get(property_name) == form_id,
+              f"the disease script must bind {property_name} to 0x{form_id:08X}")
 
-    # Constraint: pools must stay on the quest script and the disease mirrors on the disease one.
-    check(vmad.count(b"RadSurvivalDiseases") == 1,
-          "the quest VMAD must attach the disease script exactly once")
-    disease_at = vmad.find(b"RadSurvivalDiseases")
-    if disease_at > 0:
-        for name in ("RadSurvival_Risk", "RadSurvival_Disease"):
-            check(vmad.count(name.encode()) == 1, f"{name} must be bound exactly once")
-            check(vmad.find(name.encode()) > disease_at,
-                  f"{name} must sit in the disease script's VMAD block, not the quest script's")
-        for form_id in (0x01000822, 0x01000823):
-            check(vmad.find(form_id.to_bytes(4, "little")) > disease_at,
-                  f"0x{form_id:08X} must be bound on the disease script")
-    check((0x01000800).to_bytes(4, "little") in vmad,
-          "the quest script must reference itself for the disease script property")
+    # Constraint: the pools stay on the quest script, the mirrors on the disease script.
+    for name in GLOB_EDITOR_IDS:
+        check(quest_script.get(name) is not None,
+              f"the quest script must bind {name}, or the pools never reach the HUD")
+    check(quest_script.get("Diseases") == 0x01000800,
+          "the quest script's Diseases property must bind the quest form, or the cure cannot reach the disease script")
 
 
 def constant(source_code, name):
@@ -650,6 +650,8 @@ consume_body = function_body(disease_code, "Function ConsumeItem(Form akItem, in
 check("IsCureItem(" in consume_body, "a consumed item must be tested for the cure first")
 check("CureDisease()" in consume_body,
       "the cure item must clear the state through the existing cure path")
+check("NotifyDisease(" in consume_body,
+      "a cure taken while healthy must say so instead of vanishing silently")
 check("ExposureConsume(" in consume_body, "a consumed item must charge the taint exposure")
 taint_body = function_body(disease_code, "Function ExposureConsume(Form akItem, int aiCount, bool abActive)")
 for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
@@ -671,6 +673,8 @@ check("TraceTaintLists()" in function_body(disease_code, "Function Resync(bool a
 cure_test = function_body(disease_code, "bool Function IsCureItem(Form akItem)")
 check("CureItemFormId" in cure_test and "KeywordCureItem" in cure_test,
       "the cure test must resolve the shipped item and accept the keyword")
+check("as Potion" in cure_test,
+      "the cure test must reject a non-ingestible before it pays a form lookup per equip")
 taint_manifest = diseases.get("taint", {})
 for entry in taint_manifest.get("keywords", []):
     prop = entry.get("riskProperty")

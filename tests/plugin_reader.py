@@ -106,6 +106,58 @@ def editor_id(buf, node):
     return raw.rstrip(b"\x00").decode("ascii", "replace")
 
 
+def vmad_properties(buf, node):
+    """Decode a record's VMAD into {script name: {property name: value}}.
+
+    FO4 VMAD v6: version/objectFormat/scriptCount, then per script name, flags and properties;
+    an object property is unused/alias/form-id, and the alias is 0xFFFF when unbound. Scalar types
+    decode to Python values. A type this reader does not model raises PluginError instead of
+    letting the next property be read from the wrong offset.
+    """
+    raw = node.field(buf, b"VMAD") if node is not None else None
+    if raw is None:
+        return {}
+    version, _object_format, script_count = struct.unpack_from("<HHH", raw, 0)
+    if version != 6:
+        raise PluginError(f"VMAD version {version} is not the FO4 layout this reader models")
+    offset = 6
+    scripts = {}
+    for _ in range(script_count):
+        (name_len,) = struct.unpack_from("<H", raw, offset)
+        offset += 2
+        script = raw[offset:offset + name_len].decode("ascii", "replace")
+        offset += name_len + 1
+        (property_count,) = struct.unpack_from("<H", raw, offset)
+        offset += 2
+        properties = {}
+        for _ in range(property_count):
+            (prop_len,) = struct.unpack_from("<H", raw, offset)
+            offset += 2
+            name = raw[offset:offset + prop_len].decode("ascii", "replace")
+            offset += prop_len
+            prop_type = raw[offset]
+            offset += 2
+            if prop_type == 1:
+                _unused, alias, form_id = struct.unpack_from("<HHI", raw, offset)
+                offset += 8
+                properties[name] = form_id if alias == 0xFFFF else (form_id, alias)
+            elif prop_type == 2:
+                (value_len,) = struct.unpack_from("<H", raw, offset)
+                offset += 2
+                properties[name] = raw[offset:offset + value_len].decode("ascii", "replace")
+                offset += value_len
+            elif prop_type in (3, 4):
+                properties[name] = struct.unpack_from("<i" if prop_type == 3 else "<f", raw, offset)[0]
+                offset += 4
+            elif prop_type == 5:
+                properties[name] = bool(raw[offset])
+                offset += 1
+            else:
+                raise PluginError(f"VMAD property {name} has unmodelled type {prop_type}")
+        scripts[script] = properties
+    return scripts
+
+
 def form_key(value):
     """Accept a bare form id ("0x01000804") or an int; reject a master-qualified key."""
     if isinstance(value, int):
