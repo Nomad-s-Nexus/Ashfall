@@ -203,3 +203,13 @@ The quest VMAD carries one script, `RadSurvivalQuest`, with object properties `R
 **HUD.** Every pool change is mirrored into the matching `GLOB` through `GlobalVariable.SetValue`, so PR #71's native HUD can read the pools as `TESGlobal` with no Papyrus-to-native bridge.
 
 **Tuning.** Code constants mirror `needs.json` `hourlyRates` (hunger 0.05, thirst 0.10, sleep debt 0.025 per game hour); `tests/verify_survival.py` fails if the two diverge.
+
+## Diseases: prerequisite findings before implementation (2026-10-26)
+
+Reference: `RadSurvivalQuest.psc:OnItemEquipped`, `RadSurvivalQuest.psc:OnPlayerWaitStop`, `tests/verify_survival.py`, `tools/rad_penalty_spells.json`.
+
+**The record tool blocks both exposure and cure as specified.** FO4IDE build `1ee68cf38` authors records through `create_record`, whose supported types are ARMA, ARMO, CELL, EXPL, EYES, FACT, FLST, GLOB, HAZD, LVLI, LVLN, LVSP, MESG, MGEF, PROJ, QUST, RACE and SPEL. Three gaps matter here: there is no `KYWD` type, so a Rad keyword set cannot be minted; there is no form-list entry tool, so a `FLST` is created with an EditorID and can never hold items; and `ALCH` is not creatable. `search_records` for `ObjectTypeFood` returns exactly one keyword (`055ECC:Fallout4.esm`) - vanilla has no raw, cooked, tainted or irradiated variant - so the planned classification (vanilla keywords plus a Rad keyword set carried by a Rad FLST) has no authorable basis, and attaching a new keyword to vanilla food would mean overriding those records anyway.
+
+**The cure path collides with HC_*.** The vanilla disease cure is `HC_Antibiotics` (`0008AB:Fallout4.esm`), an `HC_` form this layer is not allowed to read or write, and `RadiationOverhaul.esp` already overrides that same record, so reusing the item as a Rad cure would both break the HC_* rule and fight an existing override. Detecting a doctor visit has the same problem (vanilla Survival owns it), and a cure spell is not an item a player can carry.
+
+**What is still open.** Two routes exist and they are not equivalent. Extending FO4IDE with `create_record KYWD`, form-list entry editing and `create_record ALCH` unblocks the brief's design as written, including a real tainted-food category and a real cure item. Without that, the only Papyrus + ESP alternative is a hardcoded shortlist of vanilla item form ids for taint plus a rest-based cure, which is implementable and testable in the repo but cannot be verified in game from here and turns every new food mod into a maintenance item. No disease code, records or tests were written, because either route changes what the records and the risk model have to be.
