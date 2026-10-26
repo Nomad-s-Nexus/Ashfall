@@ -146,6 +146,8 @@ if PLUGIN.is_file():
     for name in PROPERTY_NAMES:
         check(name.encode() in esp, f"the quest VMAD is missing property {name}")
     check(b"FNAM\x01\x00f" in esp, "the GLOB records must be float globals")
+    check(b"DNAM\x0c\x00\x09\x00\x00\x00" in esp,
+          "the quest must be Start Game Enabled (QUST flags 9)")
     check(b"MAST" in esp and b"Fallout4.esm" in esp,
           "RadSurvival.esp must declare Fallout4.esm as a master")
     for form_id in (0x01000800, 0x01000801, 0x01000802, 0x01000803):
