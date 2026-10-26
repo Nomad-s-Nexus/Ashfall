@@ -392,4 +392,7 @@ void RadiationEngine::EnsureEslLoaded()
         logger->warn("[ESL] PARTIAL: {}/{} perks resolved. Using C++ SPECIAL fallback (no Pipboy display).",
             found, kStageCount);
     logger->info("==========================================");
+
+    // Constraint: mask extras re-resolve here, where the data handler is proven ready, in case init ran early.
+    LoadMaskConfig();
 }

@@ -64,6 +64,12 @@ namespace RadCorrectnessPolicy
         return fillsMouth && hasKeyword;
     }
 
+    // Constraint: a mask listed in the INI is protective whatever slot it fills, because the entry is the declaration.
+    constexpr bool IsConfiguredMask(bool listed, bool fillsMouth, bool hasKeyword)
+    {
+        return listed || IsGasMask(fillsMouth, hasKeyword);
+    }
+
     enum class CureSignal
     {
         kNone,

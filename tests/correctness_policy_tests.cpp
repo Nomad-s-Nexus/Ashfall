@@ -61,6 +61,13 @@ int main()
     Require(StormUsesDome(5));
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
+    Require(IsConfiguredMask(false, true, true));
+    Require(IsConfiguredMask(true, true, true));
+    Require(IsConfiguredMask(true, false, false));
+    Require(IsConfiguredMask(true, true, false));
+    Require(!IsConfiguredMask(false, true, false));
+    Require(!IsConfiguredMask(false, false, true));
+    Require(!IsConfiguredMask(false, false, false));
     Require(!CuresPermanentTissue(CureSignal::kNone));
     Require(!CuresPermanentTissue(CureSignal::kInventoryMovement));
     Require(CuresPermanentTissue(CureSignal::kVerifiedChelationUse));

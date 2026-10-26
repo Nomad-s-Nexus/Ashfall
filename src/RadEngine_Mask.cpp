@@ -91,14 +91,69 @@ namespace
         }
         return true;
     }
+
+    // Constraint: an entry is "Plugin.esp:0xLOCALID", resolved through the data handler so a missing plugin is skipped.
+    RE::TESForm* ResolveMaskEntry(RE::TESDataHandler* a_data, std::string a_entry)
+    {
+        const auto colon = a_entry.find(':');
+        if (!a_data || colon == std::string::npos || colon == 0 || colon + 1 >= a_entry.size())
+            return nullptr;
+        std::string plugin = a_entry.substr(0, colon);
+        std::string id = a_entry.substr(colon + 1);
+        const auto trim = [](std::string& text) {
+            const auto first = text.find_first_not_of(" \t");
+            if (first == std::string::npos) { text.clear(); return; }
+            const auto last = text.find_last_not_of(" \t");
+            text = text.substr(first, last - first + 1);
+        };
+        trim(plugin);
+        trim(id);
+        const auto zero = id.rfind("0x", 0) == 0 || id.rfind("0X", 0) == 0;
+        if (zero) id = id.substr(2);
+        char* end = nullptr;
+        const unsigned long local = std::strtoul(id.c_str(), &end, 16);
+        if (plugin.empty() || id.empty() || !end || end == id.c_str() || *end != '\0' || local > 0xFFFFFFul)
+            return nullptr;
+        return a_data->LookupForm(static_cast<RE::TESFormID>(local), plugin);
+    }
+
+    std::vector<std::string> SplitMaskList(const char* a_raw)
+    {
+        std::vector<std::string> entries;
+        const std::string list(a_raw ? a_raw : "");
+        std::size_t start = 0;
+        while (start < list.size())
+        {
+            const auto comma = list.find(',', start);
+            std::string entry = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+            const auto first = entry.find_first_not_of(" \t");
+            if (first != std::string::npos)
+            {
+                const auto last = entry.find_last_not_of(" \t");
+                entries.push_back(entry.substr(first, last - first + 1));
+            }
+            if (comma == std::string::npos) break;
+            start = comma + 1;
+        }
+        return entries;
+    }
+}
+
+
+bool RadiationEngine::IsListedMask(const RE::TESObjectARMO* armor) const
+{
+    return armor && std::find(_extraMasks.begin(), _extraMasks.end(), armor) != _extraMasks.end();
 }
 
 
 bool RadiationEngine::IsRecognizedGasMask(const RE::TESObjectARMO* armor) const
 {
-    return armor && RadCorrectnessPolicy::IsGasMask(
-        armor->FillsBipedSlot(static_cast<std::int32_t>(RE::BIPED_OBJECT::kMouth)),
-        _gasMaskKeyword && armor->HasKeyword(_gasMaskKeyword));
+    if (!armor) return false;
+    const bool mouth = armor->FillsBipedSlot(static_cast<std::int32_t>(RE::BIPED_OBJECT::kMouth));
+    bool keyword = _gasMaskKeyword && armor->HasKeyword(_gasMaskKeyword);
+    for (auto extra = _extraMaskKeywords.begin(); !keyword && extra != _extraMaskKeywords.end(); ++extra)
+        keyword = *extra && armor->HasKeyword(*extra);
+    return RadCorrectnessPolicy::IsConfiguredMask(IsListedMask(armor), mouth, keyword);
 }
 
 
@@ -469,6 +524,8 @@ void RadiationEngine::LoadFilterIni()
         _domeLeadTicks = static_cast<int>(leadMin * 60.0f * 4.0f);
     }
 
+    LoadMaskConfig();
+
     Log()->info(
         "[Filter] duration={}s, replaceKey=0x{:X}, autoReplace={}, choke={:.1f}/s | "
         "[Condition] enabled={}, dmg/hit={:.1f}, repairKey=0x{:X}, autoRepair={} | "
@@ -480,6 +537,43 @@ void RadiationEngine::LoadFilterIni()
         _chokingEnabled, _chokeHealthPerSec, _chokeFailedFactor, _chokeSounds,
         _ambientEnabled, _ambientAtten, _stormBedAtten,
         _stormsEnabled, _stormMinRealMin, _stormMaxRealMin, _vanillaRadstormGapSec / 60.0);
+}
+
+
+// Constraint: [Masks] declares protective gear from other plugins, so their masks need no record edit.
+void RadiationEngine::LoadMaskConfig()
+{
+    constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+    _extraMaskKeywords.clear();
+    _extraMasks.clear();
+
+    auto* data = RE::TESDataHandler::GetSingleton();
+    if (!data)
+        return;
+
+    char raw[1024]{};
+    ::GetPrivateProfileStringA("Masks", "ExtraKeywords", "", raw, sizeof(raw), kIni);
+    for (const auto& entry : SplitMaskList(raw))
+    {
+        auto* form = ResolveMaskEntry(data, entry);
+        if (form && form->GetFormType() == RE::ENUM_FORM_ID::kKYWD)
+            _extraMaskKeywords.push_back(static_cast<RE::BGSKeyword*>(form));
+        else
+            Log()->warn("[Masks] ExtraKeywords entry '{}' is not a loaded keyword", entry);
+    }
+
+    ::GetPrivateProfileStringA("Masks", "ExtraMasks", "", raw, sizeof(raw), kIni);
+    for (const auto& entry : SplitMaskList(raw))
+    {
+        auto* form = ResolveMaskEntry(data, entry);
+        if (form && form->GetFormType() == RE::ENUM_FORM_ID::kARMO)
+            _extraMasks.push_back(static_cast<const RE::TESObjectARMO*>(form));
+        else
+            Log()->warn("[Masks] ExtraMasks entry '{}' is not a loaded armor", entry);
+    }
+
+    Log()->info("[Masks] {} extra keyword(s) and {} listed armor(s) recognised from the INI",
+        _extraMaskKeywords.size(), _extraMasks.size());
 }
 
 

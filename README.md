@@ -42,6 +42,10 @@ Author: NomadsReach
   [docs/code-notes/Rad-Overhaul-Fallout-4.md](docs/code-notes/Rad-Overhaul-Fallout-4.md).
 - **Companion patches.** `RadOverhaul_GearPatch.esp` buffs the hazmat suit's radiation resistance;
   `RadOverhaulSurPatch.esp` is also included in the deployment package.
+- **Third-party gas masks.** Masks from other mods are declared in
+  `F4SE/Plugins/FalloutAnomalyRadiation.ini` under `[Masks]` (`ExtraKeywords` / `ExtraMasks`), so their
+  wearers get the same filter, condition and choking protection without editing those records.
+  Gasmask Overhaul (Nexus 108845) and its PPM-88 are configured there by default.
 
 See [docs/PROGRESS.md](docs/PROGRESS.md) for the implemented-systems breakdown and the
 DLL-to-ESP FormID contract.

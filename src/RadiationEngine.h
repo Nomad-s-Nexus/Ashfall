@@ -341,6 +341,10 @@ private:
     bool IsWearingGasMask() const;
     RE::BGSKeyword* _gasMaskKeyword = nullptr;  // RadiationOverhaul.esp 0x809 — FARO_GasMask
     int  _maskOverride = -1;            // debug: -1 auto (worn detection), 0 force off, 1 force on
+    // Constraint: masks from other plugins are declared in the INI, never by editing their records.
+    std::vector<RE::BGSKeyword*> _extraMaskKeywords;      // [Masks] ExtraKeywords
+    std::vector<const RE::TESObjectARMO*> _extraMasks;    // [Masks] ExtraMasks
+    bool IsListedMask(const RE::TESObjectARMO* armor) const;
 
     // Auto-equip a gas mask while a rad weather is active (data-driven by the RadWeatherList FormList).
     // Equips on entering rad weather, removes (only what it auto-equipped) on leaving. Applies to the
@@ -371,6 +375,7 @@ private:
     int   _filterSparesCache = 0;       // cached count of the filter item (HUD "xN filters" text only)
     int   _filterCountTick   = 0;       // throttle countdown for refreshing _filterSparesCache
     void  LoadFilterIni();              // read the [Filter] + [Condition] INI sections
+    void  LoadMaskConfig();             // read the [Masks] INI section (extra keywords / listed armors)
     void  ReplaceFilter(bool silent);   // consume one filter item -> charge 100
     int   FilterItemCount() const;      // count of the filter item in the player's inventory
 

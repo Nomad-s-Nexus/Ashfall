@@ -336,6 +336,23 @@ FO4RecordEditor.exe --check deploy\RadiationOverhaul.esp --scripts deploy\Script
 FO4RecordEditor.exe --check deploy\RadOverhaulSurPatch.esp --scripts deploy\Scripts --json
 ```
 
+## Third-party gas masks: the `[Masks]` contract (2026-10-26)
+
+Reference: `src/RadEngine_Mask.cpp:IsRecognizedGasMask`, `src/RadEngine_Mask.cpp:LoadMaskConfig`, `src/RadEngine_Mask.cpp:ResolveMaskEntry`, `src/RadCorrectnessPolicy.h:IsConfiguredMask`, `src/RadiationEngine.h:_extraMaskKeywords`, `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini`, `tests/verify_mask_extras.py`, `tests/correctness_policy_tests.cpp`.
+
+**The problem is a keyword we do not own.** Every protective path in the engine - the mask screen overlay, the filter drain, the condition/repair system, the choking damage and the rad-exposure resistance scale - hangs off `IsRecognizedGasMask`, and that rule is "fills the MOUTH biped slot AND carries `FARO_GasMask` (`RadiationOverhaul.esp` `0x809`)". That keyword is ours, and it is applied only to the eight vanilla armors we patch. A mask added by another mod therefore equips and renders but protects nothing: `Gasmask Overhaul` (Nexus 108845) adds `Armor_Metro_PPM-88_Gas_Mask` (`0x01011004` in `Gasmask Overhaul.esp`, mouth+eye slots, 50 rad resist) with its own `ma_armor_Metro_PPM-88_Gas_Mask` keyword (`0x01011001`) and no `FARO_GasMask`. Copying their record to add the keyword is not an option: we do not override another author's gear, the record has to be copied whole to stay faithful, and this FO4IDE build cannot grow a `KWDA` list on a record that has one (see the taint section).
+
+**The fix is declaration, not authoring.** `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini` gains a `[Masks]` section with two comma-separated keys, each entry written `Plugin.esp:0xLOCALID` - the form id as the plugin stores it, not the load-order id:
+
+- `ExtraKeywords` adds a mask *keyword*. An armor that fills the MOUTH slot and carries that keyword is a mask.
+- `ExtraMasks` adds an armor *record*. A listed armor is a mask whatever biped slot it fills, which is what covers an eye-slot layout such as Gasmask Overhaul's optional Overlay Framework patch.
+
+`RadEngine_Mask.cpp:LoadMaskConfig` runs next to `LoadFilterIni` at engine init, resolves every entry through `TESDataHandler::LookupForm` (the same helper the HUD globals use), and type-checks it: a keyword entry must be a `KYWD`, an armor entry an `ARMO`. An absent plugin, a missing form or a wrong type is logged once and skipped, so a load order without the mod - or with the mod disabled - leaves the vanilla rule untouched instead of failing. The rule split lives in `RadCorrectnessPolicy.h:IsConfiguredMask(listed, mouth, keyword)`: `listed || IsGasMask(mouth, keyword)`. Keeping it in the policy header is what lets `tests/correctness_policy_tests.cpp` pin the truth table (listed-and-slotless is protective, mouth-without-keyword is not) without an engine.
+
+**Defaults shipped.** The INI declares both PPM-88 entries - `Gasmask Overhaul.esp:0x011001` as a keyword and `Gasmask Overhaul.esp:0x011004` as an armor - so the mask is protected under either slot layout and nothing has to be edited when the optional patch is added. Both entries are inert when the plugin is missing.
+
+**What this does not cover.** The INI is read at engine init, so editing it needs a game restart, and a load-order change is picked up on the next launch rather than mid-save. Gasmask Overhaul ships its own F4SE plugin (`FO2287LiteWipe.dll`) for equip/remove animations, visor glass and droplets; that is independent of the protection state, but the two systems both react to a mask being equipped, so in-game acceptance has to watch for doubled equip foley (ours plays `Sound\FalloutAnomaly\mask\*`) and for their `G` equip/remove hotkey fighting our auto-equip. `tests/verify_mask_extras.py` pins the INI entries, the native parsing, the type checks and the policy split; CI runs it with the other mask contracts.
+
 ## Actor-value ownership (2026-10-26)
 
 Reference: `RadSurvivalQuest.psc:ApplyStagePenalty`, `RadSurvivalQuest.psc:UpdatePenaltyStages`, `RadSurvivalDiseases.psc:Reconcile`, `tools/rad_penalty_spells.json`, `tools/rad_diseases.json`, `tests/verify_av_ownership.py`.
