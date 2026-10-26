@@ -67,6 +67,9 @@ GlobalVariable Property RadSurvival_Hunger Auto
 GlobalVariable Property RadSurvival_Thirst Auto
 GlobalVariable Property RadSurvival_Sleep Auto
 
+; Invariant: the disease layer is a second script on this quest, never a second event owner.
+RadSurvivalDiseases Property Diseases Auto
+
 ; -----------------------------------------------------------------------------
 ; state - saved with the quest instance
 ; -----------------------------------------------------------------------------
@@ -105,6 +108,7 @@ Event OnInit()
     RegisterForRemoteEvent(player, "OnItemEquipped")
     MirrorAll()
     ResyncPenalties()
+    ResyncDiseases()
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] ready at game day " + LastGameTime)
 EndEvent
@@ -138,6 +142,7 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     RestartTimer()
     MirrorAll()
     ResyncPenalties()
+    ResyncDiseases()
     Debug.Trace("[RadSurvivalQuest] post-load anchor H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt)
 EndEvent
 
@@ -161,6 +166,7 @@ Event OnTimerGameTime(int aiTimerID)
 
     ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
     UpdatePenaltyStages()
+    ReconcileDiseases()
 
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
@@ -300,6 +306,7 @@ Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)
     ; Sleep advances game time without ticks: accrue it once, then restart the
     ; timer so the next interval is measured from the wake-up.
     AccrueElapsed(hours)
+    RestCureDiseases(hours, abInterrupted)
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] sleep ended hours=" + hours + " interrupted=" + abInterrupted + " recovery=" + recovery)
 EndEvent
@@ -370,6 +377,7 @@ Function Accrue(float afHours)
     AddDebt("hunger", HourlyHunger * afHours)
     AddDebt("thirst", HourlyThirst * afHours)
     AddDebt("sleep", HourlySleepDebt * afHours)
+    TickDiseases(afHours)
 EndFunction
 
 Function AddDebt(string asPool, float afDelta)
@@ -567,6 +575,38 @@ Function NotifyStage(string asPool, int aiStage)
         text = text + " (critical)"
     endif
     Debug.Notification(text)
+EndFunction
+
+; -----------------------------------------------------------------------------
+; invariant: RadSurvivalDiseases owns the state, this script owns the events
+; -----------------------------------------------------------------------------
+
+Function TickDiseases(float afHours)
+    if Diseases == None
+        return
+    endif
+    Diseases.Tick(afHours, IsActive(), StageFor(HungerDebt), StageFor(ThirstDebt), StageFor(SleepDebt))
+EndFunction
+
+Function RestCureDiseases(float afHours, bool abInterrupted)
+    if Diseases == None
+        return
+    endif
+    Diseases.TryRestCure(afHours, abInterrupted, IsActive())
+EndFunction
+
+Function ReconcileDiseases()
+    if Diseases == None
+        return
+    endif
+    Diseases.Reconcile(IsActive())
+EndFunction
+
+Function ResyncDiseases()
+    if Diseases == None
+        return
+    endif
+    Diseases.Resync(IsActive())
 EndFunction
 
 ; -----------------------------------------------------------------------------

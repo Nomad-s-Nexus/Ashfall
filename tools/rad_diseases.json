@@ -1,0 +1,110 @@
+{
+  "plugin": "RadSurvival.esp",
+  "summary": "Disease layer contract: two illnesses, three stages each, plus the risk and state GLOBs the HUD reads. Tuning and record expectations only - FO4IDE authors the records and tests/verify_survival.py checks the shipped plugin against this file.",
+  "mgefDefaults": {
+    "archetype": 34,
+    "archetypeName": "Peak Value Modifier",
+    "castingType": 0,
+    "castingTypeName": "Constant Effect",
+    "delivery": 0,
+    "flags": 2562,
+    "flagsMeaning": "Recover | No Duration | No Area",
+    "castingSoundLevel": 1,
+    "dualCastingScale": 1.0
+  },
+  "spellDefaults": {
+    "type": 4,
+    "typeName": "Ability",
+    "castType": 0,
+    "castTypeName": "Constant Effect",
+    "targetType": 0,
+    "targetTypeName": "Self"
+  },
+  "risk": {
+    "globEditorId": "RadSurvival_Risk",
+    "globFormId": "0x01000822",
+    "range": "0..1 exposure pool"
+  },
+  "state": {
+    "globEditorId": "RadSurvival_Disease",
+    "globFormId": "0x01000823",
+    "encoding": "DiseaseId * 10 + DiseaseStage, 0 while healthy; stage 0 means incubating"
+  },
+  "timing": {
+    "hourlyRisk": 0.012,
+    "riskPerWeakStage": 0.008,
+    "incubationHours": 4.0,
+    "stage2Hours": 10.0,
+    "stage3Hours": 24.0,
+    "restCureBaseHours": 4.0,
+    "immunityHours": 24.0
+  },
+  "diseases": [
+    {
+      "id": 1,
+      "name": "fever",
+      "actorValue": "DamageResist",
+      "actorValueFormId": "0x0002E3:Fallout4.esm",
+      "spellBase": 2076,
+      "stages": [
+        {
+          "stage": 1,
+          "mgefEditorId": "RadSurvival_Fever1",
+          "mgefFormId": "0x01000816",
+          "spellEditorId": "RadSurvival_FeverSpell1",
+          "spellFormId": "0x0100081C",
+          "magnitude": -10
+        },
+        {
+          "stage": 2,
+          "mgefEditorId": "RadSurvival_Fever2",
+          "mgefFormId": "0x01000817",
+          "spellEditorId": "RadSurvival_FeverSpell2",
+          "spellFormId": "0x0100081D",
+          "magnitude": -25
+        },
+        {
+          "stage": 3,
+          "mgefEditorId": "RadSurvival_Fever3",
+          "mgefFormId": "0x01000818",
+          "spellEditorId": "RadSurvival_FeverSpell3",
+          "spellFormId": "0x0100081E",
+          "magnitude": -40
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "wasting",
+      "actorValue": "SpeedMult",
+      "actorValueFormId": "0x0002DA:Fallout4.esm",
+      "spellBase": 2079,
+      "stages": [
+        {
+          "stage": 1,
+          "mgefEditorId": "RadSurvival_Wasting1",
+          "mgefFormId": "0x01000819",
+          "spellEditorId": "RadSurvival_WastingSpell1",
+          "spellFormId": "0x0100081F",
+          "magnitude": -5
+        },
+        {
+          "stage": 2,
+          "mgefEditorId": "RadSurvival_Wasting2",
+          "mgefFormId": "0x0100081A",
+          "spellEditorId": "RadSurvival_WastingSpell2",
+          "spellFormId": "0x01000820",
+          "magnitude": -10
+        },
+        {
+          "stage": 3,
+          "mgefEditorId": "RadSurvival_Wasting3",
+          "mgefFormId": "0x0100081B",
+          "spellEditorId": "RadSurvival_WastingSpell3",
+          "spellFormId": "0x01000821",
+          "magnitude": -15
+        }
+      ]
+    }
+  ]
+}

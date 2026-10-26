@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalQuest.psc"
 COMPILED = ROOT / "deploy/Scripts/RadSurvivalQuest.pex"
+DISEASE_SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalDiseases.psc"
+DISEASE_COMPILED = ROOT / "deploy/Scripts/RadSurvivalDiseases.pex"
 PLUGIN = ROOT / "deploy/RadSurvival.esp"
 NATIVE_NEEDS = ROOT / "deploy/F4SE/Plugins/FalloutAnomaly/needs.json"
 
@@ -46,6 +48,10 @@ def function_body(source_code, signature):
 check(SOURCE.is_file(), f"missing {SOURCE.relative_to(ROOT)}")
 source = text(SOURCE) if SOURCE.is_file() else ""
 code = code_only(source)
+
+check(DISEASE_SOURCE.is_file(), f"missing {DISEASE_SOURCE.relative_to(ROOT)}")
+disease_source = text(DISEASE_SOURCE) if DISEASE_SOURCE.is_file() else ""
+disease_code = code_only(disease_source)
 
 check(f"ScriptName {SCRIPT_NAME} extends Quest" in code,
       f"script must declare 'ScriptName {SCRIPT_NAME} extends Quest'")
@@ -187,6 +193,13 @@ if COMPILED.is_file():
     check(data[:4] == PEX_MAGIC, "compiled PEX does not have the FO4 PEX header")
     check(SCRIPT_NAME.encode() in data, "compiled PEX is missing the script name")
 
+check(DISEASE_COMPILED.is_file(), f"missing {DISEASE_COMPILED.relative_to(ROOT)}")
+if DISEASE_COMPILED.is_file():
+    disease_pex = DISEASE_COMPILED.read_bytes()
+    check(disease_pex[:4] == PEX_MAGIC, "the disease PEX is missing the FO4 header")
+    check(b"RadSurvivalDiseases" in disease_pex,
+          "the disease PEX is missing the script name")
+
 check(PLUGIN.is_file(), f"missing {PLUGIN.relative_to(ROOT)}")
 if PLUGIN.is_file():
     esp = PLUGIN.read_bytes()
@@ -252,6 +265,32 @@ for pool in ("hunger", "thirst", "sleep"):
     check(len(magnitudes) == 3 and magnitudes[0] < magnitudes[1] < magnitudes[2],
           f"{pool} penalties must grow with the stage")
 
+disease_path = ROOT / "tools/rad_diseases.json"
+check(disease_path.is_file(), "missing tools/rad_diseases.json")
+diseases = json.loads(text(disease_path)) if disease_path.is_file() else {"diseases": [], "timing": {}}
+layer = diseases.get("diseases", [])
+check(diseases.get("plugin") == "RadSurvival.esp", "the disease manifest must target RadSurvival.esp")
+check(len(layer) == 2, "the disease table must hold two illnesses")
+check(len({disease.get("id") for disease in layer}) == len(layer), "disease ids must be unique")
+disease_stages = [stage for disease in layer for stage in disease.get("stages", [])]
+check(len(disease_stages) == 6, "the disease table must hold three stages per illness")
+check(len({stage.get("spellFormId") for stage in disease_stages}) == len(disease_stages),
+      "disease ability form ids must be unique")
+check(len({stage.get("mgefFormId") for stage in disease_stages}) == len(disease_stages),
+      "disease magic effect form ids must be unique")
+for disease in layer:
+    staged = sorted(disease.get("stages", []), key=lambda entry: entry.get("stage", 0))
+    check([entry.get("stage") for entry in staged] == [1, 2, 3],
+          f"disease {disease.get('name')} must have stages 1-3")
+    severities = [abs(float(entry["magnitude"])) for entry in staged]
+    check(severities[0] < severities[1] < severities[2],
+          f"disease {disease.get('name')} must worsen with the stage")
+    base = int(disease.get("spellBase", 0))
+    for entry in staged:
+        expected = f"0x{0x01000000 | (base + int(entry['stage']) - 1):08x}"
+        check(entry.get("spellFormId", "").lower() == expected,
+              f"{entry.get('spellEditorId')} does not match its script spell base {expected}")
+
 if PLUGIN.is_file():
     parser = plugin_reader
     try:
@@ -265,8 +304,10 @@ if PLUGIN.is_file():
 
     magic_effects = plugin_records(b"MGEF")
     ability_spells = plugin_records(b"SPEL")
-    check(len(magic_effects) == 9, f"RadSurvival.esp must hold 9 penalty magic effects, found {len(magic_effects)}")
-    check(len(ability_spells) == 9, f"RadSurvival.esp must hold 9 penalty abilities, found {len(ability_spells)}")
+    check(len(magic_effects) == 15,
+          f"RadSurvival.esp must hold 15 magic effects (9 penalty + 6 disease), found {len(magic_effects)}")
+    check(len(ability_spells) == 15,
+          f"RadSurvival.esp must hold 15 abilities (9 penalty + 6 disease), found {len(ability_spells)}")
 
     for entry in entries:
         mgef_node = magic_effects.get(int(entry["mgefFormId"], 16))
@@ -320,6 +361,72 @@ if PLUGIN.is_file():
             check(area == 0 and duration == 0,
                   f"{entry['spellEditorId']} must be a permanent, area-less ability")
 
+    for disease in layer:
+        expected_av = int(disease["actorValueFormId"].split(":")[0], 16)
+        for entry in disease.get("stages", []):
+            mgef_node = magic_effects.get(int(entry["mgefFormId"], 16))
+            spell_node = ability_spells.get(int(entry["spellFormId"], 16))
+            check(mgef_node is not None, f"missing disease magic effect {entry['mgefEditorId']}")
+            check(spell_node is not None, f"missing disease ability {entry['spellEditorId']}")
+            if mgef_node is None or spell_node is None:
+                continue
+            check(parser.editor_id(esp, mgef_node) == entry["mgefEditorId"],
+                  f"{entry['mgefFormId']} is not {entry['mgefEditorId']}")
+            data = mgef_node.field(esp, b"DATA")
+            check(data is not None and len(data) >= 116,
+                  f"{entry['mgefEditorId']} has no usable DATA")
+            if data:
+                check(struct.unpack_from("<I", data, 64)[0] == 34,
+                      f"{entry['mgefEditorId']} must be a Peak Value Modifier")
+                check(struct.unpack_from("<I", data, 68)[0] == expected_av,
+                      f"{entry['mgefEditorId']} targets the wrong actor value for {disease['name']}")
+                check(struct.unpack_from("<I", data, 0)[0] & 0x800,
+                      f"{entry['mgefEditorId']} must be area-less")
+                check(abs(struct.unpack_from("<f", data, 112)[0] - 1.0) < 1e-6,
+                      f"{entry['mgefEditorId']} must keep vanilla's DualCastingScale of 1.0")
+            check(parser.editor_id(esp, spell_node) == entry["spellEditorId"],
+                  f"{entry['spellFormId']} is not {entry['spellEditorId']}")
+            spit = spell_node.field(esp, b"SPIT")
+            check(spit is not None and struct.unpack_from("<I", spit, 8)[0] == 4,
+                  f"{entry['spellEditorId']} must be an Ability spell")
+            efid = spell_node.field(esp, b"EFID")
+            check(efid is not None,
+                  f"{entry['spellEditorId']} has no effect entry; author it with FO4IDE add_magic_effect")
+            efit = spell_node.field(esp, b"EFIT")
+            check(efit is not None and len(efit) == 12, f"{entry['spellEditorId']} has no EFIT")
+            if efit:
+                check(abs(struct.unpack("<f", efit[:4])[0] - float(entry["magnitude"])) < 1e-6,
+                      f"{entry['spellEditorId']} magnitude does not match the manifest")
+
+    globals_by_id = plugin_records(b"GLOB")
+    for key in ("risk", "state"):
+        glob = diseases.get(key, {})
+        node = globals_by_id.get(int(glob.get("globFormId", "0x0"), 16))
+        check(node is not None, f"missing disease GLOB {glob.get('globEditorId')}")
+        if node is None:
+            continue
+        check(parser.editor_id(esp, node) == glob.get("globEditorId"),
+              f"{glob.get('globFormId')} is not {glob.get('globEditorId')}")
+        check(node.field(esp, b"FNAM") == b"f",
+              f"{glob.get('globEditorId')} must be a float global")
+        check(int(glob["globFormId"], 16).to_bytes(4, "little") in vmad,
+              f"the quest VMAD does not bind {glob.get('globEditorId')}")
+
+    # Constraint: pools must stay on the quest script and the disease mirrors on the disease one.
+    check(vmad.count(b"RadSurvivalDiseases") == 1,
+          "the quest VMAD must attach the disease script exactly once")
+    disease_at = vmad.find(b"RadSurvivalDiseases")
+    if disease_at > 0:
+        for name in ("RadSurvival_Risk", "RadSurvival_Disease"):
+            check(vmad.count(name.encode()) == 1, f"{name} must be bound exactly once")
+            check(vmad.find(name.encode()) > disease_at,
+                  f"{name} must sit in the disease script's VMAD block, not the quest script's")
+        for form_id in (0x01000822, 0x01000823):
+            check(vmad.find(form_id.to_bytes(4, "little")) > disease_at,
+                  f"0x{form_id:08X} must be bound on the disease script")
+    check((0x01000800).to_bytes(4, "little") in vmad,
+          "the quest script must reference itself for the disease script property")
+
 
 def constant(source_code, name):
     match = re.search(rf"float Property {name} = ([0-9.]+) Auto Const", source_code)
@@ -333,6 +440,103 @@ for prop, key in (("HourlyHunger", "hunger"), ("HourlyThirst", "thirst"), ("Hour
     if value is not None:
         check(abs(value - float(native[key])) < 1e-9,
               f"{prop} diverged from the native needs runtime ({value} vs {native[key]})")
+
+# Invariant: disease risk is time-driven, staged on a ladder, and curable by rest.
+for name in ("RadSurvival_Risk", "RadSurvival_Disease"):
+    check(f"GlobalVariable Property {name} Auto" in disease_code,
+          f"missing disease GLOB property declaration: {name}")
+check("bool Property DiseasesEnabled = true Auto Const" in disease_code,
+      "diseases need an enable switch that does not require a rebuild")
+check("int Property CurrentStateVersion = 2 Auto Const" in disease_code,
+      "the disease state needs a version marker for save migration")
+for name, base in (("FeverSpellBase", 2076), ("WastingSpellBase", 2079)):
+    check(f"int Property {name} = {base} Auto Const" in disease_code,
+          f"missing or retuned disease spell base {name}")
+
+# Constraint: the quest script owns the events and delegates; the disease script owns the rules.
+check("RadSurvivalDiseases Property Diseases Auto" in code,
+      "the quest script must bind the disease script")
+accrue_body = function_body(code, "Function Accrue(float afHours)")
+check("TickDiseases(" in accrue_body, "every elapsed interval must feed the disease layer")
+for call, signature in (("Diseases.Tick(", "Function TickDiseases(float afHours)"),
+                        ("Diseases.TryRestCure(", "Function RestCureDiseases(float afHours, bool abInterrupted)"),
+                        ("Diseases.Reconcile(", "Function ReconcileDiseases()"),
+                        ("Diseases.Resync(", "Function ResyncDiseases()")):
+    wrapper = function_body(code, signature)
+    check(call in wrapper, f"{signature} must call into the disease script")
+    check("Diseases == None" in wrapper,
+          f"{signature} must survive a quest whose disease script is not bound")
+    check("IsActive()" in wrapper, f"{signature} must pass the layer gate down")
+check("RestCureDiseases(" in sleep_body, "the sleep handler must offer the rest cure")
+check("ReconcileDiseases(" in timer_body, "the tick must reconcile the disease ability")
+
+risk_body = function_body(
+    disease_code, "Function AccrueRisk(float afHours, bool abActive, int aiHungerStage, int aiThirstStage, int aiSleepStage)")
+check("HourlyRisk" in risk_body and "RiskPerWeakStage" in risk_body,
+      "risk must accrue from the tuned rate and the pool stages")
+check("IsImmune(" in risk_body, "risk must honour the immunity window")
+check("StartDisease(" in risk_body, "a full risk pool must start an illness")
+check("DiseaseId > 0" in risk_body, "risk must not build while an illness is live")
+
+immune_body = function_body(disease_code, "bool Function IsImmune()")
+check("ImmunityUntil" in immune_body and "GetCurrentGameTime(" in immune_body,
+      "immunity must expire on game time")
+
+advance_body = function_body(disease_code, "Function AdvanceDisease(float afHours, bool abActive)")
+for phase in ("IncubationHours", "Stage2Hours", "Stage3Hours"):
+    check(phase in advance_body, f"disease escalation must use {phase}")
+check("Reconcile(" in advance_body, "a stage change must re-apply the ability")
+check("abActive" in advance_body, "disease progression must freeze while the layer is suspended")
+
+rest_body = function_body(
+    disease_code, "Function TryRestCure(float afHours, bool abInterrupted, bool abActive)")
+check("abInterrupted" in rest_body, "an interrupted night must not cure")
+check("RestCureBaseHours" in rest_body, "the rest cure needs a duration threshold")
+check("CureDisease()" in rest_body, "a long enough rest must cure")
+
+cure_body = function_body(disease_code, "Function CureDisease()")
+check("ImmunityUntil =" in cure_body, "a cure must open an immunity window")
+check("DiseaseId = 0" in cure_body, "a cure must clear the disease id")
+check("ApplySpell(None)" in cure_body, "a cure must remove the ability")
+check("MirrorDisease()" in cure_body and "MirrorRisk()" in cure_body,
+      "a cure must refresh both HUD mirrors")
+
+reconcile_body = function_body(disease_code, "Function Reconcile(bool abActive)")
+check("abActive" in reconcile_body and "DiseasesEnabled" in reconcile_body,
+      "the disease ability must follow the layer gate and the enable switch")
+apply_body = function_body(disease_code, "Function ApplySpell(Spell akWanted)")
+check("AddSpell(" in apply_body and "RemoveSpell(" in apply_body,
+      "the disease ability must be added and removed")
+check("AppliedDiseaseSpell" in apply_body,
+      "the disease ability must be reconciled, never stacked")
+for forbidden in ("SetValue", "ModValue", "DamageValue", "RestoreValue", "ForceActorValue"):
+    check(forbidden not in apply_body + reconcile_body,
+          f"diseases must be spell abilities, not actor-value writes ({forbidden})")
+
+version_body = function_body(disease_code, "Function EnsureStateVersion()")
+check("CurrentStateVersion" in version_body and "SavedStateVersion" in version_body,
+      "the disease state must be versioned")
+resync_disease = function_body(disease_code, "Function Resync(bool abActive)")
+check("EnsureStateVersion()" in resync_disease, "a load must migrate the state before use")
+check("Reconcile(" in resync_disease, "a load must restore the disease ability")
+check("MirrorRisk()" in resync_disease and "MirrorDisease()" in resync_disease,
+      "a load must refresh the HUD mirrors")
+for event in ("Event OnInit()", "Event Actor.OnPlayerLoadGame(Actor akSender)"):
+    check("ResyncDiseases()" in function_body(code, event),
+          f"{event} must resync the disease state")
+for forbidden in ("HC_", "RegisterFor"):
+    check(forbidden not in disease_code,
+          f"the disease script must not touch {forbidden} (no HC_ state, no event ownership)")
+
+for prop, key in (("HourlyRisk", "hourlyRisk"), ("RiskPerWeakStage", "riskPerWeakStage"),
+                  ("IncubationHours", "incubationHours"), ("Stage2Hours", "stage2Hours"),
+                  ("Stage3Hours", "stage3Hours"), ("RestCureBaseHours", "restCureBaseHours"),
+                  ("ImmunityHours", "immunityHours")):
+    value = constant(disease_source, prop)
+    check(value is not None, f"missing disease tuning constant {prop}")
+    if value is not None:
+        check(abs(value - float(diseases["timing"][key])) < 1e-9,
+              f"{prop} diverged from tools/rad_diseases.json ({value} vs {diseases['timing'][key]})")
 
 # The design rationale keeps the removed runtime's name; shipped files must not.
 for path in ROOT.rglob("*"):
