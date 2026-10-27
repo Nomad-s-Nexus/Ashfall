@@ -43,7 +43,7 @@ jobs:
           "ASSET=RadiationOverhaul-$tag.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: https://github.com/actions/checkout@v4
 
       - name: Verify commonlib_NonVR (RE authority)
         run: |
@@ -68,10 +68,15 @@ jobs:
           Write-Host "commonlib_NonVR: $pinned"
           "COMMONLIBF4_PATH=$commonLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Setup xmake
-        uses: xmake-io/github-action-setup-xmake@v1
-        with:
-          xmake-version: "3.0.4"
+      - name: Verify runner tools
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          # Constraint: xmake comes from the provisioned runner, like the PR build. A marketplace
+          # setup action is not mirrored on this instance and fails to resolve before any step runs.
+          xmake --version
+          node --version
+          python --version
 
       - name: Run release contract tests
         working-directory: Rad-Overhaul-Fallout-4
