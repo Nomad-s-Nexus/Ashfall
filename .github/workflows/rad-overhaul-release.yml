@@ -143,19 +143,39 @@ jobs:
           Get-ChildItem -Path $stage -Depth 1 -Name | Sort-Object
           if (-not (Test-Path $asset)) { throw "archive $asset was not created" }
 
-      - name: Publish GitHub Release
+      - name: Publish release
         env:
-          GH_TOKEN: ${{ github.token }}
+          TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $asset = Join-Path $env:GITHUB_WORKSPACE $env:ASSET
-          $notesFile = 'Rad-Overhaul-Fallout-4/RELEASE_NOTES.md'
-          $notes = if (Test-Path $notesFile) { @('--notes-file', $notesFile) } else { @('--generate-notes') }
-          gh release view $env:TAG --repo $env:GITHUB_REPOSITORY *> $null
-          $exists = $LASTEXITCODE -eq 0
           $PSNativeCommandUseErrorActionPreference = $true
-          if ($exists) {
-            gh release upload $env:TAG $asset --repo $env:GITHUB_REPOSITORY --clobber
-          } else {
-            gh release create $env:TAG $asset --repo $env:GITHUB_REPOSITORY --title "Rad Overhaul $($env:TAG)" --target $env:GITHUB_SHA @notes
+          # Constraint: the provisioned runner has no gh CLI, so the release is published through the
+          # Forgejo API with the workflow token instead of depending on a tool the runner may not carry.
+          $api = "$($env:GITHUB_SERVER_URL)/api/v1/repos/$($env:GITHUB_REPOSITORY)"          $tag = $env:TAG
+          $asset = Join-Path $env:GITHUB_WORKSPACE $env:ASSET
+          if (-not (Test-Path $asset)) { throw "archive $asset is missing" }
+          $notesFile = 'Rad-Overhaul-Fallout-4/RELEASE_NOTES.md'
+          $body = if (Test-Path $notesFile) { Get-Content $notesFile -Raw } else { '' }
+          $auth = "Authorization: token $($env:TOKEN)"
+          $payloadFile = Join-Path $env:GITHUB_WORKSPACE 'release.json'
+          @{ tag_name = $tag; name = "Rad Overhaul $tag"; body = $body; draft = $false; prerelease = $false } |
+            ConvertTo-Json -Depth 3 | Out-File -FilePath $payloadFile -Encoding utf8
+          $release = $null
+          try {
+            $release = (curl.exe -sS -f -H $auth "$api/releases/tags/$tag") | ConvertFrom-Json
+          } catch {
+            $release = $null
           }
+          if ($release) {
+            curl.exe -sS -f -X PATCH -H $auth -H 'Content-Type: application/json' --data-binary "@$payloadFile" "$api/releases/$($release.id)" | Out-Null
+            foreach ($existing in @($release.assets)) {
+              if ($existing -and $existing.name -eq $env:ASSET) {
+                curl.exe -sS -f -X DELETE -H $auth "$api/releases/$($release.id)/assets/$($existing.id)" | Out-Null
+              }
+            }
+          } else {
+            $release = (curl.exe -sS -f -X POST -H $auth -H 'Content-Type: application/json' --data-binary "@$payloadFile" "$api/releases") | ConvertFrom-Json
+          }
+          if (-not $release.id) { throw "release $tag could not be created or read" }
+          curl.exe -sS -f -X POST -H $auth -F "attachment=@$asset" "$api/releases/$($release.id)/assets?name=$($env:ASSET)" | Out-Null
+          Write-Host "published $tag with $($env:ASSET) ($((Get-Item $asset).Length) bytes)"
