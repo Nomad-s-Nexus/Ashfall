@@ -37,7 +37,7 @@ html, body {
 @keyframes filterPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
 /* icon is a CSS mask tinted by JS (green=full -> red=empty) */
 #filterIcon {
-  width: 36px; height: 36px; flex: none; background-color: #5c9e3a;
+  width: 42px; height: 42px; flex: none; background-color: #74c449;
   -webkit-mask-image: url("GasMask.png"); mask-image: url("GasMask.png");
   -webkit-mask-size: contain; mask-size: contain;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
@@ -47,7 +47,7 @@ html, body {
 #filterBars { display: flex; flex-direction: column; gap: 3px; }
 .fbrow { display: flex; align-items: center; gap: 6px; }
 .flab { width: 38px; flex: none; font-size: 8px; font-weight: bold; letter-spacing: 1px;
-  color: #9aa79a; text-shadow: 0 0 3px #000; }
+  color: #c2d1c2; text-shadow: 0 0 3px #000; }
 .fbg {
   width: 100px; height: 9px; background: rgba(0,0,0,.7);
   box-shadow: inset 0 0 4px rgba(0,0,0,.85); position: relative;
