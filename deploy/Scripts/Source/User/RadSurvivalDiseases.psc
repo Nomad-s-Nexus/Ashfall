@@ -14,19 +14,19 @@ ScriptName RadSurvivalDiseases extends Quest
 ; tuning - must mirror tools/rad_diseases.json
 ; -----------------------------------------------------------------------------
 
-float Property HourlyRisk = 0.012 Auto Const
-float Property RiskPerWeakStage = 0.008 Auto Const
-float Property RiskPerHit = 0.01 Auto Const
-float Property RiskPerSwim = 0.03 Auto Const
-float Property RiskPerRadHour = 0.08 Auto Const
-float Property RiskPerRainHour = 0.02 Auto Const
-float Property SwimIntervalGameDays = 0.1 Auto Const
-float Property HitCooldownSeconds = 2.0 Auto Const
-float Property IncubationHours = 4.0 Auto Const
-float Property Stage2Hours = 10.0 Auto Const
-float Property Stage3Hours = 24.0 Auto Const
-float Property RestCureBaseHours = 4.0 Auto Const
-float Property ImmunityHours = 24.0 Auto Const
+float Property HourlyRisk = 0.012 Auto
+float Property RiskPerWeakStage = 0.008 Auto
+float Property RiskPerHit = 0.01 Auto
+float Property RiskPerSwim = 0.03 Auto
+float Property RiskPerRadHour = 0.08 Auto
+float Property RiskPerRainHour = 0.02 Auto
+float Property SwimIntervalGameDays = 0.1 Auto
+float Property HitCooldownSeconds = 2.0 Auto
+float Property IncubationHours = 4.0 Auto
+float Property Stage2Hours = 10.0 Auto
+float Property Stage3Hours = 24.0 Auto
+float Property RestCureBaseHours = 4.0 Auto
+float Property ImmunityHours = 24.0 Auto
 bool Property DiseasesEnabled = true Auto Const
 bool Property ShowNotifications = true Auto Const
 int Property CurrentStateVersion = 2 Auto Const
@@ -58,11 +58,13 @@ Keyword Property KeywordTaintedWater Auto
 Keyword Property KeywordContaminated Auto
 Keyword Property KeywordCureItem Auto
 ; tuning - must mirror the taint block of tools/rad_diseases.json
-float Property RiskPerTaintedFood = 0.10 Auto Const
-float Property RiskPerTaintedWater = 0.15 Auto Const
-float Property RiskPerContaminated = 0.05 Auto Const
+float Property RiskPerTaintedFood = 0.10 Auto
+float Property RiskPerTaintedWater = 0.15 Auto
+float Property RiskPerContaminated = 0.05 Auto
 ; 0x82C: the shipped cure ingestible; the record tool has no keyword write path
 int Property CureItemFormId = 2092 Auto Const
+; 0x023742 Fallout4.esm: vanilla RadAway, the named and obtainable cure
+int Property RadAwayFormId = 145218 Auto Const
 
 ; -----------------------------------------------------------------------------
 ; state - saved with the quest, must stay versioned by SavedStateVersion
@@ -245,6 +247,11 @@ bool Function IsCureItem(Form akItem)
     ; Constraint: the shipped item carries no KWDA, so it resolves by form id first.
     Form cure = Game.GetFormFromFile(CureItemFormId, DiseasePlugin)
     if cure && akItem == cure
+        return true
+    endif
+    ; Constraint: RadAway is the obtainable cure - nameless records cannot be crafted, bought or picked up.
+    Form radAway = Game.GetFormFromFile(RadAwayFormId, "Fallout4.esm")
+    if radAway && akItem == radAway
         return true
     endif
     return akItem.HasKeyword(KeywordCureItem)

@@ -68,6 +68,9 @@ int main()
     Require(!IsConfiguredMask(false, true, false));
     Require(!IsConfiguredMask(false, false, true));
     Require(!IsConfiguredMask(false, false, false));
+    Require(IsRadShieldedMask(true, true));
+    Require(!IsRadShieldedMask(true, false));
+    Require(!IsRadShieldedMask(false, true));
     Require(!CuresPermanentTissue(CureSignal::kNone));
     Require(!CuresPermanentTissue(CureSignal::kInventoryMovement));
     Require(CuresPermanentTissue(CureSignal::kVerifiedChelationUse));

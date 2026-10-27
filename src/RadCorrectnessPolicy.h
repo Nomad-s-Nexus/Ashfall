@@ -70,6 +70,12 @@ namespace RadCorrectnessPolicy
         return listed || IsGasMask(fillsMouth, hasKeyword);
     }
 
+    // Constraint: a mouth-slot armor with radiation resistance is a gas mask, so a mod's mask needs no INI entry.
+    constexpr bool IsRadShieldedMask(bool fillsMouth, bool radResistant)
+    {
+        return fillsMouth && radResistant;
+    }
+
     enum class CureSignal
     {
         kNone,

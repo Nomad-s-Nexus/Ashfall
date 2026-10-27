@@ -14,17 +14,17 @@
     {
       "script": "RadSurvivalDiseases",
       "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
-      "sourceSha256": "aa6c8f30c63a64a8ff8000167e231e0ebc69bde9080b3daaa14e3cb088aa3094",
+      "sourceSha256": "b54f7c831f3fb371115ed49e75d09c67e5f8b7603907661e904612e3a47bf218",
       "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
-      "pexSha256": "7e99a2b6e89bb5c0a0498268a732e9306a387ad295934ad9f8eb06ea56513c57",
+      "pexSha256": "1453d429abd1147b1e6b7af8c540ab16e21a8f9fe01817f03cbed7908215efaf",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
     },
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "2d095133096f82f8f360516ba53a5cf2c765eba365e2406e089551d90da5dfc2",
+      "sourceSha256": "865dd934ed0daf10272bb9046abb91d60776e6e4190059d07c3b7d3f91bb600e",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "9ce3fa88bee4906857c0dec73b6064f8c176707651c93d54710337b8e25bc3c6",
+      "pexSha256": "8afbe2dddae1aa32f421a97af073f1decc3cfa7cea050f7624e47f875e491d46",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
     }
   ]

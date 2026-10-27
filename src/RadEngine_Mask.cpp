@@ -146,6 +146,21 @@ bool RadiationEngine::IsListedMask(const RE::TESObjectARMO* armor) const
 }
 
 
+// Constraint: 0x00060A85 is the Fallout4.esm radiation damage type every rad-protective armor resists.
+bool RadiationEngine::HasRadResistance(const RE::TESObjectARMO* armor) const
+{
+    constexpr std::uint32_t kRadDamageTypeFormID = 0x00060A85;
+    if (!armor || !armor->armorData.damageTypes)
+        return false;
+    for (const auto& entry : *armor->armorData.damageTypes)
+    {
+        if (entry.first && entry.first->GetFormID() == kRadDamageTypeFormID)
+            return static_cast<int>(entry.second.i) >= _minMaskRadResist;
+    }
+    return false;
+}
+
+
 bool RadiationEngine::IsRecognizedGasMask(const RE::TESObjectARMO* armor) const
 {
     if (!armor) return false;
@@ -153,7 +168,10 @@ bool RadiationEngine::IsRecognizedGasMask(const RE::TESObjectARMO* armor) const
     bool keyword = _gasMaskKeyword && armor->HasKeyword(_gasMaskKeyword);
     for (auto extra = _extraMaskKeywords.begin(); !keyword && extra != _extraMaskKeywords.end(); ++extra)
         keyword = *extra && armor->HasKeyword(*extra);
-    return RadCorrectnessPolicy::IsConfiguredMask(IsListedMask(armor), mouth, keyword);
+    if (RadCorrectnessPolicy::IsConfiguredMask(IsListedMask(armor), mouth, keyword))
+        return true;
+    return _inferMasksFromRadResist
+        && RadCorrectnessPolicy::IsRadShieldedMask(mouth, HasRadResistance(armor));
 }
 
 
@@ -552,6 +570,8 @@ void RadiationEngine::LoadMaskConfig()
         return;
 
     char raw[1024]{};
+    _inferMasksFromRadResist = ::GetPrivateProfileIntA("Masks", "InferFromRadResist", 1, kIni) != 0;
+    _minMaskRadResist = std::max(0, static_cast<int>(::GetPrivateProfileIntA("Masks", "MinRadResist", 10, kIni)));
     ::GetPrivateProfileStringA("Masks", "ExtraKeywords", "", raw, sizeof(raw), kIni);
     for (const auto& entry : SplitMaskList(raw))
     {
@@ -572,8 +592,8 @@ void RadiationEngine::LoadMaskConfig()
             Log()->warn("[Masks] ExtraMasks entry '{}' is not a loaded armor", entry);
     }
 
-    Log()->info("[Masks] {} extra keyword(s) and {} listed armor(s) recognised from the INI",
-        _extraMaskKeywords.size(), _extraMasks.size());
+    Log()->info("[Masks] {} extra keyword(s), {} listed armor(s), inferFromRadResist={} (min {} rad resist)",
+        _extraMaskKeywords.size(), _extraMasks.size(), _inferMasksFromRadResist, _minMaskRadResist);
 }
 
 

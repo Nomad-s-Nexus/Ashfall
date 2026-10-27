@@ -344,7 +344,10 @@ private:
     // Constraint: masks from other plugins are declared in the INI, never by editing their records.
     std::vector<RE::BGSKeyword*> _extraMaskKeywords;      // [Masks] ExtraKeywords
     std::vector<const RE::TESObjectARMO*> _extraMasks;    // [Masks] ExtraMasks
+    bool _inferMasksFromRadResist = true;                 // [Masks] InferFromRadResist
+    int _minMaskRadResist = 10;                           // [Masks] MinRadResist
     bool IsListedMask(const RE::TESObjectARMO* armor) const;
+    bool HasRadResistance(const RE::TESObjectARMO* armor) const;
 
     // Auto-equip a gas mask while a rad weather is active (data-driven by the RadWeatherList FormList).
     // Equips on entering rad weather, removes (only what it auto-equipped) on leaving. Applies to the

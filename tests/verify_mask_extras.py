@@ -64,17 +64,36 @@ esl = text(elsewhere) if elsewhere.is_file() else ""
 check("LoadMaskConfig();" in body(esl, "void RadiationEngine::EnsureEslLoaded()"),
       "mask extras must re-resolve once the data handler is proven ready, in case init ran early")
 
+# Constraint: any mouth-slot armor with radiation resistance is a mask, so most mask mods need no entry.
+check("InferFromRadResist=1" in ini, "[Masks] must ship InferFromRadResist=1")
+check("MinRadResist=" in ini, "[Masks] must ship MinRadResist")
+for key in ("InferFromRadResist", "MinRadResist"):
+    check(f'GetPrivateProfileIntA("Masks", "{key}"' in load, f"LoadMaskConfig must read [Masks] {key}")
+
+# Constraint: a drained or broken mask must be recoverable in game without editing files first.
+settings = dict(re.findall(r"^(DurationSeconds|ReplaceKey|RepairKey)=(\d+)$", ini, re.M))
+check(int(settings.get("DurationSeconds", "0")) >= 900,
+      "[Filter] DurationSeconds must be long enough that a mask is not drained in minutes")
+check(int(settings.get("ReplaceKey", "0")) != 0, "[Filter] ReplaceKey must ship bound, not 0")
+check(int(settings.get("RepairKey", "0")) != 0, "[Condition] RepairKey must ship bound, not 0")
+
 recognise = body(source, "bool RadiationEngine::IsRecognizedGasMask(")
 check("RadCorrectnessPolicy::IsConfiguredMask(" in recognise,
       "mask recognition must go through the policy predicate, so both branches stay testable")
 check("IsListedMask(" in recognise, "a listed armor must count as a mask")
 check("_extraMaskKeywords" in recognise, "an extra keyword must count as a mask")
 check("_gasMaskKeyword" in recognise, "the vanilla FARO_GasMask rule must stay in place")
+check("HasRadResistance(" in recognise and "IsRadShieldedMask(" in recognise,
+      "mask recognition must fall back to radiation resistance")
+rad_body = body(source, "bool RadiationEngine::HasRadResistance(")
+check("0x00060A85" in rad_body and "damageTypes" in rad_body,
+      "the inference must read the armor's radiation damage-type resistance")
 
 policy = text(POLICY) if POLICY.is_file() else ""
 check("constexpr bool IsConfiguredMask(" in policy, "RadCorrectnessPolicy must expose IsConfiguredMask")
 check("return listed || IsGasMask(fillsMouth, hasKeyword);" in body(policy, "constexpr bool IsConfiguredMask("),
       "a listed armor must bypass the slot rule and the vanilla rule must still apply otherwise")
+check("constexpr bool IsRadShieldedMask(" in policy, "RadCorrectnessPolicy must expose IsRadShieldedMask")
 
 header = text(HEADER) if HEADER.is_file() else ""
 check("_extraMaskKeywords" in header and "_extraMasks" in header,

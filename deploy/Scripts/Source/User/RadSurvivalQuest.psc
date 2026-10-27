@@ -5,18 +5,18 @@ ScriptName RadSurvivalQuest extends Quest
 
 ; tuning - the only source of the pool rates; the three GLOBs are the HUD contract
 
-float Property HourlyHunger = 0.05 Auto Const
-float Property HourlyThirst = 0.10 Auto Const
-float Property HourlySleepDebt = 0.025 Auto Const
-float Property SleepRecoveryPerHour = 0.12 Auto Const
-float Property InterruptedScale = 0.5 Auto Const
-float Property FoodScale = 0.20 Auto Const
-float Property DrinkScale = 0.25 Auto Const
-float Property AlcoholHydrationScale = 0.25 Auto Const
-float Property TickGameHours = 0.25 Auto Const
-float Property MaxElapsedHours = 240.0 Auto Const
-float Property PendingExpirySeconds = 2.0 Auto Const
-float Property StageHysteresis = 0.04 Auto Const
+float Property HourlyHunger = 0.05 Auto
+float Property HourlyThirst = 0.10 Auto
+float Property HourlySleepDebt = 0.025 Auto
+float Property SleepRecoveryPerHour = 0.12 Auto
+float Property InterruptedScale = 0.5 Auto
+float Property FoodScale = 0.20 Auto
+float Property DrinkScale = 0.25 Auto
+float Property AlcoholHydrationScale = 0.25 Auto
+float Property TickGameHours = 0.25 Auto
+float Property MaxElapsedHours = 240.0 Auto
+float Property PendingExpirySeconds = 2.0 Auto
+float Property StageHysteresis = 0.04 Auto
 int Property kTimerID = 10 Auto Const
 int Property kVanillaSurvivalDifficulty = 6 Auto Const
 

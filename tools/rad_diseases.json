@@ -154,7 +154,11 @@
       "effectFlags": 2562,
       "clears": "CureDisease",
       "immunityHours": 24.0,
-      "note": "The shipped item carries no FULL name and no KWDA. Retested against this build: the ALCH summary grid exposes no name column, and set_field refuses ALCH\\Full, ALCH\\FULL, ALCH\\Name, FULL and Authoring\\FULL with FieldWriteUnsupported; ALCH\\Keywords[0] is refused with FormLinkListIndexOutOfRange because the list is empty and the whole-list path is unsupported, so KWDA can be edited on a record that has keywords but never grown from none. The record still passes --check; the disease script resolves the item by local form id 2092 (0x82C) and accepts the cure keyword from a CK-authored add-on."
+      "extraCureFormIds": [
+        "0x023742:Fallout4.esm"
+      ],
+      "extraCureName": "RadAway",
+      "note": "The shipped item carries no FULL name and no KWDA, so it cannot be crafted, bought or picked up; RadAway (0x023742:Fallout4.esm) is the obtainable, named cure and the disease script resolves both. The ALCH summary grid exposes no name column and set_field refuses ALCH\\Full, ALCH\\FULL, ALCH\\Name, FULL and Authoring\\FULL; ALCH\\Keywords[0] is refused with FormLinkListIndexOutOfRange because the list is empty and the whole-list path is unsupported, so KWDA can be edited on a record that has keywords but never grown from none. Every tuning value the two scripts use is authored as a VMAD float property, so retuning needs no Papyrus compile."
     },
     "fallback": "An unbound or empty list charges nothing for its category, and TraceTaintLists names it on every resync; the risk pool then fills only from the ambient, hit, swim and weather paths."
   },

@@ -337,6 +337,8 @@ for disease in layer:
         check(entry.get("spellFormId", "").lower() == expected,
               f"{entry.get('spellEditorId')} does not match its script spell base {expected}")
 
+quest_script = {}
+disease_script = {}
 if PLUGIN.is_file():
     parser = plugin_reader
     try:
@@ -474,18 +476,19 @@ if PLUGIN.is_file():
           "the quest script's Diseases property must bind the quest form, or the cure cannot reach the disease script")
 
 
-def constant(source_code, name):
-    match = re.search(rf"float Property {name} = ([0-9.]+) Auto Const", source_code)
-    return float(match.group(1)) if match else None
+def tune(props, name):
+    return float(props[name]) if isinstance(props.get(name), (int, float)) else None
 
 
-# Constraint: the quest script is the only rate owner now that the native clock is gone.
+# Constraint: tuning lives in VMAD floats, so changing it needs no Papyrus compile.
 for prop, expected in (("HourlyHunger", 0.05), ("HourlyThirst", 0.10), ("HourlySleepDebt", 0.025)):
-    value = constant(source, prop)
-    check(value is not None, f"missing tuning constant {prop}")
+    value = tune(quest_script, prop)
+    check(value is not None, f"missing tuning float {prop} on the quest script VMAD")
     if value is not None:
-        check(abs(value - expected) < 1e-9,
+        check(abs(value - expected) < 1e-6,
               f"{prop} is {value}, expected {expected}: the quest script owns the pool rates")
+    check(re.search(rf"float Property {prop} = [0-9.]+ Auto$", source, re.M) is not None,
+          f"{prop} must stay a writable Auto float (no Const), or retuning needs a recompile")
 readme = ROOT / "README.md"
 check("needs.json" not in text(readme) if readme.is_file() else True,
       "the README must not still describe the removed needs.json rates")
@@ -630,11 +633,13 @@ for prop, key in (("HourlyRisk", "hourlyRisk"), ("RiskPerWeakStage", "riskPerWea
                   ("RiskPerSwim", "riskPerSwim"), ("SwimIntervalGameDays", "swimIntervalGameDays"),
                   ("HitCooldownSeconds", "hitCooldownSeconds"), ("RiskPerRadHour", "riskPerRadHour"),
                   ("RiskPerRainHour", "riskPerRainHour")):
-    value = constant(disease_source, prop)
-    check(value is not None, f"missing disease tuning constant {prop}")
+    value = tune(disease_script, prop)
+    check(value is not None, f"missing disease tuning float {prop} on the disease script VMAD")
     if value is not None:
-        check(abs(value - float(diseases["timing"][key])) < 1e-9,
+        check(abs(value - float(diseases["timing"][key])) < 1e-6,
               f"{prop} diverged from tools/rad_diseases.json ({value} vs {diseases['timing'][key]})")
+    check(re.search(rf"float Property {prop} = [0-9.]+ Auto$", disease_source, re.M) is not None,
+          f"{prop} must stay a writable Auto float (no Const), or retuning needs a recompile")
 
 # Invariant: one confirmed consumption reaches the disease script, which routes taint and cure.
 relief_body = function_body(code, "Function ApplyRelief(Form akItem, int aiCount)")
@@ -680,16 +685,25 @@ for entry in taint_manifest.get("keywords", []):
     prop = entry.get("riskProperty")
     if not prop:
         continue
-    value = constant(disease_source, prop)
-    check(value is not None, f"missing taint tuning constant {prop}")
+    value = tune(disease_script, prop)
+    check(value is not None, f"missing taint tuning float {prop} on the disease script VMAD")
     if value is not None:
-        check(abs(value - float(entry["risk"])) < 1e-9,
+        check(abs(value - float(entry["risk"])) < 1e-6,
               f"{prop} diverged from tools/rad_diseases.json ({value} vs {entry['risk']})")
 cure_match = re.search(r"int Property CureItemFormId = ([0-9]+) Auto Const", disease_source)
 check(cure_match is not None, "the disease script must carry the cure item's local form id")
 if cure_match:
     check(int(cure_match.group(1)) == int(taint_manifest.get("cure", {}).get("itemFormId", "0x0"), 16) & 0xFFFFFF,
           "CureItemFormId does not resolve the cure item the manifest ships")
+rad_away_ids = taint_manifest.get("cure", {}).get("extraCureFormIds", [])
+check(len(rad_away_ids) == 1, "the manifest must name the obtainable cure item")
+rad_away_match = re.search(r"int Property RadAwayFormId = ([0-9]+) Auto Const", disease_source)
+check(rad_away_match is not None
+      and "radAway" in function_body(disease_code, "bool Function IsCureItem(Form akItem)"),
+      "the disease script must accept the obtainable cure item, not only the nameless shipped one")
+if rad_away_match and rad_away_ids:
+    check(int(rad_away_match.group(1)) == int(rad_away_ids[0].split(":")[0], 16),
+          "RadAwayFormId does not resolve the obtainable cure the manifest names")
 
 
 # Constraint: the weather set and its ids are shared with the manifest, not restated by hand.
