@@ -63,6 +63,9 @@ float Property RiskPerTaintedWater = 0.15 Auto
 float Property RiskPerContaminated = 0.05 Auto
 ; 0x82C: the shipped cure ingestible; the record tool has no keyword write path
 int Property CureItemFormId = 2092 Auto Const
+; 0x82D..0x832: the six disease perks, so the Pip-Boy PERKS tab names what the player has
+int Property FeverPerkBase = 2093 Auto Const
+int Property WastingPerkBase = 2096 Auto Const
 ; 0x023742 Fallout4.esm: vanilla RadAway, the named and obtainable cure
 int Property RadAwayFormId = 145218 Auto Const
 
@@ -80,6 +83,7 @@ float ImmunityUntil = -1.0
 float LastHitRealTime = -1.0
 float NextSwimAllowed = 0.0
 Spell AppliedDiseaseSpell = None
+Perk AppliedDiseasePerk = None
 Form[] RadWeatherForms
 
 ; -----------------------------------------------------------------------------
@@ -120,7 +124,12 @@ Function Reconcile(bool abActive)
     if abActive && DiseasesEnabled && DiseaseId > 0 && DiseaseStage > 0
         wanted = DiseaseSpellFor(DiseaseId, DiseaseStage)
     endif
+    Perk wantedPerk = None
+    if wanted && DiseaseId > 0 && DiseaseStage > 0
+        wantedPerk = DiseasePerkFor(DiseaseId, DiseaseStage)
+    endif
     ApplySpell(wanted)
+    ApplyPerk(wantedPerk)
 EndFunction
 
 Function TryRestCure(float afHours, bool abInterrupted, bool abActive)
@@ -435,6 +444,7 @@ Function CureDisease()
     DiseaseProgress = 0.0
     RiskDebt = 0.0
     ApplySpell(None)
+    ApplyPerk(None)
     MirrorRisk()
     MirrorDisease()
     NotifyDisease("recovered from " + label + ", but vulnerable for a while")
@@ -457,6 +467,40 @@ Function ApplySpell(Spell akWanted)
     endif
     AppliedDiseaseSpell = akWanted
     Debug.Trace("[RadSurvivalDiseases] ability -> " + akWanted)
+EndFunction
+
+Function ApplyPerk(Perk akWanted)
+    Actor player = Game.GetPlayer()
+    if !player
+        return
+    endif
+    ; Constraint: a perk lost to a dispel must be re-applied on the next reconcile.
+    if AppliedDiseasePerk == akWanted && (!akWanted || player.HasPerk(akWanted))
+        return
+    endif
+    if AppliedDiseasePerk
+        player.RemovePerk(AppliedDiseasePerk)
+    endif
+    if akWanted
+        player.AddPerk(akWanted, false)
+    endif
+    AppliedDiseasePerk = akWanted
+EndFunction
+
+Perk Function DiseasePerkFor(int aiDisease, int aiStage)
+    int first = 0
+    if aiDisease == 1
+        first = FeverPerkBase
+    elseif aiDisease == 2
+        first = WastingPerkBase
+    else
+        return None
+    endif
+    if aiStage < 1 || aiStage > 3
+        return None
+    endif
+    Form perkForm = Game.GetFormFromFile(first + aiStage - 1, DiseasePlugin)
+    return perkForm as Perk
 EndFunction
 
 Spell Function DiseaseSpellFor(int aiDisease, int aiStage)

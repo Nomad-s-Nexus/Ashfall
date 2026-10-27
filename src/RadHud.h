@@ -28,6 +28,7 @@ public:
         const RadClimatePolicy::EnvironmentSample& environment, const RadClimatePolicy::StepResult& result);
     void PushAir(const std::string& payload);
     void PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot);
+    void PushSurvival(const RadNeedsPolicy::NeedsSnapshot& snapshot);
     void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
     void PushGhoulSettings(bool enabled, float chance);
@@ -88,6 +89,7 @@ private:
     std::atomic<uint64_t> _needsReadyView{ 0 };
     bool _needsWidgetRegistered = false;
     std::string _needsPayload;
+    std::string _survivalPayload;
 
     int _maskPushed = -1;
 

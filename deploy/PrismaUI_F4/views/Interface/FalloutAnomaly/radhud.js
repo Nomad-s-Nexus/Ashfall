@@ -222,8 +222,39 @@ window.SetDebugMenu = function(on) {
   }
 };
 
+var SURV_POOLS = [["hunger", "Hunger"], ["thirst", "Thirst"], ["sleepDebt", "Fatigue"]];
+var SURV_DISEASES = { 1: "FEVER", 2: "WASTING" };
+
+function survStage(percent) { return percent < 34 ? 0 : percent < 67 ? 1 : percent < 90 ? 2 : 3; }
+
+window.updateSurvival = function(json) {
+  var data = json;
+  if (typeof json === "string") { try { data = JSON.parse(json); } catch (e) { return; } }
+  if (!data) return;
+  var pools = document.getElementById("survivalPools");
+  if (pools) {
+    var rows = "";
+    for (var i = 0; i < SURV_POOLS.length; i++) {
+      var key = SURV_POOLS[i][0], label = SURV_POOLS[i][1];
+      var value = Math.max(0, Math.min(100, Math.round(+data[key] || 0)));
+      var stage = survStage(value);
+      rows += "<dt>" + label + "</dt><dd>" + value + "%" + (stage > 0 ? "  stage " + stage : "") + "</dd>";
+    }
+    pools.innerHTML = rows;
+  }
+  var illness = document.getElementById("survivalDisease");
+  if (illness) {
+    var risk = Math.max(0, Math.min(100, Math.round(+data.risk || 0)));
+    var packed = Math.max(0, Math.min(23, Math.round(+data.disease || 0)));
+    var id = Math.floor(packed / 10), stage = packed % 10;
+    var name = SURV_DISEASES[id] || "";
+    var state = id === 0 ? "NONE" : (stage > 0 ? name + " (stage " + stage + ")" : name + " (incubating)");
+    illness.innerHTML = "<dt>Exposure</dt><dd>" + risk + "%</dd><dt>Illness</dt><dd>" + state + "</dd>";
+  }
+};
+
 function showTab(which) {
-  var tabs = ["rad", "wthr", "ghouls", "armor", "hud"];
+  var tabs = ["rad", "wthr", "ghouls", "armor", "survival", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);

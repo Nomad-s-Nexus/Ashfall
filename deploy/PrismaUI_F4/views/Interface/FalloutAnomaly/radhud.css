@@ -239,7 +239,7 @@ html, body {
   .armor-records { min-width: 500px; }
   .armor-schematic { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); gap: 10px; }
 }
-#debugPanel .dbg-help { color: #a8c8a8; font-size: 10px; line-height: 1.45; letter-spacing: .5px; margin: 7px 0; }
+#debugPanel .dbg-help { color: #bcdcbc; font-size: 12px; line-height: 1.45; letter-spacing: .5px; margin: 7px 0; }
 #debugPanel .ghoul-range { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 #debugPanel .ghoul-range label { width: 48px; flex: none; color: #b6ffb6; font-size: 10px; letter-spacing: 1px; }
 #debugPanel .ghoul-range input[type=range] { flex: 1; accent-color: #5cbe60; cursor: pointer; }
@@ -254,7 +254,7 @@ html, body {
 #debugPanel::-webkit-scrollbar { width: 7px; }
 #debugPanel::-webkit-scrollbar-thumb { background: #2f9e2f; border-radius: 4px; }
 #debugPanel .dbg-title { font-size: 16px; letter-spacing: 3px; color: #b6ffb6; margin-bottom: 12px; text-shadow: 0 0 6px rgba(40,255,80,.6); }
-#debugPanel .dbg-sec { font-size: 12px; letter-spacing: 2px; color: #7fd07f; margin: 12px 0 5px; border-bottom: 1px solid #1d4d1d; padding-bottom: 3px; }
+#debugPanel .dbg-sec { font-size: 14px; letter-spacing: 2px; color: #7fd07f; margin: 12px 0 5px; border-bottom: 1px solid #1d4d1d; padding-bottom: 3px; }
 #debugPanel .dbg-row { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
 #debugPanel button {
   flex: 1; background: rgba(20,60,24,.9);
@@ -294,11 +294,11 @@ html, body {
 }
 #specialPopupClose:hover { background: rgba(60,120,64,.85); box-shadow: 0 0 6px rgba(60,255,90,.5); }
 
-.diagnostics{margin:12px 0 20px;padding:16px;border:1px solid #30492a;color:#bed3b2}
-.diagnostics h2{font-size:13px;font-weight:normal;letter-spacing:2px;margin:0 0 16px}
+.diagnostics{margin:12px 0 20px;padding:16px;border:1px solid #30492a;color:#cde3c0}
+.diagnostics h2{font-size:17px;font-weight:normal;letter-spacing:2px;margin:0 0 16px;color:#d8f0cb}
 .diagnostic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
-.diagnostics h3{font-size:11px;font-weight:normal;letter-spacing:1px;margin:0 0 10px;color:#91b183}
-.diagnostics dl{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0;font-size:11px}
+.diagnostics h3{font-size:14px;font-weight:normal;letter-spacing:1px;margin:0 0 10px;color:#a9cb96}
+.diagnostics dl{display:grid;grid-template-columns:1fr auto;gap:7px 12px;margin:0;font-size:15px}
 .diagnostics dd{text-align:right;margin:0;color:#d0e5c5;font-variant-numeric:tabular-nums}
-.diagnostics p{font-size:10px;line-height:1.6;margin:12px 0 0;color:#96ae8b}
+.diagnostics p{font-size:12px;line-height:1.6;margin:12px 0 0;color:#a9c39c}
 @media(max-width:650px){.diagnostic-grid{grid-template-columns:1fr}}

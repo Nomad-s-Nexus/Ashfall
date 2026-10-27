@@ -1,0 +1,12 @@
+{
+  "_comment": "Display names the FO4IDE writer cannot set (Authoring\\FULL is refused on every record type). tools/patch_full_names.py inserts these into RadSurvival.esp after a build.",
+  "names": {
+    "RadSurvival_CureItem": "Rad Cure Compound",
+    "RadSurvival_PerkFever1": "Fever (Stage 1)",
+    "RadSurvival_PerkFever2": "Fever (Stage 2)",
+    "RadSurvival_PerkFever3": "Fever (Stage 3)",
+    "RadSurvival_PerkWasting1": "Wasting (Stage 1)",
+    "RadSurvival_PerkWasting2": "Wasting (Stage 2)",
+    "RadSurvival_PerkWasting3": "Wasting (Stage 3)"
+  }
+}

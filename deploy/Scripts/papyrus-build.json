@@ -14,9 +14,9 @@
     {
       "script": "RadSurvivalDiseases",
       "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
-      "sourceSha256": "b54f7c831f3fb371115ed49e75d09c67e5f8b7603907661e904612e3a47bf218",
+      "sourceSha256": "9b1fa79f4b0d9923d7b24e5ec2ce67bdf365c3a704ae964a92d8685e336f5bcc",
       "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
-      "pexSha256": "1453d429abd1147b1e6b7af8c540ab16e21a8f9fe01817f03cbed7908215efaf",
+      "pexSha256": "837e457eb4235a90954331df8763c06baeb20d25d6dd329bb7d134a549d4c532",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
     },
     {

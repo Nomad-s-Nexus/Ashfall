@@ -70,6 +70,7 @@ void NeedsRuntime::Update()
         snapshot = RadNeedsPolicy::Sanitize(snapshot);
     }
     RadHud::GetSingleton().PushNeeds(snapshot);
+    RadHud::GetSingleton().PushSurvival(snapshot);
 }
 
 void NeedsRuntime::Reset()
