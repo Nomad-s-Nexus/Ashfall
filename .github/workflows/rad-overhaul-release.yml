@@ -28,7 +28,7 @@ concurrency:
 jobs:
   release:
     name: Build, package & publish (MSVC, self-hosted Windows)
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: largepluginmods-windows
     defaults:
       run:
         shell: pwsh
@@ -45,41 +45,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout commonlib_NonVR (RE authority)
-        env:
-          RE_COMMONLIB_READ_USER: ${{ vars.RE_COMMONLIB_READ_USER || 'nomad' }}
-          RE_COMMONLIB_READ_TOKEN: ${{ secrets.RE_COMMONLIB_READ_TOKEN }}
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      - name: Verify commonlib_NonVR (RE authority)
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          foreach ($v in 'RE_COMMONLIB_READ_TOKEN', 'CF_ACCESS_CLIENT_ID', 'CF_ACCESS_CLIENT_SECRET') {
-            if (-not [Environment]::GetEnvironmentVariable($v)) { throw "secret $v is not set" }
-          }
-          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private) —
+          # Constraint: the release builds against the same runner-provisioned checkout the PR build validates,
+          # so the release path needs no repository secret and cannot clone over the shared authority checkout.
+          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private),
           # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Bump this SHA deliberately.
-          # (commonlib_NonVR pulls its own lib/commonlib-shared submodule; that is the fork's internal
-          # dependency, not CommonLibF4.) Auth via the COMMONLIB_READ_TOKEN repo secret; Actions masks it.
           $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'   # commonlib_NonVR: AE CreateExplosionAtLocation 2192306 (#72), public inventory event sources, survival bindings
-          $root = Split-Path -Parent (Split-Path -Parent $env:GITHUB_WORKSPACE)
-          $commonLib = Join-Path $root 'commonlib_NonVR'
-          foreach ($stale in @($commonLib, (Join-Path $root 'CommonLibF4'))) {
-            if (Test-Path $stale) { Remove-Item -Recurse -Force $stale }
-          }
-          git init -q $commonLib
-          git -C $commonLib remote add origin 'https://re.nomadicinteractive.dev/ReverseEng/commonlib_NonVR.git'
-          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($env:RE_COMMONLIB_READ_USER):$($env:RE_COMMONLIB_READ_TOKEN)"))
-          Write-Host "::add-mask::$basic"
-          git -C $commonLib -c credential.helper= `
-            -c "http.extraHeader=Authorization: Basic $basic" `
-            -c "http.extraHeader=CF-Access-Client-Id: $($env:CF_ACCESS_CLIENT_ID)" `
-            -c "http.extraHeader=CF-Access-Client-Secret: $($env:CF_ACCESS_CLIENT_SECRET)" `
-            fetch -q --depth 1 origin $commonLibSha
-          git -C $commonLib checkout -q FETCH_HEAD
-          git -C $commonLib submodule update --init --recursive --depth 1
+          $commonLib = $env:COMMONLIBF4_PATH
+          if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
           $pinned = (git -C $commonLib rev-parse HEAD).Trim()
           if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
+          if (git -C $commonLib status --porcelain --untracked-files=no) { throw 'CommonLib reference has tracked changes' }
+          git -C $commonLib submodule foreach --recursive 'git diff --exit-code HEAD'
+          $submodule = (git -C $commonLib submodule status --recursive) -join "`n"
+          if ($submodule -match '(?m)^[+U-]') { throw 'CommonLib submodule does not match its pin' }
           if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) {
             throw 'RE-Work marker missing — checkout is not commonlib_NonVR'
           }
@@ -97,6 +79,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           python --version
+          python tests/verify_ci_deploy.py
           python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python tests/verify_mask_extras.py
           python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
