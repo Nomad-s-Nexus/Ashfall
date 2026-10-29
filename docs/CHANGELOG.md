@@ -1,6 +1,18 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-28: roofless-interior rain (Concord Museum of Freedom, build-verified only)
+
+**Rain can now reach the player inside one approved roofless interior.** `climate_weather.json` gained a
+`rooflessInteriorCells` list with exactly one entry, `Fallout4.esm:0x017DF7` (ConcordMuseum01), resolved through
+`TESDataHandler::LookupForm` with the weather overrides. A listed interior is treated like an exterior for
+precipitation only when the existing five-ray roof probe finds open sky; a roofed result gives zero, every unlisted
+or unresolved interior keeps the old dry rule, and the interior keeps its indoor thermal shelter. `wetness` uses the
+list too, so the exposed part can actually wet the player. Policy covered by `tests/climate_policy_tests.cpp`
+(listed+open, listed+roofed, unlisted interior, exterior, unresolved entry) and a new
+`tests/verify_climate_roofless.py`; both CI workflows run it. Not played in game: whether the museum's play space is
+genuinely open to the sky still needs the in-game check in `docs/IN_GAME_TEST_CHECKLIST.md`.
+
 ## 2026-10-28: review-round fixes (consumption arrays, relief INI bridge, overlay alpha, hysteresis, hotkeys)
 
 **Consumption reliability.** The candidate arrays are now initialised in `OnInit` and re-initialised by the prune
@@ -90,6 +102,11 @@ consumes a bottle. `[Water] Enabled=1` controls the feature and the default
 filled twice; on Very Hard the vanilla perk does not fill, so this hook is the only filler there. The
 hook builds and its policy unit test runs, but it has not been played in game yet, and whether the
 activate event fires once or twice when entering/exiting pump furniture is unverified.
+Follow-ups on the same feature: the same-target debounce is stamped only after a confirmed fill, so a
+refused removal does not arm it; the clean-water wording now states that only `Vault81` and
+`Vault81Entry` are maintained cells (the lab, holding cell and exterior are dirty); and the sneak gate
+is called out as deliberately different from vanilla Survival, which fills a bottle on a plain
+activation without sneaking.
 
 ## 2026-10-28: bounded RadStormFX shake burst
 
