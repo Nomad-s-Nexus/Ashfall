@@ -7,6 +7,7 @@
 #include <RE/B/BGSKeyword.h>
 #include <RE/B/BGSKeywordForm.h>
 #include <RE/B/BSTEvent.h>
+#include <RE/D/DifficultyLevel.h>
 #include <RE/I/ITEM_REMOVE_REASON.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/T/TESActivateEvent.h>
@@ -45,6 +46,17 @@ namespace
     bool EnabledInIni()
     {
         return ::GetPrivateProfileIntA("Water", "Enabled", 1, kIni) != 0;
+    }
+
+    bool SkipWhenVanillaSurvivalInIni()
+    {
+        return ::GetPrivateProfileIntA("Water", "SkipWhenVanillaSurvival", 1, kIni) != 0;
+    }
+
+    // Constraint: vanilla's own HC_FillWaterBottlePerk still runs in Survival, so yielding there avoids a double fill.
+    bool VanillaSurvivalActive(RE::PlayerCharacter* a_player)
+    {
+        return SkipWhenVanillaSurvivalInIni() && a_player->GetDifficultyLevel() == RE::DifficultyLevel::kTrueSurvival;
     }
 
     // Constraint: an unresolved form is skipped, never guessed -- a wrong form ID would remove the wrong item.
@@ -174,8 +186,8 @@ namespace
                 base ? base->GetFormID() : 0, pump, g_sourceIDs.data(), g_sourceCount);
 
             const auto bottle = waterSource ? FirstBottleHeld(player) : RadWaterFillPolicy::kBottleNotFound;
-            const auto decision = RadWaterFillPolicy::Decide(
-                EnabledInIni(), waterSource, bottle == RadWaterFillPolicy::kBottleNotFound ? 0 : 1);
+            const auto decision = RadWaterFillPolicy::Decide(EnabledInIni(), VanillaSurvivalActive(player), waterSource,
+                bottle == RadWaterFillPolicy::kBottleNotFound ? 0 : 1);
             if (decision != RadWaterFillPolicy::Decision::kFill)
                 return RE::BSEventNotifyControl::kContinue;
 
@@ -235,7 +247,7 @@ bool WaterBottleFill::ActivateOnGameThread()
 
     g_active.store(true, std::memory_order_release);
     if (logger)
-        logger->info("[Water] bottle filling active: {} empty bottle form(s), {} water source(s), output={}.", g_bottleCount,
-            g_sourceCount, RadWaterFillPolicy::kFilledWater.editorID);
+        logger->info("[Water] bottle filling active: {} empty bottle form(s), {} water source(s), output={}, skipVanillaSurvival={}.",
+            g_bottleCount, g_sourceCount, RadWaterFillPolicy::kFilledWater.editorID, SkipWhenVanillaSurvivalInIni());
     return true;
 }

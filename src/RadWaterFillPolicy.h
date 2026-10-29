@@ -69,6 +69,7 @@ namespace RadWaterFillPolicy
     {
         kFill,
         kDisabled,
+        kVanillaSurvival,
         kNotWaterSource,
         kNoEmptyBottle
     };
@@ -101,11 +102,13 @@ namespace RadWaterFillPolicy
         return kBottleNotFound;
     }
 
-    // Constraint: exactly one bottle per activation, and only at a water source.
-    constexpr Decision Decide(bool a_enabled, bool a_waterSource, std::size_t a_availableBottles)
+    // Constraint: exactly one bottle per activation, only at a water source, and never while vanilla Survival fills it.
+    constexpr Decision Decide(bool a_enabled, bool a_vanillaSurvival, bool a_waterSource, std::size_t a_availableBottles)
     {
         if (!a_enabled)
             return Decision::kDisabled;
+        if (a_vanillaSurvival)
+            return Decision::kVanillaSurvival;
         if (!a_waterSource)
             return Decision::kNotWaterSource;
         if (a_availableBottles == 0)

@@ -4,11 +4,13 @@
 ## 2026-10-28: empty bottles fill at water sources (build-verified only)
 
 **Empty bottles at water sources.** Activating a drinking water source while holding an empty bottle now
-consumes one bottle and adds one vanilla Dirty Water, through a native `TESActivateEvent` sink instead
-of the vanilla `HC_*` Survival path — no `HC_*` record is read or written. Built-in tables cover the 26
-vanilla empty-bottle items and the ten vanilla/DLC drinking activators, plus the `AnimFurnWaterPump`
-keyword for mod-added pumps; `[Water] Enabled=1` in `FalloutAnomalyRadiation.ini` controls it. The hook
-builds and its policy unit test runs, but it has not been played in game yet.
+consumes one bottle and adds one vanilla Dirty Water, through a native `TESActivateEvent` sink that runs
+independently of the vanilla `HC_*` Survival path — no `HC_*` record is read or written. Built-in tables
+cover the 26 vanilla empty-bottle items and the ten vanilla/DLC drinking activators, plus the
+`AnimFurnWaterPump` keyword for mod-added pumps. `[Water] Enabled=1` controls the feature and the default
+`SkipWhenVanillaSurvival=1` leaves filling to vanilla when the game is itself in Survival difficulty, so a
+bottle is never filled twice. The hook builds and its policy unit test runs, but it has not been played in
+game yet.
 
 ## 2026-10-28: bounded RadStormFX shake burst
 

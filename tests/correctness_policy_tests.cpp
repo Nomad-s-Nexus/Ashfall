@@ -209,13 +209,55 @@ int main()
     Require(kEmptyBottles.size() == 26);
     Require(kWaterSources.size() == 10);
     Require(std::strcmp(kEmptyBottles[0].editorID, "NukaColaEmpty") == 0);
-    Require(kEmptyBottles[0].localID == 0x0004835A);
     Require(std::strcmp(kEmptyBottles.back().editorID, "DN050BabyBottle") == 0);
-    Require(kEmptyBottles.back().localID == 0x0009B4BA);
     Require(std::strcmp(kFilledWater.editorID, "WaterDirty") == 0);
     Require(kFilledWater.localID == 0x000366BF);
     Require(std::strcmp(kWaterPumpKeyword.editorID, "AnimFurnWaterPump") == 0);
     Require(kWaterPumpKeyword.localID == 0x000DCDD9);
+
+    const std::uint32_t expectedBottles[]{
+        0x0004835A, 0x000211DD, 0x000DF221, 0x000DF222, 0x000DF223, 0x000DF24D, 0x000DEDDF, 0x0014A138,
+        0x000DEDE0, 0x000DEDE1, 0x000DEDED, 0x001BEAEE, 0x0003B55B, 0x0011EA9B, 0x0011EA9E, 0x0011EA9C,
+        0x0011EA9D, 0x0011EAA0, 0x0011EA9F, 0x000DEDD9, 0x000DF031, 0x000DF032, 0x0017604F, 0x001A89A0,
+        0x001A899B, 0x0009B4BA,
+    };
+    Require(sizeof(expectedBottles) / sizeof(expectedBottles[0]) == kEmptyBottles.size());
+    for (std::size_t i = 0; i < kEmptyBottles.size(); ++i)
+    {
+        Require(kEmptyBottles[i].localID == expectedBottles[i]);
+        Require(std::strcmp(kEmptyBottles[i].plugin, "Fallout4.esm") == 0);
+    }
+
+    struct ExpectedSource
+    {
+        const char*   plugin;
+        std::uint32_t localID;
+    };
+    const ExpectedSource expectedSources[]{
+        { "Fallout4.esm", 0x000B1CFE },
+        { "Fallout4.esm", 0x0020DE62 },
+        { "Fallout4.esm", 0x000C3676 },
+        { "Fallout4.esm", 0x000F5D8D },
+        { "Fallout4.esm", 0x001A4AA4 },
+        { "Fallout4.esm", 0x000DB83B },
+        { "DLCCoast.esm", 0x00039A92 },
+        { "DLCworkshop03.esm", 0x0000251F },
+        { "DLCworkshop03.esm", 0x00001D3D },
+        { "DLCworkshop03.esm", 0x000049AD },
+    };
+    Require(sizeof(expectedSources) / sizeof(expectedSources[0]) == kWaterSources.size());
+    for (std::size_t i = 0; i < kWaterSources.size(); ++i)
+    {
+        Require(kWaterSources[i].localID == expectedSources[i].localID);
+        Require(std::strcmp(kWaterSources[i].plugin, expectedSources[i].plugin) == 0);
+    }
+
+    // Constraint: entries must be local IDs, because LookupForm adds the file's own compile index.
+    for (const auto& ref : kEmptyBottles)
+        Require(ref.localID < 0x01000000);
+    for (const auto& ref : kWaterSources)
+        Require(ref.localID < 0x01000000);
+
     for (std::size_t i = 0; i < kEmptyBottles.size(); ++i)
         for (std::size_t j = i + 1; j < kEmptyBottles.size(); ++j)
             Require(!(kEmptyBottles[i].localID == kEmptyBottles[j].localID &&
@@ -240,11 +282,13 @@ int main()
     Require(FirstAvailableBottle(someBottles, 3) == 1);
     Require(FirstAvailableBottle(nullptr, 3) == kBottleNotFound);
 
-    Require(Decide(true, true, 1) == Decision::kFill);
-    Require(Decide(false, true, 1) == Decision::kDisabled);
-    Require(Decide(true, false, 1) == Decision::kNotWaterSource);
-    Require(Decide(true, true, 0) == Decision::kNoEmptyBottle);
-    Require(Decide(true, false, 0) == Decision::kNotWaterSource);
+    Require(Decide(true, false, true, 1) == Decision::kFill);
+    Require(Decide(false, false, true, 1) == Decision::kDisabled);
+    // Constraint: vanilla Survival fills the same bottle, so the native path must yield on difficulty 6.
+    Require(Decide(true, true, true, 1) == Decision::kVanillaSurvival);
+    Require(Decide(true, false, false, 1) == Decision::kNotWaterSource);
+    Require(Decide(true, false, true, 0) == Decision::kNoEmptyBottle);
+    Require(Decide(true, false, false, 0) == Decision::kNotWaterSource);
 
     return 0;
 }
