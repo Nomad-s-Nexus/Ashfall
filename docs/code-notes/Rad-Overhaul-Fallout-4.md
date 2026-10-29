@@ -742,3 +742,10 @@ same text, relocated so the source carries only constraints.
 
 - Same per-game-hour rate as live rest, gated on current rads.
 
+### RadStormFX Papyrus shake burst
+
+Reference: `deploy/Scripts/Source/User/RadStormFX.psc:_StartShake` and `RadStormFX.psc:DebugNotify`.
+
+- The burst loop was `While (_shaking)` and only `_StopShake` (stage 20) cleared the flag, so `t = (BurstSteps - I) / BurstSteps` went negative after `BurstSteps` iterations and `ShakeCamera`/`ShakeController` were fed negative magnitudes while the rumble timer never started. The loop is now bounded by `I < BurstSteps`, which is what lets the existing `If (_shaking) StartTimer(RumbleInterval, _kRumbleTimer)` run. `DebugNotify` now defaults to false so the on-screen `[StormFX]` notifications are opt-in.
+- This repairs the script's own logic only. The Papyrus shake has never run on any save: `SetStage` returned false on all 35 logged attempts (`docs/ISSUES_FIXED.md`), and the native `NativeShakeCamera` path does the shake that actually plays. Do not read this as a live-bug fix.
+

@@ -1,6 +1,15 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-28: bounded RadStormFX shake burst
+
+**RadStormFX shake burst.** `_StartShake` looped `While (_shaking)` and only `_StopShake` cleared the
+flag, so after `BurstSteps` iterations the magnitude went negative and the rumble timer never started.
+The loop is now bounded by `I < BurstSteps`, which lets the existing `If (_shaking) StartTimer(...)`
+run. `DebugNotify` now defaults to false so the on-screen `[StormFX]` spam stops. This repairs the
+script only: the Papyrus shake has never run on any save (`SetStage` fails — see `docs/ISSUES_FIXED.md`),
+and the native `NativeShakeCamera` path is what actually shakes the camera.
+
 ## 2026-07-19: black storm dome FIXED (confirmed in-game); storm siren logging + debug lead
 
 **Black dome [FIXED — confirmed in-game 2026-07-19].** Closes the Issue 1 left open by pt13 below.

@@ -6,10 +6,10 @@
     {
       "script": "RadStormFX",
       "source": "deploy/Scripts/Source/User/RadStormFX.psc",
-      "sourceSha256": "599971c5017244aa6438244d3ba9788fd9dadac9612e490378d04cf21dc62f69",
+      "sourceSha256": "f3d8c57327e768c8643703e82443caa02f032921c0238bacb58309e46fb3e7a4",
       "pex": "deploy/Scripts/RadStormFX.pex",
-      "pexSha256": "87f8fb88f53987c67f49bc971ab6d4acb8d3bf39f1838d8c1ddf380fd2f50a18",
-      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadStormFX.psc"
+      "pexSha256": "49c52db41e0cdde51d9ce982868980c690a74104f4641f97b575f5f75531d5d8",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadStormFX.psc"
     },
     {
       "script": "RadSurvivalDiseases",
