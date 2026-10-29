@@ -1,14 +1,15 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
-## 2026-10-28: roofless-interior rain (Concord Museum of Freedom, build-verified only)
+## 2026-10-29: roofless-interior rain (Concord Museum of Freedom, build-verified only)
 
 **Rain can now reach the player inside one approved roofless interior.** `climate_weather.json` gained a
 `rooflessInteriorCells` list with exactly one entry, `Fallout4.esm:0x017DF7` (ConcordMuseum01), resolved through
 `TESDataHandler::LookupForm` with the weather overrides. A listed interior is treated like an exterior for
 precipitation only when the existing five-ray roof probe finds open sky; a roofed result gives zero, every unlisted
 or unresolved interior keeps the old dry rule, and the interior keeps its indoor thermal shelter. `wetness` uses the
-list too, so the exposed part can actually wet the player. Policy covered by `tests/climate_policy_tests.cpp`
+list too, so the exposed part can actually wet the player (`[Climate] Roofless interior roof cover changed` logs
+`rainCover=0%` for open sky and `rainCover=100%` for a covered spot). Policy covered by `tests/climate_policy_tests.cpp`
 (listed+open, listed+roofed, unlisted interior, exterior, unresolved entry) and a new
 `tests/verify_climate_roofless.py`; both CI workflows run it. Not played in game: whether the museum's play space is
 genuinely open to the sky still needs the in-game check in `docs/IN_GAME_TEST_CHECKLIST.md`.

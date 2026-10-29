@@ -106,6 +106,8 @@ int main()
     // Constraint: leading-zero forms are rejected rather than silently read as octal.
     Require(!ParseHotkey("010", hotkey));
     Require(!ParseHotkey("08", hotkey));
+    Require(!ParseHotkey("+8", hotkey));
+    Require(!ParseHotkey("+010", hotkey));
     Require((ParseHotkey("0", hotkey) && hotkey == 0));
     // Constraint: a trailing INI comment is ignored, and left/right Shift are never mask keys.
     Require(ParseHotkey("117 ; F6", hotkey) && hotkey == 117);
@@ -146,6 +148,9 @@ int main()
     Require(reliefList[0].localID == 0x58AB8 && reliefList[1].localID == 0xE9284);
     Require(RadReliefPolicy::ParseList("", nullptr).empty());
     Require(RadReliefPolicy::SplitEntries(" A:0x1 , , B.esp:2, ").size() == 2);
+    // Constraint: a trailing ; comment is stripped per token, so INI notes can follow entries.
+    Require(RadReliefPolicy::SplitEntries("A.esp:0x1 ; food, B.esp:0x2 ; thirst").size() == 2);
+    Require(RadReliefPolicy::ParseList("A.esp:0x1 ; note").size() == 1);
     // Constraint: interiors, shelter, powered shelters and a sealed suit are not rad-weather exposure.
     Require(RadWeatherExposed(true, false, false, false, false));
     Require(!RadWeatherExposed(true, true, false, false, false));

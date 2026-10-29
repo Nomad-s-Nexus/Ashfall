@@ -350,9 +350,9 @@ The survival layer is vanilla Papyrus: `RadSurvivalQuest.psc` owns the pools, th
 stage abilities, `RadSurvivalDiseases.psc` owns the disease state, and `RadStormFX.psc` is the storm
 visual effect. `RadSurvivalQuest.psc` now needs the F4SE plugin (RadiationOverhaul) loaded: its
 `GetReliefFlags` native is the `[Relief]` INI bridge, so without the DLL those extras stay off and an
-ingestible equip logs an unbound-native error. Every one of them ships as committed bytecode next to
-its source, so a mod build needs
-no compiler at all - but a source edit that never reached the `.pex` would ship stale behaviour.
+ingestible equip logs an unbound-native error. Every script ships as committed bytecode next to its
+source, so the Papyrus layer needs no compiler at build time - but a source edit that never reached
+the `.pex` would ship stale behaviour.
 
 **Compile.** FO4IDE's built-in engine, no Creation Kit:
 

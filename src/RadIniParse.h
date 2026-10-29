@@ -15,7 +15,7 @@ namespace RadIniParse
             text.remove_prefix(1);
         while (!text.empty() && (text.back() == ' ' || text.back() == '\t'))
             text.remove_suffix(1);
-        if (text.empty())
+        if (text.empty() || text.front() == '+')
             return false;
 
         // Constraint: "010" would be read as octal by base-0 parsing, so only plain decimal or 0x-hex is accepted.

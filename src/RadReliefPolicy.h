@@ -25,7 +25,7 @@ namespace RadReliefPolicy
         return a_text.substr(first, last - first + 1);
     }
 
-    // Constraint: one raw token per comma; empty tokens are dropped so a trailing comma is not an error.
+    // Constraint: one token per comma, and a trailing ';' starts an inline comment that is stripped.
     inline std::vector<std::string_view> SplitEntries(std::string_view a_raw)
     {
         std::vector<std::string_view> out;
@@ -33,7 +33,10 @@ namespace RadReliefPolicy
         for (;;)
         {
             const auto comma = a_raw.find(',', start);
-            const auto piece = comma == std::string_view::npos ? a_raw.substr(start) : a_raw.substr(start, comma - start);
+            auto       piece = comma == std::string_view::npos ? a_raw.substr(start) : a_raw.substr(start, comma - start);
+            const auto comment = piece.find(';');
+            if (comment != std::string_view::npos)
+                piece = piece.substr(0, comment);
             const auto trimmed = Trim(piece);
             if (!trimmed.empty())
                 out.push_back(trimmed);

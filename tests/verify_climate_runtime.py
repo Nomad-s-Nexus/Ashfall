@@ -43,9 +43,10 @@ for token in (
     "environment.precipitationShelter01 = shelter.precipitation01;",
     "environment.heat01 = _heat.Sample(player);",
     "environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;",
-    "auto shelter = _shelter.Sample(player);",
+    "auto shelter = rooflessInterior",
     "environment.rooflessInterior = rooflessInterior;",
-    "_shelter.SampleRooflessInterior(player, cell);",
+    "? _shelter.SampleRooflessInterior(player, cell)",
+    ": _shelter.Sample(player);",
     "ClimateRuntime::Reset()",
     "_shelter.Reset();",
     "_heat.Reset();",
@@ -60,6 +61,14 @@ for token in (
     "return 8;",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
+
+# Constraint: one sampler per tick, chosen by the roofless flag; never sample both.
+assert runtime.count("_shelter.Sample(player)") == 1, "Update must call the normal shelter sampler exactly once"
+assert runtime.count("SampleRooflessInterior(player, cell)") == 1, (
+    "Update must call the roofless sampler exactly once")
+assert "auto shelter = _shelter.Sample(player);" not in runtime, (
+    "Update must not call the normal sampler before deciding on the roofless sampler")
+
 
 for token in (
     "ModActorValue",

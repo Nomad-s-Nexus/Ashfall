@@ -834,9 +834,9 @@ Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:OnInit`, `:OnItemRem
   `akItemReference` is not a reliable drop indicator and is not claimed to be one.
 - Relief INI bridge: `[Relief] ExtraFoodKeywords`, `ExtraThirstKeywords`, `ExtraFoodItems`, `ExtraThirstItems` are read
   by `RadReliefConfig` (plugin + local id, `RadReliefPolicy::ParseList`), resolved through `TESDataHandler::LookupForm`
-  once on the game thread, and exposed to Papyrus as the native functions `IsExtraFoodItem`/`IsExtraThirstItem`
-  (`RadReliefConfig::InstallPapyrusBridge`, registered from `F4SEPlugin_Load`). `RadSurvivalQuest.psc` calls them from
-  `IsConsumable` and `ApplyRelief`; no `HC_*` form is read. The shipped `ExtraThirstItems` entry carries
+  once on the game thread, and exposed to Papyrus as one native, `GetReliefFlags` (bit 1 = food, bit 2 = thirst)
+  (`RadReliefConfig::InstallPapyrusBridge`, registered from `F4SEPlugin_Load`). `RadSurvivalQuest.psc` calls it only
+  for `Potion` items from `IsConsumable` and `ApplyRelief`; no `HC_*` form is read. The shipped `ExtraThirstItems` entry carries
   `Fallout4.esm:0x058AB8` (RefreshingBeverage) and `Fallout4.esm:0x0E9284` (MS17DeezerLemonade), both vanilla ALCH
   drinks that only carry `HC_SustenanceType_QuenchesThirst` 0x000884 (verified with FO4IDE) and would otherwise get no
   thirst relief. Spoiled food (`MoldyFood01` 0x001A6397, the seven `*Witherd` records 0x01000800-0x01000813) is

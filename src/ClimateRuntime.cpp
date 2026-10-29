@@ -130,9 +130,9 @@ void ClimateRuntime::Update()
     const auto weatherOverride = ((!indoors || rooflessInterior) && weather)
         ? _weatherConfig.Override(weather->GetFormID())
         : std::nullopt;
-    auto shelter = _shelter.Sample(player);
-    if (rooflessInterior)
-        shelter = _shelter.SampleRooflessInterior(player, cell);
+    auto shelter = rooflessInterior
+        ? _shelter.SampleRooflessInterior(player, cell)
+        : _shelter.Sample(player);
     const bool roofed = _shelter.LastRoofed();
     const auto gameMonth = GameMonth();
 

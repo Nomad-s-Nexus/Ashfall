@@ -69,13 +69,18 @@ matches. Mark everything else NOT RUN.
   Proof: FalloutAnomaly.log `[Water] filled one` line names the output; HUD message.
 
 ## 8. Roofless interior rain (ConcordMuseum01 is in the shipped whitelist)
-- **Stand under the open sky in ConcordMuseum01 (Museum of Freedom) while it rains outside.** Expected: wetness
-  rises and the rain is visible again (proof: `[Climate] Roofless interior roof cover changed: cell=0x...,
-  roofed=false, rainCover=100%` in FalloutAnomaly.log, and the wetness value climbs).
-- **Stand under a roofed part of the same cell while it rains.** Expected: no rain and no wetness gain (proof:
+- **Stand under the open sky in ConcordMuseum01 (Museum of Freedom) while it rains outside.** Expected: the player's
+  wetness rises; the climate layer changes only the wetness/thermal response, it does not add its own rain particles
+  (proof: `[Climate] Roofless interior roof cover changed: cell=0x..., roofed=false, rainCover=0%` in
+  FalloutAnomaly.log, and the wetness value climbs).
+- **Stand under a roofed part of the same cell while it rains.** Expected: no wetness gain (proof:
   `roofed=true, rainCover=100%` for the same cell and wetness does not rise).
 - **Stand in an unlisted interior (any other building) while it rains.** Expected: dry as before (no roofless log line
   for that cell).
+- **Probe throttling in ConcordMuseum01:** move less than 96 units inside the cell and confirm no new
+  `[Climate] Roofless interior roof cover changed` line appears; move 96 units or more, or change cell, and confirm
+  exactly one new line. The throttle is `RadClimateShelterPolicy::ShouldProbe` (`>= kProbeMoveDistance` squared, or a
+  cell change); its in-game firing rate is unverified until this step runs.
 
 ## 9. Needs persistence
 - **New character:** hunger/thirst/sleep start at 0 (GLOB defaults). Log: `[RadSurvivalQuest] ready at game day ...`.
