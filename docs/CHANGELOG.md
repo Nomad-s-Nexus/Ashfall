@@ -1,6 +1,25 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-28: review-round fixes (consumption arrays, relief INI bridge, overlay alpha, hysteresis, hotkeys)
+
+**Consumption reliability.** The candidate arrays are now initialised in `OnInit` and re-initialised by the prune
+guard, so the first meal on a new game or a mid-save install credits relief instead of writing to None arrays. The
+removal handler does the cheap form/ammo/consumable checks before the player and difficulty lookups, because every
+shot fires ammo removal events. A world drop is documented as rejected only through the equip pairing; the code no
+longer implies `akItemReference` proves it. **Generic relief INI bridge.** `[Relief] ExtraFoodKeywords`,
+`ExtraThirstKeywords`, `ExtraFoodItems` and `ExtraThirstItems` add other mods' food/drink without code changes
+(`src/RadReliefConfig.cpp`, native Papyrus functions); the shipped defaults cover the two vanilla drinks that only
+carry `HC_SustenanceType_QuenchesThirst` (RefreshingBeverage 0x058AB8, MS17DeezerLemonade 0x0E9284), and spoiled food is
+deliberately not credited. **Visor overlay.** The visor and its fog no longer rely on CSS `mask-image`: the HUD clear
+zones are baked into the PNG alpha (top-left messages, centre readouts, bottom-centre XP) and the HUD test decodes the
+PNGs and checks real alpha. **Auto-don.** A 3 s stable-exposure requirement stops doorway flapping, a null parent cell
+is skipped instead of read as exterior, and an auto-donned mask saved before a load is still removed after it.
+**Hotkeys.** INI values accept decimal or 0x-hex, invalid values are logged and disabled, mouse buttons/Shift/Esc/F8 are
+rejected, a duplicate disables both keys, and the keys only fire while the game window is foreground with no blocking
+menu open. **Interior rain.** A roofless-interior whitelist is proposed in the code-notes with the FO4IDE-verified
+`ConcordMuseum01` cell; it is not implemented until the lead approves the table. Nothing here was played in game.
+
 ## 2026-10-28: gas-mask overlay, auto-don and hotkey fixes
 
 **Power-armor overlay.** The Prisma visor overlay is now hidden while a power-armor helmet is worn

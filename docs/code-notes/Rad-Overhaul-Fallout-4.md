@@ -300,7 +300,7 @@ Reference: `RadSurvivalDiseases.psc:ConsumeItem`, `RadSurvivalDiseases.psc:Expos
 
 **Why three lists and not one.** A `FormList` carries no per-entry data, so a single list cannot say *which* category an item belongs to, and the items are vanilla, so the category cannot be a keyword on them without overriding food records. One list per category is the only shape where the record says both "these are tainted" and "this is how tainted". The keywords carry the same three categories for a different purpose: an item that is not in any list opts into one by carrying the keyword, which is the extension point an add-on or a later Rad-authored ingestible uses, and it keeps the category vocabulary a record rather than a string in the script.
 
-**Consumption is the existing count-drop path, not a new event.** `OnItemEquipped` cannot tell a use from an equip, which is why the layer already arms a pending item there and confirms it on the next tick by watching `GetItemCount` fall (`ConfirmConsumption`). The cure item is armed by the same gate - `IsFoodOrDrink` or `Diseases.IsCureItem` - and `ApplyRelief`, the one function a confirmed drop reaches, now forwards it to `RadSurvivalDiseases.psc:ConsumeItem`. That function tests the cure first and calls `CureDisease`, so the item clears exactly the state a long rest clears: the same immunity window, the same spell removal, the same HUD mirrors, no second cure path to keep in step. Anything else that was consumed goes to `ExposureConsume`, which resolves the category and charges `RiskPerTaintedFood` (0.10), `RiskPerTaintedWater` (0.15) or `RiskPerContaminated` (0.05) per item through `AddRisk`.
+**Consumption is confirmed by the removal event, not by a count drop (2026-10-28 rewrite).** `OnItemEquipped` cannot tell a use from an equip, so the quest pairs it with the engine's own `ObjectReference.OnItemRemoved` event (`RadSurvivalQuest.psc:PairEquip`, `:PairRemove`, `:PruneConsumptionCandidates`): a removal counts only when `akDestContainer == None`, the item is a consumable by the cached keyword rule or the INI bridge, and an equip for the same form arrived inside `PairWindowSeconds` (2 s). Whichever event arrives second applies relief exactly once, so the equip/removal order cannot lose it, a container transfer cannot credit it, and a failed equip cannot credit it. The old count-drop design armed `GetItemCount` in the equip event and confirmed a later drop, which is timing-dependent and was replaced. The candidate arrays are initialised in `OnInit` via `ClearConsumptionCandidates()` before `ArmPlayerEvents` (and `PruneConsumptionCandidates` re-initialises them if an event ever arrives first, e.g. a mid-save install), because uninitialised dynamic arrays are None and every pair would silently no-op. `ApplyRelief` still forwards a confirmed item to `RadSurvivalDiseases.psc:ConsumeItem`, so the cure/taint routing is unchanged: the cure item clears the same state a long rest clears, and anything else charges `RiskPerTaintedFood`/`RiskPerTaintedWater`/`RiskPerContaminated` through `AddRisk`. Proven from the shipped sources: `Actor.OnItemEquipped` fires for ingestibles (vanilla `HC_ManagerScript.psc:1167` relies on it). NOT proven from the Papyrus sources: that a consumed item's removal delivers `akDestContainer == None`; that remains an in-game check (`docs/IN_GAME_TEST_CHECKLIST.md`). A world drop is rejected in practice only through the equip pairing, not through `akItemReference`, so the source comment does not claim otherwise.
 
 **Why the item is resolved by form id.** Writing the `FULL` name and the `KWDA` list was retried against this build and the refusals are now recorded, not assumed. `list_records_summary` for `ALCH` exposes `EDID`, the typed `ALCH\*` columns and the raw `Authoring\*` columns, and no name column at all - so the documented `EYES\Full` route has no `ALCH` counterpart here; `set_field` refuses `ALCH\Full`, `ALCH\FULL`, `ALCH\Name`, `FULL` and `Authoring\FULL` with `FieldWriteUnsupported: Native Radicle editing supports EDID plus typed EYES and LVSP fields only`, and `create_record` silently ignores `name`/`fullName` for `ALCH`. The keyword list is a form-link list: `ALCH\Keywords[0]` is recognised and refused with `FormLinkListIndexOutOfRange` because the list holds no elements, `ALCH\Keywords` on the whole list is refused as unsupported, and no tool appends a keyword - so `KWDA` can be edited on a record that already has keywords but never grown from none. The shipped ingestible therefore has no display name and carries no keyword and still passes `--check`; `IsCureItem` resolves it with `Game.GetFormFromFile(2092, "RadSurvival.esp")` and accepts `KeywordCureItem` from an item the Creation Kit authors later. In game it appears as an unnamed Aid entry, and the notification path is the feedback: `CureDisease` announces the recovery, and a cure consumed while healthy now answers "nothing to cure" instead of doing nothing at all. This is an upstream FO4IDE gap, filed with the `HEDR` `numRecords` quirk and the recorded-source-path limitation above.
 
@@ -789,6 +789,8 @@ Reference: `tools/rad_penalty_spells.json`, `deploy/RadSurvival.esp`, `src/Radia
 
 ## Tester items that are not ours (2026-10-28)
 
+Reference: `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini` [Masks]/[Water] sections, `src/RadEngine_Debug.cpp` (the only kAMMO reference), `src/RadEngine_Tissue.cpp:ApplyTissueEffects` (the only other CarryWeight writer), `f4se.log` load order.
+
 - Bullets having no weight "for Ashfall": no Ashfall plugin is in the tester load order (`f4se.log`) and no source file changes ammo weight - the only `kAMMO` reference is a debug form-type print in `src/RadEngine_Debug.cpp`. `FWHardcore_Weapons.esp` / `FWHardcore_CarryWeight.esp` own that change.
 - Power-armor carry weight ignoring harness/vest gear: `FWHardcore_Difficulty.esp` authors the `EnchBackpack_250/1000/2500` enchantments. Our only CarryWeight writes are additive `kTemporary` actor-value modifiers (the hunger penalty spells and the radiation tissue penalty in `src/RadEngine_Tissue.cpp`), which cannot cancel another effect's bonus, and `RadiationEngine::IsPlayerInPowerArmor` only gates rad/storm protection - no power-armor path touches carry weight.
 
@@ -813,3 +815,68 @@ Reference: `src/RadEngine_Mask.cpp:RadiationEngine::SetActorMaskEquipped`, `src/
 
 - The plugin's only equip/unequip path for masks is `SetActorMaskEquipped`, which claims ownership in `RadMaskOwnership` before `EquipObject`/`UnequipObject` and releases it on failure. `CaptureDisplacedGear` is used only for the temporary masks handed to NPCs by `EquipNearbyNpcMasks`, so it never moves the player's own gear.
 - The player mask fills the MOUTH biped slot while power-armor helmets fill slot 30 (`kHairTop`), so the two do not share a slot. The cases that looked wrong are now gated: the overlay is hidden by a PA helmet, the auto-don skips interiors/shelter/PA, and `Hooks_Input.cpp` only handles Shift+F8 - it contains no mask equip hook at all. Nothing in our code swaps a mask when entering or leaving power armor; Gasmask Overhaul's own scripts and hotkeys are separate and untouched.
+
+
+## Review round 2: consumption arrays, relief INI bridge, overlay alpha, exposure hysteresis, hotkeys (2026-10-28)
+
+Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:OnInit`, `:OnItemRemoved`, `:PairEquip`, `:PairRemove`,
+`:ResolveKeywords`, `src/RadReliefConfig.cpp`, `src/RadReliefPolicy.h`, `src/RadCorrectnessPolicy.h:ParseHotkey`,
+`:ValidateHotkeyPair`, `:StepAutoMask`, `src/RadiationEngine.cpp:RadiationEngine::PollInput`,
+`src/RadEngine_Mask.cpp:RadiationEngine::ReloadHotkeysFromIni`, `src/RadEngine_Session.cpp:RadiationEngine::ResetSession`,
+`tools/bake_visor_clear_zones.py`, `tests/status_hud_tests.js`, `tests/verify_survival_consumption.py`.
+
+- Candidate arrays: declared without initialisers, so `OnInit` calls `ClearConsumptionCandidates()` before
+  `ArmPlayerEvents`; `PruneConsumptionCandidates` calls it again when `ConsumptionArraysReady` is false, so a mid-save
+  install cannot leave relief dead until a reload. The same guard covers `PairEquip`/`PairRemove`, which call prune
+  first.
+- Drop vs use: the removal handler rejects `akDestContainer != None`, ammo (every shot fires ammo removal events) and
+  non-consumables before `Game.GetPlayer()`/`IsActive()`; only the equip pairing separates a drop from a use, because
+  `akItemReference` is not a reliable drop indicator and is not claimed to be one.
+- Relief INI bridge: `[Relief] ExtraFoodKeywords`, `ExtraThirstKeywords`, `ExtraFoodItems`, `ExtraThirstItems` are read
+  by `RadReliefConfig` (plugin + local id, `RadReliefPolicy::ParseList`), resolved through `TESDataHandler::LookupForm`
+  once on the game thread, and exposed to Papyrus as the native functions `IsExtraFoodItem`/`IsExtraThirstItem`
+  (`RadReliefConfig::InstallPapyrusBridge`, registered from `F4SEPlugin_Load`). `RadSurvivalQuest.psc` calls them from
+  `IsConsumable` and `ApplyRelief`; no `HC_*` form is read. The shipped `ExtraThirstItems` entry carries
+  `Fallout4.esm:0x058AB8` (RefreshingBeverage) and `Fallout4.esm:0x0E9284` (MS17DeezerLemonade), both vanilla ALCH
+  drinks that only carry `HC_SustenanceType_QuenchesThirst` 0x000884 (verified with FO4IDE) and would otherwise get no
+  thirst relief. Spoiled food (`MoldyFood01` 0x001A6397, the seven `*Witherd` records 0x01000800-0x01000813) is
+  deliberately not listed: vanilla gives those disease risk only, never hunger relief.
+- Overlay: `#maskOverlay` and `#visorFog` no longer use `mask-image` (Ultralight support unproven). The HUD clear zones
+  are baked into the PNG alpha by `tools/bake_visor_clear_zones.py` (overlay in place, new `visor_fog.png`, referenced
+  from `radhud.css`), covering the top-left notification area, the centre loot/prompt readout and the bottom-centre XP
+  bar while the edges and corners keep the visor look. `tests/status_hud_tests.js` decodes both PNGs and asserts alpha
+  at those screen points instead of matching CSS property names.
+- Auto-don: `RadCorrectnessPolicy::StepAutoMask` requires `kAutoMaskStableTicks` (12 ticks = 3 s at the 4 Hz update) of
+  a stable exposure sample before donning or removing, which stops doorway/roof-edge flapping; a null parent cell
+  (load/fast travel) skips the step entirely instead of reading as exterior; `RadEngine_Session.cpp` sets
+  `_wasRadExposed = 1` when the ownership table says we auto-donned the player's mask, so it is still ours to remove
+  after a load.
+- Hotkeys: the INI values are read as strings and parsed by `RadCorrectnessPolicy::ParseHotkey` (decimal or 0x-hex;
+  negatives and junk are logged and disable that action). `ValidateHotkeyPair` rejects mouse buttons 1-6, Shift, Esc
+  and F8, and disables BOTH keys when they duplicate, so INI order cannot decide. `PollInput` only acts while our game
+  window is the foreground window (`GetForegroundWindow` process id) and no blocking menu is on the UI stack
+  (`RE::UI::menuStack`, `IMenu::OnStack`, `kPausesGame`/`kUsesCursor`/`kModal`/`kFreezeFramePause`) - proven from
+  `RE/U/UI.h:UI::GetMenuOpen`, `RE/I/IMenu.h:IMenu::OnStack` and `UI_MENU_FLAGS`. An in-game rebinding screen is still a
+  follow-up; INI edits apply when the debug menu is next opened.
+
+## Roofless-interior rain whitelist: proposal only, not implemented (2026-10-28)
+
+Reference: `src/ClimateRuntime.cpp:ClimateRuntime::Update`, `src/ClimatePolicy.h`, `tests/climate_policy_tests.cpp`.
+
+- The tester's example is `ConcordMuseum01` (CELL 0x017DF7, EditorID `ConcordMuseum01`, `CELL\Flags` 0x1181 -> interior
+  bit set, no `GridX`/`GridY`, location 0x01D807, exterior LOD worldspace 0x00003C Commonwealth; verified with FO4IDE).
+  Whether its playable space is genuinely open to the sky is a *visual* property that no record exposes, so it is not
+  proven here.
+
+| Candidate | Form ID | Evidence | Status |
+|---|---|---|---|
+| ConcordMuseum01 (Museum of Freedom) | Fallout4.esm 0x017DF7 | interior cell, no grid, location 0x01D807 | reported by tester; rooflessness needs in-game confirmation |
+| MuseumOfWitchcraft01 | Fallout4.esm 0x15A1E3 | interior cell (EditorID), roof status unknown | not proposed until someone confirms a sky opening |
+
+- Proposed (not implemented, waiting for the lead's approval of the table): add `rooflessInteriorCells` as
+  `Plugin.esp:0xLOCALID` entries to `climate_weather.json`, resolve them once in the same loader, and in
+  `ClimateRuntime::Update` treat a listed interior like an exterior for precipitation: `environment.precipitation01 =
+  roofed ? 0.0f : configuredFlatFactor` (the existing roof raycast already distinguishes covered from open), while every
+  other interior keeps the current zero rule. Policy: a pure `PrecipitationFor(interior, listed, roofed, exterior01)`
+  function with tests, plus a `verify_climate_roofless.py` contract test. No change is made until the table is approved,
+  because a guessed cell list would wet the player in roofed interiors.
