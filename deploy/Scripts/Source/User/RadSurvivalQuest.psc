@@ -1,7 +1,6 @@
 ScriptName RadSurvivalQuest extends Quest
-
 ; Constraint: HC_Manager and every HC_* form are read and written nowhere here.
-; Constraint: relief needs a confirmed inventory count drop, never the equip event.
+; Constraint: relief is confirmed by the engine's own item-removal event, never by an inventory count.
 
 ; tuning - the only source of the pool rates; the three GLOBs are the HUD contract
 
@@ -15,15 +14,13 @@ float Property DrinkScale = 0.25 Auto
 float Property AlcoholHydrationScale = 0.25 Auto
 float Property TickGameHours = 0.25 Auto
 float Property MaxElapsedHours = 240.0 Auto
-float Property PendingExpirySeconds = 2.0 Auto
+float Property PairWindowSeconds = 2.0 Auto
 float Property StageHysteresis = 0.04 Auto
 int Property kTimerID = 10 Auto Const
 int Property kVanillaSurvivalDifficulty = 6 Auto Const
-
 bool Property Enabled = true Auto Const
 bool Property SkipWhenVanillaSurvival = true Auto Const
 bool Property ShowNotifications = true Auto Const
-
 ; penalties are staged ability spells; clear this to ship them off without a rebuild
 bool Property PenaltiesEnabled = true Auto Const
 string Property PenaltyPlugin = "RadSurvival.esp" Auto Const
@@ -31,16 +28,13 @@ string Property PenaltyPlugin = "RadSurvival.esp" Auto Const
 int Property HungerPenaltySpellBase = 2061 Auto Const
 int Property ThirstPenaltySpellBase = 2064 Auto Const
 int Property SleepPenaltySpellBase = 2067 Auto Const
-
 ; pool mirrors for the native HUD (assigned when the GLOB records exist)
 
 GlobalVariable Property RadSurvival_Hunger Auto
 GlobalVariable Property RadSurvival_Thirst Auto
 GlobalVariable Property RadSurvival_Sleep Auto
-
 ; Invariant: the disease layer is a second script on this quest, never a second event owner.
 RadSurvivalDiseases Property Diseases Auto
-
 ; state - saved with the quest instance
 
 float HungerDebt = 0.0
@@ -49,21 +43,20 @@ float SleepDebt = 0.0
 float LastGameTime = -1.0
 float SleepStartTime = -1.0
 float WaitStartTime = -1.0
-Form PendingForm = None
-int PendingCount = 0
-float PendingRealTime = -1.0
-Form PendingForm2 = None
-int PendingCount2 = 0
-float PendingRealTime2 = -1.0
+; Invariant: a use is only credited when the equip and the removal pair up inside PairWindowSeconds.
+Form[] EquipCandidateForms
+float[] EquipCandidateTimes
+Form[] RemoveCandidateForms
+int[] RemoveCandidateCounts
+float[] RemoveCandidateTimes
+
 int HungerStage = 0
 int ThirstStage = 0
 int SleepStage = 0
-
 ; spell actually on the player per pool, so a stage change can replace it exactly once
 Spell AppliedHungerSpell = None
 Spell AppliedThirstSpell = None
 Spell AppliedSleepSpell = None
-
 ; invariant: a reconcile must not resolve the same stage twice
 int CachedHungerStage = -1
 Spell CachedHungerSpell = None
@@ -71,7 +64,6 @@ int CachedThirstStage = -1
 Spell CachedThirstSpell = None
 int CachedSleepStage = -1
 Spell CachedSleepSpell = None
-
 ; lifecycle
 
 Event OnInit()
@@ -79,7 +71,6 @@ Event OnInit()
     if !player
         return
     endif
-
     LastGameTime = Utility.GetCurrentGameTime()
     ArmSleepWaitEvents()
     ArmPlayerEvents(player)
@@ -91,9 +82,7 @@ Event OnInit()
 EndEvent
 
 Function ArmSleepWaitEvents()
-    ; Unregister first: a script instance that survived a load can already be
-    ; registered, and a duplicate registration delivers every sleep/wait event
-    ; twice. This runs on init only; OnPlayerLoadGame does not re-arm it.
+    ; Constraint: unregister first; a surviving instance would double-deliver every sleep/wait event.
     UnregisterForPlayerSleep()
     UnregisterForPlayerWait()
     RegisterForPlayerSleep()
@@ -103,6 +92,11 @@ EndFunction
 Function ArmPlayerEvents(Actor player)
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
+    ; Invariant: inventory events need a filter on this script or the engine sends none.
+    RemoveAllInventoryEventFilters()
+    AddInventoryEventFilter(None)
+    UnregisterForRemoteEvent(player, "OnItemRemoved")
+    RegisterForRemoteEvent(player, "OnItemRemoved")
     UnregisterForRemoteEvent(player, "OnPlayerLoadGame")
     RegisterForRemoteEvent(player, "OnPlayerLoadGame")
     UnRegisterForHitEvent(player)
@@ -116,14 +110,11 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     if !player
         return
     endif
-
-    ; A save restore moves the clock; re-anchor so the loaded interval is not
-    ; read as elapsed play time.
+    ; Constraint: re-anchor the clock so a loaded interval is not read as elapsed play.
     LastGameTime = Utility.GetCurrentGameTime()
     SleepStartTime = -1.0
     WaitStartTime = -1.0
-    ClearPending()
-
+    ClearConsumptionCandidates()
     ; Only the remote and hit events are re-armed here; sleep/wait survive a load.
     ArmPlayerEvents(player)
     RestartTimer()
@@ -132,27 +123,21 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     ResyncDiseases()
     Debug.Trace("[RadSurvivalQuest] post-load anchor H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt)
 EndEvent
-
 ; timer - StartTimerGameTime is one-shot, so the handler re-arms it
 
 Event OnTimerGameTime(int aiTimerID)
     if aiTimerID != kTimerID
         return
     endif
-
     if IsActive()
         AdvanceTo(Utility.GetCurrentGameTime())
-        ExpirePending()
     else
-        ; Suspended: keep the clock anchored so turning vanilla Survival off
-        ; mid-save cannot be read as hours of skipped play.
+        ; Constraint: keep the clock anchored while suspended, so a gating flip is not read as skipped play.
         LastGameTime = Utility.GetCurrentGameTime()
     endif
-
     ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
     UpdatePenaltyStages()
     ReconcileDiseases()
-
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
 
@@ -160,7 +145,6 @@ Function RestartTimer()
     CancelTimerGameTime(kTimerID)
     StartTimerGameTime(TickGameHours, kTimerID)
 EndFunction
-
 ; consumption
 
 Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)
@@ -171,11 +155,34 @@ Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference ak
     if !player || akSender != player
         return
     endif
-    if !akBaseObject || (!IsFoodOrDrink(akBaseObject) && (Diseases == None || Diseases.IsCureItem(akBaseObject) == false))
+    ; Constraint: vanilla credits a use only when the object has no live reference or a non-quest one.
+    if !akBaseObject || (akReference != None && akReference.IsQuestItem())
         return
     endif
+    if !IsConsumable(akBaseObject)
+        return
+    endif
+    Debug.Trace("[RadSurvivalQuest] consume-arm equip " + akBaseObject)
+    PairEquip(akBaseObject)
+EndEvent
 
-    ArmPending(akBaseObject, player.GetItemCount(akBaseObject))
+Event ObjectReference.OnItemRemoved(ObjectReference akSender, Form akBaseItem, int aiItemCount, ObjectReference akItemReference, ObjectReference akDestContainer)
+    if !IsActive()
+        return
+    endif
+    Actor player = Game.GetPlayer()
+    if !player || akSender != player
+        return
+    endif
+    ; Constraint: a removal into a container or the world is a transfer, not a consumption.
+    if !akBaseItem || akDestContainer != None || aiItemCount <= 0
+        return
+    endif
+    if !IsConsumable(akBaseItem)
+        return
+    endif
+    Debug.Trace("[RadSurvivalQuest] consume-confirm remove " + akBaseItem + " x" + aiItemCount)
+    PairRemove(akBaseItem, aiItemCount)
 EndEvent
 
 Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked, string apMaterial)
@@ -200,87 +207,98 @@ Event Actor.OnPlayerSwimming(Actor akSender)
     Diseases.ExposureSwim(IsActive())
 EndEvent
 
-Function ArmPending(Form akItem, int aiCount)
-    ; Constraint: a second item used before the tick must not overwrite the first.
-    if PendingForm && PendingForm2
-        ConfirmConsumption(PendingForm, PendingCount)
-        PendingForm = PendingForm2
-        PendingCount = PendingCount2
-        PendingRealTime = PendingRealTime2
-        PendingForm2 = None
-        PendingCount2 = 0
-        PendingRealTime2 = -1.0
+bool Function IsConsumable(Form akItem)
+    if IsFoodOrDrink(akItem)
+        return true
     endif
-    if !PendingForm
-        PendingForm = akItem
-        PendingCount = aiCount
-        PendingRealTime = Utility.GetCurrentRealTime()
-    else
-        PendingForm2 = akItem
-        PendingCount2 = aiCount
-        PendingRealTime2 = Utility.GetCurrentRealTime()
-    endif
+    return Diseases != None && Diseases.IsCureItem(akItem)
 EndFunction
-
-Function ExpirePending()
-    if PendingForm && PendingRealTime >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime >= PendingExpirySeconds
-        Form first = PendingForm
-        int firstCount = PendingCount
-        PendingForm = PendingForm2
-        PendingCount = PendingCount2
-        PendingRealTime = PendingRealTime2
-        PendingForm2 = None
-        PendingCount2 = 0
-        PendingRealTime2 = -1.0
-        ConfirmConsumption(first, firstCount)
-    endif
-    if PendingForm2 && PendingRealTime2 >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime2 >= PendingExpirySeconds
-        Form second = PendingForm2
-        int secondCount = PendingCount2
-        ClearPending()
-        ConfirmConsumption(second, secondCount)
-    endif
-EndFunction
-
-Function ConfirmConsumption(Form akItem, int aiArmed)
-    Actor player = Game.GetPlayer()
-    if !player || !akItem
+; Invariant: whichever of the equip/removal pair arrives second applies the relief exactly once.
+Function PairEquip(Form akItem)
+    PruneConsumptionCandidates()
+    int match = FindCandidate(RemoveCandidateForms, akItem)
+    if match >= 0
+        int count = RemoveCandidateCounts[match]
+        RemoveCandidateForms.Remove(match)
+        RemoveCandidateCounts.Remove(match)
+        RemoveCandidateTimes.Remove(match)
+        ApplyRelief(akItem, count)
         return
     endif
-    int now = player.GetItemCount(akItem)
-    if aiArmed >= 0 && now < aiArmed
-        ApplyRelief(akItem, aiArmed - now)
-    endif
+    EquipCandidateForms.Add(akItem)
+    EquipCandidateTimes.Add(Utility.GetCurrentRealTime())
 EndFunction
 
-Function ClearPending()
-    PendingForm = None
-    PendingCount = 0
-    PendingRealTime = -1.0
-    PendingForm2 = None
-    PendingCount2 = 0
-    PendingRealTime2 = -1.0
+Function PairRemove(Form akItem, int aiCount)
+    PruneConsumptionCandidates()
+    int match = FindCandidate(EquipCandidateForms, akItem)
+    if match >= 0
+        EquipCandidateForms.Remove(match)
+        EquipCandidateTimes.Remove(match)
+        ApplyRelief(akItem, aiCount)
+        return
+    endif
+    RemoveCandidateForms.Add(akItem)
+    RemoveCandidateCounts.Add(aiCount)
+    RemoveCandidateTimes.Add(Utility.GetCurrentRealTime())
+EndFunction
+
+int Function FindCandidate(Form[] akForms, Form akItem)
+    int i = 0
+    while i < akForms.Length
+        if akForms[i] == akItem
+            return i
+        endif
+        i += 1
+    endwhile
+    return -1
+EndFunction
+
+Function PruneConsumptionCandidates()
+    float now = Utility.GetCurrentRealTime()
+    int i = EquipCandidateTimes.Length - 1
+    while i >= 0
+        if now - EquipCandidateTimes[i] > PairWindowSeconds
+            EquipCandidateForms.Remove(i)
+            EquipCandidateTimes.Remove(i)
+        endif
+        i -= 1
+    endwhile
+    i = RemoveCandidateTimes.Length - 1
+    while i >= 0
+        if now - RemoveCandidateTimes[i] > PairWindowSeconds
+            RemoveCandidateForms.Remove(i)
+            RemoveCandidateCounts.Remove(i)
+            RemoveCandidateTimes.Remove(i)
+        endif
+        i -= 1
+    endwhile
+EndFunction
+
+Function ClearConsumptionCandidates()
+    EquipCandidateForms = new Form[0]
+    EquipCandidateTimes = new float[0]
+    RemoveCandidateForms = new Form[0]
+    RemoveCandidateCounts = new int[0]
+    RemoveCandidateTimes = new float[0]
 EndFunction
 
 Function ApplyRelief(Form akItem, int aiCount)
     if aiCount <= 0
         return
     endif
-
-    ; Constraint: taint and cure route through the disease script on a confirmed count drop.
+    ; Constraint: taint and cure route through the disease script on a confirmed removal.
     if Diseases != None
         Diseases.ConsumeItem(akItem, aiCount, IsActive())
     endif
-
-    bool ate = akItem.HasKeyword(KeywordFood())
-    bool drank = akItem.HasKeyword(KeywordNukaCola()) || akItem.HasKeyword(KeywordDrink()) || akItem.HasKeyword(KeywordWater())
-
+    ResolveKeywords()
+    bool ate = _FoodKeyword != None && akItem.HasKeyword(_FoodKeyword)
+    bool drank = (_NukaKeyword != None && akItem.HasKeyword(_NukaKeyword)) || (_DrinkKeyword != None && akItem.HasKeyword(_DrinkKeyword)) || (_WaterKeyword != None && akItem.HasKeyword(_WaterKeyword))
     ; Alcohol hydrates far less; chems never feed the survival pools.
     float hydration = 1.0
-    if akItem.HasKeyword(KeywordAlcohol())
+    if _AlcoholKeyword != None && akItem.HasKeyword(_AlcoholKeyword)
         hydration = AlcoholHydrationScale
     endif
-
     float portion = PortionFor(akItem)
     if ate
         AddDebt("hunger", -1.0 * portion * FoodScale)
@@ -288,7 +306,7 @@ Function ApplyRelief(Form akItem, int aiCount)
     if drank
         AddDebt("thirst", -1.0 * portion * DrinkScale * hydration)
     endif
-    Debug.Trace("[RadSurvivalQuest] consumed " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
+    Debug.Trace("[RadSurvivalQuest] consume-apply " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
 EndFunction
 
 float Function PortionFor(Form akItem)
@@ -302,7 +320,6 @@ float Function PortionFor(Form akItem)
     endif
     return portion
 EndFunction
-
 ; sleep and wait
 
 Event OnPlayerSleepStart(float afSleepStartTime, float afDesiredSleepEndTime, ObjectReference akBed)
@@ -313,13 +330,11 @@ Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)
     float now = Utility.GetCurrentGameTime()
     float started = SleepStartTime
     SleepStartTime = -1.0
-
     if !IsActive()
         LastGameTime = now
         RestartTimer()
         return
     endif
-
     float hours = 0.0
     if started >= 0.0
         hours = (now - started) * 24.0
@@ -327,15 +342,12 @@ Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)
     if hours < 0.0
         hours = 0.0
     endif
-
     float recovery = hours * SleepRecoveryPerHour
     if abInterrupted
         recovery = recovery * InterruptedScale
     endif
     AddDebt("sleep", -1.0 * recovery)
-
-    ; Sleep advances game time without ticks: accrue it once, then restart the
-    ; timer so the next interval is measured from the wake-up.
+    ; Constraint: sleep advances game time without ticks, so accrue it once and restart the timer.
     AccrueElapsed(hours)
     RestCureDiseases(hours, abInterrupted)
     RestartTimer()
@@ -351,13 +363,11 @@ Event OnPlayerWaitStop(bool abInterrupted)
     float now = Utility.GetCurrentGameTime()
     float started = WaitStartTime
     WaitStartTime = -1.0
-
     if !IsActive()
         LastGameTime = now
         RestartTimer()
         return
     endif
-
     float hours = 0.0
     if started >= 0.0
         hours = (now - started) * 24.0
@@ -365,13 +375,11 @@ Event OnPlayerWaitStop(bool abInterrupted)
     if hours < 0.0
         hours = 0.0
     endif
-
     ; Waiting is not rest: game time accrues, sleep debt does not recover.
     AccrueElapsed(hours)
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] wait ended hours=" + hours + " sleep=" + SleepDebt)
 EndEvent
-
 ; progression
 
 Function AdvanceTo(float nowDays)
@@ -431,7 +439,6 @@ float Function Clamp01(float afValue)
     endif
     return afValue
 EndFunction
-
 ; GLOB mirrors - the native HUD reads these through TESGlobal
 
 
@@ -446,25 +453,15 @@ Function MirrorToGlobal(GlobalVariable akTarget, float afValue)
         akTarget.SetValue(afValue)
     endif
 EndFunction
-
-; -----------------------------------------------------------------------------
-; penalties - staged ability spells authored in RadSurvival.esp
-;
-; One spell per pool per stage (1-3), 1:1 with the stage the pools compute. A stage
-; change removes the spell that is on the player and adds the new one, so penalties
-; never stack and relief takes the spell off. Stage 0 means no spell at all.
-; -----------------------------------------------------------------------------
+; penalties - one staged ability spell per pool per stage; relief removes it, stage 0 means none.
 
 Function UpdatePenaltyStages()
     if !IsActive()
-        ; Suspended (disabled, or vanilla Survival owns the player): no Rad penalty may
-        ; survive the gate. The pools keep their values and resume with the layer.
+        ; Constraint: no Rad penalty survives the gate; the pools keep their values and resume.
         ClearAllPenalties()
         return
     endif
-
-    ; Invariant: reconcile all three pools every call; ApplyStagePenalty is idempotent per pool.
-    ; Constraint: the trackers below gate only the notifications, never the reconcile.
+    ; Invariant: reconcile all three pools every call; the trackers gate notifications only.
     int hunger = StageForHeld(HungerDebt, HungerStage)
     bool hungerRose = hunger > HungerStage
     HungerStage = hunger
@@ -472,7 +469,6 @@ Function UpdatePenaltyStages()
     if hungerRose
         NotifyStage("hunger", hunger)
     endif
-
     int thirst = StageForHeld(ThirstDebt, ThirstStage)
     bool thirstRose = thirst > ThirstStage
     ThirstStage = thirst
@@ -480,7 +476,6 @@ Function UpdatePenaltyStages()
     if thirstRose
         NotifyStage("thirst", thirst)
     endif
-
     int sleep = StageForHeld(SleepDebt, SleepStage)
     bool sleepRose = sleep > SleepStage
     SleepStage = sleep
@@ -522,12 +517,10 @@ Function ApplyStagePenalty(string asPool, int aiStage)
     if !player
         return
     endif
-
     Spell wanted = None
     if PenaltiesEnabled && aiStage > 0
         wanted = PenaltySpellFor(asPool, aiStage)
     endif
-
     Spell applied = AppliedPenalty(asPool)
     ; Constraint: a spell lost to another mod's dispel must be re-applied on the next reconcile.
     if applied == wanted && (!wanted || player.HasSpell(wanted))
@@ -550,10 +543,7 @@ Function ClearAllPenalties()
 EndFunction
 
 Function ResyncPenalties()
-    ; Recount the stages from the pools, then let ApplyStagePenalty reconcile the spells.
-    ; Applied*Spell is saved state, so an unchanged stage does nothing and a retuned
-    ; table is picked up on the next load instead of doubling a spell.
-    ; Constraint: the cache must be dropped on every load so a retuned table is picked up.
+    ; Constraint: drop the penalty cache on every load so a retuned table is picked up without doubling.
     ClearPenaltyCache()
     HungerStage = StageFor(HungerDebt)
     ThirstStage = StageFor(ThirstDebt)
@@ -589,14 +579,12 @@ Spell Function PenaltySpellFor(string asPool, int aiStage)
     else
         return None
     endif
-
     ; Invariant: a repeated stage must not hit the form table again.
     if cachedStage == aiStage
         if cachedSpell
             return cachedSpell
         endif
     endif
-
     ; Constraint: a failed resolve must not be cached, or a missing plugin never retries.
     Spell resolved = Game.GetFormFromFile(first + aiStage - 1, PenaltyPlugin) as Spell
     if !resolved
@@ -662,7 +650,6 @@ Function NotifyStage(string asPool, int aiStage)
     endif
     Debug.Notification(text)
 EndFunction
-
 ; invariant: RadSurvivalDiseases owns the state, this script owns the events
 
 Function TickDiseases(float afHours)
@@ -694,7 +681,6 @@ Function ResyncDiseases()
     endif
     Diseases.Resync(IsActive())
 EndFunction
-
 ; gating
 
 bool Function IsActive()
@@ -707,43 +693,50 @@ bool Function IsActive()
     endif
     return true
 EndFunction
+; classification keywords (Fallout4.esm), cached so per-event classification never hits the form table
 
-; classification keywords (Fallout4.esm)
+Keyword _FoodKeyword
+Keyword _NukaKeyword
+Keyword _DrinkKeyword
+Keyword _WaterKeyword
+Keyword _AlcoholKeyword
 
-Keyword Function KeywordFood()
-    return Game.GetFormFromFile(0x00055ECC, "Fallout4.esm") as Keyword
-EndFunction
-
-Keyword Function KeywordNukaCola()
-    return Game.GetFormFromFile(0x00249F30, "Fallout4.esm") as Keyword
-EndFunction
-
-Keyword Function KeywordDrink()
-    return Game.GetFormFromFile(0x000F4AEC, "Fallout4.esm") as Keyword
-EndFunction
-
-Keyword Function KeywordWater()
-    return Game.GetFormFromFile(0x000F4AED, "Fallout4.esm") as Keyword
-EndFunction
-
-Keyword Function KeywordAlcohol()
-    return Game.GetFormFromFile(0x0010C416, "Fallout4.esm") as Keyword
+Function ResolveKeywords()
+    if _FoodKeyword && _NukaKeyword && _DrinkKeyword && _WaterKeyword && _AlcoholKeyword
+        return
+    endif
+    if !_FoodKeyword
+        _FoodKeyword = Game.GetFormFromFile(0x00055ECC, "Fallout4.esm") as Keyword
+    endif
+    if !_NukaKeyword
+        _NukaKeyword = Game.GetFormFromFile(0x00249F30, "Fallout4.esm") as Keyword
+    endif
+    if !_DrinkKeyword
+        _DrinkKeyword = Game.GetFormFromFile(0x000F4AEC, "Fallout4.esm") as Keyword
+    endif
+    if !_WaterKeyword
+        _WaterKeyword = Game.GetFormFromFile(0x000F4AED, "Fallout4.esm") as Keyword
+    endif
+    if !_AlcoholKeyword
+        _AlcoholKeyword = Game.GetFormFromFile(0x0010C416, "Fallout4.esm") as Keyword
+    endif
 EndFunction
 
 bool Function IsFoodOrDrink(Form akItem)
     if !akItem
         return false
     endif
-    if akItem.HasKeyword(KeywordFood())
+    ResolveKeywords()
+    if _FoodKeyword && akItem.HasKeyword(_FoodKeyword)
         return true
     endif
-    if akItem.HasKeyword(KeywordNukaCola())
+    if _NukaKeyword && akItem.HasKeyword(_NukaKeyword)
         return true
     endif
-    if akItem.HasKeyword(KeywordDrink())
+    if _DrinkKeyword && akItem.HasKeyword(_DrinkKeyword)
         return true
     endif
-    if akItem.HasKeyword(KeywordWater())
+    if _WaterKeyword && akItem.HasKeyword(_WaterKeyword)
         return true
     endif
     return false

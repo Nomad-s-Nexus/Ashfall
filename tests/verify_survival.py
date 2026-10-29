@@ -129,12 +129,11 @@ check("Utility.GetCurrentGameTime" in code, "progression must use game time")
 check("GetDifficulty()" in code and "kVanillaSurvivalDifficulty" in code,
       "the vanilla-survival double-apply gate is missing")
 
-check("PendingForm" in code and "PendingCount" in code,
-      "consumption must be armed with a live form and an inventory count")
-check("GetItemCount(" in code, "consumption confirmation must read the player inventory count")
-check("ExpirePending(" in code, "an armed consumption candidate must expire")
+check("PairEquip(" in code and "PairRemove(" in code,
+      "consumption must pair the equip event with the engine's item-removal event; "
+      "the full contract is tests/verify_survival_consumption.py")
 check("Game.GetForm(" not in code,
-      "the pending form must stay a live reference, not be re-resolved by id")
+      "consumption must stay on live form references, not be re-resolved by id")
 
 for name in PROPERTY_NAMES:
     check(f"GlobalVariable Property {name} Auto" in code,
@@ -647,10 +646,10 @@ check("Diseases.ConsumeItem(" in relief_body,
       "a confirmed consumption must reach the disease script")
 check("Diseases != None" in relief_body or "Diseases == None" in relief_body,
       "relief must survive a quest whose disease script is not bound")
-equip_body = function_body(
-    code, "Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)")
-check("IsCureItem(" in equip_body,
-      "the cure item must be armed for the count-drop confirmation like food")
+check("IsConsumable(" in code and "IsCureItem(" in code,
+      "cure items must be classified through the shared consumable rule")
+check("Diseases.ConsumeItem(" in relief_body,
+      "a confirmed consumption must reach the disease script")
 consume_body = function_body(disease_code, "Function ConsumeItem(Form akItem, int aiCount, bool abActive)")
 check("IsCureItem(" in consume_body, "a consumed item must be tested for the cure first")
 check("CureDisease()" in consume_body,

@@ -216,9 +216,6 @@ namespace
             a_water == RadWaterFillPolicy::FilledWater::kPurified && g_purifiedWater != nullptr;
         auto* output = purified ? g_purifiedWater : g_filledWater;
 
-        g_lastTargetID = a_target->GetFormID();
-        g_lastFill = std::chrono::steady_clock::now();
-
         const auto heldBefore = a_player->GetInventoryObjectCount(g_bottles[a_bottle]);
         RE::TESObjectREFR::RemoveItemData remove(g_bottles[a_bottle], 1);
         a_player->RemoveItem(remove);
@@ -230,6 +227,10 @@ namespace
             return;
         }
         a_player->AddObjectToContainer(output, nullptr, 1, nullptr, RE::ITEM_REMOVE_REASON::kNone);
+
+        // Constraint: the debounce is stamped only after a confirmed fill; a refused removal must not arm it.
+        g_lastTargetID = a_target->GetFormID();
+        g_lastFill = std::chrono::steady_clock::now();
 
         // Constraint: every fill is reported, so a consumed bottle is never silent.
         RE::SendHUDMessage::ShowHUDMessage(

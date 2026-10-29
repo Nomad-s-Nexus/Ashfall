@@ -1,6 +1,23 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-28: hunger/thirst relief confirmed by the engine's item-removal event
+
+**Food and drink now relieve the Rad survival pools.** The quest script used to arm a candidate on
+`Actor.OnItemEquipped` with `GetItemCount` and confirm on a later tick by watching the count fall.
+That is timing-dependent: if the engine consumes the aid item before the Papyrus event is delivered,
+the armed count is already the post-consumption count and relief never fires — which matches the
+tester's "eating and drinking never change hunger/thirst". Relief now runs on `ObjectReference.OnItemRemoved`
+(registered remotely with `AddInventoryEventFilter(None)`), only when the destination container is
+None and an `OnItemEquipped` for the same form arrived within 2 s, so exactly one credit is given per
+confirmed consumption whichever event arrives first, and a drop or a failed equip cannot credit
+anything. `Debug.Trace` now writes `consume-arm equip`, `consume-confirm remove` and `consume-apply`
+so the next Papyrus.0.log proves the path. The keyword classifier was also cached (no more five
+`GetFormFromFile` calls per event). Coverage against the tester's `FWHardcore_Food.esp`: 113 of 123
+ALCH records carry a covered keyword; two drinks that carry only the vanilla
+`HC_SustenanceType_QuenchesThirst` keyword are still not credited because the script must not read
+`HC_*` forms (owner decision). Not played in game.
+
 ## 2026-10-28: empty bottles fill at water sources (build-verified only)
 
 **Empty bottles at water sources.** Sneak-activating a drinking water source while holding an empty

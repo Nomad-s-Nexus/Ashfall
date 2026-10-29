@@ -7,3 +7,4 @@ build/
 *.blend
 *.blend1
 *.bak
+build-msvc/
