@@ -31,6 +31,7 @@ namespace RadClimatePolicy
         float precipitation01{ 0.0f };
         bool submerged{ false };
         bool indoors{ false };
+        bool rooflessInterior{ false };
         float shelter01{ 0.0f };
         float precipitationShelter01{ 0.0f };
         float heat01{ 0.0f };
@@ -133,6 +134,21 @@ namespace RadClimatePolicy
         return state;
     }
 
+    // Constraint: an interior is dry unless it is a listed roofless cell whose roof raycast finds open sky.
+    [[nodiscard]] inline float PrecipitationFor(
+        bool a_interior,
+        bool a_listedRoofless,
+        bool a_roofed,
+        float a_exterior01) noexcept
+    {
+        const float exterior = Clamp01(a_exterior01);
+        if (!a_interior)
+            return exterior;
+        if (!a_listedRoofless || a_roofed)
+            return 0.0f;
+        return exterior;
+    }
+
     [[nodiscard]] inline float NextWetness(
         float currentWetness01,
         const EnvironmentSample& environment,
@@ -147,7 +163,7 @@ namespace RadClimatePolicy
         if (environment.submerged)
             return Clamp01(wetness + 0.50f * dt);
 
-        const float precipitationShelter = environment.indoors
+        const float precipitationShelter = environment.indoors && !environment.rooflessInterior
             ? 1.0f
             : Clamp01(environment.precipitationShelter01);
         const float rainExposure =

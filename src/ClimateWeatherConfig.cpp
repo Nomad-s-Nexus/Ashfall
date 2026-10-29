@@ -3,12 +3,40 @@
 
 #include <RE/T/TESDataHandler.h>
 #include <RE/T/TESForm.h>
+#include <RE/T/TESObjectCELL.h>
 
 #include <charconv>
 #include <limits>
+#include <string_view>
 
 namespace
 {
+    std::optional<std::uint32_t> ParseLocalFormIDText(std::string_view a_text)
+    {
+        auto text = a_text;
+        while (!text.empty() && (text.front() == ' ' || text.front() == '\t'))
+            text.remove_prefix(1);
+        while (!text.empty() && (text.back() == ' ' || text.back() == '\t'))
+            text.remove_suffix(1);
+        if (text.empty())
+            return std::nullopt;
+
+        int base = 10;
+        if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+        {
+            text.remove_prefix(2);
+            base = 16;
+        }
+        if (text.empty())
+            return std::nullopt;
+
+        std::uint32_t result = 0;
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result, base);
+        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())
+            return std::nullopt;
+        return result;
+    }
+
     std::optional<std::uint32_t> ParseLocalFormID(const json& value)
     {
         if (value.is_number_unsigned())
@@ -29,22 +57,24 @@ namespace
 
         if (!value.is_string())
             return std::nullopt;
+        return ParseLocalFormIDText(value.get<std::string>());
+    }
 
-        std::string text = value.get<std::string>();
-        int base = 10;
-        if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
-        {
-            text.erase(0, 2);
-            base = 16;
-        }
-        if (text.empty())
-            return std::nullopt;
-
-        std::uint32_t result = 0;
-        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result, base);
-        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())
-            return std::nullopt;
-        return result;
+    // Constraint: roofless-cell entries are "Plugin.esp:0xLOCALID" strings, never bare numbers.
+    bool ParseCellEntry(std::string_view a_entry, std::string& a_plugin, std::uint32_t& a_localID)
+    {
+        const auto colon = a_entry.rfind(':');
+        if (colon == std::string_view::npos || colon == 0 || colon + 1 >= a_entry.size())
+            return false;
+        const auto plugin = a_entry.substr(0, colon);
+        if (plugin.empty())
+            return false;
+        const auto localID = ParseLocalFormIDText(a_entry.substr(colon + 1));
+        if (!localID)
+            return false;
+        a_plugin.assign(plugin);
+        a_localID = *localID;
+        return true;
     }
 }
 
@@ -162,6 +192,39 @@ bool ClimateWeatherConfig::Load(const std::string& path)
 
         if (logger)
             logger->info("[Climate] Weather overrides resolved: {}, rejected: {}.", _overrides.size(), rejected);
+
+        if (root.contains("rooflessInteriorCells"))
+        {
+            const auto& cells = root["rooflessInteriorCells"];
+            if (!cells.is_array())
+            {
+                if (logger)
+                    logger->error("[Climate] rooflessInteriorCells must be an array; ignoring it.");
+                return false;
+            }
+            std::size_t rooflessRejected = 0;
+            for (const auto& entry : cells)
+            {
+                std::string   plugin;
+                std::uint32_t localID = 0;
+                if (!entry.is_string() || !ParseCellEntry(entry.get<std::string>(), plugin, localID))
+                {
+                    ++rooflessRejected;
+                    continue;
+                }
+                auto* form = dataHandler->LookupForm(localID, plugin);
+                if (!form || form->GetFormType() != RE::ENUM_FORM_ID::kCELL ||
+                    !static_cast<RE::TESObjectCELL*>(form)->IsInterior())
+                {
+                    ++rooflessRejected;
+                    continue;
+                }
+                _rooflessInteriorCells.insert(form->GetFormID());
+            }
+            if (logger)
+                logger->info("[Climate] Roofless interior cells resolved: {}, rejected: {}.",
+                    _rooflessInteriorCells.size(), rooflessRejected);
+        }
         return true;
     }
     catch (const std::exception& ex)
@@ -176,6 +239,7 @@ bool ClimateWeatherConfig::Load(const std::string& path)
 void ClimateWeatherConfig::Reset() noexcept
 {
     _overrides.clear();
+    _rooflessInteriorCells.clear();
 }
 
 std::optional<ClimateWeatherConfig::Profile> ClimateWeatherConfig::Override(std::uint32_t runtimeFormID) const noexcept

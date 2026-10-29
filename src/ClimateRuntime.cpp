@@ -122,24 +122,30 @@ void ClimateRuntime::Update()
     auto* sky = RE::Sky::GetSingleton();
     auto* weather = sky ? sky->currentWeather : nullptr;
     const bool indoors = cell->IsInterior();
+    const bool rooflessInterior = indoors && _weatherConfig.IsRooflessInterior(cell->GetFormID());
     const auto weatherClass = indoors
         ? RadClimateEnvironmentPolicy::WeatherClass{}
         : ClassifyWeather(weather);
-    const auto weatherOverride = (!indoors && weather)
+    const auto exteriorWeatherClass = ClassifyWeather(weather);
+    const auto weatherOverride = ((!indoors || rooflessInterior) && weather)
         ? _weatherConfig.Override(weather->GetFormID())
         : std::nullopt;
-    const auto shelter = _shelter.Sample(player);
+    auto shelter = _shelter.Sample(player);
+    if (rooflessInterior)
+        shelter = _shelter.SampleRooflessInterior(player, cell);
+    const bool roofed = _shelter.LastRoofed();
     const auto gameMonth = GameMonth();
 
     RadClimatePolicy::EnvironmentSample environment{};
     environment.indoors = indoors;
+    environment.rooflessInterior = rooflessInterior;
     environment.shelter01 = shelter.thermal01;
     environment.precipitationShelter01 = shelter.precipitation01;
-    environment.precipitation01 = indoors
-        ? 0.0f
-        : RadClimateEnvironmentPolicy::PrecipitationIntensity01(weatherClass);
+    float exteriorPrecipitation01 = RadClimateEnvironmentPolicy::PrecipitationIntensity01(exteriorWeatherClass);
     if (weatherOverride && weatherOverride->precipitation01)
-        environment.precipitation01 = *weatherOverride->precipitation01;
+        exteriorPrecipitation01 = *weatherOverride->precipitation01;
+    environment.precipitation01 = RadClimatePolicy::PrecipitationFor(
+        indoors, rooflessInterior, roofed, exteriorPrecipitation01);
     environment.submerged = player->IsSwimming();
     environment.windMps = indoors ? 0.0f : RadClimateEnvironmentPolicy::WindProxyMps(WindByte(weather));
     environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, weatherClass, GameDays(), gameMonth);

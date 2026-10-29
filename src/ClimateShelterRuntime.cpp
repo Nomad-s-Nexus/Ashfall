@@ -32,10 +32,18 @@ void ClimateShelterRuntime::Reset() noexcept
     _lastZ = 0.0f;
     _lastRoofed = false;
     _roofStateKnown = false;
+    _lastProbeRoofless = false;
 }
 
 RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharacter* player)
 {
+    // Constraint: switching between the exterior and roofless-interior probes invalidates the shared roof cache.
+    if (_lastProbeRoofless)
+    {
+        _roofStateKnown = false;
+        _lastProbeRoofless = false;
+    }
+
     if (!player)
     {
         _roofStateKnown = false;
@@ -85,6 +93,51 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharact
         if (auto logger = spdlog::get("FalloutAnomaly"))
             logger->info("[Climate] Exterior roof cover changed: roofed={} thermal={:.0f}% rainCover={:.0f}%.",
                 roofed, _cached.thermal01 * 100.0f, _cached.precipitation01 * 100.0f);
+    }
+
+    _lastRoofed = roofed;
+    _roofStateKnown = true;
+    return _cached;
+}
+
+RadClimateShelterPolicy::Factors ClimateShelterRuntime::SampleRooflessInterior(
+    RE::PlayerCharacter* player,
+    RE::TESObjectCELL* cell)
+{
+    if (!player || !cell)
+    {
+        _roofStateKnown = false;
+        return RadClimateShelterPolicy::FromState(true, false, false);
+    }
+
+    // Constraint: switching into the roofless probe invalidates the shared roof cache.
+    if (!_lastProbeRoofless)
+    {
+        _roofStateKnown = false;
+        _lastProbeRoofless = true;
+    }
+
+    const auto cellID = cell->GetFormID();
+    const auto position = player->GetPosition();
+    const float deltaX = position.x - _lastX;
+    const float deltaY = position.y - _lastY;
+    const float deltaZ = position.z - _lastZ;
+    if (!RadClimateShelterPolicy::ShouldProbe(
+            _roofStateKnown, cellID, _lastCellID, deltaX, deltaY, deltaZ))
+        return _cached;
+
+    const bool roofed = ProbeRoof(player, cell);
+    _cached = RadClimateShelterPolicy::FromRooflessInterior(roofed);
+    _lastCellID = cellID;
+    _lastX = position.x;
+    _lastY = position.y;
+    _lastZ = position.z;
+
+    if (!_roofStateKnown || roofed != _lastRoofed)
+    {
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+            logger->info("[Climate] Roofless interior roof cover changed: cell=0x{:08X}, roofed={}, rainCover={:.0f}%.",
+                cellID, roofed, _cached.precipitation01 * 100.0f);
     }
 
     _lastRoofed = roofed;

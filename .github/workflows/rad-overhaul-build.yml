@@ -103,6 +103,7 @@ jobs:
           python tests/verify_rad_stack_integration.py
           python tests/verify_survival.py
           python tests/verify_survival_consumption.py
+          python tests/verify_climate_roofless.py
           python tests/verify_survival_diseases.py
           python tests/verify_survival_menu.py
           python tests/verify_needs_globals.py
