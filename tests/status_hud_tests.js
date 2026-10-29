@@ -53,11 +53,32 @@ assert.equal(toxic.elements.healthValue.textContent,'50%');assert.equal(toxic.el
 toxic.context.updateToxic({fallback:false,tissue:0});assert.equal(toxic.elements.health.hidden,true);assert.ok(!toxic.elements.root.classes.has('visible'));
 for(const page of [climate,filter,toxic,needs]){assert.ok(!/class="bar|id=".*Bar"/.test(page.html));page.context.setLocalHUDLayout({x:.2,y:.3,s:1.2,r:0,hidden:true});assert.equal(page.elements.root.style.display,'none');}
 for(const page of [climate,filter,toxic,needs]){page.timeouts.forEach(fn=>fn());assert.equal(page.elements.root.style.left,'384px');assert.equal(page.elements.root.style.top,'324px');}
-const debug=load('radhud.html');vm.runInContext(fs.readFileSync(path.join(view,'rad_diagnostics.js'),'utf8'),debug.context);debug.context.updateClimateInfo({core:37,warmth:100,ambient:4,wind:12,wetness:60,heat:70,insulation:41,cooling:.1,warming:.3});
+const debug=load('radhud.html');vm.runInContext(fs.readFileSync(path.join(view,'rad_diagnostics.js'),'utf8'),debug.context);
+debug.context.updateClimateInfo({core:37,warmth:100,ambient:4,wind:12,wetness:60,heat:70,insulation:41,cooling:.1,warming:.3});
 assert.match(debug.elements.climateReadout.textContent,/Body warmth100%/);assert.match(debug.elements.climateEffect.textContent,/Normal warmth reached/);
 debug.context.updateClimateInfo({core:36,warmth:89,warming:.3,cooling:.1});assert.match(debug.elements.climateEffect.textContent,/Body is warming/);
 debug.context.updateClimateInfo({core:28,warmth:0,warming:0,cooling:.1});assert.match(debug.elements.climateEffect.textContent,/model minimum/);
 debug.context.updateAirInfo({contaminated:true,healthLoss:2,filterDrain:0,radGain:0,chokingEnabled:true});assert.match(debug.elements.airReadout.textContent,/Breathing HP loss2.00\/sec/);
 const css=fs.readFileSync(path.join(view,'radhud.css'),'utf8');
-for(const id of ['#maskOverlay','#visorFog']){const block=(css.match(new RegExp(id.replace('#','\\#')+'\\s*\\{([\\s\\S]*?)\\}'))||[])[1]||'';assert.match(block,/mask-image: radial-gradient/,'visor effect must keep the HUD centre clear: '+id);assert.match(block,/transparent 5\d%/,'visor effect must be transparent across the HUD centre: '+id);}
-console.log('Status HUD verified: warmth endpoints, environment, breathing gates, percentages, hidden layout and full diagnostics');
+for(const id of ['#maskOverlay','#visorFog']){const block=(css.match(new RegExp(id.replace('#','\\#')+'\\s*\\{([\\s\\S]*?)\\}'))||[])[1]||'';assert.ok(!/mask-image/.test(block),'the visor effects must not rely on CSS mask-image (Ultralight support is unproven): '+id);}
+assert.match(css,/url\("visor_fog\.png"\)/,'the fog must use the baked clear-zone PNG');
+assert.match(htmlOf('radhud.html'),/id="maskOverlay"[^>]*src="gasmask_overlay\.png"/,'the overlay must use the baked clear-zone PNG');
+function htmlOf(name){return fs.readFileSync(path.join(view,name),'utf8');}
+const zlib=require('node:zlib');
+function readPngAlpha(file){
+ const buf=fs.readFileSync(file);let off=8,w=0,h=0,bd=0,ct=0;const idat=[];
+ while(off<buf.length){const len=buf.readUInt32BE(off),type=buf.toString('ascii',off+4,off+8);const data=buf.subarray(off+8,off+8+len);if(type==='IHDR'){w=data.readUInt32BE(0);h=data.readUInt32BE(4);bd=data[8];ct=data[9];}else if(type==='IDAT'){idat.push(data);}else if(type==='IEND'){break;}off+=12+len;}
+ assert.equal(bd,8,'expected 8-bit PNG: '+file);assert.equal(ct,6,'expected RGBA PNG: '+file);
+ const raw=zlib.inflateSync(Buffer.concat(idat)),stride=w*4,out=Buffer.alloc(h*stride),bpp=4;let pos=0;
+ for(let y=0;y<h;y++){const filter=raw[pos++],row=raw.subarray(pos,pos+stride);pos+=stride;const cur=out.subarray(y*stride,(y+1)*stride),prev=y?out.subarray((y-1)*stride,y*stride):null;
+  for(let x=0;x<stride;x++){const a=x>=bpp?cur[x-bpp]:0,b=prev?prev[x]:0,c=(prev&&x>=bpp)?prev[x-bpp]:0;let v=row[x];
+   if(filter===1){v+=a;}else if(filter===2){v+=b;}else if(filter===3){v+=Math.floor((a+b)/2);}else if(filter===4){const p=a+b-c,pa=Math.abs(p-a),pb=Math.abs(p-b),pc=Math.abs(p-c);v+=(pa<=pb&&pa<=pc)?a:(pb<=pc?b:c);}cur[x]=v&0xff;}}
+ return (fx,fy)=>out[Math.min(h-1,Math.round(fy*(h-1)))*stride+Math.min(w-1,Math.round(fx*(w-1)))*4+3];
+}
+for(const [name,file] of [['overlay','gasmask_overlay.png'],['fog','visor_fog.png']]){const alpha=readPngAlpha(path.join(view,file));
+ for(const [point,fx,fy] of [['top-left messages',0.10,0.10],['message edge',0.40,0.15],['bottom-centre XP',0.50,0.93],['centre readouts',0.50,0.50]])
+  assert.ok(alpha(fx,fy)<=8,`${name} must be clear over the ${point} (alpha ${alpha(fx,fy)})`);
+ for(const [point,fx,fy] of [['bottom-left edge',0.05,0.90],['top-right edge',0.90,0.05],['right edge',0.85,0.10]])
+  assert.ok(alpha(fx,fy)>=40,`${name} must keep the visor look over the ${point} (alpha ${alpha(fx,fy)})`);
+}
+console.log('Status HUD verified: warmth endpoints, environment, breathing gates, percentages, hidden layout, full diagnostics and visor clear zones');

@@ -646,10 +646,8 @@ check("Diseases.ConsumeItem(" in relief_body,
       "a confirmed consumption must reach the disease script")
 check("Diseases != None" in relief_body or "Diseases == None" in relief_body,
       "relief must survive a quest whose disease script is not bound")
-check("IsConsumable(" in code and "IsCureItem(" in code,
-      "cure items must be classified through the shared consumable rule")
-check("Diseases.ConsumeItem(" in relief_body,
-      "a confirmed consumption must reach the disease script")
+check("IsCureItem(" in function_body(code, "bool Function IsConsumable(Form akItem)"),
+      "the cure item must be classified as consumable by the shared rule")
 consume_body = function_body(disease_code, "Function ConsumeItem(Form akItem, int aiCount, bool abActive)")
 check("IsCureItem(" in consume_body, "a consumed item must be tested for the cure first")
 check("CureDisease()" in consume_body,

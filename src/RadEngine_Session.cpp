@@ -71,6 +71,8 @@ void RadiationEngine::OnPostLoad()
 
     _wasInRadWeather = -1;
     _wasRadExposed = -1;
+    _radExposedCandidate = -1;
+    _radExposedStreak = 0;
     _lastRadWeatherFormID = 0;
     _autoMaskEquipped = false;
     _npcMaskScanTick = 0;
@@ -84,7 +86,10 @@ void RadiationEngine::OnPostLoad()
         for (const auto& entry : ownership)
         {
             if (playerID != 0 && entry.actorFormID == playerID)
+            {
                 _autoMaskEquipped = true;
+                _wasRadExposed = 1;   // Constraint: a mask we auto-donned before the save is still ours to remove.
+            }
             else
                 _autoMaskedNpcs.insert(entry.actorFormID);
         }

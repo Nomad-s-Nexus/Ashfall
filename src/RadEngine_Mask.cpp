@@ -485,22 +485,33 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 void RadiationEngine::ReloadHotkeysFromIni()
 {
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
-    int replace = ::GetPrivateProfileIntA("Filter", "ReplaceKey", 0, kIni);
-    int repair  = ::GetPrivateProfileIntA("Condition", "RepairKey", 0, kIni);
-    if (!RadCorrectnessPolicy::IsUsableHotkey(replace, repair))
-    {
-        Log()->warn("[Input] ReplaceKey 0x{:X} rejected (F8 opens the debug menu, or it duplicates RepairKey); replace hotkey disabled.", replace);
-        replace = 0;
-    }
-    if (!RadCorrectnessPolicy::IsUsableHotkey(repair, replace))
-    {
-        Log()->warn("[Input] RepairKey 0x{:X} rejected (F8 opens the debug menu, or it duplicates ReplaceKey); repair hotkey disabled.", repair);
-        repair = 0;
-    }
-    if (replace != _filterReplaceKey || repair != _conditionRepairKey)
-        Log()->info("[Input] mask hotkeys reloaded: replace=0x{:X}, repair=0x{:X}.", replace, repair);
-    _filterReplaceKey = replace;
-    _conditionRepairKey = repair;
+    char replaceText[32]{};
+    char repairText[32]{};
+    ::GetPrivateProfileStringA("Filter", "ReplaceKey", "", replaceText, sizeof(replaceText), kIni);
+    ::GetPrivateProfileStringA("Condition", "RepairKey", "", repairText, sizeof(repairText), kIni);
+
+    // Constraint: an empty value means disabled; a non-empty value must be decimal or 0x-hex.
+    int replace = 0;
+    int repair = 0;
+    const bool replaceParsed = replaceText[0] == '\0' || RadCorrectnessPolicy::ParseHotkey(replaceText, replace);
+    const bool repairParsed = repairText[0] == '\0' || RadCorrectnessPolicy::ParseHotkey(repairText, repair);
+    if (!replaceParsed)
+        Log()->warn("[Input] ReplaceKey \"{}\" is not a decimal or 0x-hex key code; replace hotkey disabled.", replaceText);
+    if (!repairParsed)
+        Log()->warn("[Input] RepairKey \"{}\" is not a decimal or 0x-hex key code; repair hotkey disabled.", repairText);
+
+    const auto validated = RadCorrectnessPolicy::ValidateHotkeyPair(
+        replaceParsed ? replace : 0, repairParsed ? repair : 0);
+    if (validated.replaceRejected)
+        Log()->warn("[Input] ReplaceKey 0x{:X} rejected (mouse button, Shift/Esc, F8, or an invalid code); replace hotkey disabled.", replace);
+    if (validated.repairRejected)
+        Log()->warn("[Input] RepairKey 0x{:X} rejected (mouse button, Shift/Esc, F8, or an invalid code); repair hotkey disabled.", repair);
+    if (validated.duplicateRejected)
+        Log()->warn("[Input] ReplaceKey and RepairKey are both 0x{:X}; both mask hotkeys disabled so load order cannot decide.", replace);
+    if (validated.replace != _filterReplaceKey || validated.repair != _conditionRepairKey)
+        Log()->info("[Input] mask hotkeys reloaded: replace=0x{:X}, repair=0x{:X}.", validated.replace, validated.repair);
+    _filterReplaceKey = validated.replace;
+    _conditionRepairKey = validated.repair;
 }
 
 

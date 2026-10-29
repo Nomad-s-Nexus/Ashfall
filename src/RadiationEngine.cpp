@@ -2,6 +2,9 @@
 #include "RadCorrectnessPolicy.h"
 #include "RadMaskOwnership.h"
 
+#include <RE/I/IMenu.h>
+#include <RE/U/UI.h>
+
 #include <algorithm>
 #include <vector>
 
@@ -12,6 +15,38 @@ using namespace RadInternal;
 
 namespace
 {
+    // Constraint: the auto-don needs 3 s of stable exposure at the 4 Hz update rate.
+    constexpr int kAutoMaskStableTicks = 12;
+
+    // Constraint: GetAsyncKeyState hotkeys must only fire while our own game window is foreground.
+    bool GameWindowForeground()
+    {
+        const HWND foreground = ::GetForegroundWindow();
+        if (!foreground)
+            return false;
+        DWORD pid = 0;
+        ::GetWindowThreadProcessId(foreground, &pid);
+        return pid == ::GetCurrentProcessId();
+    }
+
+    // Constraint: a menu on the UI stack means gameplay input is routed to it, so the mask hotkeys must not fire.
+    bool BlockingMenuOpen()
+    {
+        auto* ui = RE::UI::GetSingleton();
+        if (!ui)
+            return false;
+        for (const auto& menu : ui->menuStack)
+        {
+            if (!menu || !menu->OnStack())
+                continue;
+            if (menu->menuFlags.all(RE::UI_MENU_FLAGS::kPausesGame) ||
+                menu->menuFlags.all(RE::UI_MENU_FLAGS::kUsesCursor) ||
+                menu->menuFlags.all(RE::UI_MENU_FLAGS::kModal) ||
+                menu->menuFlags.all(RE::UI_MENU_FLAGS::kFreezeFramePause))
+                return true;
+        }
+        return false;
+    }
     // Player-hit sink for the gas-mask CONDITION system: when the player is struck, the worn mask
     // takes durability damage. Registered once at kGameDataReady on the global hit-event source.
     class MaskHitSink : public RE::BSTEventSink<RE::TESHitEvent>
@@ -482,11 +517,7 @@ void RadiationEngine::Update()
             _chokeNotified = false; _chokeSoundTick = 0;
         }
 
-        // Auto-equip a gas mask while a rad weather is active (data-driven by the RadWeatherList FLST).
-        // Acts on the weather transition only: dons a mask on ENTERING rad weather (if the player owns
-        // one and isn't already masked) and removes ONLY what we auto-equipped on LEAVING — so manual
-        // equip/unequip is respected. The equip flips the worn state, which the block above turns into
-        // the put-on fade + overlay automatically.
+        // Constraint: NPC masking rides the rad-weather transition; the player's mask is handled by the exposure step below.
         if (_radWeatherList)
         {
             const int inRadNow = inRadWeather ? 1 : 0;
@@ -525,39 +556,40 @@ void RadiationEngine::Update()
             _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
         }
 
-        // Constraint: the auto-don rides the exposure transition, not the sky weather, so cover and a manual unequip are respected.
+        // Constraint: the auto-don rides a stable exposure reading, not the sky weather, so cover and doorways cannot flap it.
+        if (auto* cell = player->GetParentCell())
         {
-            auto* cell = player->GetParentCell();
             const bool exposedNow = RadCorrectnessPolicy::RadWeatherExposed(
                 inRadWeather,
-                cell && cell->IsInterior(),
+                cell->IsInterior(),
                 IsPlayerSheltered(),
                 IsPlayerInPoweredShelter(),
                 inPowerArmor);
-            if (_wasRadExposed == -1)
+            const auto step = RadCorrectnessPolicy::StepAutoMask(
+                _wasRadExposed,
+                _radExposedCandidate,
+                _radExposedStreak,
+                exposedNow,
+                kAutoMaskStableTicks);
+            _wasRadExposed = step.applied;
+            _radExposedCandidate = step.candidate;
+            _radExposedStreak = step.streak;
+            if (step.equip && !IsWearingGasMask())
             {
-                _wasRadExposed = exposedNow ? 1 : 0;   // first eval after load: sync silently
+                if (auto* mask = FindInventoryMask())
+                {
+                    SetMaskEquipped(mask, true);
+                    _autoMaskEquipped = true;
+                }
             }
-            else
+            else if (step.remove && _autoMaskEquipped)
             {
-                const bool wasExposed = _wasRadExposed == 1;
-                if (RadCorrectnessPolicy::ShouldAutoEquipMask(wasExposed, exposedNow, IsWearingGasMask()))
-                {
-                    if (auto* mask = FindInventoryMask())
-                    {
-                        SetMaskEquipped(mask, true);
-                        _autoMaskEquipped = true;
-                    }
-                }
-                else if (RadCorrectnessPolicy::ShouldAutoRemoveMask(wasExposed, exposedNow, _autoMaskEquipped))
-                {
-                    if (auto* worn = GetWornMask())
-                        SetMaskEquipped(worn, false);
-                    _autoMaskEquipped = false;
-                }
-                _wasRadExposed = exposedNow ? 1 : 0;
+                if (auto* worn = GetWornMask())
+                    SetMaskEquipped(worn, false);
+                _autoMaskEquipped = false;
             }
         }
+        // Constraint: a null parent cell (load / fast travel) skips the transition instead of reading as exterior.
         if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold))
             SpawnStormGhouls();
 
@@ -598,8 +630,11 @@ void RadiationEngine::PollInput()
     // Shift+F8 during view init). No-op once nothing is pending. Runs on the verified main thread.
     RadHud::GetSingleton().PumpDeferredDebug();
 
+    // Constraint: our GetAsyncKeyState keys only fire while the game window is foreground with no menu open.
+    const bool hotkeysAllowed = GameWindowForeground() && !BlockingMenuOpen();
+
     // Gas-mask filter replace keybind (INI [Filter] ReplaceKey; 0 = disabled).
-    if (_filterReplaceKey != 0)
+    if (hotkeysAllowed && _filterReplaceKey != 0)
     {
         const bool rdown = (GetAsyncKeyState(_filterReplaceKey) & 0x8000) != 0;
         if (rdown && !_filterReplaceWasDown)
@@ -612,7 +647,7 @@ void RadiationEngine::PollInput()
     }
 
     // Gas-mask repair keybind (INI [Condition] RepairKey; 0 = disabled).
-    if (_conditionRepairKey != 0)
+    if (hotkeysAllowed && _conditionRepairKey != 0)
     {
         const bool rdown = (GetAsyncKeyState(_conditionRepairKey) & 0x8000) != 0;
         if (rdown && !_conditionRepairWasDown)

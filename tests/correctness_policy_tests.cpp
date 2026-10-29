@@ -1,5 +1,6 @@
 #include "RadCorrectnessPolicy.h"
 #include "RadWaterFillPolicy.h"
+#include "RadReliefPolicy.h"
 #include "ClimatePolicy.h"
 
 #include <atomic>
@@ -81,14 +82,54 @@ int main()
     Require(!MaskOverlayVisible(-1, false, true));
     Require(MaskOverlayVisible(1, false, true));
     Require(!MaskOverlayVisible(0, true, false));
-    // Constraint: F8 belongs to the debug menu and the two mask keys must not collide; 0 disables one.
-    Require(IsUsableHotkey(0, 118));
-    Require(IsUsableHotkey(117, 118));
-    Require(IsUsableHotkey(117, 0));
-    Require(!IsUsableHotkey(117, 117));
-    Require(!IsUsableHotkey(0x77, 118));
-    Require(!IsUsableHotkey(256, 118));
-    Require(!IsUsableHotkey(-1, 118));
+    // Constraint: F8 belongs to the debug menu, mouse buttons/Shift/Esc are reserved, 0 disables one.
+    Require(IsUsableHotkey(0));
+    Require(IsUsableHotkey(117));
+    Require(IsUsableHotkey(0x76));
+    Require(!IsUsableHotkey(0x77));
+    Require(!IsUsableHotkey(0xFF + 1));
+    Require(!IsUsableHotkey(256));
+    Require(!IsUsableHotkey(-1));
+    Require(!IsUsableHotkey(1));
+    Require(!IsUsableHotkey(6));
+    Require(!IsUsableHotkey(0x10));
+    Require(!IsUsableHotkey(0x1B));
+    // Constraint: the INI key parser accepts decimal or 0x-hex and rejects negatives and junk.
+    int hotkey = -1;
+    Require(ParseHotkey("117", hotkey) && hotkey == 117);
+    Require(ParseHotkey("0x75", hotkey) && hotkey == 0x75);
+    Require(ParseHotkey(" 0XF6 ", hotkey) && hotkey == 0xF6);
+    Require(!ParseHotkey("", hotkey));
+    Require(!ParseHotkey("-1", hotkey));
+    Require(!ParseHotkey("zz", hotkey));
+    Require(!ParseHotkey("0x1000", hotkey));
+    // Constraint: a duplicate disables BOTH keys, so INI order cannot decide which one loses.
+    const auto dupPair = ValidateHotkeyPair(0x75, 0x75);
+    Require(dupPair.replace == 0 && dupPair.repair == 0 && dupPair.duplicateRejected);
+    const auto reservedPair = ValidateHotkeyPair(0x77, 118);
+    Require(reservedPair.replace == 0 && reservedPair.repair == 118 && reservedPair.replaceRejected);
+    const auto goodPair = ValidateHotkeyPair(0x75, 0x76);
+    Require(goodPair.replace == 0x75 && goodPair.repair == 0x76 && !goodPair.duplicateRejected);
+    // Constraint: the INI relief bridge accepts only Plugin.esp:0xLOCALID below the load-order range.
+    RadReliefPolicy::FormRef reliefRef{};
+    Require(RadReliefPolicy::ParseFormRef("Fallout4.esm:0x058AB8", reliefRef));
+    Require(reliefRef.plugin == "Fallout4.esm" && reliefRef.localID == 0x058AB8);
+    Require(RadReliefPolicy::ParseFormRef("  Some Mod.esp : 0Xabc ", reliefRef));
+    Require(reliefRef.plugin == "Some Mod.esp" && reliefRef.localID == 0xABC);
+    Require(RadReliefPolicy::ParseFormRef("Fallout4.esm:1678008", reliefRef));
+    Require(reliefRef.localID == 1678008);
+    Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm", reliefRef));
+    Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm:0x1000000", reliefRef));
+    Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm:0", reliefRef));
+    Require(!RadReliefPolicy::ParseFormRef(":0x800", reliefRef));
+    Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm:0xZZ", reliefRef));
+    std::size_t reliefInvalid = 0;
+    const auto  reliefList = RadReliefPolicy::ParseList(
+        " Fallout4.esm:0x58AB8 , , Fallout4.esm:0x0E9284, broken ", &reliefInvalid);
+    Require(reliefList.size() == 2);
+    Require(reliefInvalid == 1);
+    Require(reliefList[0].localID == 0x58AB8 && reliefList[1].localID == 0xE9284);
+    Require(RadReliefPolicy::ParseList("", nullptr).empty());
     // Constraint: interiors, shelter, powered shelters and a sealed suit are not rad-weather exposure.
     Require(RadWeatherExposed(true, false, false, false, false));
     Require(!RadWeatherExposed(true, true, false, false, false));
@@ -96,15 +137,20 @@ int main()
     Require(!RadWeatherExposed(true, false, false, true, false));
     Require(!RadWeatherExposed(true, false, false, false, true));
     Require(!RadWeatherExposed(false, false, false, false, false));
-    // Constraint: the auto-don fires on the exposure transition only, and only when unmasked.
-    Require(ShouldAutoEquipMask(false, true, false));
-    Require(!ShouldAutoEquipMask(false, true, true));
-    Require(!ShouldAutoEquipMask(true, true, false));
-    Require(!ShouldAutoEquipMask(true, false, false));
-    Require(ShouldAutoRemoveMask(true, false, true));
-    Require(!ShouldAutoRemoveMask(true, false, false));
-    Require(!ShouldAutoRemoveMask(false, false, true));
-    Require(!ShouldAutoRemoveMask(true, true, true));
+    // Constraint: a synced state never acts; a transition needs the stable tick count before don/remove.
+    const auto synced = StepAutoMask(-1, -1, 0, true, 3);
+    Require(!synced.equip && !synced.remove && synced.applied == 1 && synced.streak == 0);
+    const auto firstSample = StepAutoMask(0, 0, 0, true, 3);
+    Require(!firstSample.equip && firstSample.candidate == 1 && firstSample.streak == 1);
+    const auto secondSample = StepAutoMask(0, firstSample.candidate, firstSample.streak, true, 3);
+    Require(!secondSample.equip && secondSample.streak == 2);
+    const auto stableEquip = StepAutoMask(0, secondSample.candidate, secondSample.streak, true, 3);
+    Require(stableEquip.equip && !stableEquip.remove && stableEquip.applied == 1);
+    // Constraint: a single covered sample resets the streak, so a doorway cannot flap the mask.
+    const auto flap = StepAutoMask(1, 1, 2, false, 3);
+    Require(!flap.remove && flap.candidate == 0 && flap.streak == 1);
+    const auto stableRemove = StepAutoMask(1, 0, 2, false, 3);
+    Require(stableRemove.remove && !stableRemove.equip && stableRemove.applied == 0);
     Require(!CuresPermanentTissue(CureSignal::kNone));
     Require(!CuresPermanentTissue(CureSignal::kInventoryMovement));
     Require(CuresPermanentTissue(CureSignal::kVerifiedChelationUse));

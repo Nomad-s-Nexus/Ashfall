@@ -44,6 +44,7 @@ float LastGameTime = -1.0
 float SleepStartTime = -1.0
 float WaitStartTime = -1.0
 ; Invariant: a use is only credited when the equip and the removal pair up inside PairWindowSeconds.
+bool ConsumptionArraysReady = false
 Form[] EquipCandidateForms
 float[] EquipCandidateTimes
 Form[] RemoveCandidateForms
@@ -72,6 +73,7 @@ Event OnInit()
         return
     endif
     LastGameTime = Utility.GetCurrentGameTime()
+    ClearConsumptionCandidates()
     ArmSleepWaitEvents()
     ArmPlayerEvents(player)
     MirrorAll()
@@ -148,18 +150,14 @@ EndFunction
 ; consumption
 
 Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)
-    if !IsActive()
-        return
-    endif
-    Actor player = Game.GetPlayer()
-    if !player || akSender != player
-        return
-    endif
-    ; Constraint: vanilla credits a use only when the object has no live reference or a non-quest one.
+    ; Constraint: cheap form guards first; vanilla credits a use only with no live reference or a non-quest one.
     if !akBaseObject || (akReference != None && akReference.IsQuestItem())
         return
     endif
     if !IsConsumable(akBaseObject)
+        return
+    endif
+    if akSender != Game.GetPlayer() || !IsActive()
         return
     endif
     Debug.Trace("[RadSurvivalQuest] consume-arm equip " + akBaseObject)
@@ -167,18 +165,17 @@ Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference ak
 EndEvent
 
 Event ObjectReference.OnItemRemoved(ObjectReference akSender, Form akBaseItem, int aiItemCount, ObjectReference akItemReference, ObjectReference akDestContainer)
-    if !IsActive()
-        return
-    endif
-    Actor player = Game.GetPlayer()
-    if !player || akSender != player
-        return
-    endif
-    ; Constraint: a removal into a container or the world is a transfer, not a consumption.
+    ; Constraint: this fires for every removal (every shot fires ammo), so cheap guards run first.
     if !akBaseItem || akDestContainer != None || aiItemCount <= 0
         return
     endif
+    if (akBaseItem as Ammo)
+        return
+    endif
     if !IsConsumable(akBaseItem)
+        return
+    endif
+    if akSender != Game.GetPlayer() || !IsActive()
         return
     endif
     Debug.Trace("[RadSurvivalQuest] consume-confirm remove " + akBaseItem + " x" + aiItemCount)
@@ -208,7 +205,7 @@ Event Actor.OnPlayerSwimming(Actor akSender)
 EndEvent
 
 bool Function IsConsumable(Form akItem)
-    if IsFoodOrDrink(akItem)
+    if IsFoodOrDrink(akItem) || IsExtraReliefItem(akItem)
         return true
     endif
     return Diseases != None && Diseases.IsCureItem(akItem)
@@ -216,7 +213,7 @@ EndFunction
 ; Invariant: whichever of the equip/removal pair arrives second applies the relief exactly once.
 Function PairEquip(Form akItem)
     PruneConsumptionCandidates()
-    int match = FindCandidate(RemoveCandidateForms, akItem)
+    int match = RemoveCandidateForms.Find(akItem)
     if match >= 0
         int count = RemoveCandidateCounts[match]
         RemoveCandidateForms.Remove(match)
@@ -231,7 +228,7 @@ EndFunction
 
 Function PairRemove(Form akItem, int aiCount)
     PruneConsumptionCandidates()
-    int match = FindCandidate(EquipCandidateForms, akItem)
+    int match = EquipCandidateForms.Find(akItem)
     if match >= 0
         EquipCandidateForms.Remove(match)
         EquipCandidateTimes.Remove(match)
@@ -243,18 +240,11 @@ Function PairRemove(Form akItem, int aiCount)
     RemoveCandidateTimes.Add(Utility.GetCurrentRealTime())
 EndFunction
 
-int Function FindCandidate(Form[] akForms, Form akItem)
-    int i = 0
-    while i < akForms.Length
-        if akForms[i] == akItem
-            return i
-        endif
-        i += 1
-    endwhile
-    return -1
-EndFunction
-
 Function PruneConsumptionCandidates()
+    ; Constraint: a mid-save install can deliver an event before OnInit initialises the candidate arrays.
+    if !ConsumptionArraysReady
+        ClearConsumptionCandidates()
+    endif
     float now = Utility.GetCurrentRealTime()
     int i = EquipCandidateTimes.Length - 1
     while i >= 0
@@ -281,6 +271,15 @@ Function ClearConsumptionCandidates()
     RemoveCandidateForms = new Form[0]
     RemoveCandidateCounts = new int[0]
     RemoveCandidateTimes = new float[0]
+    ConsumptionArraysReady = true
+EndFunction
+
+; Constraint: extra relief entries are resolved by the native INI bridge; no HC_* form is read.
+bool Function IsExtraFoodItem(Form akItem) native
+bool Function IsExtraThirstItem(Form akItem) native
+
+bool Function IsExtraReliefItem(Form akItem)
+    return IsExtraFoodItem(akItem) || IsExtraThirstItem(akItem)
 EndFunction
 
 Function ApplyRelief(Form akItem, int aiCount)
@@ -292,8 +291,8 @@ Function ApplyRelief(Form akItem, int aiCount)
         Diseases.ConsumeItem(akItem, aiCount, IsActive())
     endif
     ResolveKeywords()
-    bool ate = _FoodKeyword != None && akItem.HasKeyword(_FoodKeyword)
-    bool drank = (_NukaKeyword != None && akItem.HasKeyword(_NukaKeyword)) || (_DrinkKeyword != None && akItem.HasKeyword(_DrinkKeyword)) || (_WaterKeyword != None && akItem.HasKeyword(_WaterKeyword))
+    bool ate = (_FoodKeyword != None && akItem.HasKeyword(_FoodKeyword)) || IsExtraFoodItem(akItem)
+    bool drank = (_NukaKeyword != None && akItem.HasKeyword(_NukaKeyword)) || (_DrinkKeyword != None && akItem.HasKeyword(_DrinkKeyword)) || (_WaterKeyword != None && akItem.HasKeyword(_WaterKeyword)) || IsExtraThirstItem(akItem)
     ; Alcohol hydrates far less; chems never feed the survival pools.
     float hydration = 1.0
     if _AlcoholKeyword != None && akItem.HasKeyword(_AlcoholKeyword)
@@ -702,8 +701,8 @@ Keyword _WaterKeyword
 Keyword _AlcoholKeyword
 
 Function ResolveKeywords()
-    ; Constraint: the five Fallout4.esm keywords either all resolve or the whole classification retries.
-    if _FoodKeyword
+    ; Constraint: cache only when all five Fallout4.esm keywords resolved, otherwise classification retries.
+    if _FoodKeyword && _NukaKeyword && _DrinkKeyword && _WaterKeyword && _AlcoholKeyword
         return
     endif
     _FoodKeyword = Game.GetFormFromFile(0x00055ECC, "Fallout4.esm") as Keyword

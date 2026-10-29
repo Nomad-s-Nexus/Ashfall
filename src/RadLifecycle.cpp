@@ -6,6 +6,7 @@
 #include "RadCorrectnessPolicy.h"
 #include "RadHud.h"
 #include "RadMaskOwnership.h"
+#include "RadReliefConfig.h"
 #include "RadiationEngine.h"
 #include "WaterBottleFill.h"
 
@@ -44,6 +45,9 @@ bool RadLifecycle::EnsureEngineActiveOnGameThread()
         }
 
         NeedsConsumptionTrace::ActivateOnGameThread();
+
+        // Constraint: the relief INI lists resolve against loaded records, so they load on the game thread.
+        RadReliefConfig::ActivateOnGameThread();
 
         // Constraint: the activation sink is independent of engine activation, so a failed attempt retries later.
         WaterBottleFill::ActivateOnGameThread();

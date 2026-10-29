@@ -56,19 +56,22 @@ check('UnregisterForRemoteEvent(player, "OnItemRemoved")' in armed,
       "the removal event must be unregisterable so re-arming cannot double-deliver")
 
 remove_body = event_body(code, REMOVE)
-for guard in ("akSender != player", "akDestContainer != None", "aiItemCount <= 0", "IsConsumable("):
+for guard in ("akDestContainer != None", "aiItemCount <= 0", "IsConsumable(", "akBaseItem as Ammo"):
     check(guard in remove_body, f"the removal handler must reject non-consumption with {guard}")
+check("akSender != Game.GetPlayer()" in remove_body, "the removal handler must check the sender")
+
 check("PairRemove(" in remove_body, "the removal handler must feed the pairing rule")
 
 equip_body = event_body(code, EQUIP)
-for guard in ("akSender != player", "akReference != None", "akReference.IsQuestItem()", "IsConsumable("):
+for guard in ("akReference != None", "akReference.IsQuestItem()", "IsConsumable("):
     check(guard in equip_body, f"the equip handler must reject non-uses with {guard}")
+check("akSender != Game.GetPlayer()" in equip_body, "the equip handler must check the sender")
+
 check("PairEquip(" in equip_body, "the equip handler must feed the pairing rule")
 
 for helper in (
     "Function PairEquip(Form akItem)",
     "Function PairRemove(Form akItem, int aiCount)",
-    "int Function FindCandidate(Form[] akForms, Form akItem)",
     "Function PruneConsumptionCandidates()",
     "Function ClearConsumptionCandidates()",
 ):
@@ -98,6 +101,130 @@ resolve = function_body(code, "Function ResolveKeywords()")
 for form_id in ("0x00055ECC", "0x00249F30", "0x000F4AEC", "0x000F4AED", "0x0010C416"):
     check(re.search(rf"GetFormFromFile\({form_id},\s*\"Fallout4\.esm\"\)", resolve, re.IGNORECASE) is not None,
           f"keyword {form_id} must resolve from Fallout4.esm")
+
+
+# ---- OnInit ordering and array guards ------------------------------------------------------
+oninit = event_body(code, "Event OnInit()")
+check("ClearConsumptionCandidates()" in oninit,
+      "OnInit must initialise the consumption candidate arrays or the first meal writes to None arrays")
+check(oninit.find("ClearConsumptionCandidates()") < oninit.find("ArmPlayerEvents(player)"),
+      "OnInit must initialise the candidate arrays before it arms the item events")
+prune = function_body(code, "Function PruneConsumptionCandidates()")
+check("ConsumptionArraysReady" in prune and "ClearConsumptionCandidates()" in prune,
+      "the prune guard must re-initialise the arrays when an event arrives before OnInit")
+clear = function_body(code, "Function ClearConsumptionCandidates()")
+check("ConsumptionArraysReady = true" in clear,
+      "clearing the candidates must mark the arrays usable")
+check("FindCandidate(" not in code, "the pairing search must use the built-in array Find")
+check("RemoveCandidateForms.Find(" in code and "EquipCandidateForms.Find(" in code,
+      "both pairing directions must use array Find")
+
+# Constraint: the relief INI bridge assertions follow.
+check("bool Function IsExtraFoodItem(Form akItem) native" in code and
+      "bool Function IsExtraThirstItem(Form akItem) native" in code,
+      "the quest must declare the native relief bridge functions")
+check("IsExtraFoodItem(" in function_body(code, "Function ApplyRelief(Form akItem, int aiCount)") and
+      "IsExtraThirstItem(" in function_body(code, "Function ApplyRelief(Form akItem, int aiCount)"),
+      "relief must consult the INI bridge lists")
+check("IsExtraReliefItem(" in consumable,
+      "the consumable rule must accept INI bridge entries")
+
+root = SOURCE.parents[4]
+relief_source = text(root / "src/RadReliefConfig.cpp") if (root / "src/RadReliefConfig.cpp").is_file() else ""
+check("RegisterPapyrusFunctions" in relief_source and "InstallPapyrusBridge" in relief_source,
+      "the native relief bridge must register the Papyrus functions")
+for key in ("ExtraFoodKeywords", "ExtraThirstKeywords", "ExtraFoodItems", "ExtraThirstItems"):
+    check(key in relief_source, f"the native bridge must read [Relief] {key}")
+check("LookupForm(" in relief_source, "the bridge must resolve plugin + local id through TESDataHandler")
+main_source = text(root / "src/main.cpp") if (root / "src/main.cpp").is_file() else ""
+check("RadReliefConfig::InstallPapyrusBridge()" in main_source,
+      "F4SEPlugin_Load must install the relief bridge before scripts load")
+lifecycle_source = text(root / "src/RadLifecycle.cpp") if (root / "src/RadLifecycle.cpp").is_file() else ""
+check("RadReliefConfig::ActivateOnGameThread()" in lifecycle_source,
+      "the relief lists must resolve on the game thread after records load")
+ini_source = text(root / "deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini") if (root / "deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini").is_file() else ""
+check("[Relief]" in ini_source, "the INI must document the [Relief] section")
+thirst_line = [line for line in ini_source.splitlines() if line.startswith("ExtraThirstItems=")]
+check(bool(thirst_line) and "Fallout4.esm:0x058AB8" in thirst_line[0] and "Fallout4.esm:0x0E9284" in thirst_line[0],
+      "the shipped ExtraThirstItems must carry the two HC-keyword-only vanilla drinks")
+
+# Constraint: Python model of the Papyrus pairing rule, so both event orders are covered.
+PAIR_WINDOW = 2.0
+
+
+class PairModel:
+    def __init__(self):
+        self.ready = False
+        self.equips = []
+        self.removes = []
+        self.reliefs = []
+
+    def clear(self):
+        self.equips = []
+        self.removes = []
+        self.ready = True
+
+    def prune(self, now):
+        if not self.ready:
+            self.clear()
+        self.equips = [(f, t) for f, t in self.equips if now - t <= PAIR_WINDOW]
+        self.removes = [(f, c, t) for f, c, t in self.removes if now - t <= PAIR_WINDOW]
+
+    @staticmethod
+    def find(entries, form):
+        for index, entry in enumerate(entries):
+            if entry[0] == form:
+                return index
+        return -1
+
+    def pair_equip(self, form, now):
+        self.prune(now)
+        match = self.find(self.removes, form)
+        if match >= 0:
+            count = self.removes[match][1]
+            self.removes.pop(match)
+            self.reliefs.append((form, count))
+            return
+        self.equips.append((form, now))
+
+    def pair_remove(self, form, count, now):
+        self.prune(now)
+        match = self.find(self.equips, form)
+        if match >= 0:
+            self.equips.pop(match)
+            self.reliefs.append((form, count))
+            return
+        self.removes.append((form, count, now))
+
+
+model = PairModel()
+model.pair_equip("A", 0.0)
+check(model.ready, "a pairing call on a fresh model must initialise the arrays (None-array guard)")
+model.pair_remove("A", 1, 0.1)
+check(model.reliefs == [("A", 1)], "equip then remove must credit exactly one relief")
+model = PairModel()
+model.pair_remove("A", 1, 0.0)
+model.pair_equip("A", 0.1)
+check(model.reliefs == [("A", 1)], "remove then equip must credit exactly one relief (order independence)")
+model = PairModel()
+model.pair_equip("A", 0.0)
+model.pair_remove("A", 1, 0.1)
+model.pair_equip("A", 0.2)
+model.pair_remove("A", 1, 0.3)
+check(model.reliefs == [("A", 1), ("A", 1)], "two uses in a row must credit twice")
+model = PairModel()
+model.pair_equip("A", 0.0)
+model.pair_remove("A", 1, PAIR_WINDOW + 0.5)
+check(model.reliefs == [], "an equip older than the pair window must not pair with a later removal")
+model = PairModel()
+model.pair_equip("A", 0.0)
+model.pair_equip("A", 0.1)
+model.pair_remove("A", 1, 0.2)
+check(model.reliefs == [("A", 1)], "a duplicate equip must not double-credit one removal")
+model = PairModel()
+model.pair_remove("A", 1, 0.0)
+model.pair_equip("B", 0.1)
+check(model.reliefs == [], "a stale remove candidate must not pair with a different form")
 
 if failures:
     for failure in failures:

@@ -159,7 +159,7 @@ def check_generation_behavior():
         return
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        for name in ("RadLifecycleDispatch.cpp", "RadLifecycleDispatch.h", "RadCorrectnessPolicy.h"):
+        for name in ("RadLifecycleDispatch.cpp", "RadLifecycleDispatch.h", "RadCorrectnessPolicy.h", "RadIniParse.h"):
             shutil.copy(SRC / name, tmp / name)
         (tmp / "pch.h").write_text(STUB_PCH, encoding="utf-8")
         (tmp / "Hooks.h").write_text(STUB_HOOKS, encoding="utf-8")

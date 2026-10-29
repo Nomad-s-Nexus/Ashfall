@@ -1,8 +1,11 @@
 #pragma once
 
+#include "RadIniParse.h"
+
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <string_view>
 
 namespace RadCorrectnessPolicy
 {
@@ -97,27 +100,92 @@ namespace RadCorrectnessPolicy
         return a_inRadWeather && !a_interior && !a_sheltered && !a_poweredShelter && !a_powerArmor;
     }
 
-    // Constraint: the auto-don acts only on the exposure transition, so a manual unequip while exposed is respected.
-    constexpr bool ShouldAutoEquipMask(bool a_wasExposed, bool a_exposed, bool a_wearingMask)
+    // Constraint: the auto-don needs a stable exposure reading, so a doorway or roof edge cannot flap the mask.
+    struct AutoMaskStep
     {
-        return a_exposed && !a_wasExposed && !a_wearingMask;
+        bool equip;
+        bool remove;
+        int  applied;
+        int  candidate;
+        int  streak;
+    };
+
+    constexpr AutoMaskStep StepAutoMask(
+        int  a_applied,
+        int  a_candidate,
+        int  a_streak,
+        bool a_exposedNow,
+        int  a_requiredStableTicks)
+    {
+        const int sample = a_exposedNow ? 1 : 0;
+        if (a_applied < 0)
+            return { false, false, sample, sample, 0 };
+        int candidate = a_candidate;
+        int streak = a_streak;
+        if (candidate == sample)
+            ++streak;
+        else
+        {
+            candidate = sample;
+            streak = 1;
+        }
+        if (streak < a_requiredStableTicks || candidate == a_applied)
+            return { false, false, a_applied, candidate, streak };
+        return { candidate == 1, candidate == 0, candidate, candidate, 0 };
     }
 
-    constexpr bool ShouldAutoRemoveMask(bool a_wasExposed, bool a_exposed, bool a_autoEquipped)
+    // Constraint: an INI hotkey accepts decimal or 0x-hex; 0 disables it, negatives and junk are rejected.
+    inline bool ParseHotkey(std::string_view a_text, int& a_out)
     {
-        return !a_exposed && a_wasExposed && a_autoEquipped;
+        std::uint32_t value = 0;
+        if (!RadIniParse::ParseNumber(a_text, 0xFFF, value))
+            return false;
+        a_out = static_cast<int>(value);
+        return true;
     }
 
-    // Constraint: F8 is reserved for the debug menu and the two mask keys must differ; 0 means disabled.
-    constexpr bool IsUsableHotkey(int a_key, int a_otherKey)
+    // Constraint: F8 is the debug menu key, mouse buttons and Shift/Esc are never mask keys, 0 disables one.
+    constexpr bool IsUsableHotkey(int a_key)
     {
         if (a_key == 0)
             return true;
         if (a_key < 1 || a_key > 0xFF)
             return false;
-        if (a_key == 0x77)
+        if (a_key <= 6)
             return false;
-        return a_otherKey == 0 || a_key != a_otherKey;
+        return a_key != 0x10 && a_key != 0x1B && a_key != 0x77;
+    }
+
+    struct HotkeyPair
+    {
+        int  replace;
+        int  repair;
+        bool replaceRejected;
+        bool repairRejected;
+        bool duplicateRejected;
+    };
+
+    // Constraint: a rejected key disables only its action, but a duplicate disables both so load order never decides.
+    constexpr HotkeyPair ValidateHotkeyPair(int a_replace, int a_repair)
+    {
+        HotkeyPair result{ a_replace, a_repair, false, false, false };
+        if (!IsUsableHotkey(a_replace))
+        {
+            result.replace = 0;
+            result.replaceRejected = true;
+        }
+        if (!IsUsableHotkey(a_repair))
+        {
+            result.repair = 0;
+            result.repairRejected = true;
+        }
+        if (result.replace != 0 && result.replace == result.repair)
+        {
+            result.replace = 0;
+            result.repair = 0;
+            result.duplicateRejected = true;
+        }
+        return result;
     }
 
     enum class CureSignal

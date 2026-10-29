@@ -361,6 +361,8 @@ private:
     RE::BGSListForm* _radWeatherList = nullptr;                    // ESL 0x802 — weathers that count as "rad"
     int  _wasInRadWeather   = -1;       // -1 = just loaded (sync silently), 0 = no, 1 = yes
     int  _wasRadExposed     = -1;       // auto-don exposure: -1 = sync silently, 0 = covered, 1 = exposed
+    int  _radExposedCandidate = -1;     // exposure sample being timed for hysteresis
+    int  _radExposedStreak    = 0;      // consecutive ticks the candidate has held
     std::uint32_t _lastRadWeatherFormID = 0;
     bool _autoMaskEquipped  = false;    // we auto-donned the PLAYER's mask (so we may auto-remove it)
     int  _npcMaskScanTick   = 0;        // throttle countdown for the mid-storm NPC re-scan
