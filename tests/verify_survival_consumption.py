@@ -83,8 +83,9 @@ check("PairWindowSeconds" in prune_body,
       "stale candidates must expire on the pair window")
 check(prune_body.count("> PairWindowSeconds") == 2,
       "both candidate arrays must expire on a strict > PairWindowSeconds comparison")
-check(re.search(r"if !ConsumptionArraysReady \|\| EquipCandidateForms == None \|\| RemoveCandidateForms == None",
-                prune_body) is not None,
+check(re.search(
+    r"^\s*if\s+!ConsumptionArraysReady\s*\|\|\s*EquipCandidateForms == None\s*\|\|\s*RemoveCandidateForms == None\s*$",
+    prune_body, re.MULTILINE) is not None,
       "the prune guard must test the ready flag and both candidate arrays for None on one if line")
 for helper in ("Function PairEquip(Form akItem)", "Function PairRemove(Form akItem)"):
     check("ApplyRelief(akItem, 1)" in function_body(code, helper),
@@ -121,7 +122,8 @@ check("ClearConsumptionCandidates()" in oninit,
 check(oninit.find("ClearConsumptionCandidates()") < oninit.find("ArmPlayerEvents(player)"),
       "OnInit must initialise the candidate arrays before it arms the item events")
 prune = function_body(code, "Function PruneConsumptionCandidates()")
-check(re.search(r"if !ConsumptionArraysReady[^\n]*\n\s*ClearConsumptionCandidates\(\)", prune) is not None,
+check(re.search(
+    r"^\s*if\s+!ConsumptionArraysReady[^\n]*\n\s*ClearConsumptionCandidates\(\)", prune, re.MULTILINE) is not None,
       "the prune guard must re-initialise the arrays in the same if branch when an event arrives before OnInit")
 clear = function_body(code, "Function ClearConsumptionCandidates()")
 check("ConsumptionArraysReady = true" in clear,

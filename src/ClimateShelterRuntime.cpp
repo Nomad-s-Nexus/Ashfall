@@ -127,6 +127,8 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::SampleRooflessInterior(
         return _cached;
 
     const bool roofed = ProbeRoof(player, cell);
+    if (auto logger = spdlog::get("FalloutAnomaly"))
+        logger->debug("[Climate] Roofless interior probe: cell=0x{:08X}, roofed={}.", cellID, roofed);
     _cached = RadClimateShelterPolicy::FromRooflessInterior(roofed);
     _lastCellID = cellID;
     _lastX = position.x;

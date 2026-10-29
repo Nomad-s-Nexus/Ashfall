@@ -798,7 +798,7 @@ Reference: `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini` [Masks]/[Water] sec
 
 Reference: `src/ClimateRuntime.cpp:ClimateRuntime::Update`, `src/ClimatePolicy.h`, `tests/climate_policy_tests.cpp`.
 
-- `ClimateRuntime::Update` sets `environment.precipitation01 = 0` for every interior cell and `ClimatePolicy` then treats indoors as fully rain-sheltered, so rain never wets the player in an interior, including visually roofless ones such as the Museum of Freedom. The tester log agrees with the design: 1208 interior `[Climate]` lines and zero of them with `rainy=true`, so the interior rule is working as written rather than a broken wetness computation. A data-driven whitelist of roofless interiors (a `climate_weather.json` cell list plus a precipitation factor from report item 10) is not implemented yet: it needs FO4IDE-verified cell form IDs and a loader/policy/test change, so it remains a follow-up rather than a guess.
+- `ClimateRuntime::Update` sets `environment.precipitation01 = 0` for every interior cell and `ClimatePolicy` then treats indoors as fully rain-sheltered, so rain never wets the player in an interior, including visually roofless ones such as the Museum of Freedom. The tester log agrees with the design: 1208 interior `[Climate]` lines and zero of them with `rainy=true`, so the interior rule is working as written rather than a broken wetness computation. A data-driven whitelist of roofless interiors (a `climate_weather.json` cell list plus a precipitation factor) is implemented for the one approved cell; see the "Roofless-interior rain whitelist: implemented" section below.
 
 
 ## Needs state is per-save; nothing persists across characters (2026-10-28)
@@ -876,7 +876,7 @@ Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:OnInit`, `:OnItemRem
   `ClimateRuntime.cpp`. `ParseHotkey` ignores a trailing `; comment`, and `IsUsableHotkey` rejects LSHIFT 0xA0 and
   RSHIFT 0xA1.
 
-## Roofless-interior rain whitelist: implemented for ConcordMuseum01 (2026-10-28)
+## Roofless-interior rain whitelist: implemented for ConcordMuseum01 (2026-10-29)
 
 Reference: `deploy/F4SE/Plugins/FalloutAnomaly/climate_weather.json`, `src/ClimateWeatherConfig.cpp:ClimateWeatherConfig::Load`, `src/ClimateWeatherConfig.h:ClimateWeatherConfig::IsRooflessInterior`, `src/ClimateShelterRuntime.cpp:ClimateShelterRuntime::SampleRooflessInterior`, `src/ClimatePolicy.h:RadClimatePolicy::PrecipitationFor`, `src/ClimateRuntime.cpp:ClimateRuntime::Update`, `tests/climate_policy_tests.cpp`, `tests/verify_climate_roofless.py`.
 

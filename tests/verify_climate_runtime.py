@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,11 +64,15 @@ for token in (
     assert token in runtime, f"climate runtime input contract missing: {token}"
 
 # Constraint: one sampler per tick, chosen by the roofless flag; never sample both.
+sampler_ternary = re.compile(
+    r"auto shelter = rooflessInterior\s*\n\s*\? _shelter\.SampleRooflessInterior\(player, cell\)\s*\n"
+    r"\s*: _shelter\.Sample\(player\);")
+assert sampler_ternary.search(runtime) is not None, (
+    "Update must choose one shelter sampler with the roofless ternary")
+assert runtime.count("auto shelter") == 1, "Update must declare the shelter sample exactly once"
 assert runtime.count("_shelter.Sample(player)") == 1, "Update must call the normal shelter sampler exactly once"
 assert runtime.count("SampleRooflessInterior(player, cell)") == 1, (
     "Update must call the roofless sampler exactly once")
-assert "auto shelter = _shelter.Sample(player);" not in runtime, (
-    "Update must not call the normal sampler before deciding on the roofless sampler")
 
 
 for token in (

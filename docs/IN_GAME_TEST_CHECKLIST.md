@@ -77,10 +77,11 @@ matches. Mark everything else NOT RUN.
   `roofed=true, rainCover=100%` for the same cell and wetness does not rise).
 - **Stand in an unlisted interior (any other building) while it rains.** Expected: dry as before (no roofless log line
   for that cell).
-- **Probe throttling in ConcordMuseum01:** move less than 96 units inside the cell and confirm no new
-  `[Climate] Roofless interior roof cover changed` line appears; move 96 units or more, or change cell, and confirm
-  exactly one new line. The throttle is `RadClimateShelterPolicy::ShouldProbe` (`>= kProbeMoveDistance` squared, or a
-  cell change); its in-game firing rate is unverified until this step runs.
+- **Probe throttling in ConcordMuseum01:** the probe logs a debug line on every run
+  (`[Climate] Roofless interior probe: cell=0x..., roofed=...`). Move less than 96 units without crossing a roof
+  boundary: no new probe line. Then move 96 units or more, or change cell: exactly one new probe line. The throttle is
+  `RadClimateShelterPolicy::ShouldProbe` (`>= kProbeMoveDistance` squared, or a cell change); its in-game firing rate
+  is unverified until this step runs.
 
 ## 9. Needs persistence
 - **New character:** hunger/thirst/sleep start at 0 (GLOB defaults). Log: `[RadSurvivalQuest] ready at game day ...`.

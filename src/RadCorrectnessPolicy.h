@@ -140,7 +140,7 @@ namespace RadCorrectnessPolicy
         return { candidate == 1, candidate == 0, candidate, candidate, 0 };
     }
 
-    // Constraint: an INI hotkey accepts decimal or 0x-hex with an optional trailing "; comment"; 0 disables it, negatives and junk are rejected.
+    // Constraint: an INI hotkey accepts decimal or 0x-hex with an optional trailing "; comment"; 0 disables it, a leading '+', negatives and junk are rejected.
     inline bool ParseHotkey(std::string_view a_text, int& a_out)
     {
         a_text = a_text.substr(0, a_text.find(';'));

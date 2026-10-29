@@ -148,8 +148,13 @@ int main()
     Require(reliefList[0].localID == 0x58AB8 && reliefList[1].localID == 0xE9284);
     Require(RadReliefPolicy::ParseList("", nullptr).empty());
     Require(RadReliefPolicy::SplitEntries(" A:0x1 , , B.esp:2, ").size() == 2);
-    // Constraint: a trailing ; comment is stripped per token, so INI notes can follow entries.
-    Require(RadReliefPolicy::SplitEntries("A.esp:0x1 ; food, B.esp:0x2 ; thirst").size() == 2);
+    // Constraint: ';' strips the rest of the value, so a note containing a comma cannot become a token.
+    {
+        const auto tokens = RadReliefPolicy::SplitEntries("A.esp:0x1, B.esp:0x2 ; food, drink");
+        Require(tokens.size() == 2);
+        Require(tokens[0] == "A.esp:0x1");
+        Require(tokens[1] == "B.esp:0x2");
+    }
     Require(RadReliefPolicy::ParseList("A.esp:0x1 ; note").size() == 1);
     // Constraint: interiors, shelter, powered shelters and a sealed suit are not rad-weather exposure.
     Require(RadWeatherExposed(true, false, false, false, false));

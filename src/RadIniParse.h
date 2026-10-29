@@ -7,7 +7,7 @@
 
 namespace RadIniParse
 {
-    // Constraint: decimal or 0x-hex only; negatives, leading-zero forms, trailing junk and values above the cap are rejected.
+    // Constraint: decimal or 0x-hex only; negatives, a leading '+', leading-zero forms, trailing junk and values above the cap are rejected.
     inline bool ParseNumber(std::string_view a_text, std::uint32_t a_max, std::uint32_t& a_out)
     {
         auto text = a_text;
