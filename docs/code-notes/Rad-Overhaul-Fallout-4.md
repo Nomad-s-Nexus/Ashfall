@@ -797,3 +797,19 @@ Reference: `tools/rad_penalty_spells.json`, `deploy/RadSurvival.esp`, `src/Radia
 Reference: `src/ClimateRuntime.cpp:ClimateRuntime::Update`, `src/ClimatePolicy.h`, `tests/climate_policy_tests.cpp`.
 
 - `ClimateRuntime::Update` sets `environment.precipitation01 = 0` for every interior cell and `ClimatePolicy` then treats indoors as fully rain-sheltered, so rain never wets the player in an interior, including visually roofless ones such as the Museum of Freedom. The tester log agrees with the design: 1208 interior `[Climate]` lines and zero of them with `rainy=true`, so the interior rule is working as written rather than a broken wetness computation. A data-driven whitelist of roofless interiors (a `climate_weather.json` cell list plus a precipitation factor from report item 10) is not implemented yet: it needs FO4IDE-verified cell form IDs and a loader/policy/test change, so it remains a follow-up rather than a guess.
+
+
+## Needs state is per-save; nothing persists across characters (2026-10-28)
+
+Reference: `deploy/RadSurvival.esp`, `src/RadEngine_Serialization.cpp:RadiationEngine::LoadState`, `src/NeedsSerializationPolicy.h`, `deploy/Scripts/Source/User/RadSurvivalQuest.psc:OnInit`.
+
+- Verified with FO4IDE: the `RadSurvival_Hunger` / `_Thirst` / `_Sleep` GLOBs (local forms 0x000801-0x000803) all store FLTV 0, so a fresh character starts at zero. `HungerDebt`/`ThirstDebt`/`SleepDebt` are ordinary quest-script variables saved with the quest instance, and a new game instantiates a new quest, so nothing carries between characters.
+- The native plugin writes no needs payload: `RadiationEngine::LoadState` recognises the legacy `NEED` co-save record and drops it with an info log, and `NeedsSerializationPolicy` keeps only the recognition constant - there is no writer left. `Actor.OnPlayerLoadGame` logs the restored anchors ("post-load anchor H/T/S="), which is the in-game check to run next time.
+- So "the needs persist and never lower" is the missing relief from the consumption item, not stale saved state: the pools only ever rose because no food/drink relief was ever credited.
+
+## Gas mask in power armor: what we found (2026-10-28)
+
+Reference: `src/RadEngine_Mask.cpp:RadiationEngine::SetActorMaskEquipped`, `src/RadEngine_Mask.cpp:CaptureDisplacedGear`, `src/Hooks_Input.cpp:RadInputHandler`, `src/RadiationEngine.cpp:RadiationEngine::Update`.
+
+- The plugin's only equip/unequip path for masks is `SetActorMaskEquipped`, which claims ownership in `RadMaskOwnership` before `EquipObject`/`UnequipObject` and releases it on failure. `CaptureDisplacedGear` is used only for the temporary masks handed to NPCs by `EquipNearbyNpcMasks`, so it never moves the player's own gear.
+- The player mask fills the MOUTH biped slot while power-armor helmets fill slot 30 (`kHairTop`), so the two do not share a slot. The cases that looked wrong are now gated: the overlay is hidden by a PA helmet, the auto-don skips interiors/shelter/PA, and `Hooks_Input.cpp` only handles Shift+F8 - it contains no mask equip hook at all. Nothing in our code swaps a mask when entering or leaving power armor; Gasmask Overhaul's own scripts and hotkeys are separate and untouched.
