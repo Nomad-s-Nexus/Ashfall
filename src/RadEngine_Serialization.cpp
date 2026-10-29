@@ -16,6 +16,9 @@ namespace
     constexpr std::uint32_t kStormClockVersion = 1;
     constexpr std::uint32_t kFilterRecord      = 'FILT';
     constexpr std::uint32_t kFilterVersion     = 2;
+    constexpr std::uint32_t kPenaltyRecord     = 'PENA';
+    constexpr std::uint32_t kPenaltyVersion    = 1;
+    constexpr std::uint32_t kPenaltyLen        = sizeof(float) * 4;
     constexpr std::uint32_t kMaskOwnershipRecord = 'MOWN';
     constexpr std::uint32_t kMaskOwnershipVersion = 1;
     constexpr std::uint32_t kMaskOwnershipHeaderLen = sizeof(std::uint32_t);
@@ -51,6 +54,18 @@ void RadiationEngine::SaveState(const F4SE::SerializationInterface* a_intfc) con
         a_intfc->WriteRecordData(_maskCondition);
     }
 
+    if (a_intfc->OpenRecord(kPenaltyRecord, kPenaltyVersion))
+    {
+        a_intfc->WriteRecordData(_appliedCarryPen);
+        a_intfc->WriteRecordData(_appliedHealPen);
+        a_intfc->WriteRecordData(_appliedSpeedPen);
+        a_intfc->WriteRecordData(_appliedApPen);
+    }
+    else
+    {
+        logger->error("[Save] Could not open tissue-penalty record.");
+    }
+
     const auto ownership = RadMaskOwnership::Snapshot();
     if (a_intfc->OpenRecord(kMaskOwnershipRecord, kMaskOwnershipVersion))
     {
@@ -82,6 +97,8 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
 
     std::vector<RadiationSerialization::StormClockState> clockCandidates;
     std::vector<RadiationSerialization::FilterState> filterCandidates;
+    std::vector<RadiationSerialization::PenaltyState> penaltyCandidates;
+    int penaltySeen = 0;
     std::vector<std::vector<RadMaskOwnership::Entry>> ownershipCandidates;
     int clockSeen = 0, clockRejected = 0;
     int filterSeen = 0, filterRejected = 0;
@@ -123,6 +140,22 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
                 continue;
             }
             climateCandidates.push_back(candidate);
+            continue;
+        }
+        if (type == kPenaltyRecord)
+        {
+            ++penaltySeen;
+            RadiationSerialization::PenaltyState candidate{};
+            const bool read = version == kPenaltyVersion && length == kPenaltyLen &&
+                readExact(candidate.carry) && readExact(candidate.heal) &&
+                readExact(candidate.speed) && readExact(candidate.ap);
+            if (!read || !RadiationSerialization::IsValidPenaltyState(candidate))
+            {
+                logger->warn("[Load] Tissue-penalty record #{} v{} len {} is invalid or truncated — ignoring.",
+                    penaltySeen, version, length);
+                continue;
+            }
+            penaltyCandidates.push_back(candidate);
             continue;
         }
         if (type == kMaskOwnershipRecord)
@@ -291,6 +324,23 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     {
         logger->warn("[Load] {} filter record(s) present but none valid ({} rejected) — keeping fresh defaults.",
             filterSeen, filterRejected);
+    }
+
+    if (RadiationSerialization::PenaltyCandidatesAgree(penaltyCandidates))
+    {
+        const auto& pen = penaltyCandidates.front();
+        _appliedCarryPen = pen.carry;
+        _appliedHealPen  = pen.heal;
+        _appliedSpeedPen = pen.speed;
+        _appliedApPen    = pen.ap;
+        _penaltiesFromSave = true;
+        logger->info("[Load] Tissue penalties restored (carry {:.1f}, heal {:.1f}, speed {:.1f}, AP {:.1f}).",
+            pen.carry, pen.heal, pen.speed, pen.ap);
+    }
+    else if (penaltySeen > 0)
+    {
+        logger->warn("[Load] {} tissue-penalty record(s) present but not one agreeing valid record — penalties start at 0.",
+            penaltySeen);
     }
 
     if (RadMaskOwnership::ClassifyCandidates(ownershipCandidates) == RadMaskOwnership::CandidateDisposition::kRestore)

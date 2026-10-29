@@ -121,6 +121,8 @@ public:
     void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
+    void WantedTissuePenalties(float (&a_out)[4]) const;
+    void RepairLeakedCarryWeight();                   // raise a leaked negative carry weight back to the permanent base
     void DispelNegativeSpecials();                    // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)
     // Called from the PrismaUI JS listener (Ultralight thread). It ONLY enqueues the command;
     // the actual engine work runs on the main thread in Update() via DispatchDebugCommand,
@@ -595,6 +597,7 @@ private:
     float _appliedHealPen  = 0.0f;   // current healRateMult penalty (failing regeneration)
     float _appliedSpeedPen = 0.0f;   // current speedMult penalty (sluggish, high tissue only)
     float _appliedApPen    = 0.0f;   // current actionPoints penalty (fatigue, high tissue only)
+    bool  _penaltiesFromSave = false;   // true when LoadState restored the four counters above
     int   _symptomTick     = 0;      // throttle to the next cough / nausea / vomiting fit
     int   _symptomWarned   = 0;      // 0 none / 1 nausea / 2 vomiting — one notify per escalation
 };
