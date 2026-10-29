@@ -603,11 +603,7 @@ void RadiationEngine::PollInput()
     {
         const bool rdown = (GetAsyncKeyState(_filterReplaceKey) & 0x8000) != 0;
         if (rdown && !_filterReplaceWasDown)
-        {
-            if (auto* worn = GetWornMask())
-                Log()->info("[Input] ReplaceKey: worn mask 0x{:08X} recognized, filters={}.", worn->GetFormID(), FilterItemCount());
             ReplaceFilter(false);
-        }
         _filterReplaceWasDown = rdown;
     }
     else
@@ -620,11 +616,7 @@ void RadiationEngine::PollInput()
     {
         const bool rdown = (GetAsyncKeyState(_conditionRepairKey) & 0x8000) != 0;
         if (rdown && !_conditionRepairWasDown)
-        {
-            if (auto* worn = GetWornMask())
-                Log()->info("[Input] RepairKey: worn mask 0x{:08X} recognized, kits={}.", worn->GetFormID(), RepairKitCount());
             RepairMask(false);
-        }
         _conditionRepairWasDown = rdown;
     }
     else

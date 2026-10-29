@@ -509,7 +509,6 @@ void RadiationEngine::LoadFilterIni()
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
     _filterDurationSec = ::GetPrivateProfileIntA("Filter", "DurationSeconds", 300, kIni);
     if (_filterDurationSec < 1) _filterDurationSec = 1;
-    _filterReplaceKey  = 0;   // filled by the validated ReloadHotkeysFromIni below
     _filterAutoReplace = ::GetPrivateProfileIntA("Filter", "AutoReplace", 0, kIni) != 0;
     {
         char b[16];
@@ -518,7 +517,6 @@ void RadiationEngine::LoadFilterIni()
     }
     // [Condition] — mask durability.
     _conditionEnabled    = ::GetPrivateProfileIntA("Condition", "Enabled", 1, kIni) != 0;
-    _conditionRepairKey  = 0;   // filled by the validated ReloadHotkeysFromIni below
     _conditionAutoRepair = ::GetPrivateProfileIntA("Condition", "AutoRepair", 0, kIni) != 0;
     {
         char b[16];
@@ -645,12 +643,14 @@ void RadiationEngine::ReplaceFilter(bool silent)
 
     if (!GetWornMask())
     {
+        Log()->info("[Filter] replace refused: no recognised gas mask worn.");
         if (!silent) Notify("[Mask] No recognised gas mask equipped.", true);
         return;
     }
 
     if (FilterItemCount() <= 0)
     {
+        Log()->info("[Filter] replace refused: no spare filters in the inventory.");
         if (!silent) Notify("[Mask] No spare filters.", true);
         return;
     }
@@ -717,12 +717,14 @@ void RadiationEngine::RepairMask(bool silent)
 
     if (!GetWornMask())
     {
+        Log()->info("[Condition] repair refused: no recognised gas mask worn.");
         if (!silent) Notify("[Mask] No recognised gas mask equipped.", true);
         return;
     }
 
     if (RepairKitCount() <= 0)
     {
+        Log()->info("[Condition] repair refused: no repair kits in the inventory.");
         if (!silent) Notify("[Mask] No repair kits.", true);
         return;
     }

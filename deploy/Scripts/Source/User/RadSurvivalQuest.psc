@@ -702,24 +702,15 @@ Keyword _WaterKeyword
 Keyword _AlcoholKeyword
 
 Function ResolveKeywords()
-    if _FoodKeyword && _NukaKeyword && _DrinkKeyword && _WaterKeyword && _AlcoholKeyword
+    ; Constraint: the five Fallout4.esm keywords either all resolve or the whole classification retries.
+    if _FoodKeyword
         return
     endif
-    if !_FoodKeyword
-        _FoodKeyword = Game.GetFormFromFile(0x00055ECC, "Fallout4.esm") as Keyword
-    endif
-    if !_NukaKeyword
-        _NukaKeyword = Game.GetFormFromFile(0x00249F30, "Fallout4.esm") as Keyword
-    endif
-    if !_DrinkKeyword
-        _DrinkKeyword = Game.GetFormFromFile(0x000F4AEC, "Fallout4.esm") as Keyword
-    endif
-    if !_WaterKeyword
-        _WaterKeyword = Game.GetFormFromFile(0x000F4AED, "Fallout4.esm") as Keyword
-    endif
-    if !_AlcoholKeyword
-        _AlcoholKeyword = Game.GetFormFromFile(0x0010C416, "Fallout4.esm") as Keyword
-    endif
+    _FoodKeyword = Game.GetFormFromFile(0x00055ECC, "Fallout4.esm") as Keyword
+    _NukaKeyword = Game.GetFormFromFile(0x00249F30, "Fallout4.esm") as Keyword
+    _DrinkKeyword = Game.GetFormFromFile(0x000F4AEC, "Fallout4.esm") as Keyword
+    _WaterKeyword = Game.GetFormFromFile(0x000F4AED, "Fallout4.esm") as Keyword
+    _AlcoholKeyword = Game.GetFormFromFile(0x0010C416, "Fallout4.esm") as Keyword
 EndFunction
 
 bool Function IsFoodOrDrink(Form akItem)

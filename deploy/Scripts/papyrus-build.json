@@ -22,9 +22,9 @@
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "53c5c21350cba8aafc7deb0960f4b91f1c4786124c859917425bbf240ab68132",
+      "sourceSha256": "5e48d7a43f3284b225c875f2f230f696347b6f1781c9b4a473cf8590853b6cfe",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "0a561af0be438a603c1c40b2eb12765023707859bf3329f116bbe2e9d5118c56",
+      "pexSha256": "be0f2112671e1cb391b9979e9f3d87359d69d14812993c824329a55052b87755",
       "recordedSource": "E:\\rad-wt\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
     }
   ]
