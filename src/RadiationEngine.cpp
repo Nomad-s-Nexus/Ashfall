@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "RadCorrectnessPolicy.h"
 #include "RadMaskOwnership.h"
 
 #include <algorithm>
@@ -304,8 +305,9 @@ void RadiationEngine::Update()
         // forces the OVERLAY for testing; the filter system uses the REAL worn state. PushMask only
         // sends on change (cheap per tick).
         const bool realMasked = IsWearingGasMask();
-        const bool maskOn = _maskOverride == 1 ? true
-                          : (_maskOverride == 0 ? false : realMasked);
+        // Constraint: a worn power-armor helmet replaces the visor overlay; the debug override still wins.
+        const bool maskOn = RadCorrectnessPolicy::MaskOverlayVisible(
+            _maskOverride, realMasked, PlayerWearsPowerArmorHelmet());
         // (inRadWeather is computed up top with the shelter-eval flags — the roof raycast must be
         // fresh for any FLST rad weather now that choking depends on it.)
 
@@ -498,23 +500,12 @@ void RadiationEngine::Update()
                 enteredRadWeather = inRadWeather;
                 if (inRadWeather)
                 {
-                    // Player: don an owned mask if not already masked.
-                    if (!IsWearingGasMask())
-                        if (auto* mask = FindInventoryMask())
-                        {
-                            SetMaskEquipped(mask, true);
-                            _autoMaskEquipped = true;
-                        }
                     // NPCs: mask up nearby high-process NPCs that own one.
                     EquipNearbyNpcMasks(true);
                     _npcMaskScanTick = kNpcMaskRescanTicks;
                 }
                 else
                 {
-                    if (_autoMaskEquipped)
-                        if (auto* worn = GetWornMask())
-                            SetMaskEquipped(worn, false);
-                    _autoMaskEquipped = false;
                     EquipNearbyNpcMasks(false);   // unmask only the NPCs we masked
                 }
                 _wasInRadWeather = inRadNow;
@@ -532,6 +523,40 @@ void RadiationEngine::Update()
                 EquipNearbyNpcMasks(true);
             }
             _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
+        }
+
+        // Constraint: the auto-don rides the exposure transition, not the sky weather, so cover and a manual unequip are respected.
+        {
+            auto* cell = player->GetParentCell();
+            const bool exposedNow = RadCorrectnessPolicy::RadWeatherExposed(
+                inRadWeather,
+                cell && cell->IsInterior(),
+                IsPlayerSheltered(),
+                IsPlayerInPoweredShelter(),
+                inPowerArmor);
+            if (_wasRadExposed == -1)
+            {
+                _wasRadExposed = exposedNow ? 1 : 0;   // first eval after load: sync silently
+            }
+            else
+            {
+                const bool wasExposed = _wasRadExposed == 1;
+                if (RadCorrectnessPolicy::ShouldAutoEquipMask(wasExposed, exposedNow, IsWearingGasMask()))
+                {
+                    if (auto* mask = FindInventoryMask())
+                    {
+                        SetMaskEquipped(mask, true);
+                        _autoMaskEquipped = true;
+                    }
+                }
+                else if (RadCorrectnessPolicy::ShouldAutoRemoveMask(wasExposed, exposedNow, _autoMaskEquipped))
+                {
+                    if (auto* worn = GetWornMask())
+                        SetMaskEquipped(worn, false);
+                    _autoMaskEquipped = false;
+                }
+                _wasRadExposed = exposedNow ? 1 : 0;
+            }
         }
         if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold))
             SpawnStormGhouls();
@@ -562,7 +587,11 @@ void RadiationEngine::PollInput()
     const bool dbgKeyDown = (GetAsyncKeyState(kDebugMenuKey) & 0x8000) != 0;
     const bool lshift     = (GetAsyncKeyState(VK_LSHIFT)     & 0x8000) != 0;
     if (dbgKeyDown && !_f8WasDown && lshift)
+    {
+        // Constraint: the debug menu is the reload point for the two mask keybinds, so an INI edit needs no restart.
+        ReloadHotkeysFromIni();
         RadHud::GetSingleton().ToggleDebugMenu();
+    }
     _f8WasDown = dbgKeyDown;
 
     // Apply a debug-menu toggle that arrived while the HUD view was still loading its DOM (the first
@@ -574,7 +603,11 @@ void RadiationEngine::PollInput()
     {
         const bool rdown = (GetAsyncKeyState(_filterReplaceKey) & 0x8000) != 0;
         if (rdown && !_filterReplaceWasDown)
+        {
+            if (auto* worn = GetWornMask())
+                Log()->info("[Input] ReplaceKey: worn mask 0x{:08X} recognized, filters={}.", worn->GetFormID(), FilterItemCount());
             ReplaceFilter(false);
+        }
         _filterReplaceWasDown = rdown;
     }
     else
@@ -587,7 +620,11 @@ void RadiationEngine::PollInput()
     {
         const bool rdown = (GetAsyncKeyState(_conditionRepairKey) & 0x8000) != 0;
         if (rdown && !_conditionRepairWasDown)
+        {
+            if (auto* worn = GetWornMask())
+                Log()->info("[Input] RepairKey: worn mask 0x{:08X} recognized, kits={}.", worn->GetFormID(), RepairKitCount());
             RepairMask(false);
+        }
         _conditionRepairWasDown = rdown;
     }
     else

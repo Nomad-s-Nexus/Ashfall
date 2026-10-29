@@ -1,6 +1,35 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-28: gas-mask overlay, auto-don and hotkey fixes
+
+**Power-armor overlay.** The Prisma visor overlay is now hidden while a power-armor helmet is worn
+(any ArmorTypePower piece that fills the helmet slot, frame or full suit), because the PA HUD replaces
+it; the debug `mask:on` override still forces it and the real worn state still drives foley, filter and
+choking. **HUD-safe visor art.** `radhud.css` masks `#maskOverlay` and `#visorFog` with a centre-clear
+radial gradient, so the vanilla message area, XP bar and loot/prompt readouts stay readable; the
+assumption is stated in the code-notes and `tests/status_hud_tests.js` asserts the rule. **Auto-don.**
+The mod no longer dons a mask just because the sky switched to rad weather: interiors, shelter, a
+powered shelter and a sealed suit no longer count as exposure, the mask is donned only when exposure
+starts and removed only if we equipped it, so manual unequip while exposed is respected. **Hotkeys.**
+`ReplaceKey`/`RepairKey` are validated (F8 and duplicates rejected with a log line) and re-read when
+the debug menu opens, so an INI edit applies without a restart; there is still no in-game rebinding
+screen. The keys consume only our own filter/repair items, which is why another mask mod's mask and
+filters do nothing on those keys - documented in the code-notes, not changed.
+
+## 2026-10-28: tester follow-up audit (penalties, interior rain, not-ours items)
+
+**Penalties.** Verified with FO4IDE that the hunger/thirst/sleep penalty spells modify only CarryWeight,
+ActionPoints and HealRateMult; the tester's SPECIAL drops are the radiation stage perks (END/STR in the
+plugin log), and leaving vanilla Survival clears our penalty spells through `ClearAllPenalties`. Vanilla
+`HC_*` spells left on a save moved off Survival are vanilla state we do not touch. **Interior rain.**
+Interior precipitation is zero by design and the tester log shows no rainy interior ticks; a whitelist of
+roofless interiors is a documented follow-up, not changed without FO4IDE-verified cell data. **Not ours.**
+Bullet weight and the power-armor harness/vest carry weight come from Fallen World's
+`FWHardcore_Weapons/CarryWeight/Difficulty` plugins: our source never touches ammo weight, and our
+CarryWeight writes are additive actor-value modifiers that cannot cancel another effect's bonus.
+
+
 ## 2026-10-28: hunger/thirst relief confirmed by the engine's item-removal event
 
 **Food and drink now relieve the Rad survival pools.** The quest script used to arm a candidate on

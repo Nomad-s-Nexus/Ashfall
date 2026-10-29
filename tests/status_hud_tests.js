@@ -53,10 +53,11 @@ assert.equal(toxic.elements.healthValue.textContent,'50%');assert.equal(toxic.el
 toxic.context.updateToxic({fallback:false,tissue:0});assert.equal(toxic.elements.health.hidden,true);assert.ok(!toxic.elements.root.classes.has('visible'));
 for(const page of [climate,filter,toxic,needs]){assert.ok(!/class="bar|id=".*Bar"/.test(page.html));page.context.setLocalHUDLayout({x:.2,y:.3,s:1.2,r:0,hidden:true});assert.equal(page.elements.root.style.display,'none');}
 for(const page of [climate,filter,toxic,needs]){page.timeouts.forEach(fn=>fn());assert.equal(page.elements.root.style.left,'384px');assert.equal(page.elements.root.style.top,'324px');}
-const debug=load('radhud.html');vm.runInContext(fs.readFileSync(path.join(view,'rad_diagnostics.js'),'utf8'),debug.context);
-debug.context.updateClimateInfo({core:37,warmth:100,ambient:4,wind:12,wetness:60,heat:70,insulation:41,cooling:.1,warming:.3});
+const debug=load('radhud.html');vm.runInContext(fs.readFileSync(path.join(view,'rad_diagnostics.js'),'utf8'),debug.context);debug.context.updateClimateInfo({core:37,warmth:100,ambient:4,wind:12,wetness:60,heat:70,insulation:41,cooling:.1,warming:.3});
 assert.match(debug.elements.climateReadout.textContent,/Body warmth100%/);assert.match(debug.elements.climateEffect.textContent,/Normal warmth reached/);
 debug.context.updateClimateInfo({core:36,warmth:89,warming:.3,cooling:.1});assert.match(debug.elements.climateEffect.textContent,/Body is warming/);
 debug.context.updateClimateInfo({core:28,warmth:0,warming:0,cooling:.1});assert.match(debug.elements.climateEffect.textContent,/model minimum/);
 debug.context.updateAirInfo({contaminated:true,healthLoss:2,filterDrain:0,radGain:0,chokingEnabled:true});assert.match(debug.elements.airReadout.textContent,/Breathing HP loss2.00\/sec/);
+const css=fs.readFileSync(path.join(view,'radhud.css'),'utf8');
+for(const id of ['#maskOverlay','#visorFog']){const block=(css.match(new RegExp(id.replace('#','\\#')+'\\s*\\{([\\s\\S]*?)\\}'))||[])[1]||'';assert.match(block,/mask-image: radial-gradient/,'visor effect must keep the HUD centre clear: '+id);assert.match(block,/transparent 5\d%/,'visor effect must be transparent across the HUD centre: '+id);}
 console.log('Status HUD verified: warmth endpoints, environment, breathing gates, percentages, hidden layout and full diagnostics');

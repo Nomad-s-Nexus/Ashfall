@@ -74,6 +74,37 @@ int main()
     Require(IsRadShieldedMask(true, true));
     Require(!IsRadShieldedMask(true, false));
     Require(!IsRadShieldedMask(false, true));
+    // Constraint: the visor overlay is hidden by a worn power-armor helmet; the debug override still wins.
+    Require(MaskOverlayVisible(-1, true, false));
+    Require(!MaskOverlayVisible(-1, true, true));
+    Require(!MaskOverlayVisible(-1, false, false));
+    Require(!MaskOverlayVisible(-1, false, true));
+    Require(MaskOverlayVisible(1, false, true));
+    Require(!MaskOverlayVisible(0, true, false));
+    // Constraint: F8 belongs to the debug menu and the two mask keys must not collide; 0 disables one.
+    Require(IsUsableHotkey(0, 118));
+    Require(IsUsableHotkey(117, 118));
+    Require(IsUsableHotkey(117, 0));
+    Require(!IsUsableHotkey(117, 117));
+    Require(!IsUsableHotkey(0x77, 118));
+    Require(!IsUsableHotkey(256, 118));
+    Require(!IsUsableHotkey(-1, 118));
+    // Constraint: interiors, shelter, powered shelters and a sealed suit are not rad-weather exposure.
+    Require(RadWeatherExposed(true, false, false, false, false));
+    Require(!RadWeatherExposed(true, true, false, false, false));
+    Require(!RadWeatherExposed(true, false, true, false, false));
+    Require(!RadWeatherExposed(true, false, false, true, false));
+    Require(!RadWeatherExposed(true, false, false, false, true));
+    Require(!RadWeatherExposed(false, false, false, false, false));
+    // Constraint: the auto-don fires on the exposure transition only, and only when unmasked.
+    Require(ShouldAutoEquipMask(false, true, false));
+    Require(!ShouldAutoEquipMask(false, true, true));
+    Require(!ShouldAutoEquipMask(true, true, false));
+    Require(!ShouldAutoEquipMask(true, false, false));
+    Require(ShouldAutoRemoveMask(true, false, true));
+    Require(!ShouldAutoRemoveMask(true, false, false));
+    Require(!ShouldAutoRemoveMask(false, false, true));
+    Require(!ShouldAutoRemoveMask(true, true, true));
     Require(!CuresPermanentTissue(CureSignal::kNone));
     Require(!CuresPermanentTissue(CureSignal::kInventoryMovement));
     Require(CuresPermanentTissue(CureSignal::kVerifiedChelationUse));

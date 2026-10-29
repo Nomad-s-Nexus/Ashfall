@@ -70,6 +70,7 @@ void RadiationEngine::OnPostLoad()
     _chokeNotified = false;
 
     _wasInRadWeather = -1;
+    _wasRadExposed = -1;
     _lastRadWeatherFormID = 0;
     _autoMaskEquipped = false;
     _npcMaskScanTick = 0;

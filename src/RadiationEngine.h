@@ -331,6 +331,7 @@ private:
     // torso, both arms, both legs — any single missing piece is OK; missing 2+ is "not a full suit").
     // A full suit fully blocks rad gain AND storm HP damage.
     bool IsPlayerInPowerArmor() const;
+    bool PlayerWearsPowerArmorHelmet() const;   // any ArmorTypePower piece filling the helmet slot, frame or full suit
     bool IsActorInPowerArmor(RE::Actor* actor) const;   // PA scan: requires a FULL suit — helmet + 6 distinct ArmorTypePower pieces
     RE::BGSKeyword* _armorTypePowerKeyword = nullptr;   // Fallout4.esm 0x4D8A1 — marks PA armor pieces
     // Gas-mask detection requires the FARO_GasMask keyword and the MOUTH biped slot. The generic
@@ -359,6 +360,7 @@ private:
     void EquipNearbyNpcMasks(bool equip);                              // mask/unmask high-process NPCs
     RE::BGSListForm* _radWeatherList = nullptr;                    // ESL 0x802 — weathers that count as "rad"
     int  _wasInRadWeather   = -1;       // -1 = just loaded (sync silently), 0 = no, 1 = yes
+    int  _wasRadExposed     = -1;       // auto-don exposure: -1 = sync silently, 0 = covered, 1 = exposed
     std::uint32_t _lastRadWeatherFormID = 0;
     bool _autoMaskEquipped  = false;    // we auto-donned the PLAYER's mask (so we may auto-remove it)
     int  _npcMaskScanTick   = 0;        // throttle countdown for the mid-storm NPC re-scan
@@ -378,6 +380,7 @@ private:
     int   _filterSparesCache = 0;       // cached count of the filter item (HUD "xN filters" text only)
     int   _filterCountTick   = 0;       // throttle countdown for refreshing _filterSparesCache
     void  LoadFilterIni();              // read the [Filter] + [Condition] INI sections
+    void  ReloadHotkeysFromIni();       // re-read + revalidate the two keybinds (debug menu open, no restart)
     void  LoadMaskConfig();             // read the [Masks] INI section (extra keywords / listed armors)
     void  ReplaceFilter(bool silent);   // consume one filter item -> charge 100
     int   FilterItemCount() const;      // count of the filter item in the player's inventory

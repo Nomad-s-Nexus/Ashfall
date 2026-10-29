@@ -76,6 +76,50 @@ namespace RadCorrectnessPolicy
         return fillsMouth && radResistant;
     }
 
+    // Constraint: the power-armor HUD replaces the visor overlay, so a worn PA helmet hides it; a debug override wins.
+    constexpr bool MaskOverlayVisible(int a_debugOverride, bool a_wornMask, bool a_powerArmorHelmet)
+    {
+        if (a_debugOverride == 1)
+            return true;
+        if (a_debugOverride == 0)
+            return false;
+        return a_wornMask && !a_powerArmorHelmet;
+    }
+
+    // Constraint: an interior, a sheltered spot, a powered shelter and a sealed suit are not rad-weather exposure.
+    constexpr bool RadWeatherExposed(
+        bool a_inRadWeather,
+        bool a_interior,
+        bool a_sheltered,
+        bool a_poweredShelter,
+        bool a_powerArmor)
+    {
+        return a_inRadWeather && !a_interior && !a_sheltered && !a_poweredShelter && !a_powerArmor;
+    }
+
+    // Constraint: the auto-don acts only on the exposure transition, so a manual unequip while exposed is respected.
+    constexpr bool ShouldAutoEquipMask(bool a_wasExposed, bool a_exposed, bool a_wearingMask)
+    {
+        return a_exposed && !a_wasExposed && !a_wearingMask;
+    }
+
+    constexpr bool ShouldAutoRemoveMask(bool a_wasExposed, bool a_exposed, bool a_autoEquipped)
+    {
+        return !a_exposed && a_wasExposed && a_autoEquipped;
+    }
+
+    // Constraint: F8 is reserved for the debug menu and the two mask keys must differ; 0 means disabled.
+    constexpr bool IsUsableHotkey(int a_key, int a_otherKey)
+    {
+        if (a_key == 0)
+            return true;
+        if (a_key < 1 || a_key > 0xFF)
+            return false;
+        if (a_key == 0x77)
+            return false;
+        return a_otherKey == 0 || a_key != a_otherKey;
+    }
+
     enum class CureSignal
     {
         kNone,

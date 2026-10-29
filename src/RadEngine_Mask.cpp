@@ -204,6 +204,12 @@ RE::TESObjectARMO* RadiationEngine::GetWornMask() const
 bool RadiationEngine::IsWearingGasMask() const { return GetWornMask() != nullptr; }
 
 
+bool RadiationEngine::PlayerWearsPowerArmorHelmet() const
+{
+    return WearsPowerArmorHelmet(RE::PlayerCharacter::GetSingleton(), _armorTypePowerKeyword);
+}
+
+
 // First owned recognized gas mask in an actor's inventory, worn or not — used to auto-don a mask in
 // rad weather. A candidate must carry FARO_GasMask and fill the mouth slot.
 RE::TESObjectARMO* RadiationEngine::FindActorInventoryMask(RE::Actor* actor) const
@@ -475,12 +481,35 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 
 // ----------------------------------------------------------------------------- gas-mask filter
 // Read the [Filter] section of the mod INI (same file the HUD uses). All tuneable without a rebuild.
+// Constraint: the keybinds are re-read here so an INI edit applies when the debug menu is next opened.
+void RadiationEngine::ReloadHotkeysFromIni()
+{
+    constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+    int replace = ::GetPrivateProfileIntA("Filter", "ReplaceKey", 0, kIni);
+    int repair  = ::GetPrivateProfileIntA("Condition", "RepairKey", 0, kIni);
+    if (!RadCorrectnessPolicy::IsUsableHotkey(replace, repair))
+    {
+        Log()->warn("[Input] ReplaceKey 0x{:X} rejected (F8 opens the debug menu, or it duplicates RepairKey); replace hotkey disabled.", replace);
+        replace = 0;
+    }
+    if (!RadCorrectnessPolicy::IsUsableHotkey(repair, replace))
+    {
+        Log()->warn("[Input] RepairKey 0x{:X} rejected (F8 opens the debug menu, or it duplicates ReplaceKey); repair hotkey disabled.", repair);
+        repair = 0;
+    }
+    if (replace != _filterReplaceKey || repair != _conditionRepairKey)
+        Log()->info("[Input] mask hotkeys reloaded: replace=0x{:X}, repair=0x{:X}.", replace, repair);
+    _filterReplaceKey = replace;
+    _conditionRepairKey = repair;
+}
+
+
 void RadiationEngine::LoadFilterIni()
 {
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
     _filterDurationSec = ::GetPrivateProfileIntA("Filter", "DurationSeconds", 300, kIni);
     if (_filterDurationSec < 1) _filterDurationSec = 1;
-    _filterReplaceKey  = ::GetPrivateProfileIntA("Filter", "ReplaceKey", 0, kIni);   // VK code; 0 = off
+    _filterReplaceKey  = 0;   // filled by the validated ReloadHotkeysFromIni below
     _filterAutoReplace = ::GetPrivateProfileIntA("Filter", "AutoReplace", 0, kIni) != 0;
     {
         char b[16];
@@ -489,7 +518,7 @@ void RadiationEngine::LoadFilterIni()
     }
     // [Condition] — mask durability.
     _conditionEnabled    = ::GetPrivateProfileIntA("Condition", "Enabled", 1, kIni) != 0;
-    _conditionRepairKey  = ::GetPrivateProfileIntA("Condition", "RepairKey", 0, kIni);
+    _conditionRepairKey  = 0;   // filled by the validated ReloadHotkeysFromIni below
     _conditionAutoRepair = ::GetPrivateProfileIntA("Condition", "AutoRepair", 0, kIni) != 0;
     {
         char b[16];
@@ -542,6 +571,7 @@ void RadiationEngine::LoadFilterIni()
         _domeLeadTicks = static_cast<int>(leadMin * 60.0f * 4.0f);
     }
 
+    ReloadHotkeysFromIni();
     LoadMaskConfig();
 
     Log()->info(
@@ -613,6 +643,12 @@ void RadiationEngine::ReplaceFilter(bool silent)
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
+    if (!GetWornMask())
+    {
+        if (!silent) Notify("[Mask] No recognised gas mask equipped.", true);
+        return;
+    }
+
     if (FilterItemCount() <= 0)
     {
         if (!silent) Notify("[Mask] No spare filters.", true);
@@ -678,6 +714,12 @@ void RadiationEngine::RepairMask(bool silent)
     if (!_repairKitItem) return;
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
+
+    if (!GetWornMask())
+    {
+        if (!silent) Notify("[Mask] No recognised gas mask equipped.", true);
+        return;
+    }
 
     if (RepairKitCount() <= 0)
     {
