@@ -1,6 +1,15 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-28: empty bottles fill at water sources (build-verified only)
+
+**Empty bottles at water sources.** Activating a drinking water source while holding an empty bottle now
+consumes one bottle and adds one vanilla Dirty Water, through a native `TESActivateEvent` sink instead
+of the vanilla `HC_*` Survival path — no `HC_*` record is read or written. Built-in tables cover the 26
+vanilla empty-bottle items and the ten vanilla/DLC drinking activators, plus the `AnimFurnWaterPump`
+keyword for mod-added pumps; `[Water] Enabled=1` in `FalloutAnomalyRadiation.ini` controls it. The hook
+builds and its policy unit test runs, but it has not been played in game yet.
+
 ## 2026-10-28: bounded RadStormFX shake burst
 
 **RadStormFX shake burst.** `_StartShake` looped `While (_shaking)` and only `_StopShake` cleared the

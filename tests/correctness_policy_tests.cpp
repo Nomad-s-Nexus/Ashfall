@@ -1,9 +1,11 @@
 #include "RadCorrectnessPolicy.h"
+#include "RadWaterFillPolicy.h"
 #include "ClimatePolicy.h"
 
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 
 namespace
@@ -34,6 +36,7 @@ namespace
 int main()
 {
     using namespace RadCorrectnessPolicy;
+    using namespace RadWaterFillPolicy;
 
     Require(DomePosition({ 10.0f, 20.0f, 30.0f }, 6000.0f) == Position{ 10.0f, 20.0f, 6030.0f });
     const auto nuke = DistantNukePlacementXY({ 123.0f, 456.0f, 789.0f }, 0.0f, 4250.0f);
@@ -201,6 +204,47 @@ int main()
     const auto recovered = AdvanceClimate(recovering, comfortable, {}, 1800);
     Require(recovered.coreC > recovering.coreC);
     Require(recovered.coreC <= kNormalCoreC);
+
+    // Constraint: the built-in tables must keep matching the vanilla records the code-notes document.
+    Require(kEmptyBottles.size() == 26);
+    Require(kWaterSources.size() == 10);
+    Require(std::strcmp(kEmptyBottles[0].editorID, "NukaColaEmpty") == 0);
+    Require(kEmptyBottles[0].localID == 0x0004835A);
+    Require(std::strcmp(kEmptyBottles.back().editorID, "DN050BabyBottle") == 0);
+    Require(kEmptyBottles.back().localID == 0x0009B4BA);
+    Require(std::strcmp(kFilledWater.editorID, "WaterDirty") == 0);
+    Require(kFilledWater.localID == 0x000366BF);
+    Require(std::strcmp(kWaterPumpKeyword.editorID, "AnimFurnWaterPump") == 0);
+    Require(kWaterPumpKeyword.localID == 0x000DCDD9);
+    for (std::size_t i = 0; i < kEmptyBottles.size(); ++i)
+        for (std::size_t j = i + 1; j < kEmptyBottles.size(); ++j)
+            Require(!(kEmptyBottles[i].localID == kEmptyBottles[j].localID &&
+                      std::strcmp(kEmptyBottles[i].plugin, kEmptyBottles[j].plugin) == 0));
+    for (std::size_t i = 0; i < kWaterSources.size(); ++i)
+        for (std::size_t j = i + 1; j < kWaterSources.size(); ++j)
+            Require(!(kWaterSources[i].localID == kWaterSources[j].localID &&
+                      std::strcmp(kWaterSources[i].plugin, kWaterSources[j].plugin) == 0));
+
+    const std::uint32_t resolvedSources[]{ 0x000B1CFE, 0x000DB83B };
+    Require(IsWaterSource(0x000B1CFE, false, resolvedSources, 2));
+    Require(!IsWaterSource(0x000F5D8D, false, resolvedSources, 2));
+    // Constraint: a pump keyword alone must qualify a mod-added pump that has no table entry.
+    Require(IsWaterSource(0x000F5D8D, true, resolvedSources, 2));
+    Require(IsWaterSource(0x000F5D8D, true, nullptr, 0));
+    Require(!IsWaterSource(0x000B1CFE, false, nullptr, 0));
+    Require(!IsWaterSource(0, false, resolvedSources, 2));
+
+    const std::uint32_t noBottles[]{ 0, 0, 0 };
+    const std::uint32_t someBottles[]{ 0, 2, 1 };
+    Require(FirstAvailableBottle(noBottles, 3) == kBottleNotFound);
+    Require(FirstAvailableBottle(someBottles, 3) == 1);
+    Require(FirstAvailableBottle(nullptr, 3) == kBottleNotFound);
+
+    Require(Decide(true, true, 1) == Decision::kFill);
+    Require(Decide(false, true, 1) == Decision::kDisabled);
+    Require(Decide(true, false, 1) == Decision::kNotWaterSource);
+    Require(Decide(true, true, 0) == Decision::kNoEmptyBottle);
+    Require(Decide(true, false, 0) == Decision::kNotWaterSource);
 
     return 0;
 }

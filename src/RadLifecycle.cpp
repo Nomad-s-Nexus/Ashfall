@@ -7,6 +7,7 @@
 #include "RadHud.h"
 #include "RadMaskOwnership.h"
 #include "RadiationEngine.h"
+#include "WaterBottleFill.h"
 
 #include <atomic>
 
@@ -43,6 +44,9 @@ bool RadLifecycle::EnsureEngineActiveOnGameThread()
         }
 
         NeedsConsumptionTrace::ActivateOnGameThread();
+
+        // Constraint: the activation sink is independent of engine activation, so a failed attempt retries later.
+        WaterBottleFill::ActivateOnGameThread();
 
         if (!g_coreInitialized.load(std::memory_order_acquire))
         {
