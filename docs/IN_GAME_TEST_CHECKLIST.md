@@ -79,7 +79,9 @@ matches. Mark everything else NOT RUN.
   for that cell).
 - **Probe throttling in ConcordMuseum01:** the probe logs a debug line on every run
   (`[Climate] Roofless interior probe: cell=0x..., roofed=...`). Move less than 96 units without crossing a roof
-  boundary: no new probe line. Then move 96 units or more, or change cell: exactly one new probe line. The throttle is
+  boundary: no new probe line. Then move 96 units or more, or leave and re-enter ConcordMuseum01: exactly one new
+  probe line. The probe record is flushed immediately, so tailing the log live works; if in doubt, read the log after
+  quitting. The throttle is
   `RadClimateShelterPolicy::ShouldProbe` (`>= kProbeMoveDistance` squared, or a cell change); its in-game firing rate
   is unverified until this step runs.
 

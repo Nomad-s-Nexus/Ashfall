@@ -11,8 +11,8 @@ or unresolved interior keeps the old dry rule, and the interior keeps its indoor
 list too, so the exposed part can actually wet the player (`[Climate] Roofless interior roof cover changed` logs
 `rainCover=0%` for open sky and `rainCover=100%` for a covered spot). Policy covered by `tests/climate_policy_tests.cpp`
 (listed+open, listed+roofed, unlisted interior, exterior, unresolved entry) and a new
-`tests/verify_climate_roofless.py`; this branch's build and release workflows in
-`.github/workflows/rad-overhaul-build.yml` / `-release.yml` run it. Not played in game: whether the museum's play space is
+`tests/verify_climate_roofless.py`; this branch's build and release workflows
+(`.github/workflows/rad-overhaul-build.yml` / `-release.yml` in the modpack repo) run it. Not played in game: whether the museum's play space is
 genuinely open to the sky still needs the in-game check in `docs/IN_GAME_TEST_CHECKLIST.md`.
 
 ## 2026-10-28: review-round fixes (consumption arrays, relief INI bridge, overlay alpha, hysteresis, hotkeys)

@@ -65,8 +65,8 @@ for token in (
 
 # Constraint: one sampler per tick, chosen by the roofless flag; never sample both.
 sampler_ternary = re.compile(
-    r"auto shelter = rooflessInterior\s*\n\s*\? _shelter\.SampleRooflessInterior\(player, cell\)\s*\n"
-    r"\s*: _shelter\.Sample\(player\);")
+    r"auto shelter = rooflessInterior\s+\? _shelter\.SampleRooflessInterior\(player, cell\)\s+"
+    r": _shelter\.Sample\(player\);")
 assert sampler_ternary.search(runtime) is not None, (
     "Update must choose one shelter sampler with the roofless ternary")
 assert runtime.count("auto shelter") == 1, "Update must declare the shelter sample exactly once"
