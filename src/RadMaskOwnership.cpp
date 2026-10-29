@@ -8,6 +8,7 @@
 #include <RE/T/TESForm.h>
 
 #include <algorithm>
+#include <chrono>
 #include <mutex>
 #include <unordered_map>
 
@@ -18,14 +19,20 @@ namespace
     bool g_sinkRegistered = false;
 
     // Constraint: an unequip only forfeits ownership if no re-equip of the same mask follows within this window.
-    constexpr ULONGLONG kUnequipGraceMs = 2500;
-    std::unordered_map<std::uint32_t, ULONGLONG> g_pendingUnequip;
+    constexpr std::uint64_t kUnequipGraceMs = 2500;
+    std::unordered_map<std::uint32_t, std::uint64_t> g_pendingUnequip;
+
+    std::uint64_t NowMs()
+    {
+        return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+    }
 
     // Constraint: caller holds g_mutex.
     void PurgeIfForfeitedLocked(std::uint32_t actorFormID)
     {
         const auto pending = g_pendingUnequip.find(actorFormID);
-        if (pending == g_pendingUnequip.end() || ::GetTickCount64() - pending->second < kUnequipGraceMs)
+        if (pending == g_pendingUnequip.end() || NowMs() - pending->second < kUnequipGraceMs)
             return;
         g_pendingUnequip.erase(pending);
         g_ownedMasks.erase(actorFormID);
@@ -33,7 +40,7 @@ namespace
 
     void PurgeAllForfeitedLocked()
     {
-        const auto now = ::GetTickCount64();
+        const auto now = NowMs();
         std::erase_if(g_pendingUnequip, [now](const auto& pending) {
             if (now - pending.second < kUnequipGraceMs)
                 return false;
@@ -62,7 +69,7 @@ namespace
             if (it == g_ownedMasks.end() || it->second.maskFormID != maskID || it->second.IsTemporary())
                 return RE::BSEventNotifyControl::kContinue;
             if (unequip)
-                g_pendingUnequip[actorID] = ::GetTickCount64();
+                g_pendingUnequip[actorID] = NowMs();
             else
                 g_pendingUnequip.erase(actorID);
             return RE::BSEventNotifyControl::kContinue;
