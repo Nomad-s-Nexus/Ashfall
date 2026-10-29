@@ -1086,3 +1086,164 @@ Tester report: carry weight keeps dropping, now -92, while the radiation stage h
 - **Repair (`src/RadEngine_Tissue.cpp:RadiationEngine::RepairLeakedCarryWeight`, `src/SerializationPolicy.h:CarryLeakRepairDelta`):** one-time fix for saves that already leaked. If the total carry weight is below 0 and the permanent base is above 0, it raises the total to the permanent base via a `kTemporary` mod and posts a HUD note. It runs from `OnPostLoad` after `DispelNegativeSpecials` and zeroes `_appliedCarryPen`, because the raise wipes the whole tissue modifier and the next tick must re-derive it. `src/RadEngine_Session.cpp:OnNewGame` also zeroes the four counters so a new game does not depend on the revert callback.
   - **Limits:** it only fires on a negative total. A leak that still leaves a positive total is not detected. Raising to the permanent base can overshoot by up to the active hunger/thirst/sleep modifiers (45/25/10) once those expire.
 - **Test:** `tests/serialization_policy_tests.cpp` covers the validity bounds, candidate agreement, the guard and the repair delta (-92 against base 250 gives 342). The save/load wiring and the repair call are not covered by the standalone tests; they need an in-game check for `[Load] Tissue penalties restored` and `[RepairCarry]` in f4se.log.
+
+## M50 build scripts (art-src/mask-view) - moved comments (2026-10-29)
+
+Paths are relative to `art-src/mask-view/`. Where a script's removed text is identical to an earlier entry, each bullet points back to that entry. No script reads its own `__doc__`, so the removed docstrings were documentation only. `make_plastic_bgsm.py`, `m50/meshy_trace/rebuild/measure.py`, `m50/meshy_trace/rebuild/baseline_2026-10-29/measure.py` and `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/measure.py` had no comments or docstrings.
+
+- `build_mask_view.py:module`: builds the first-person gas-mask view assets. It repoints the licensed mask NIF at our own materials and writes the textures. Usage: `build_mask_view.py <source.nif> <deploy_dir>`.
+- `m50/build_m50_mask.py:module`: builds the M50 interior view (Mask:0 shell, MaskNoseCup, MaskValve, MaskDrinkTube, MaskChinCup, MaskLining, MaskHardware, MaskGlass, MaskRef) into a RadMaskView scaffold NIF and exports it. Usage: `blender -b --python build_m50_mask.py -- <scaffold.nif> <out_raw.nif|-> [<out.blend>]`.
+- `m50/build_m50_mask.py:clean`: the BEAUTY ngon triangulation stops the exporter fanning 16-gon caps into slivers. Kept in source as a one-line `must` constraint.
+- `m50/build_m50_mask.py:put`: `hasFullPrecision` must stay 1, because half-float positions collapse small parts to zero-area tris. Kept in source as a one-line `must` constraint.
+- `m50/downloaded/fix_interior.py:module`: rebuilds the downloaded M50's nose cup, inner valve and inner side ports. Run: `blender -b backup_2026-10-29_downloaded_before_interior.blend --python fix_interior.py -- <out.blend>`.
+- `m50/downloaded/fix_interior.py:y_hits`: (y, normal y) of the highest hit among bvhs looking -Y from start_y at (x, z), or (-inf, 1).
+- `m50/downloaded/fix_interior.py:find_island`: the single vertex island of exactly nverts verts whose centroid lies in the box lo..hi; fails loudly otherwise.
+- `m50/downloaded/fix_interior.py:axial`: height along ax of the topmost surface among bvhs under point p, or None.
+- `m50/downloaded/fix_interior.py:port_push`: moves points within r_max of a port axis up along it until they sit margin above that port's top surface; the lift field is smoothed.
+- `m50/downloaded/fix_interior.py:wall_pull`: pulls points toward head until they sit margin in front of the first wall hit on the ray from head; the pull field is smoothed.
+- `m50/downloaded/fix_interior.py:seen_faces`: faces of ob first hit by rays from each eye through a square grid facing it at centre.
+- `m50/downloaded/fix_interior.py:cabin_faces`: faces of ob seen from eyes inside the mask, flood-filled across smooth edges while they face head and stay hidden from outside eyes.
+- `m50/downloaded/interior_chin.py:module`: lower facepiece rubber of the downloaded M50: rises in front of the nose cup's lower half and forms the chin pocket (ref 15).
+- `m50/downloaded/interior_chin.py:filt`: grid filter (max: dilate, mean: box blur) of radius r cells.
+- `m50/downloaded/interior_chin.py:mold`: smooth A without dropping below it anywhere: dilate by 2r, then two box blurs of r.
+- `m50/downloaded/interior_chin.py:half_width`: wide enough at the lip to take the cup's lower flanks, then pinched inside the port openings' inner edge.
+- `m50/downloaded/interior_chin.py:target`: front surface depth: crowned across, a recessed chin pocket and a raised lower contour.
+- `m50/downloaded/interior_chin.py:chin_seal`: wall(x, z) and part(x, z) give (y, normal y) of the first facepiece/collar/plastic and interior-part hit looking -y. The front follows target() and falls onto whatever is behind it at the side and bottom edges. Below the lip roll the back fills down to the facepiece (less SINK) or onto the cup and valve (plus CLR), so the rubber is solid.
+- `m50/downloaded/interior_cup.py:module`: molded nose cup for the downloaded M50 (refs 13, 15): rounded nose hump, concave shoulders, narrow smile lip under the valve.
+- `m50/downloaded/interior_cup.py:rim_loop`: closed rim as (x, z, y) resampled evenly by arc length, starting at the nose bridge going down the +x side.
+- `m50/downloaded/interior_cup.py:nose_cup`: closed shell: inner (face-side) surface, rolled lip, outer surface back to the valve opening. push(P, margin) moves inner-surface points clear of side-port parts; margin is per v-row.
+- `m50/downloaded/interior_ports.py:module`: inner side ports for the downloaded M50: mounting ring and spoked seat over each filter mount, rubber flapper.
+- `m50/downloaded/interior_ports.py:port_frame`: centre and inward axis of a filter-mount disc from its own vertices (each side fitted separately).
+- `m50/downloaded/interior_ports.py:port_seat`: mounting ring lapping the facepiece lip, spokes and hub, sitting just inside the filter mount.
+- `m50/downloaded/interior_ports.py:port_flapper`: thin rubber disc held by the hub on the wearer side of the seat.
+- `m50/downloaded/interior_ports.py:spread`: max then mean over a (2k+1) x 3 window, wrapping in angle; the mean of the max never drops below the input.
+- `m50/downloaded/interior_ports.py:port_collar`: molded rubber collar round the inner port: top rides lift above the filter rim and facepiece, outer band sinks into the wall.
+- `m50/downloaded/interior_valve.py:module`: inner exhalation valve for the downloaded M50: recessed housing on the facepiece, radial grille, drink pin.
+- `m50/downloaded/interior_valve.py:revolve`: rows: (radius, y or y per angle) around world Y through HOLE_C; radius-0 end rows close the solid.
+- `m50/downloaded/interior_valve.py:flange_levels`: per-angle facepiece height under the flange edge, and the constant flange top above it.
+- `m50/downloaded/interior_valve.py:housing`: flange seated on the facepiece, sleeve the cup opening sits on, retaining collar, recessed bore.
+- `m50/downloaded/interior_valve.py:grille`: hex hub, thin spokes and outer ring, seated just above the housing floor (ref 15).
+- `m50/downloaded/interior_valve.py:drink_pin`: short tube on a boss with rounded barbs and an open tip, standing off the cup floor toward the wearer and up (ref 15).
+- `m50/downloaded/m50lib.py:module`: mesh helpers for the hand-built M50. A part is (verts ndarray[N,3], faces list).
+- `m50/downloaded/m50lib.py:grid`: P[u, v, 3]; u is the ring direction. Open v ends get ngon caps.
+- `m50/downloaded/m50lib.py:frames`: per-point (side, up, tangent) along a polyline; up_hint is a vector or per-point array.
+- `m50/downloaded/m50lib.py:sweep`: profile[M, 2] in (side, up); returns grid part with rings along the profile.
+- `m50/downloaded/m50lib.py:lathe`: profile[M, 2] as (radius, height along axis); ends capped with ngons.
+- `m50/downloaded/m50lib.py:ring`: closed annulus of rectangular section around axis, between heights h0 and h1.
+- `m50/downloaded/m50lib.py:rounded_box`: basis columns are the local x, y, z axes.
+- `m50/downloaded/pass1_2026-10-29/fix_interior.py:module`, `:find_island`, `:axial`, `:port_push`, `:seen_faces`, `:cabin_faces`: same text as `m50/downloaded/fix_interior.py` for each symbol. This copy has no `y_hits` or `wall_pull` docstring.
+- `m50/downloaded/pass1_2026-10-29/interior_cup.py:module`: molded nose cup for the downloaded M50 (refs 13, 15): bell rim wide at the chin, shallow bowl, rolled lip, valve opening.
+- `m50/downloaded/pass1_2026-10-29/interior_cup.py:rim_loop`: same text as `m50/downloaded/interior_cup.py:rim_loop`.
+- `m50/downloaded/pass1_2026-10-29/interior_cup.py:nose_cup`: same text as `m50/downloaded/interior_cup.py:nose_cup`.
+- `m50/downloaded/pass1_2026-10-29/interior_ports.py:module`: same text as `m50/downloaded/interior_ports.py:module`.
+- `m50/downloaded/pass1_2026-10-29/interior_ports.py:port_frame`: same text as `m50/downloaded/interior_ports.py:port_frame`.
+- `m50/downloaded/pass1_2026-10-29/interior_ports.py:port_seat`: same text as `m50/downloaded/interior_ports.py:port_seat`.
+- `m50/downloaded/pass1_2026-10-29/interior_ports.py:port_flapper`: same text as `m50/downloaded/interior_ports.py:port_flapper`.
+- `m50/downloaded/pass1_2026-10-29/interior_ports.py:spread`: same text as `m50/downloaded/interior_ports.py:spread`.
+- `m50/downloaded/pass1_2026-10-29/interior_ports.py:port_collar`: same text as `m50/downloaded/interior_ports.py:port_collar`.
+- `m50/downloaded/pass1_2026-10-29/interior_valve.py:module`: same text as `m50/downloaded/interior_valve.py:module`.
+- `m50/downloaded/pass1_2026-10-29/interior_valve.py:revolve`: same text as `m50/downloaded/interior_valve.py:revolve`.
+- `m50/downloaded/pass1_2026-10-29/interior_valve.py:flange_levels`: same text as `m50/downloaded/interior_valve.py:flange_levels`.
+- `m50/downloaded/pass1_2026-10-29/interior_valve.py:housing`: same text as `m50/downloaded/interior_valve.py:housing`.
+- `m50/downloaded/pass1_2026-10-29/interior_valve.py:grille`: hub, spokes and outer ring, seated just above the housing floor.
+- `m50/downloaded/pass1_2026-10-29/interior_valve.py:drink_pin`: ribbed cylinder on a boss, standing off the cup floor toward the wearer and up.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:module`: same text as `m50/downloaded/m50lib.py:module`.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:grid`: same text as `m50/downloaded/m50lib.py:grid`.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:frames`: same text as `m50/downloaded/m50lib.py:frames`.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:sweep`: same text as `m50/downloaded/m50lib.py:sweep`.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:lathe`: same text as `m50/downloaded/m50lib.py:lathe`.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:ring`: same text as `m50/downloaded/m50lib.py:ring`.
+- `m50/downloaded/pass1_2026-10-29/m50lib.py:rounded_box`: same text as `m50/downloaded/m50lib.py:rounded_box`.
+- `m50/downloaded/pass2_2026-10-29/fix_interior.py:module`, `:find_island`, `:axial`, `:port_push`, `:wall_pull`, `:seen_faces`, `:cabin_faces`: same text as `m50/downloaded/fix_interior.py` for each symbol. This copy has no `y_hits` docstring.
+- `m50/downloaded/pass2_2026-10-29/interior_cup.py:module`: same text as `m50/downloaded/interior_cup.py:module`.
+- `m50/downloaded/pass2_2026-10-29/interior_cup.py:rim_loop`: same text as `m50/downloaded/interior_cup.py:rim_loop`.
+- `m50/downloaded/pass2_2026-10-29/interior_cup.py:nose_cup`: same text as `m50/downloaded/interior_cup.py:nose_cup`.
+- `m50/downloaded/pass2_2026-10-29/interior_ports.py:module`: same text as `m50/downloaded/interior_ports.py:module`.
+- `m50/downloaded/pass2_2026-10-29/interior_ports.py:port_frame`: same text as `m50/downloaded/interior_ports.py:port_frame`.
+- `m50/downloaded/pass2_2026-10-29/interior_ports.py:port_seat`: same text as `m50/downloaded/interior_ports.py:port_seat`.
+- `m50/downloaded/pass2_2026-10-29/interior_ports.py:port_flapper`: same text as `m50/downloaded/interior_ports.py:port_flapper`.
+- `m50/downloaded/pass2_2026-10-29/interior_ports.py:spread`: same text as `m50/downloaded/interior_ports.py:spread`.
+- `m50/downloaded/pass2_2026-10-29/interior_ports.py:port_collar`: same text as `m50/downloaded/interior_ports.py:port_collar`.
+- `m50/downloaded/pass2_2026-10-29/interior_valve.py:module`: same text as `m50/downloaded/interior_valve.py:module`.
+- `m50/downloaded/pass2_2026-10-29/interior_valve.py:revolve`: same text as `m50/downloaded/interior_valve.py:revolve`.
+- `m50/downloaded/pass2_2026-10-29/interior_valve.py:flange_levels`: same text as `m50/downloaded/interior_valve.py:flange_levels`.
+- `m50/downloaded/pass2_2026-10-29/interior_valve.py:housing`: same text as `m50/downloaded/interior_valve.py:housing`.
+- `m50/downloaded/pass2_2026-10-29/interior_valve.py:grille`: same text as `m50/downloaded/interior_valve.py:grille`.
+- `m50/downloaded/pass2_2026-10-29/interior_valve.py:drink_pin`: same text as `m50/downloaded/interior_valve.py:drink_pin`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:module`: same text as `m50/downloaded/m50lib.py:module`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:grid`: same text as `m50/downloaded/m50lib.py:grid`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:frames`: same text as `m50/downloaded/m50lib.py:frames`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:sweep`: same text as `m50/downloaded/m50lib.py:sweep`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:lathe`: same text as `m50/downloaded/m50lib.py:lathe`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:ring`: same text as `m50/downloaded/m50lib.py:ring`.
+- `m50/downloaded/pass2_2026-10-29/m50lib.py:rounded_box`: same text as `m50/downloaded/m50lib.py:rounded_box`.
+- `m50/meshy_trace/rebuild/audit.py:module`: mesh audit of the open blend: size, topology, normals orientation, self and pairwise intersections. Run: `blender -b <OurM50_handbuilt.blend> --python audit.py`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/audit.py:module`: same text as `m50/meshy_trace/rebuild/audit.py:module`.
+- `m50/meshy_trace/rebuild/build_m50.py:module`: hand-built multi-part Avon M50 from the Meshy trace (Meshy frame: Z up, mask faces -Y). Run: `blender -b --factory-startup --python build_m50.py -- <m50_trace.json> <out dir>`.
+- `m50/meshy_trace/rebuild/build_m50.py:shield`: valve cover outline in (x, z): round top, straight sides, rounded bottom corners; top-centre start, clockwise.
+- `m50/meshy_trace/rebuild/build_m50.py:valve`: front module: tight bezel, narrow vertical slots, side drink coupler and lower latch.
+- `m50/meshy_trace/rebuild/build_m50.py:drink_tube`: short stowed tube from the module's side coupler down to the chin stowage coupler.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/build_m50.py:module`: same text as `m50/meshy_trace/rebuild/build_m50.py:module`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/build_m50.py:shield`: same text as `m50/meshy_trace/rebuild/build_m50.py:shield`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/build_m50.py:valve`: same text as `m50/meshy_trace/rebuild/build_m50.py:valve`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/build_m50.py:drink_tube`: same text as `m50/meshy_trace/rebuild/build_m50.py:drink_tube`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/build_m50.py:module`: same text as `m50/meshy_trace/rebuild/build_m50.py:module`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/build_m50.py:shield`: same text as `m50/meshy_trace/rebuild/build_m50.py:shield`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/build_m50.py:nose_cup`: oronasal cup: outline raycast onto the facepiece inner wall, wall swept toward the face (+y).
+- `m50/meshy_trace/rebuild/hardware.py:module`: M50 exterior hardware: M61 filter canister with grille, head harness (pad, straps) and plastic buckles (ref: image 16).
+- `m50/meshy_trace/rebuild/hardware.py:grille`: round boss with a dark floor, hub, concentric ribs and staggered radial bridges between them (ref 16).
+- `m50/meshy_trace/rebuild/hardware.py:head_pad`: padded band down the back of the head from crown to nape, domed across its width (ref 16).
+- `m50/meshy_trace/rebuild/hardware.py:harness`: temple and lower straps per side from the shell buckles to the rear pad, plus two crown straps.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/hardware.py:module`: same text as `m50/meshy_trace/rebuild/hardware.py:module`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/hardware.py:grille`: same text as `m50/meshy_trace/rebuild/hardware.py:grille`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/hardware.py:head_pad`: same text as `m50/meshy_trace/rebuild/hardware.py:head_pad`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/hardware.py:harness`: same text as `m50/meshy_trace/rebuild/hardware.py:harness`.
+- `m50/meshy_trace/rebuild/interior.py:module`: M50 interior: oronasal cup, inner valve assembly, drink pin and in-turned face seal (refs: images 13, 14, 15).
+- `m50/meshy_trace/rebuild/interior.py:nose_cup`: funnel shell from the face-side lip down to a ring that clamps over the valve housing rim.
+- `m50/meshy_trace/rebuild/interior.py:inner_valve`: recessed housing, radial spoke grille, hub and the outer grille ring, axis toward the face (+y).
+- `m50/meshy_trace/rebuild/interior.py:drink_pin`: ribbed drink-tube pin left of the valve (wearer's left, +x), base sunk into the cup wall.
+- `m50/meshy_trace/rebuild/interior.py:face_seal`: in-turned flange along the facepiece rim (image 15).
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/interior.py:module`: same text as `m50/meshy_trace/rebuild/interior.py:module`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/interior.py:nose_cup`: same text as `m50/meshy_trace/rebuild/interior.py:nose_cup`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/interior.py:inner_valve`: same text as `m50/meshy_trace/rebuild/interior.py:inner_valve`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/interior.py:drink_pin`: same text as `m50/meshy_trace/rebuild/interior.py:drink_pin`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/interior.py:face_seal`: same text as `m50/meshy_trace/rebuild/interior.py:face_seal`.
+- `m50/meshy_trace/rebuild/m50lib.py:module`: same text as `m50/downloaded/m50lib.py:module`.
+- `m50/meshy_trace/rebuild/m50lib.py:grid`: same text as `m50/downloaded/m50lib.py:grid`.
+- `m50/meshy_trace/rebuild/m50lib.py:frames`: same text as `m50/downloaded/m50lib.py:frames`.
+- `m50/meshy_trace/rebuild/m50lib.py:sweep`: same text as `m50/downloaded/m50lib.py:sweep`.
+- `m50/meshy_trace/rebuild/m50lib.py:lathe`: same text as `m50/downloaded/m50lib.py:lathe`.
+- `m50/meshy_trace/rebuild/m50lib.py:ring`: same text as `m50/downloaded/m50lib.py:ring`.
+- `m50/meshy_trace/rebuild/m50lib.py:rounded_box`: same text as `m50/downloaded/m50lib.py:rounded_box`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:module`: same text as `m50/downloaded/m50lib.py:module`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:grid`: same text as `m50/downloaded/m50lib.py:grid`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:frames`: same text as `m50/downloaded/m50lib.py:frames`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:sweep`: same text as `m50/downloaded/m50lib.py:sweep`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:lathe`: same text as `m50/downloaded/m50lib.py:lathe`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:ring`: same text as `m50/downloaded/m50lib.py:ring`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/m50lib.py:rounded_box`: same text as `m50/downloaded/m50lib.py:rounded_box`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/m50lib.py:module`: same text as `m50/downloaded/m50lib.py:module`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/m50lib.py:grid`: same text as `m50/downloaded/m50lib.py:grid`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/m50lib.py:frames`: same text as `m50/downloaded/m50lib.py:frames`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/m50lib.py:sweep`: same text as `m50/downloaded/m50lib.py:sweep`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/m50lib.py:lathe`: same text as `m50/downloaded/m50lib.py:lathe`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/m50lib.py:rounded_box`: same text as `m50/downloaded/m50lib.py:rounded_box`. This copy has no `ring` docstring.
+- `m50/meshy_trace/rebuild/shape.py:module`: shared M50 shape data: the traced shell, lens surface and ray helpers used by every part module.
+- `m50/meshy_trace/rebuild/shape.py:shell`: inner grid, outer grid and the closed facepiece part.
+- `m50/meshy_trace/rebuild/shape.py:Rays`: ray casts against a part; hit() returns the first hit point or None.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/shape.py:module`: same text as `m50/meshy_trace/rebuild/shape.py:module`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/shape.py:shell`: same text as `m50/meshy_trace/rebuild/shape.py:shell`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/shape.py:Rays`: same text as `m50/meshy_trace/rebuild/shape.py:Rays`.
+- `m50/meshy_trace/rebuild/render_compare.py:module`: render the open blend with the Meshy reference cameras (meshy_views.py) for side-by-side checks. Run: `blender -b <OurM50_handbuilt.blend> --python render_compare.py -- <out dir> [grey|material]`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/render_compare.py:module`: same text as `m50/meshy_trace/rebuild/render_compare.py:module`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/render_compare.py:module`: same text as `m50/meshy_trace/rebuild/render_compare.py:module`.
+- `m50/meshy_trace/rebuild/review_views.py:module`: render the review set (exterior, interior, close-ups) of the open blend with EEVEE and the real materials. Run: `blender -b <OurM50_handbuilt.blend> --python review_views.py -- <out dir> <prefix>`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/review_views.py:module`: same text as `m50/meshy_trace/rebuild/review_views.py:module`.
+- `m50/meshy_trace/rebuild/trace.py:module`: reduces the Meshy ray casts to the curves and grids the hand builder needs. Run: `python -I trace.py <meshy_rays.npz> <can_hmax.npy> <out m50_trace.json>`.
+- `m50/meshy_trace/rebuild/trace.py:resample_quadrants`: closed polyline -> k points, k/4 per quadrant between top, +x, bottom and -x anchors.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/trace.py:module`: same text as `m50/meshy_trace/rebuild/trace.py:module`.
+- `m50/meshy_trace/rebuild/backup_pass3_2026-10-29/trace.py:resample_quadrants`: same text as `m50/meshy_trace/rebuild/trace.py:resample_quadrants`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/trace.py:module`: same text as `m50/meshy_trace/rebuild/trace.py:module`.
+- `m50/meshy_trace/rebuild/baseline_2026-10-29/trace.py:resample_quadrants`: same text as `m50/meshy_trace/rebuild/trace.py:resample_quadrants`.
+- `art-src/overlay-nif/patch_overlay_nif.py:module` post-processes the PyNifly export of RadMaskOverlay.nif, because PyNifly cannot write NiStringsExtraData or zero the effect-shader flags. Usage: `patch_overlay_nif.py <in.nif> <out.nif>`.
+- `art-src/overlay-textures/generate_overlay_textures.py:module` generates the RadMask overlay textures procedurally (original art). Usage: `generate_overlay_textures.py <png_dir> <dds_dir>`.
