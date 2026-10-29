@@ -64,7 +64,7 @@ void RadHud::EnsureClimateView()
         if (_hudApi && !_climateWidgetRegistered.load(std::memory_order_acquire))
         {
             auto* hudApi = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
-            hudApi->RegisterWidget(_climateView, kClimateDesc);
+            hudApi->RegisterWidget(_climateView, CompanionPlaced(kClimateDesc));
             hudApi->ApplyLayout(_climateView);
             _climateWidgetRegistered.store(true, std::memory_order_release);
         }
@@ -83,9 +83,10 @@ void RadHud::EnsureClimateView()
         auto* hudApi = g_climateHudApiForCb.load(std::memory_order_acquire);
         if (climateApi)
             climateApi->Show(view);
+        RadHud::GetSingleton().PushTheme(view);
         if (climateApi && hudApi && climateApi->IsValid(view))
         {
-            hudApi->RegisterWidget(view, kClimateDesc);
+            hudApi->RegisterWidget(view, CompanionPlaced(kClimateDesc));
             hudApi->ApplyLayout(view);
             if (auto* flag = g_climateWidgetRegisteredFlag.load(std::memory_order_acquire))
                 flag->store(true, std::memory_order_release);

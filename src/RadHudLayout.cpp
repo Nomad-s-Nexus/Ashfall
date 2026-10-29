@@ -114,6 +114,10 @@ namespace
     {
         if (g_layout.loaded) return;
         g_layout.loaded = true;
+        CompanionWidgetDefault("rad_toxic", g_layout.toxic.x, g_layout.toxic.y);
+        CompanionWidgetDefault("rad_filter", g_layout.filter.x, g_layout.filter.y);
+        CompanionWidgetDefault("rad_needs", g_layout.needs.x, g_layout.needs.y);
+        CompanionWidgetDefault("rad_climate", g_layout.climate.x, g_layout.climate.y);
 
         const auto path = LayoutPath();
         if (path.empty()) return;

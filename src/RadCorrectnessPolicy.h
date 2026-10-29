@@ -80,13 +80,14 @@ namespace RadCorrectnessPolicy
     }
 
     // Constraint: the power-armor HUD replaces the visor overlay, so a worn PA helmet hides it; a debug override wins.
-    constexpr bool MaskOverlayVisible(int a_debugOverride, bool a_wornMask, bool a_powerArmorHelmet)
+    // Constraint: the visor is the wearer's own view, so any non-first-person camera hides it.
+    constexpr bool MaskOverlayVisible(int a_debugOverride, bool a_wornMask, bool a_powerArmorHelmet, bool a_firstPerson)
     {
         if (a_debugOverride == 1)
             return true;
         if (a_debugOverride == 0)
             return false;
-        return a_wornMask && !a_powerArmorHelmet;
+        return a_wornMask && !a_powerArmorHelmet && a_firstPerson;
     }
 
     // Constraint: an interior, a sheltered spot, a powered shelter and a sealed suit are not rad-weather exposure.

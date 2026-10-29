@@ -122,13 +122,15 @@ public:
     void DebugHeal();                                 // full heal the player
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
     void WantedTissuePenalties(float (&a_out)[4]) const;
-    void RepairLeakedCarryWeight();                   // raise a leaked negative carry weight back to the permanent base
-    void DispelNegativeSpecials();                    // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)
+    void RepairLeakedCarryWeight();                 // raise a leaked negative carry weight back to the permanent base
+    void DispelNegativeSpecials();                  // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)
     // Called from the PrismaUI JS listener (Ultralight thread). It ONLY enqueues the command;
     // the actual engine work runs on the main thread in Update() via DispatchDebugCommand,
     // because engine calls (weather/VM/spawns) crash if made off the main thread.
     void HandleDebugCommand(const char* action);
     [[nodiscard]] bool StormGhoulsEnabled() const noexcept { return _stormGhoulsEnabled; }
+    [[nodiscard]] int FilterReplaceKey() const noexcept { return _filterReplaceKey; }
+    [[nodiscard]] int ConditionRepairKey() const noexcept { return _conditionRepairKey; }
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();
@@ -333,6 +335,7 @@ private:
     // torso, both arms, both legs — any single missing piece is OK; missing 2+ is "not a full suit").
     // A full suit fully blocks rad gain AND storm HP damage.
     bool IsPlayerInPowerArmor() const;
+    bool PlayerInFirstPersonView() const;       // first-person or iron-sights camera; true when the camera is unavailable
     bool PlayerWearsPowerArmorHelmet() const;   // any ArmorTypePower piece filling the helmet slot, frame or full suit
     bool IsActorInPowerArmor(RE::Actor* actor) const;   // PA scan: requires a FULL suit — helmet + 6 distinct ArmorTypePower pieces
     RE::BGSKeyword* _armorTypePowerKeyword = nullptr;   // Fallout4.esm 0x4D8A1 — marks PA armor pieces

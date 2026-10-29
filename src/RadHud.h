@@ -8,6 +8,12 @@
 #include <string>
 #include <vector>
 
+namespace PRISMA_HUD_API { struct WidgetDesc; }
+
+// Constraint: in companion mode our widgets default beside Phosphor's HP/AP/RAD rings; a saved layout still wins.
+bool CompanionWidgetDefault(const char* id, float& x, float& y);
+PRISMA_HUD_API::WidgetDesc CompanionPlaced(const PRISMA_HUD_API::WidgetDesc& desc);
+
 class RadHud
 {
 public:
@@ -33,7 +39,9 @@ public:
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
     void PushGhoulSettings(bool enabled, float chance);
     void ResetClimateForSession() noexcept;
+    void PushTheme(uint64_t view);
 
+    bool IsCompanionMode();
     bool ShowSpecialInfo(const std::vector<std::string>& lines);
     void PushStorm(int phase, int theme, float intensity, bool sheltered, bool lethal);
 
@@ -61,6 +69,7 @@ private:
     ~RadHud() = default;
 
     void EnsureClimateView();
+    void PushFilterKeys(uint64_t view);
 
     void* _api = nullptr;       // PRISMA_UI_API::IVPrismaUI2*
     void* _threadApi = nullptr; // PRISMA_UI_API::IVPrismaUI11*
@@ -85,6 +94,8 @@ private:
     std::string _airPayload;
     std::string _toxicPayload;
     std::string _armorPayload;
+    std::string _keysPayload;
+    std::atomic<int> _companionMode{ -1 };
     uint64_t _needsView = 0;
     std::atomic<uint64_t> _needsReadyView{ 0 };
     bool _needsWidgetRegistered = false;

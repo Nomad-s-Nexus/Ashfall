@@ -76,12 +76,14 @@ int main()
     Require(!IsRadShieldedMask(true, false));
     Require(!IsRadShieldedMask(false, true));
     // Constraint: the visor overlay is hidden by a worn power-armor helmet; the debug override still wins.
-    Require(MaskOverlayVisible(-1, true, false));
-    Require(!MaskOverlayVisible(-1, true, true));
-    Require(!MaskOverlayVisible(-1, false, false));
-    Require(!MaskOverlayVisible(-1, false, true));
-    Require(MaskOverlayVisible(1, false, true));
-    Require(!MaskOverlayVisible(0, true, false));
+    Require(MaskOverlayVisible(-1, true, false, true));
+    Require(!MaskOverlayVisible(-1, true, true, true));
+    Require(!MaskOverlayVisible(-1, false, false, true));
+    Require(!MaskOverlayVisible(-1, false, true, true));
+    Require(MaskOverlayVisible(1, false, true, true));
+    Require(!MaskOverlayVisible(-1, true, false, false));
+    Require(MaskOverlayVisible(1, false, false, false));
+    Require(!MaskOverlayVisible(0, true, false, true));
     // Constraint: F8 belongs to the debug menu, mouse buttons/Shift/Esc are reserved, 0 disables one.
     Require(IsUsableHotkey(0));
     Require(IsUsableHotkey(117));

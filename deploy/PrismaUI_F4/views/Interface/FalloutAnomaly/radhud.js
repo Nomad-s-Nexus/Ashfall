@@ -91,6 +91,8 @@ window.stormPhase = function(json) {
 
 function cmd(action) { try { if (window.radDebug) window.radDebug(action); } catch (e) {} }
 
+window.setTheme = function(name) { document.body.classList.toggle("theme-phosphor", String(name).replace(/"/g, "") === "phosphor"); };
+
 function setGhoulChanceLabel(value) {
   var n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
   var output = document.getElementById("ghoulChanceValue");

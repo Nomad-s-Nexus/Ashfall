@@ -10,6 +10,7 @@ namespace
     {
         auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
         if (!api11 || !RadHud::GetSingleton().ViewsReady()) return;
+        if (RadHud::GetSingleton().IsCompanionMode()) return;
         api11->SuppressHUDWidget("HUDPlayerHealthMeter", true);
         api11->SuppressHUDWidget("HUDActionPointMeter", true);
     }
@@ -18,7 +19,7 @@ namespace
     {
         auto& hud = RadHud::GetSingleton();
         auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
-        if (api11)
+        if (api11 && !hud.IsCompanionMode())
         {
             api11->SuppressHUDWidget("HUDPlayerHealthMeter", false);
             api11->SuppressHUDWidget("HUDActionPointMeter", false);

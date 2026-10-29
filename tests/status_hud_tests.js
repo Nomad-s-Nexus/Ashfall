@@ -4,7 +4,7 @@ function load(name){
  const html=fs.readFileSync(path.join(view,name),'utf8'),elements={},timeouts=[];
  function element(){const e={children:[],style:{setProperty(){}},classes:new Set(),appendChild(c){this.children.push(c)},setAttribute(k,v){this[k]=v}};e.classList={add(c){e.classes.add(c)},remove(c){e.classes.delete(c)},toggle(c,on){on?e.classes.add(c):e.classes.delete(c)}};Object.defineProperty(e,'textContent',{get(){return (this.text||'')+this.children.map(c=>c.textContent).join('')},set(v){this.text=String(v);this.children=[]}});return e;}
  for(const match of html.matchAll(/id="([^"]+)"/g))elements[match[1]]=element();
- const context={document:{getElementById:id=>elements[id],createElement:element,documentElement:{}},ResizeObserver:class{observe(){}},innerWidth:1920,innerHeight:1080,setTimeout(fn){timeouts.push(fn)},setInterval(){throw Error('Polling prohibited')}};context.window=context;vm.createContext(context);
+ const context={document:{getElementById:id=>elements[id],createElement:element,documentElement:{},body:element()},ResizeObserver:class{observe(){}},innerWidth:1920,innerHeight:1080,setTimeout(fn){timeouts.push(fn)},setInterval(){throw Error('Polling prohibited')}};context.window=context;vm.createContext(context);
  for(const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g))vm.runInContext(match[1],context);
  return {context,elements,html,timeouts};
 }
@@ -83,4 +83,54 @@ for(const [name,file,clearPoints] of [['overlay','gasmask_overlay.png',[['top-le
  for(const [point,fx,fy] of [['bottom-left edge',0.05,0.90],['top-right edge',0.90,0.05],['right edge',0.85,0.10]])
   assert.ok(alpha(fx,fy)>=40,`${name} must keep the visor look over the ${point} (alpha ${alpha(fx,fy)})`);
 }
-console.log('Status HUD verified: warmth endpoints, environment, breathing gates, percentages, hidden layout, full diagnostics and visor clear zones');
+const phosNeeds=load('hud_needs.html');
+phosNeeds.context.setTheme('phosphor');
+assert.ok(phosNeeds.context.document.body.classes.has('theme-phosphor'));
+phosNeeds.context.updateNeeds({hunger:0,thirst:70,sleepDebt:80});
+assert.equal(phosNeeds.elements.sleepDebt.className,'status danger');
+assert.equal(phosNeeds.elements.sleepDebtCap.textContent,'EXHAUSTED');
+assert.ok(Math.abs(phosNeeds.elements.sleepDebtRing['stroke-dashoffset']-125.66*0.8)<.01);
+assert.equal(phosNeeds.elements.thirst.className,'status warn');
+assert.equal(phosNeeds.elements.thirstCap.textContent,'PARCHED');
+assert.equal(phosNeeds.elements.hunger.hidden,true);
+phosNeeds.context.setTheme('classic');
+assert.ok(!phosNeeds.context.document.body.classes.has('theme-phosphor'));
+assert.equal(phosNeeds.elements.thirst.className,'status danger');
+assert.equal(phosNeeds.elements.sleepDebt.className,'status danger');
+const phosToxic=load('hud_toxic.html');
+phosToxic.context.setTheme('phosphor');
+phosToxic.context.updateToxic({fallback:true,health:50,healthMax:100,ap:20,apMax:100,rads:300,radsMax:1000,tissue:149,permanentTissue:400});
+assert.equal(phosToxic.elements.health.hidden,true);assert.equal(phosToxic.elements.stamina.hidden,true);assert.equal(phosToxic.elements.rads.hidden,true);
+assert.equal(phosToxic.elements.tissue.className,'status ');
+assert.ok(Math.abs(phosToxic.elements.tissueRing['stroke-dashoffset']-125.66*0.851)<.01);
+assert.ok(Math.abs(phosToxic.elements.scarRing['stroke-dashoffset']-144.51*0.6)<.01);
+phosToxic.context.updateToxic({fallback:true,tissue:150});assert.equal(phosToxic.elements.tissue.className,'status warn');
+phosToxic.context.updateToxic({fallback:true,tissue:600});assert.equal(phosToxic.elements.tissue.className,'status danger');
+const classicToxic=load('hud_toxic.html');
+classicToxic.context.updateToxic({fallback:true,health:50,healthMax:100,ap:20,apMax:100,rads:300,radsMax:1000,tissue:150,permanentTissue:400});
+assert.equal(classicToxic.elements.health.hidden,false);assert.equal(classicToxic.elements.tissueRing['stroke-dashoffset'],undefined);
+const phosFilter=load('hud_filter.html');
+phosFilter.context.setTheme('phosphor');
+phosFilter.context.updateAir({contaminated:true,masked:true,charge:20,condition:50});
+assert.equal(phosFilter.elements.breathValue.textContent,'FILTERED');
+assert.equal(phosFilter.elements.filter.className,'status danger');
+assert.equal(phosFilter.elements.mask.className,'status warn');
+assert.ok(Math.abs(phosFilter.elements.filterRing['stroke-dashoffset']-125.66*0.8)<.01);
+assert.ok(Math.abs(phosFilter.elements.maskRing['stroke-dashoffset']-125.66*0.5)<.01);
+filter.context.setKeys('{"replace":"F6","repair":"F7"}');
+assert.equal(filter.elements.filterKey.textContent,'[F6]');assert.equal(filter.elements.filterKey.hidden,false);
+assert.equal(filter.elements.maskKey.textContent,'[F7]');assert.equal(filter.elements.maskKey.hidden,false);
+filter.context.setKeys({replace:'',repair:'F7'});
+assert.equal(filter.elements.filterKey.hidden,true);assert.equal(filter.elements.maskKey.textContent,'[F7]');
+filter.context.setKeys(null);
+assert.equal(filter.elements.filterKey.hidden,true);assert.equal(filter.elements.maskKey.hidden,true);
+climate.context.setTheme('phosphor');
+assert.ok(climate.context.document.body.classes.has('theme-phosphor'));
+climate.context.setTheme('classic');
+assert.ok(!climate.context.document.body.classes.has('theme-phosphor'));
+const radTheme={document:{body:{classList:{toggle(name,on){this.last=[name,on];}}}}};
+radTheme.window=radTheme;vm.createContext(radTheme);
+vm.runInContext(fs.readFileSync(path.join(view,'radhud.js'),'utf8'),radTheme);
+radTheme.setTheme('phosphor');assert.deepEqual(radTheme.document.body.classList.last,['theme-phosphor',true]);
+radTheme.setTheme('classic');assert.deepEqual(radTheme.document.body.classList.last,['theme-phosphor',false]);
+console.log('Status HUD verified: warmth endpoints, environment, breathing gates, percentages, hidden layout, full diagnostics and visor clear zones, Phosphor theme rings, needs inversion, tissue thresholds and key hints');

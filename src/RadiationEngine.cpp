@@ -342,7 +342,7 @@ void RadiationEngine::Update()
         const bool realMasked = IsWearingGasMask();
         // Constraint: a worn power-armor helmet replaces the visor overlay; the debug override still wins.
         const bool maskOn = RadCorrectnessPolicy::MaskOverlayVisible(
-            _maskOverride, realMasked, PlayerWearsPowerArmorHelmet());
+            _maskOverride, realMasked, PlayerWearsPowerArmorHelmet(), PlayerInFirstPersonView());
         // (inRadWeather is computed up top with the shelter-eval flags — the roof raycast must be
         // fresh for any FLST rad weather now that choking depends on it.)
 

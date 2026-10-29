@@ -298,3 +298,16 @@ html, body {
 .diagnostics dd{text-align:right;margin:0;color:#d0e5c5;font-variant-numeric:tabular-nums}
 .diagnostics p{font-size:12px;line-height:1.6;margin:12px 0 0;color:#a9c39c}
 @media(max-width:650px){.diagnostic-grid{grid-template-columns:1fr}}
+
+body.theme-phosphor #emissionBanner{font-family:"Saira Condensed","Bahnschrift","Arial Narrow",sans-serif;font-size:22px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;text-shadow:none;padding:6px 16px;background:rgba(8,15,11,.46);border:1px solid rgba(205,255,214,.16);color:#dcf5df}
+body.theme-phosphor #emissionBanner.ash-b{color:#8fa996;border-color:rgba(143,169,150,.5)}
+body.theme-phosphor #emissionBanner.fire-b{color:#ff7052;border-color:rgba(255,112,82,.6);text-shadow:0 0 8px rgba(255,112,82,.4)}
+body.theme-phosphor #emissionBanner.sulfur-b{color:#f2c46a;border-color:rgba(242,196,106,.6)}
+body.theme-phosphor #emissionBanner.acid-b{color:#93e8a4;border-color:rgba(147,232,164,.6)}
+body.theme-phosphor #emissionBanner.dust-b{color:#f2c46a;border-color:rgba(242,196,106,.4)}
+body.theme-phosphor #emissionSub{font-family:"IBM Plex Mono",Consolas,"Courier New",monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;text-shadow:none;color:#8fa996}
+body.theme-phosphor #emissionSub.ash-s{color:#8fa996}
+body.theme-phosphor #emissionSub.fire-s{color:#ff7052}
+body.theme-phosphor #emissionSub.sulfur-s{color:#f2c46a}
+body.theme-phosphor #emissionSub.acid-s{color:#93e8a4}
+body.theme-phosphor #emissionSub.dust-s{color:#f2c46a}

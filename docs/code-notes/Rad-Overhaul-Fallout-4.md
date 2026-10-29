@@ -903,6 +903,176 @@ Reference: `deploy/F4SE/Plugins/FalloutAnomaly/climate_weather.json`, `src/Clima
   hard-coded cell id in C++. Not played in game: whether the ConcordMuseum01 play space actually has open sky above the
   player is a visual property no record exposes, so that stays on `docs/IN_GAME_TEST_CHECKLIST.md`.
 
+## Phosphor theme for the status HUD (2026-10-29)
+
+Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_status.css` (the `body.theme-phosphor` block), `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_needs.html:setTheme`, `hud_needs.html:renderNeeds`, `hud_needs.html:ring`, `hud_toxic.html:setTheme`, `hud_toxic.html:renderToxic`, `hud_toxic.html:ring`, `hud_filter.html:setTheme`, `hud_filter.html:renderFilter`, `hud_filter.html:setKeys`, `hud_filter.html:ring`, `hud_climate.html:setTheme`, `radhud.js:setTheme`, `radhud.css` (the `body.theme-phosphor #emissionBanner` rules), and `tests/status_hud_tests.js`.
+
+- The theme is selected by `setTheme('phosphor'|'classic')`, which toggles `theme-phosphor` on `<body>`. Classic is the default, so an unset theme renders the existing design. Every Phosphor rule in `hud_status.css` sits under that class. The only classic-side changes are hiding the new ring and caption elements and adding `position:relative` to `.status`.
+- `hud_needs.html:renderNeeds` shows fullness as the ring fill (1 minus debt). The payload and `updateNeeds` are unchanged. Colour tiers come from fullness: below 0.25 is rad, 0.25 to 0.5 amber, above 0.5 pip. Caption words switch at fullness 0.66, 0.5 and 0.25. Chip visibility stays on the debt stage boundaries (34/67/90) in both themes.
+- `hud_toxic.html:renderToxic` hides the health, AP and rads fallback chips under Phosphor. The tissue ring is tissue/1000 and the scarring arc is permanentTissue/1000 on a second outer circle. The amber (150) and rad (600) thresholds match classic.
+- `hud_filter.html:renderFilter` draws rings for filter and mask. The 25 and 60 thresholds match classic.
+- `hud_filter.html:setKeys` accepts a JSON string or an object. `replace` fills the filter hint (`[F6]`) and `repair` fills the mask hint (`[F7]`). An empty key hides its hint. This applies in both themes, and the hints stay hidden until native code supplies keys.
+- `hud_climate.html:setTheme` and `radhud.js:setTheme` only toggle the class. Climate chips and the storm banner are styled by CSS. The visor overlay and fog rules are not touched.
+- Each of the three ring-drawing views carries its own one-line `ring` helper. The views load only inline scripts, so a shared file would need a new loader path.
+- Verified by the node harness only. No browser or in-game render was run, so the ring geometry and the Ultralight rendering are unconfirmed.
+
+## Phosphor companion mode: detection, theme push, duplicate-vitals drop (2026-10-29)
+
+Reference: `src/RadHudCompanion.cpp:RadHud::IsCompanionMode`, `src/RadHudCompanion.cpp:ResolveCompanionMode`, `src/RadHudCompanion.cpp:RadHud::PushTheme`, `src/RadHudCompanion.cpp:RadHud::PushFilterKeys`, `src/RadHudCompanion.cpp:VkLabel`, `src/RadHud.cpp:RadHud::PushToxic`, `src/RadHud.cpp:RadHud::PushFilter`, `src/RadHud.cpp:RadHud::CreateView`, `src/RadHudLifecycle.cpp:SuppressVanillaMetersOnPrismaThread`, `src/RadHudLifecycle.cpp:CreateRadHudViewOnPrismaThread`, `src/RadHudNeeds.cpp:RadHud::PushNeeds`, `src/RadHudNeeds.cpp:SurvivalLayerActive`, `src/RadHudClimate.cpp:RadHud::EnsureClimateView`, `src/RadiationEngine.h:RadiationEngine::FilterReplaceKey`, `src/RadiationEngine.h:RadiationEngine::ConditionRepairKey`, `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini:[Hud] Mode`, `tests/verify_hud_fallback.py:check_source`, `tests/verify_local_hud_editor.py`.
+
+- Mode source is `[Hud] Mode=auto|phosphor|classic` (default auto). `RadHudCompanion.cpp:ResolveCompanionMode` reads it with `GetPrivateProfileStringA` on the same INI path the other readers use. `phosphor` and `classic` force the mode; `auto` is companion when `GetModuleHandleW(L"PhosphorHUD.dll")` is non-null or `Data/F4SE/Plugins/PhosphorHUD.dll` or `PhosphorHUD.ini` exists. Detection is by file or module name only, so OG and AE builds behave the same. An unknown value logs a warning and resolves as auto.
+- `RadHud::IsCompanionMode` resolves once and caches in `_companionMode` (-1 unresolved). It is deliberately not gated on `PlayerInWorld()`: the first caller is `RequestAPI`'s view-creation path, which runs at game time after F4SE has loaded every plugin DLL, so the module check is already final. A world gate would cache classic from the pre-world `SuppressVanillaMetersOnPrismaThread` call and leave the vanilla meters suppressed after PhosphorHUD is in charge.
+- `RadHud::PushToxic` in companion mode sends `fallback:false` and skips the health/AP/rads reads. The payload keeps its shape with zeros, so the debug menu's `updateVitalsInfo` copy of the same payload shows zero health/AP/rads while companion mode is on.
+- `SuppressVanillaMetersOnPrismaThread` and `CreateRadHudViewOnPrismaThread` make no `SuppressHUDWidget` calls for `HUDPlayerHealthMeter` or `HUDActionPointMeter` in companion mode. Phosphor's `bHideVanillaMeters` owns that. Classic mode is unchanged.
+- Theme: each view's DOM-ready callback (`RadHud::CreateView` for radhud, hud_toxic and hud_filter; `RadHud::PushNeeds` for hud_needs; `RadHud::EnsureClimateView` for hud_climate) calls `RadHud::PushTheme`, which sends `setTheme("phosphor"|"classic")`. The mode is cached, so no later mode change needs a second push. A view reload re-runs its callback and re-sends the theme.
+- Keys: `RadHud::PushFilter` calls `RadHud::PushFilterKeys` on the filter view. The payload is `{"replace","repair"}` built from `RadiationEngine::FilterReplaceKey` and `ConditionRepairKey` through `VkLabel` (F1..F12 from 0x70..0x7B, letters and digits as themselves, other codes as `#<hex>`, 0 as empty). It is change-detected against `_keysPayload`, so an INI reload through `ReloadHotkeysFromIni` reaches the view on the next tick. `CreateView` clears `_keysPayload` when it recreates the filter view.
+- Needs chips: in companion mode they still show, because Phosphor cannot read the GLOB-based needs outside Survival. `RadHudNeeds.cpp:SurvivalLayerActive` is the layer gate. It is false on difficulty 6 (`kTrueSurvival`, the same value `WaterBottleFill.cpp` uses for vanilla Survival), so `PushNeeds` hides the chips once and stops pushing while stale globals would otherwise show. Limits: `RadSurvivalQuest.psc:IsActive` also checks the `Enabled` and `SkipWhenVanillaSurvival` properties, which are `Auto Const` ESP values that C++ cannot read cheaply, so only the difficulty half is mirrored. The debug menu's SURVIVAL tab (`RadHud::PushSurvival`) still receives the stale snapshot on difficulty 6; it was left alone because the brief scoped the fix to the chips.
+- `RadHudCompanion.cpp` is a separate module because `RadHud.cpp` was at the 750-line cap. Build sources come from `xmake.lua` `add_files("src/**.cpp")`.
+
+
+## Visor overlay is first-person only; companion layout and rings (2026-10-29)
+
+- `src/RadCorrectnessPolicy.h:MaskOverlayVisible` takes a fourth argument, `a_firstPerson`. The flat PNG visor (`gasmask_overlay.png`, `visor_fog.png`) is the wearer's own view, so it is hidden in third person. The debug override still wins. `src/RadEngine_Shelter.cpp:RadiationEngine::PlayerInFirstPersonView` reads `RE::PlayerCamera::QCameraEquals` for `kFirstPerson` and `kIronSights` and returns true when the camera singleton is missing, so a load screen cannot flash the visor off. `src/RadiationEngine.cpp` passes it at the single `MaskOverlayVisible` call. The helper sits in `RadEngine_Shelter.cpp` because `RadEngine_Mask.cpp` is at the 750-line cap.
+- `src/RadHudCompanion.cpp:CompanionWidgetDefault` is the one table of companion-mode default positions (1920x1080 pixels, stored as fractions): needs (290,962), filter (478,962), climate (400,892), tissue (652,892). They sit right of Phosphor's HP/AP/RAD rings (x 56..272) and below its XP/location text (x < 390, y 820..915), and stay under x 664 so the compass row (x >= 660, y > 970) is clear. `CompanionPlaced` feeds the same table to every PrismaHUD `RegisterWidget` call, and `src/RadHudLayout.cpp:EnsureLoaded` applies it to `g_layout` before `hud_layout.json` is read, so a saved layout still wins. Classic mode is untouched: both functions return the descriptor or default unchanged.
+- `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_climate.html`: each of the four chips (warm, wet, air, wind) now has a Phosphor-style `svg.ring` (r=20 on a 48 box, same markup as `hud_needs.html`). `ringTo` sets the dash offset: warmth/100, wetness/100, (ambient+10)/40 for temperature, wind/20. The `data-ring` attribute marks chips that get the panel-less 44px ring look in `hud_status.css` (`body.theme-phosphor .status[data-ring]`); it is an attribute because the scripts overwrite `className` on every render. In classic mode the ring is `display:none`, as before.
+
+
+## M50 first-person mask view model (2026-10-29)
+
+- `art-src/mask-view/m50/build_m50_mask.py:main` rebuilds `RadMaskView.nif` from scratch in Blender 5.2 with PyNifly (`io_scene_nifly`). Run `blender -b --python build_m50_mask.py -- <scaffold.nif> <out_raw.nif|-> [<out.blend>]`. The scaffold is any earlier RadMaskView NIF; only its nodes and transforms are kept. Copy `art-src/mask-view/m50/RadMaskView_raw.nif` somewhere else before using it as the scaffold, because the build overwrites that file. `main` sets the scale of the mesh-parent empties to 1 because PyNifly drops empty scale. The pipeline after that is `art-src/overlay-nif/patch_overlay_nif.py` (adds AttachT=NamedNode&Camera and zeroes the effect-shader flags), then `art-src/mask-view/build_mask_view.py:main` (repoints strings and writes the Mask textures into `deploy/`).
+- Shapes under the `Mask` node (`art-src/mask-view/m50/build_m50_mask.py:build_parts`): `Mask:0` is the shell and strap pads. The rest are `MaskNoseCup`, `MaskValve`, `MaskDrinkTube`, `MaskChinCup`, `MaskLining` (fabric panels), `MaskHardware` (buckles), `MaskGlass` and `MaskRef`. `build_m50_mask.py:clone` copies `Mask:0` for any shape the scaffold lacks and sets `pynNodeName`. `build_m50_mask.py:main` gives `MaskValve` and `MaskHardware` their own material copy pointing at `materials\RadiationOverhaul\Mask\RadMaskPlastic.bgsm`; everything else uses `RadMask.bgsm`. `art-src/mask-view/make_plastic_bgsm.py` derives the plastic .bgsm from RadMask.bgsm (own diffuse path, specular multiplier 1.5, smoothness stays 1.0); `art-src/mask-view/build_mask_view.py:textures` writes `RadMaskPlastic_d/_s.dds` (lighter, glossier). Whether the game honours the file's values over its template is unverified.
+- Frame: world x is lateral, y is up and z points toward the viewer. The eye sits at the origin looking down -Z. `build_m50_mask.py:put` moves geometry into each shape's local space and sets `hasFullPrecision`, because half-float positions collapse small parts to zero-area tris. `clean` BEAUTY-triangulates so the exporter does not fan 16-gon caps into slivers.
+- `build_m50_mask.py:build_lens` is a wraparound lens on a cylinder (LA=5.4, LB=4.1, PHM=1.24 rad). From the eye it spans about ±75 degrees horizontally at eye level (±42 degrees at x=±3.05) and +31.5/-29.8 degrees vertically. The old flat panel was ±42/±28. The lens sides are off-screen at 90 and 116 degree FOV, so only the top lip and the nose notch overlap the PNG frame. `outline_py` makes the nose notch narrow at the top with steeper flanks (NW=0.6, NH=1.5, rounded-V profile). `recalc_face_normals` keeps the centre fan and the edge band wound the same way as the rings.
+- `build_m50_mask.py:shell_rows` sweeps the shell profile: inner lip (scaled 0.8 to 1.25 toward the bottom, so the frame is not uniformly thick), Bezier inner wall, seal roll, outer skin and clamp band. `detail_inner` adds creases and the parting line.
+- `build_m50_mask.py:build_cup` follows photos 13 and 15 of a real M50 (wearer side). `CUP_HALF` gives a tall narrow round-topped bridge rising into the lens notch (apex at `CUP_TOP` = -1.35), flaring into broad wings and a nearly flat lower edge. A narrow dent (`cr`) creases the bridge, and two small stacked bars at `cup_point(g, 0, 3)` stand for the stepped numbered tab. Walls are thin (`CUP_T` = 0.11) with a rolled 0.12 bead. The front edge is raycast onto the shell (scale 0.74 against the 1.18 rim, so the flank reads as a broad band) and embedded 0.1. The old cup-side valve seats, cheek ports and voicemitter module were removed because the photos show none of them inside.
+- `build_m50_mask.py:valve_assembly` sets the axis to (0,0.25,1) and places the housing from nine shell raycasts centred at y=-3.65 so it sits inside the cup opening. It builds a collar flange, a housing with a chamfered rim, 10 radial ribs, a concentric ring, a domed hub with a pin and `arc_flap`, a hinged shield over the upper left (95 to 185 degrees). It returns the frame to `build_drink_tube`, which makes the ribbed rubber stub with an open bore up-left of the valve (`MaskDrinkTube`). `build_chin_cup` (`MaskChinCup`) raycasts a lipped rubber pocket onto the chin interior (`chin_hit`, `CHIN_S`/`CHIN_H`) with a ring for the drain hole; it is faint in renders.
+- `build_m50_mask.py:build_lining` places two black fabric panels on the cheek walls between the lens lip and the cheek ports. They are sampled from the shell rows with `shell_at`, offset 0.06 toward the face, with sinusoidal folds, a turned-down hem and two snap rivets each. The reference photo does not show them clearly, so their exact layout is a guess.
+- `build_m50_mask.py:strap_tab` keeps the moulded pad in the shell and puts a square-section buckle frame, a centre bar and a pad rivet into MaskHardware.
+- Known limits: nothing is verified in game. The drain hole is a ring, not a cut hole. Refinement: the pointed chin in `Mask:0` came from `art-src/mask-view/m50/build_m50_mask.py:SEAL_R` putting the bottom centre at z=-0.9 against z=-0.2 beside it, plus the `shell_rows` bulge z of -1.9 at the bottom; both are now near-flat (z -0.1 to 0 and -0.9), so the lower edge is a wide U. `build_chin_cup` spans y -4.85 to -7.0. `strap_tab` buckles are solid rail frames with an extra hook bar on the top clips. The lens footprint is still wider than the old panel, and the PNG frame may need retuning. Rubber texture is not tileable. Sources: reference photos 13 to 16 supplied by the user; photo 16 (exterior) was only used to judge buckles.
+
+## M50 hand rebuild from Meshy trace (2026-10-29)
+
+The user rejected the automated split and decimation of the Meshy scan. Everything in `art-src/mask-view/m50/meshy_trace/rebuild/` is procedural geometry of our own. The Meshy mesh is only measured, never copied. Frame: Meshy's, Z up, mask facing -Y. The NIF frame later is (-x, z, y).
+
+- `rebuild/measure.py` runs in Blender with `--disable-autoexec` on the Meshy blend. It ray-casts the scan into six axis depth maps plus a spherical grid from `C` = (0, 0.22, 0.42), with theta 0 to 170 and phi every 2 degrees, keeping up to four hits per ray. Output: `meshy_rays.npz`.
+- `rebuild/trace.py:main` (system Python, `-I`) reduces the rays to `m50_trace.json`.
+  - Rim per phi column: the walk stops at a miss, at z > 0.71, at y > 0.21, or at an r jump over 0.12 past 62 degrees. The rim curve is then median-filtered (15 samples), Gaussian-smoothed and resampled by `resample_quadrants`.
+  - Anchors in `resample_quadrants`: top = argmin(9|x| - z), bottom = argmin(9|x| + z). A mid-height test fails on the lens, whose nose-notch bottom sits above mid-height.
+  - Radius grid: 4 rounds of outlier-masked `nan_gauss` (|r - base| < 0.04). This drops the canister-port rays that made the star/fan artefacts.
+  - `fill_cols` interpolates NaN gaps in the radius and thickness grids. A NaN there becomes a vertex at the origin after `validate()` and `remove_doubles`, and that is what made the facepiece non-manifold.
+  - Facepiece rows lerp ray directions from the visor-frame outline (`lens_y` + 0.065) to the rim.
+  - `LENS_CP`/`FRAME_CP`/`LENS_C` are measured by hand from the front depth map. `LENS_C` is a 9-term lens surface fit.
+  - The canister outline is a polar r around the port, taken from the canister-face height map.
+- `rebuild/build_m50.py:main` (`blender -b --factory-startup`) builds ten objects with the `rebuild/m50lib.py` helpers (`grid`, `sweep`, `lathe`, `rounded_box`, `catmull`). It assigns 5 materials (MaskRubber, MaskVisor, MaskCanister, MaskHarness, MaskMetal), smart-project UVs at 60 degrees, prints `M50REPORT`, and saves `OurM50_handbuilt.blend`/`.glb`.
+  - `build_m50.py:facepiece`: torus-topology shell (inner rows, rim lip, outer offset by the traced thickness, front lip).
+  - `build_m50.py:lens`, `visor_frame`: column-grid lens on the fitted surface, and a frame swept by `FRAME_PROFILE`.
+  - `build_m50.py:canister`: lathe-like rings on the traced outline, with a side clip. The left canister is `mirror_x`.
+  - `build_m50.py:valve`, `shield`: shield-shaped grille housing, vertical slats, side coupler and latch. `shield` normals point outward (`-tan.z, tan.x`).
+  - `build_m50.py:drink_tube`, `chin_tab`, `harness`, `buckles`: paths measured from the depth maps.
+- Refinement pass (2026-10-29):
+  - `build_m50.py:valve_front` is domed: -0.878 + 2.6x² + 1.3(z+0.28)². The grille recess and the slat backs sit 0.07 behind that surface instead of at a fixed y = -0.70, which the stronger curve would have pushed in front of the bottom corners.
+  - `build_m50.py:harness`: each top strap continues past the back of the head to the opposite side band, so the two straps cross in an X. The mirrored strap is pushed 0.016 toward the head near x = 0 so the two do not overlap in the same plane. A domed rivet marks the crossing, and the old joint plate is gone.
+  - `build_m50.py:nose_cup` (new part `M50_NoseCup`, rubber):
+    - `CUP_HALF` is a teardrop outline, kept under `FRAME_CP` so it does not run into the lens nose notch.
+    - Each outline point is raycast (`BVHTree`) onto the `inner_surface` rows, then swept toward the face by `CUP_PROFILE` into a rolled lip 0.168 deep.
+    - `taper` shrinks the inward lip offset near the narrow apex so the wall does not fold over itself.
+    - The function asserts if any ray misses the wall.
+- Result: every part is manifold with no loose or zero-area faces, 22,256 tris in total. The facepiece is 7,680 tris, the nose cup 1,152, each canister 2,152 and the lens 2,152.
+  - `rebuild/render_compare.py` renders the same orthographic cameras as the Meshy reference.
+  - Silhouettes match the scan within a few pixels in the front, left, three-quarter and back views. The interior (back view) is smooth.
+- Not done: the nose cup has no inhalation valve discs, and the result has not been converted to the NIF frame or exported to `RadMaskView.nif`.
+
+### Geometry correction pass against real M50 photos (2026-10-29)
+
+`rebuild/DEFECTS_2026-10-29.md` is the record of this pass. It lists each defect, its reference photo, the fix and the proof, plus what is still wrong. The originals are in `rebuild/baseline_2026-10-29/`. The build is now split into modules:
+
+- **`shape.py`:** the traced shell, the lens surface and `Rays`.
+- **`interior.py`:** the nose cup, the inner valve, the drink pin and the face seal.
+- **`hardware.py`:** the canister and grille, the harness and the head pad.
+- **`build_m50.py`:** the lens, the visor frame, the valve, the drink tube, the chin tab, the materials and `main`.
+
+The notes below explain the non-obvious choices.
+
+- **`m50lib.py:make_object`:**
+  - After `recalc_face_normals`, it reverses all faces whenever the signed volume is negative.
+  - Blender's recalculation alone left the double-walled nose cup inside out, and reversing the input winding has no effect because the recalculation overrides it.
+- **`shape.py:shell`:** the front lip is pushed 0.045 past the mid-wall along the row direction. A smaller push left see-through slits under the visor frame at x≈±0.25.
+- **`shape.py:Rays.surf`:** returns a hit point offset along the hit normal, with the normal flipped to face the ray. `build_m50.py:drink_tube` uses it to keep the tube at a constant distance off the shell.
+  - A fixed -y gap put the tube inside the canister and the chin.
+- **`interior.py:nose_cup`:** the thickness direction is chosen by how the normal lines up with "away from the valve axis, toward -y".
+  - Using the sign of the normal's y alone flipped columns along the near-horizontal bottom edge, and the cup folded through itself there.
+- **`interior.py:inner_valve`, `drink_pin`, `face_seal`:** the valve recess, the spoke grille, the pin on the wearer's left and the in-turned seal are laid out from ref 13 and ref 15. The seal is 0.08 wide, narrower than the real one.
+- **`hardware.py:canister`:**
+  - **Can:** a superellipse can (A 0.29, B 0.28, depth 0.19). Exponent 2.4 makes it nearly round, as in ref 16; 3.2 read as a rounded square.
+  - **Face:** the face edge is chamfered over 0.035, and a shallow groove runs at -0.11.
+  - **Placement:** it sits on the shell at `CAN_ANCHOR` along the traced canister normal. Its stem ends at `-CAN_D - 0.012`, so it does not reach the cup.
+- **`hardware.py:grille`:**
+  - **Layout:** a round boss (r 0.175) carries a dark floor disc (r 0.15), returned separately so it takes the dark grille material. It also carries six concentric `GRILLE_RIBS` (`m50lib.ring`) and four radial bridges in each gap between ribs. Successive gaps rotate the bridges by 45°, which gives the broken-ring look of ref 16.
+  - **Centring:** the grille is offset (+0.02 u, -0.02 v) from the can centre toward the front and bottom, as in the photo.
+  - **Not modelled:** bayonet lugs.
+  - **Audit counts:** the audit's large `Canister` self-intersection count comes from ribs and bridges seated into the boss as separate islands. `probe_islands` finds no hits inside any single island.
+- **`m50lib.py:ring`:** moved here from interior.py so the grille and the inner valve share it.
+- **`hardware.py:head_pad`, `harness`:**
+  - **Head and pad:** an ellipsoid head (`HEAD`, `HEAD_R`) carries both the pad and the strap paths.
+  - **Pad shape:** a padded band from crown to nape. `PAD_T` (-40° to 78°) sets its length. `PAD_HW` 15° sets its half-width: 0.32 across, against 0.53 for the previous oval shell. A ^8 end falloff gives it strap-like rounded ends. The dome across the width (0.01 + 0.018) gives the padded section.
+  - **Strap ends:** the temple and lower straps end at phi 13°, just inside the pad edge. The crown straps end on top of the pad at (16, 72).
+  - **Strap offset:** strap points sit 0.04 off the head so they clear the pad's 0.028 dome.
+  - **Lead-out:** each strap's second point leaves the buckle at x unchanged, heading halfway between straight back and its first mid-point. A pure +y lead-out kinked into the lower strap's climb, and the strap folded through its own width (3 self-hits). Aiming fully at the mid-point bent it into the shell's rear rim.
+  - **Lower straps:** these end at theta -28, and the pad reaches down to -40 at the centre, so the straps run back level instead of climbing.
+  - **Crown straps:** these pass over the head through head_dir (150, 52) and (70, 82). A two-point crown path cut a straight line above the head, and an uneven point spacing made the catmull curve loop on itself at the buckle.
+- **`build_m50.py:valve`:** the cover body ends on a ring raycast into the shell wall (`front_of`, -0.012). The old skirt cap sat inside the mask and hid the inner valve.
+- **`review_views.py`:** renders with a camera-aligned sun so the interior shots are readable, and hides the harness for the rear-interior and cup shots. Two views show the harness from behind: `q_rear` (three-quarter) and `rear` (straight). The straight view is the one that shows pad width; the three-quarter view mostly shows the crown-to-nape arc.
+- **`audit.py`:** prints `AUDIT` JSON with each part's size, triangle count, closed state, signed volume and self-intersections, plus pairwise BVH overlaps. Overlaps from parts seated into each other on purpose are listed in DEFECTS.
+
+## Downloaded M50: interior rebuild (2026-10-29)
+
+`art-src/mask-view/m50/downloaded/fix_interior.py` rebuilds the interior of the downloaded M50 model. It reads `backup_2026-10-29_downloaded_before_interior.blend` and writes `downloaded/RadMaskView_m50_downloaded_interior.blend`. It never saves over the live `RadMaskView_m50.blend`. `downloaded/DEFECTS_2026-10-29.md` lists each defect, its fix, the proof and what is still open.
+
+- **`fix_interior.py` (old cup):**
+  - The original cup was two thin funnel islands: plastic, 1088 verts, and sealings, 384 verts.
+  - `find_island` deletes exactly those two islands by vertex count and centroid box, and fails loudly if it finds no match or more than one.
+- **`fix_interior.py:port_frames`, `interior_ports.py:port_frame`:**
+  - Each filter mount (plastic islands of 3281 verts) is fitted on its own by PCA, so the left and right ports are not assumed to be mirror images.
+- **`interior_ports.py:port_collar`:** a molded rubber collar that covers the filter rim, which used to poke through the facepiece inside.
+  - **Top surface:** rides `lift` above the tallest of wall, filter and mount, smoothed by `spread`.
+  - **Outer band:** sinks `sink` into the wall.
+  - **Underside:** follows the wall at `-under`. A deeper underside showed through on the exterior renders (max pixel diff 83); 0.002 brings the diff back to 1.
+- **`interior_ports.py:spread`:** a max followed by a mean, so the smoothed field never drops below its input. A collar or cup pushed by it cannot sink back into what it clears.
+- **`fix_interior.py:port_push`:** clears the cup from the ports.
+  - **Order:** the ports are built before the cup.
+  - **Clearance:** the cup's inner surface lifts along each port axis until it sits `margin` above the port's top surface (seat, flapper, collar, mount).
+  - **Smoothing:** the lift field goes through `spread(lift, 4)`. A per-vertex lift made the cup lip wavy.
+  - **Why not -y:** a clearance only along -y could not fix the sideways penetration into the flappers.
+- **`interior_cup.py:inner_surface`, `nose_cup`:** every row is clamped to `CLEAR + T0` off the wall, and the last row also gets `BEAD_MAX`, so the rolled lip bead does not cut into the facepiece.
+- **`interior_valve.py:housing`, `grille`, `drink_pin`:** these are separate objects, so they stay editable. The housing sits on `flange_levels` of the exterior valve, so the valve is recessed rather than a tunnel.
+- **`fix_interior.py:seen_faces`, `cabin_faces`:** colour the cabin as black molded rubber without touching the exterior.
+  - **Why:** the facepiece's inner rubber shared the stony atlas texture. These faces get a second material slot, `M50_InnerRubber`, instead.
+  - **Seeds:** faces first hit from interior eye points.
+  - **Flood fill:** spreads across edges whose normals turn less than 60°, while the face still faces the head point.
+  - **Exterior exclusion:** faces first hit from exterior cameras (front, sides, quarter views, top and bottom) are excluded, then that set is grown by 2 vertex rings. The grow is needed because the 160×160 ray grid misses one-face-wide slivers on the visor frame edge, which changed exterior pixels (max diff 5–12).
+  - **No rear cameras:** rear cameras would look into the cabin through the back opening and exclude the whole interior.
+- **`fix_interior.py` (visor):** `lens` gets its own `M50_Visor` material: alpha 0.1, transmission 1, roughness 0.12, specular IOR level 0.15. Before this it shared the opaque atlas. This is the one intentional exterior change.
+
+### Pass 2: matching ref 15 (2026-10-29)
+
+`downloaded/DEFECTS_pass2_2026-10-29.md` lists the eight defects, the fix for each and the proof renders in `downloaded/review_pass2_2026-10-29/`. The pass-1 blend and scripts are kept in `downloaded/pass1_2026-10-29/`.
+
+- **`interior_cup.py:RIM`, `SAG`, `nose_cup` (bead):** the rim is a short rounded nose hump (top at z ≈ 0.232) that falls into concave shoulders. The lower lip crosses just below the valve centre, as in ref 15. The bead tapers to 0.004 at the bottom of the rim, so the lower lip reads as thin.
+- **`fix_interior.py:wall_pull`:** pulls cup points toward a head point until they sit `margin` in front of the first wall hit on the ray from that head point. The walls are the rubber, lens, sealings and both port collars.
+  - **Why a ray from the head:** the wider shoulders reach the cheek walls, lens frame and collars at angles where a pull along -y or along the port axis leaves the cup inside them.
+  - **Why `spread` twice:** a single `spread(mag, 2)` left a fold by the right collar (adjacent cup faces with normal dot −0.83). A single `spread(mag, 4)` cleared the fold but left a pinch in the wings. `spread(spread(mag, 4), 4)` clears both.
+  - **Order:** applied after `port_push`, inside the same callback that `nose_cup` calls per row.
+- **`interior_valve.py:grille`:** 12 thin spokes, a hex hub and an outer ring, from ref 15.
+- **`interior_valve.py:housing` (flange kept):** the visible disc is the retaining collar (r 0.138), not the flange. The grille ring at 0.091 is 0.66 of the collar, against about 0.64 in ref 15, so the flange radius was not changed.
+- **`interior_valve.py:drink_pin`:** a boss, three rounded barbs and an open tip, leaning toward the wearer and up. The old five tall ribs read as a spring.
+- **`interior_ports.py:port_seat`:** the inner ring at r 0.127 was removed. No photo shows it, and with it the port read as concentric rings.
+- **`interior_ports.py:port_collar`:** the top uses `spread(..., 4)` instead of 2, which removes the wavy ridges that followed the filter rim.
+- **Chin fitting (plastic island 4, not changed):** this is the exterior drink-hose end cap. Its side faces pass through the chin rubber, so its cabin-side U outline cannot be hidden without moving faces that the exterior cameras see.
+  - A tuck along the view ray moved 42 verts and changed 274 front-view pixels.
+  - Limiting it to verts within 3 mm of the rubber still left a sliver at the cap's lower edge in the 3/4 view.
+  - Excluding verts on exterior-visible faces left nothing to move.
+  - It is left as an open choice for Nomad: accept a small exterior change to the cap, or keep the outline.
+
 ## Carry-weight leak: persisting the applied tissue penalties (2026-10-29)
 
 Tester report: carry weight keeps dropping, now -92, while the radiation stage has not advanced.
