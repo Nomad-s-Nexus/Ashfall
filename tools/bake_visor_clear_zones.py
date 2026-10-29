@@ -1,23 +1,17 @@
-"""Bake the HUD-safe clear zones into the Prisma visor art.
-
-The visor overlay and its condensation fog are fullscreen images, so a mask-image would be needed to keep
-the Scaleform HUD readable. Ultralight support for mask-image is unproven, so the clear zones are baked
-into the PNG alpha instead: the top-left notification area, the centre (loot/prompt readouts) and the
-bottom-centre XP bar stay transparent, while the visor edges and corners keep their original strength.
-
-Usage: python tools/bake_visor_clear_zones.py
-Regenerates gasmask_overlay.png (in place, alpha only) and visor_fog.png (new file) next to this script's
-view directory. Keep the geometry in sync with docs/code-notes/Rad-Overhaul-Fallout-4.md and the
-alpha-point assertions in tests/status_hud_tests.js.
-"""
+"""Bake HUD clear zones into the Prisma visor art from the pristine source in art-src/visor."""
 
 from pathlib import Path
 
 from PIL import Image
 
-VIEW = Path(__file__).resolve().parents[1] / "deploy/PrismaUI_F4/views/Interface/FalloutAnomaly"
+ROOT = Path(__file__).resolve().parents[1]
+VIEW = ROOT / "deploy/PrismaUI_F4/views/Interface/FalloutAnomaly"
+PRISTINE = ROOT / "art-src/visor/gasmask_overlay_pristine.png"
 OVERLAY = VIEW / "gasmask_overlay.png"
 FOG = VIEW / "visor_fog.png"
+
+# Constraint: keep in sync with the alpha-point assertions in tests/status_hud_tests.js.
+FRAME_ALPHA = 250
 
 # Constraint: these screen-normalised zones must stay clear - top-left messages, bottom-centre XP, centre loot/prompt.
 CLEAR_RECTS = (
@@ -36,7 +30,6 @@ def smoothstep(edge0, edge1, value):
 
 
 def clear_factor(x, y):
-    """0 inside a HUD clear zone, 1 outside; smooth over a small band."""
     factors = []
     band = 0.05
     for x0, x1, y0, y1 in CLEAR_RECTS:
@@ -49,18 +42,20 @@ def clear_factor(x, y):
 
 
 def bake_overlay():
-    image = Image.open(OVERLAY).convert("RGBA")
+    image = Image.open(PRISTINE).convert("RGBA")
     width, height = image.size
     pixels = image.load()
     for py in range(height):
         y = (py + 0.5) / height
         for px in range(width):
-            x = (px + 0.5) / width
             r, g, b, a = pixels[px, py]
-            if a:
-                pixels[px, py] = (r, g, b, int(round(a * clear_factor(x, y))))
-    image.save(OVERLAY)
-    print(f"baked clear zones into {OVERLAY.name} ({width}x{height})")
+            if a >= FRAME_ALPHA:
+                continue
+            x = (px + 0.5) / width
+            a = int(round(a * clear_factor(x, y)))
+            pixels[px, py] = (r, g, b, a) if a else (0, 0, 0, 0)
+    image.save(OVERLAY, optimize=True)
+    print(f"baked clear zones into {OVERLAY.name} ({width}x{height}) from {PRISTINE.name}")
 
 
 def bake_fog():

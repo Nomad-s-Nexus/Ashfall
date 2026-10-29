@@ -100,6 +100,12 @@ namespace RadCorrectnessPolicy
         return a_inRadWeather && !a_interior && !a_sheltered && !a_poweredShelter && !a_powerArmor;
     }
 
+    // Constraint: the auto-don needs 3 s of stable exposure at the 4 Hz update rate.
+    inline constexpr int kAutoMaskStableTicks = 12;
+
+    // Constraint: the choke warning waits one tick past the auto-don so a masked player never hears a spurious gasp.
+    inline constexpr int kChokeGraceTicks = kAutoMaskStableTicks + 1;
+
     // Constraint: the auto-don needs a stable exposure reading, so a doorway or roof edge cannot flap the mask.
     struct AutoMaskStep
     {
@@ -134,9 +140,10 @@ namespace RadCorrectnessPolicy
         return { candidate == 1, candidate == 0, candidate, candidate, 0 };
     }
 
-    // Constraint: an INI hotkey accepts decimal or 0x-hex; 0 disables it, negatives and junk are rejected.
+    // Constraint: an INI hotkey accepts decimal or 0x-hex with an optional trailing "; comment"; 0 disables it, negatives and junk are rejected.
     inline bool ParseHotkey(std::string_view a_text, int& a_out)
     {
+        a_text = a_text.substr(0, a_text.find(';'));
         std::uint32_t value = 0;
         if (!RadIniParse::ParseNumber(a_text, 0xFFF, value))
             return false;
@@ -153,7 +160,7 @@ namespace RadCorrectnessPolicy
             return false;
         if (a_key <= 6)
             return false;
-        return a_key != 0x10 && a_key != 0x1B && a_key != 0x77;
+        return a_key != 0x10 && a_key != 0x1B && a_key != 0x77 && a_key != 0xA0 && a_key != 0xA1;
     }
 
     struct HotkeyPair

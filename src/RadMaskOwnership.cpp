@@ -57,6 +57,7 @@ namespace
             const auto actorID = event.actorAffected->GetFormID();
             const auto maskID = event.itemAffected->object->GetFormID();
             std::scoped_lock lock(g_mutex);
+            PurgeIfForfeitedLocked(actorID);
             const auto it = g_ownedMasks.find(actorID);
             if (it == g_ownedMasks.end() || it->second.maskFormID != maskID || it->second.IsTemporary())
                 return RE::BSEventNotifyControl::kContinue;

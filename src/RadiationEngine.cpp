@@ -15,8 +15,7 @@ using namespace RadInternal;
 
 namespace
 {
-    // Constraint: the auto-don needs 3 s of stable exposure at the 4 Hz update rate.
-    constexpr int kAutoMaskStableTicks = 12;
+    using RadCorrectnessPolicy::kAutoMaskStableTicks;
 
     // Constraint: GetAsyncKeyState hotkeys must only fire while our own game window is foreground.
     bool GameWindowForeground()
@@ -35,6 +34,7 @@ namespace
         auto* ui = RE::UI::GetSingleton();
         if (!ui)
             return false;
+        RE::BSAutoReadLock lock{ RE::UI::GetMenuMapRWLock() };
         for (const auto& menu : ui->menuStack)
         {
             if (!menu || !menu->OnStack())
@@ -482,9 +482,7 @@ void RadiationEngine::Update()
                 player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *actorValue->health,
                                       -rate * 0.25f);
 
-                // Grace: hold the notify/VO for the first ~2s so the rad-weather auto-equip can
-                // mask the player without a spurious gasp on every storm entry.
-                if (_chokeTicks >= 8)
+                if (_chokeTicks >= RadCorrectnessPolicy::kChokeGraceTicks)
                 {
                     if (!_chokeNotified)
                     {
@@ -618,7 +616,7 @@ void RadiationEngine::PollInput()
     // DEBUG menu: Left Shift + F8, edge-detected from the reliable key-DOWN bit (0x8000).
     const bool dbgKeyDown = (GetAsyncKeyState(kDebugMenuKey) & 0x8000) != 0;
     const bool lshift     = (GetAsyncKeyState(VK_LSHIFT)     & 0x8000) != 0;
-    if (dbgKeyDown && !_f8WasDown && lshift)
+    if (dbgKeyDown && !_f8WasDown && lshift && GameWindowForeground())
     {
         // Constraint: the debug menu is the reload point for the two mask keybinds, so an INI edit needs no restart.
         ReloadHotkeysFromIni();
@@ -631,13 +629,20 @@ void RadiationEngine::PollInput()
     RadHud::GetSingleton().PumpDeferredDebug();
 
     // Constraint: our GetAsyncKeyState keys only fire while the game window is foreground with no menu open.
+    if (_filterReplaceKey == 0 && _conditionRepairKey == 0)
+    {
+        _filterReplaceWasDown = false;
+        _conditionRepairWasDown = false;
+        return;
+    }
     const bool hotkeysAllowed = GameWindowForeground() && !BlockingMenuOpen();
 
+    // Constraint: while gated the edge trackers follow the real key state, so a key held across un-gating is not a press.
     // Gas-mask filter replace keybind (INI [Filter] ReplaceKey; 0 = disabled).
-    if (hotkeysAllowed && _filterReplaceKey != 0)
+    if (_filterReplaceKey != 0)
     {
         const bool rdown = (GetAsyncKeyState(_filterReplaceKey) & 0x8000) != 0;
-        if (rdown && !_filterReplaceWasDown)
+        if (hotkeysAllowed && rdown && !_filterReplaceWasDown)
             ReplaceFilter(false);
         _filterReplaceWasDown = rdown;
     }
@@ -647,10 +652,10 @@ void RadiationEngine::PollInput()
     }
 
     // Gas-mask repair keybind (INI [Condition] RepairKey; 0 = disabled).
-    if (hotkeysAllowed && _conditionRepairKey != 0)
+    if (_conditionRepairKey != 0)
     {
         const bool rdown = (GetAsyncKeyState(_conditionRepairKey) & 0x8000) != 0;
-        if (rdown && !_conditionRepairWasDown)
+        if (hotkeysAllowed && rdown && !_conditionRepairWasDown)
             RepairMask(false);
         _conditionRepairWasDown = rdown;
     }

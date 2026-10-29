@@ -409,7 +409,7 @@ private:
     bool  _chokeSounds       = true;    // [Choking] Sounds
     int   _chokeSoundTick    = 0;       // countdown to the next choking one-shot
     bool  _chokeNotified     = false;   // one notify per exposure episode
-    int   _chokeTicks        = 0;       // consecutive choking ticks (grace: no VO/notify for ~2s
+    int   _chokeTicks        = 0;       // consecutive choking ticks (grace: no VO/notify for kChokeGraceTicks
                                         // so the rad-weather auto-equip can mask up without a gasp)
     int   _chokeCalmTicks    = 0;       // consecutive safe ticks (hysteresis: cover-edge flicker
                                         // must stay safe ~10s before the notify/VO re-arm)

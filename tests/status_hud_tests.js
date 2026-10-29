@@ -75,9 +75,11 @@ function readPngAlpha(file){
    if(filter===1){v+=a;}else if(filter===2){v+=b;}else if(filter===3){v+=Math.floor((a+b)/2);}else if(filter===4){const p=a+b-c,pa=Math.abs(p-a),pb=Math.abs(p-b),pc=Math.abs(p-c);v+=(pa<=pb&&pa<=pc)?a:(pb<=pc?b:c);}cur[x]=v&0xff;}}
  return (fx,fy)=>out[Math.min(h-1,Math.round(fy*(h-1)))*stride+Math.min(w-1,Math.round(fx*(w-1)))*4+3];
 }
-for(const [name,file] of [['overlay','gasmask_overlay.png'],['fog','visor_fog.png']]){const alpha=readPngAlpha(path.join(view,file));
- for(const [point,fx,fy] of [['top-left messages',0.10,0.10],['message edge',0.40,0.15],['bottom-centre XP',0.50,0.93],['centre readouts',0.50,0.50]])
+for(const [name,file,clearPoints] of [['overlay','gasmask_overlay.png',[['top-left messages',0.20,0.15],['message edge',0.40,0.15],['lower centre glass',0.50,0.80],['centre readouts',0.50,0.50]]],['fog','visor_fog.png',[['top-left messages',0.10,0.10],['message edge',0.40,0.15],['bottom-centre XP',0.50,0.93],['centre readouts',0.50,0.50]]]]){const alpha=readPngAlpha(path.join(view,file));
+ for(const [point,fx,fy] of clearPoints)
   assert.ok(alpha(fx,fy)<=8,`${name} must be clear over the ${point} (alpha ${alpha(fx,fy)})`);
+ if(name==='overlay')for(const [point,fx,fy] of [['top-left frame corner',0.02,0.02],['bottom-centre frame',0.50,0.99],['left frame',0.01,0.50],['right frame',0.99,0.50],['bottom-left frame',0.05,0.90]])
+  assert.ok(alpha(fx,fy)>=250,`${name} must keep the opaque visor frame at the ${point} (alpha ${alpha(fx,fy)})`);
  for(const [point,fx,fy] of [['bottom-left edge',0.05,0.90],['top-right edge',0.90,0.05],['right edge',0.85,0.10]])
   assert.ok(alpha(fx,fy)>=40,`${name} must keep the visor look over the ${point} (alpha ${alpha(fx,fy)})`);
 }
