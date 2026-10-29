@@ -60,10 +60,25 @@ namespace RadWaterFillPolicy
     // Constraint: mod-added pumps must be matched by keyword, since they are not in the table above.
     inline constexpr FormRef kWaterPumpKeyword{ "Fallout4.esm", 0x000DCDD9, "AnimFurnWaterPump" };
 
-    // Constraint: Dirty Water is already in RadSurvival_TaintedWater, so the taint path applies to the output.
+    // Constraint: only the inhabited Vault 81 interiors are maintained; Vault81Secret, Vault81Ext and Vault81HoldingCell must not produce clean water.
+    inline constexpr std::array<FormRef, 2> kMaintainedVaultCells{ {
+        { "Fallout4.esm", 0x0002A728, "Vault81" },
+        { "Fallout4.esm", 0x000A9B62, "Vault81Entry" },
+    } };
+
+    // Constraint: Dirty Water is already in RadSurvival_TaintedWater, so the taint path applies to the default output.
     inline constexpr FormRef kFilledWater{ "Fallout4.esm", 0x000366BF, "WaterDirty" };
 
+    // Constraint: Purified Water is produced only inside a maintained Vault 81 cell; the activated source's spellOnDrink is never consulted.
+    inline constexpr FormRef kPurifiedWater{ "Fallout4.esm", 0x000366C0, "WaterPurified" };
+
     inline constexpr std::size_t kBottleNotFound = static_cast<std::size_t>(-1);
+
+    enum class FilledWater
+    {
+        kDirty,
+        kPurified
+    };
 
     enum class Decision
     {
@@ -71,6 +86,7 @@ namespace RadWaterFillPolicy
         kDisabled,
         kVanillaSurvival,
         kNotWaterSource,
+        kNoModifier,
         kNoEmptyBottle
     };
 
@@ -91,6 +107,26 @@ namespace RadWaterFillPolicy
         return false;
     }
 
+    // Constraint: an unresolved or exterior cell must read as not maintained, so clean water is never handed out in the wasteland.
+    constexpr bool IsMaintainedVaultCell(
+        std::uint32_t a_cellFormID,
+        const std::uint32_t* a_cells,
+        std::size_t a_cellCount)
+    {
+        if (a_cellFormID == 0 || !a_cells)
+            return false;
+        for (std::size_t i = 0; i < a_cellCount; ++i)
+            if (a_cells[i] == a_cellFormID)
+                return true;
+        return false;
+    }
+
+    // Constraint: clean water requires the player's parent cell to be a maintained Vault 81 cell; everything else stays dirty.
+    constexpr FilledWater FilledWaterFor(bool a_inMaintainedVault)
+    {
+        return a_inMaintainedVault ? FilledWater::kPurified : FilledWater::kDirty;
+    }
+
     // Constraint: the first empty-bottle form the player actually holds decides which item is consumed.
     constexpr std::size_t FirstAvailableBottle(const std::uint32_t* a_counts, std::size_t a_count)
     {
@@ -102,15 +138,22 @@ namespace RadWaterFillPolicy
         return kBottleNotFound;
     }
 
-    // Constraint: exactly one bottle per activation, only at a water source, and never while vanilla Survival fills it.
-    constexpr Decision Decide(bool a_enabled, bool a_vanillaSurvival, bool a_waterSource, std::size_t a_availableBottles)
+    // Constraint: guards run cheapest first -- config, source form, difficulty, sneak state, then the inventory count.
+    constexpr Decision Decide(
+        bool a_enabled,
+        bool a_waterSource,
+        bool a_vanillaSurvival,
+        bool a_modifierHeld,
+        std::size_t a_availableBottles)
     {
         if (!a_enabled)
             return Decision::kDisabled;
-        if (a_vanillaSurvival)
-            return Decision::kVanillaSurvival;
         if (!a_waterSource)
             return Decision::kNotWaterSource;
+        if (a_vanillaSurvival)
+            return Decision::kVanillaSurvival;
+        if (!a_modifierHeld)
+            return Decision::kNoModifier;
         if (a_availableBottles == 0)
             return Decision::kNoEmptyBottle;
         return Decision::kFill;

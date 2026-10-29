@@ -3,14 +3,28 @@
 
 ## 2026-10-28: empty bottles fill at water sources (build-verified only)
 
-**Empty bottles at water sources.** Activating a drinking water source while holding an empty bottle now
-consumes one bottle and adds one vanilla Dirty Water, through a native `TESActivateEvent` sink that runs
-independently of the vanilla `HC_*` Survival path — no `HC_*` record is read or written. Built-in tables
-cover the 26 vanilla empty-bottle items and the ten vanilla/DLC drinking activators, plus the
-`AnimFurnWaterPump` keyword for mod-added pumps. `[Water] Enabled=1` controls the feature and the default
-`SkipWhenVanillaSurvival=1` leaves filling to vanilla when the game is itself in Survival difficulty, so a
-bottle is never filled twice. The hook builds and its policy unit test runs, but it has not been played in
-game yet.
+**Empty bottles at water sources.** Sneak-activating a drinking water source while holding an empty
+bottle now consumes one bottle and adds one water item, through a native `TESActivateEvent` sink that
+runs independently of the vanilla `HC_*` Survival path — no `HC_*` record is read or written, and the
+activated source's `spellOnDrink` is never consulted. Built-in tables cover the 26 vanilla empty-bottle
+items and the ten vanilla/DLC drinking activators, plus the `AnimFurnWaterPump` keyword for mod-added
+pumps. **Output rule: Dirty Water everywhere except inside the maintained Vault 81 cells (`Vault81`,
+`Vault81Entry`), which give Purified Water.** The decision uses only the player's current parent cell
+— the activated source's type and `spellOnDrink` are never consulted. Everything outside those two
+cells is therefore dirty: the other vaults (75, 95, 111, 114, 118, 88, the Vault-Tec Workshop and
+DLC03 vaults), the Vault-Tec lab (`Vault81Secret`), the Vault 81 holding cell and the Vault 81
+exterior. Settlement pumps and sinks, DLC and vault fountains and the irradiated
+`Vault_WaterFountain01_Rads` follow the same cell-only rule — the source type never decides by itself.
+The clean check keys on the parent cell, never on the location, because `Vault81Ext` shares
+`Vault81Location`; anything unresolved or exterior reads as dirty, and the code never fails open to
+clean. Every fill shows a HUD message, so a consumed bottle is never silent, and a bottle the engine
+refuses to remove produces no water.
+`[Water] RequireModifier=1` (default) requires sneaking: a normal activation just drinks and never
+consumes a bottle. `[Water] Enabled=1` controls the feature and the default
+`SkipWhenVanillaSurvival=1` leaves filling to vanilla in Survival difficulty, so a bottle is never
+filled twice; on Very Hard the vanilla perk does not fill, so this hook is the only filler there. The
+hook builds and its policy unit test runs, but it has not been played in game yet, and whether the
+activate event fires once or twice when entering/exiting pump furniture is unverified.
 
 ## 2026-10-28: bounded RadStormFX shake burst
 

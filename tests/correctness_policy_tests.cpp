@@ -208,12 +208,32 @@ int main()
     // Constraint: the built-in tables must keep matching the vanilla records the code-notes document.
     Require(kEmptyBottles.size() == 26);
     Require(kWaterSources.size() == 10);
+    Require(kMaintainedVaultCells.size() == 2);
     Require(std::strcmp(kEmptyBottles[0].editorID, "NukaColaEmpty") == 0);
     Require(std::strcmp(kEmptyBottles.back().editorID, "DN050BabyBottle") == 0);
     Require(std::strcmp(kFilledWater.editorID, "WaterDirty") == 0);
     Require(kFilledWater.localID == 0x000366BF);
+    Require(std::strcmp(kPurifiedWater.editorID, "WaterPurified") == 0);
+    Require(kPurifiedWater.localID == 0x000366C0);
     Require(std::strcmp(kWaterPumpKeyword.editorID, "AnimFurnWaterPump") == 0);
     Require(kWaterPumpKeyword.localID == 0x000DCDD9);
+
+    struct ExpectedCell
+    {
+        std::uint32_t localID;
+        const char*   editorID;
+    };
+    const ExpectedCell expectedCells[]{
+        { 0x0002A728, "Vault81" },
+        { 0x000A9B62, "Vault81Entry" },
+    };
+    Require(sizeof(expectedCells) / sizeof(expectedCells[0]) == kMaintainedVaultCells.size());
+    for (std::size_t i = 0; i < kMaintainedVaultCells.size(); ++i)
+    {
+        Require(kMaintainedVaultCells[i].localID == expectedCells[i].localID);
+        Require(std::strcmp(kMaintainedVaultCells[i].editorID, expectedCells[i].editorID) == 0);
+        Require(std::strcmp(kMaintainedVaultCells[i].plugin, "Fallout4.esm") == 0);
+    }
 
     const std::uint32_t expectedBottles[]{
         0x0004835A, 0x000211DD, 0x000DF221, 0x000DF222, 0x000DF223, 0x000DF24D, 0x000DEDDF, 0x0014A138,
@@ -257,6 +277,8 @@ int main()
         Require(ref.localID < 0x01000000);
     for (const auto& ref : kWaterSources)
         Require(ref.localID < 0x01000000);
+    for (const auto& ref : kMaintainedVaultCells)
+        Require(ref.localID < 0x01000000);
 
     for (std::size_t i = 0; i < kEmptyBottles.size(); ++i)
         for (std::size_t j = i + 1; j < kEmptyBottles.size(); ++j)
@@ -266,6 +288,10 @@ int main()
         for (std::size_t j = i + 1; j < kWaterSources.size(); ++j)
             Require(!(kWaterSources[i].localID == kWaterSources[j].localID &&
                       std::strcmp(kWaterSources[i].plugin, kWaterSources[j].plugin) == 0));
+    for (std::size_t i = 0; i < kMaintainedVaultCells.size(); ++i)
+        for (std::size_t j = i + 1; j < kMaintainedVaultCells.size(); ++j)
+            Require(!(kMaintainedVaultCells[i].localID == kMaintainedVaultCells[j].localID &&
+                      std::strcmp(kMaintainedVaultCells[i].plugin, kMaintainedVaultCells[j].plugin) == 0));
 
     const std::uint32_t resolvedSources[]{ 0x000B1CFE, 0x000DB83B };
     Require(IsWaterSource(0x000B1CFE, false, resolvedSources, 2));
@@ -276,19 +302,38 @@ int main()
     Require(!IsWaterSource(0x000B1CFE, false, nullptr, 0));
     Require(!IsWaterSource(0, false, resolvedSources, 2));
 
+    const std::uint32_t resolvedCells[]{ 0x0002A728, 0x000A9B62 };
+    Require(IsMaintainedVaultCell(0x0002A728, resolvedCells, 2));
+    Require(IsMaintainedVaultCell(0x000A9B62, resolvedCells, 2));
+    // Constraint: the Vault-Tec lab, the holding cell and the exterior cell must never produce clean water.
+    Require(!IsMaintainedVaultCell(0x05226E, resolvedCells, 2));
+    Require(!IsMaintainedVaultCell(0x1126B0, resolvedCells, 2));
+    Require(!IsMaintainedVaultCell(0x00E4D0, resolvedCells, 2));
+    Require(!IsMaintainedVaultCell(0, resolvedCells, 2));
+    Require(!IsMaintainedVaultCell(0x0002A728, nullptr, 0));
+
+    // Constraint: every cell outside the table, including an unresolved one, must stay dirty.
+    Require(FilledWaterFor(true) == FilledWater::kPurified);
+    Require(FilledWaterFor(false) == FilledWater::kDirty);
+
     const std::uint32_t noBottles[]{ 0, 0, 0 };
     const std::uint32_t someBottles[]{ 0, 2, 1 };
     Require(FirstAvailableBottle(noBottles, 3) == kBottleNotFound);
     Require(FirstAvailableBottle(someBottles, 3) == 1);
     Require(FirstAvailableBottle(nullptr, 3) == kBottleNotFound);
 
-    Require(Decide(true, false, true, 1) == Decision::kFill);
-    Require(Decide(false, false, true, 1) == Decision::kDisabled);
+    // Constraint: guards are ordered disabled, not-a-source, vanilla Survival, no modifier, then no bottle.
+    Require(Decide(true, true, false, true, 1) == Decision::kFill);
+    Require(Decide(false, true, false, true, 1) == Decision::kDisabled);
+    Require(Decide(false, false, true, false, 0) == Decision::kDisabled);
+    Require(Decide(true, false, true, false, 0) == Decision::kNotWaterSource);
     // Constraint: vanilla Survival fills the same bottle, so the native path must yield on difficulty 6.
-    Require(Decide(true, true, true, 1) == Decision::kVanillaSurvival);
-    Require(Decide(true, false, false, 1) == Decision::kNotWaterSource);
-    Require(Decide(true, false, true, 0) == Decision::kNoEmptyBottle);
-    Require(Decide(true, false, false, 0) == Decision::kNotWaterSource);
+    Require(Decide(true, true, true, true, 1) == Decision::kVanillaSurvival);
+    // Constraint: the vanilla-Survival yield outranks the missing-modifier reason.
+    Require(Decide(true, true, true, false, 1) == Decision::kVanillaSurvival);
+    // Constraint: a normal activation must never consume a bottle, even with an empty bottle held.
+    Require(Decide(true, true, false, false, 1) == Decision::kNoModifier);
+    Require(Decide(true, true, false, true, 0) == Decision::kNoEmptyBottle);
 
     return 0;
 }

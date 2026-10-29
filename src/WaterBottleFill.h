@@ -5,5 +5,4 @@ namespace WaterBottleFill
 {
     // Constraint: registration must run on the game-main thread and be retried after a failure.
     bool ActivateOnGameThread();
-    bool Active() noexcept;
 }
