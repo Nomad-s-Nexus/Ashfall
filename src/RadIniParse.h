@@ -7,7 +7,7 @@
 
 namespace RadIniParse
 {
-    // Constraint: decimal or 0x-hex only; negatives, trailing junk and values above the cap are rejected.
+    // Constraint: decimal or 0x-hex only; negatives, leading-zero forms, trailing junk and values above the cap are rejected.
     inline bool ParseNumber(std::string_view a_text, std::uint32_t a_max, std::uint32_t& a_out)
     {
         auto text = a_text;
@@ -16,6 +16,11 @@ namespace RadIniParse
         while (!text.empty() && (text.back() == ' ' || text.back() == '\t'))
             text.remove_suffix(1);
         if (text.empty())
+            return false;
+
+        // Constraint: "010" would be read as octal by base-0 parsing, so only plain decimal or 0x-hex is accepted.
+        const bool hexPrefix = text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
+        if (!hexPrefix && text.size() > 1 && text[0] == '0')
             return false;
 
         const std::string copy(text);

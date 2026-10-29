@@ -17,6 +17,7 @@
 #include <atomic>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <Windows.h>
@@ -24,6 +25,7 @@
 namespace
 {
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+    constexpr DWORD       kIniBufferSize = 4096;
 
     std::atomic_bool g_loaded{ false };
 
@@ -32,32 +34,56 @@ namespace
     std::vector<RE::TESForm*>    g_foodItems;
     std::vector<RE::TESForm*>    g_thirstItems;
 
-    std::string ReadIniList(const char* a_key)
+    std::string ReadIniList(const char* a_key, bool& a_truncated)
     {
-        std::string buffer(4096, '\0');
-        const auto  size = ::GetPrivateProfileStringA("Relief", a_key, "", buffer.data(),
-            static_cast<DWORD>(buffer.size()), kIni);
+        std::string buffer(kIniBufferSize, '\0');
+        const auto  size = ::GetPrivateProfileStringA("Relief", a_key, "", buffer.data(), kIniBufferSize, kIni);
+        a_truncated = size == kIniBufferSize - 1;
         buffer.resize(size);
         return buffer;
     }
 
+    void ReportEntry(const char* a_key, std::string_view a_raw, std::string_view a_reason)
+    {
+        if (auto logger = spdlog::get("FalloutAnomaly"))
+            logger->warn("[Relief] {} entry '{}': {}.", a_key, std::string(a_raw), a_reason);
+    }
+
     void ResolveEntries(RE::TESDataHandler* a_data, const char* a_key, bool a_requireKeyword, std::vector<RE::TESForm*>& a_out)
     {
-        std::size_t invalid = 0;
-        const auto  refs = RadReliefPolicy::ParseList(ReadIniList(a_key), &invalid);
-        std::size_t missing = 0;
-        for (const auto& ref : refs)
+        bool       truncated = false;
+        const auto raw = ReadIniList(a_key, truncated);
+        auto       logger = spdlog::get("FalloutAnomaly");
+        if (truncated && logger)
+            logger->warn("[Relief] {} is longer than {} bytes; only the first part is used.", a_key, kIniBufferSize - 1);
+
+        std::size_t rejected = 0;
+        for (const auto token : RadReliefPolicy::SplitEntries(raw))
         {
-            auto* form = a_data->LookupForm(ref.localID, ref.plugin.c_str());
-            if (!form || (a_requireKeyword && form->GetFormType() != RE::ENUM_FORM_ID::kKYWD))
+            RadReliefPolicy::FormRef ref;
+            if (!RadReliefPolicy::ParseFormRef(token, ref))
             {
-                ++missing;
+                ++rejected;
+                ReportEntry(a_key, token, "malformed, expected Plugin.esp:0xLOCALID");
+                continue;
+            }
+            auto* form = a_data->LookupForm(ref.localID, ref.plugin.c_str());
+            if (!form)
+            {
+                ++rejected;
+                ReportEntry(a_key, token, "plugin or form not found");
+                continue;
+            }
+            if (a_requireKeyword && form->GetFormType() != RE::ENUM_FORM_ID::kKYWD)
+            {
+                ++rejected;
+                ReportEntry(a_key, token, "not a KYWD record");
                 continue;
             }
             a_out.push_back(form);
         }
-        if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->info("[Relief] {}: {} resolved, {} missing, {} malformed.", a_key, a_out.size(), missing, invalid);
+        if (logger)
+            logger->info("[Relief] {}: {} resolved, {} rejected.", a_key, a_out.size(), rejected);
     }
 
     void ResolveKeywordList(RE::TESDataHandler* a_data, const char* a_key, std::vector<RE::BGSKeyword*>& a_out)
@@ -105,24 +131,18 @@ namespace
         return Hooks::IsGameMainThread() && LoadIniLists();
     }
 
-    bool PapyrusIsExtraFoodItem(RE::TESQuest&, RE::TESForm* a_form)
+    int PapyrusGetReliefFlags(RE::TESQuest&, RE::TESForm* a_form)
     {
-        return RadReliefConfig::IsExtraFood(a_form);
-    }
-
-    bool PapyrusIsExtraThirstItem(RE::TESQuest&, RE::TESForm* a_form)
-    {
-        return RadReliefConfig::IsExtraThirst(a_form);
+        return RadReliefConfig::ReliefFlags(a_form);
     }
 
     bool F4SEAPI RegisterPapyrusFunctions(RE::BSScript::IVirtualMachine* a_vm)
     {
         if (!a_vm)
             return false;
-        a_vm->BindNativeMethod("RadSurvivalQuest", "IsExtraFoodItem", PapyrusIsExtraFoodItem, std::nullopt, false);
-        a_vm->BindNativeMethod("RadSurvivalQuest", "IsExtraThirstItem", PapyrusIsExtraThirstItem, std::nullopt, false);
+        a_vm->BindNativeMethod("RadSurvivalQuest", "GetReliefFlags", PapyrusGetReliefFlags, std::nullopt, false);
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->info("[Relief] Papyrus bridge registered (IsExtraFoodItem, IsExtraThirstItem).");
+            logger->info("[Relief] Papyrus bridge registered (GetReliefFlags).");
         return true;
     }
 }
@@ -148,16 +168,14 @@ void RadReliefConfig::ActivateOnGameThread()
     }
 }
 
-bool RadReliefConfig::IsExtraFood(const RE::TESForm* a_form)
+int RadReliefConfig::ReliefFlags(const RE::TESForm* a_form)
 {
     if (!Ready() || !a_form)
-        return false;
-    return MatchesKeyword(a_form, g_foodKeywords) || MatchesForm(a_form, g_foodItems);
-}
-
-bool RadReliefConfig::IsExtraThirst(const RE::TESForm* a_form)
-{
-    if (!Ready() || !a_form)
-        return false;
-    return MatchesKeyword(a_form, g_thirstKeywords) || MatchesForm(a_form, g_thirstItems);
+        return 0;
+    int flags = 0;
+    if (MatchesKeyword(a_form, g_foodKeywords) || MatchesForm(a_form, g_foodItems))
+        flags |= 1;
+    if (MatchesKeyword(a_form, g_thirstKeywords) || MatchesForm(a_form, g_thirstItems))
+        flags |= 2;
+    return flags;
 }

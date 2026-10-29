@@ -48,7 +48,6 @@ bool ConsumptionArraysReady = false
 Form[] EquipCandidateForms
 float[] EquipCandidateTimes
 Form[] RemoveCandidateForms
-int[] RemoveCandidateCounts
 float[] RemoveCandidateTimes
 
 int HungerStage = 0
@@ -179,7 +178,7 @@ Event ObjectReference.OnItemRemoved(ObjectReference akSender, Form akBaseItem, i
         return
     endif
     Debug.Trace("[RadSurvivalQuest] consume-confirm remove " + akBaseItem + " x" + aiItemCount)
-    PairRemove(akBaseItem, aiItemCount)
+    PairRemove(akBaseItem)
 EndEvent
 
 Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked, string apMaterial)
@@ -210,39 +209,36 @@ bool Function IsConsumable(Form akItem)
     endif
     return Diseases != None && Diseases.IsCureItem(akItem)
 EndFunction
-; Invariant: whichever of the equip/removal pair arrives second applies the relief exactly once.
+; Invariant: whichever of the equip/removal pair arrives second credits exactly one use.
 Function PairEquip(Form akItem)
     PruneConsumptionCandidates()
     int match = RemoveCandidateForms.Find(akItem)
     if match >= 0
-        int count = RemoveCandidateCounts[match]
         RemoveCandidateForms.Remove(match)
-        RemoveCandidateCounts.Remove(match)
         RemoveCandidateTimes.Remove(match)
-        ApplyRelief(akItem, count)
+        ApplyRelief(akItem, 1)
         return
     endif
     EquipCandidateForms.Add(akItem)
     EquipCandidateTimes.Add(Utility.GetCurrentRealTime())
 EndFunction
 
-Function PairRemove(Form akItem, int aiCount)
+Function PairRemove(Form akItem)
     PruneConsumptionCandidates()
     int match = EquipCandidateForms.Find(akItem)
     if match >= 0
         EquipCandidateForms.Remove(match)
         EquipCandidateTimes.Remove(match)
-        ApplyRelief(akItem, aiCount)
+        ApplyRelief(akItem, 1)
         return
     endif
     RemoveCandidateForms.Add(akItem)
-    RemoveCandidateCounts.Add(aiCount)
     RemoveCandidateTimes.Add(Utility.GetCurrentRealTime())
 EndFunction
 
 Function PruneConsumptionCandidates()
     ; Constraint: a mid-save install can deliver an event before OnInit initialises the candidate arrays.
-    if !ConsumptionArraysReady
+    if !ConsumptionArraysReady || EquipCandidateForms == None || RemoveCandidateForms == None
         ClearConsumptionCandidates()
     endif
     float now = Utility.GetCurrentRealTime()
@@ -258,7 +254,6 @@ Function PruneConsumptionCandidates()
     while i >= 0
         if now - RemoveCandidateTimes[i] > PairWindowSeconds
             RemoveCandidateForms.Remove(i)
-            RemoveCandidateCounts.Remove(i)
             RemoveCandidateTimes.Remove(i)
         endif
         i -= 1
@@ -269,17 +264,18 @@ Function ClearConsumptionCandidates()
     EquipCandidateForms = new Form[0]
     EquipCandidateTimes = new float[0]
     RemoveCandidateForms = new Form[0]
-    RemoveCandidateCounts = new int[0]
     RemoveCandidateTimes = new float[0]
     ConsumptionArraysReady = true
 EndFunction
 
 ; Constraint: extra relief entries are resolved by the native INI bridge; no HC_* form is read.
-bool Function IsExtraFoodItem(Form akItem) native
-bool Function IsExtraThirstItem(Form akItem) native
+int Function GetReliefFlags(Form akItem) native
 
 bool Function IsExtraReliefItem(Form akItem)
-    return IsExtraFoodItem(akItem) || IsExtraThirstItem(akItem)
+    if !(akItem as Potion)
+        return false
+    endif
+    return GetReliefFlags(akItem) != 0
 EndFunction
 
 Function ApplyRelief(Form akItem, int aiCount)
@@ -291,8 +287,12 @@ Function ApplyRelief(Form akItem, int aiCount)
         Diseases.ConsumeItem(akItem, aiCount, IsActive())
     endif
     ResolveKeywords()
-    bool ate = (_FoodKeyword != None && akItem.HasKeyword(_FoodKeyword)) || IsExtraFoodItem(akItem)
-    bool drank = (_NukaKeyword != None && akItem.HasKeyword(_NukaKeyword)) || (_DrinkKeyword != None && akItem.HasKeyword(_DrinkKeyword)) || (_WaterKeyword != None && akItem.HasKeyword(_WaterKeyword)) || IsExtraThirstItem(akItem)
+    int extra = 0
+    if (akItem as Potion)
+        extra = GetReliefFlags(akItem)
+    endif
+    bool ate = (_FoodKeyword != None && akItem.HasKeyword(_FoodKeyword)) || extra == 1 || extra == 3
+    bool drank = (_NukaKeyword != None && akItem.HasKeyword(_NukaKeyword)) || (_DrinkKeyword != None && akItem.HasKeyword(_DrinkKeyword)) || (_WaterKeyword != None && akItem.HasKeyword(_WaterKeyword)) || extra == 2 || extra == 3
     ; Alcohol hydrates far less; chems never feed the survival pools.
     float hydration = 1.0
     if _AlcoholKeyword != None && akItem.HasKeyword(_AlcoholKeyword)

@@ -71,15 +71,25 @@ check("PairEquip(" in equip_body, "the equip handler must feed the pairing rule"
 
 for helper in (
     "Function PairEquip(Form akItem)",
-    "Function PairRemove(Form akItem, int aiCount)",
+    "Function PairRemove(Form akItem)",
     "Function PruneConsumptionCandidates()",
     "Function ClearConsumptionCandidates()",
 ):
     check(helper in code, f"missing consumption pairing helper: {helper}")
 check("float Property PairWindowSeconds = 2.0 Auto" in code,
       "the equip/removal pair window must stay a tunable property")
-check("PairWindowSeconds" in function_body(code, "Function PruneConsumptionCandidates()"),
+prune_body = function_body(code, "Function PruneConsumptionCandidates()")
+check("PairWindowSeconds" in prune_body,
       "stale candidates must expire on the pair window")
+check(prune_body.count("> PairWindowSeconds") == 2,
+      "both candidate arrays must expire on a strict > PairWindowSeconds comparison")
+check("EquipCandidateForms == None" in prune_body and "RemoveCandidateForms == None" in prune_body,
+      "the prune guard must also test the candidate arrays for None")
+for helper in ("Function PairEquip(Form akItem)", "Function PairRemove(Form akItem)"):
+    check("ApplyRelief(akItem, 1)" in function_body(code, helper),
+          f"{helper} must credit exactly one use, never the dropped stack count")
+check("RemoveCandidateCounts" not in code,
+      "the removal-count bookkeeping is gone because a paired use always credits one")
 check("ClearConsumptionCandidates()" in event_body(code, "Event Actor.OnPlayerLoadGame(Actor akSender)"),
       "a load must clear the pairing candidates so a stale pair cannot cross a save")
 
@@ -120,22 +130,29 @@ check("RemoveCandidateForms.Find(" in code and "EquipCandidateForms.Find(" in co
       "both pairing directions must use array Find")
 
 # Constraint: the relief INI bridge assertions follow.
-check("bool Function IsExtraFoodItem(Form akItem) native" in code and
-      "bool Function IsExtraThirstItem(Form akItem) native" in code,
-      "the quest must declare the native relief bridge functions")
-check("IsExtraFoodItem(" in function_body(code, "Function ApplyRelief(Form akItem, int aiCount)") and
-      "IsExtraThirstItem(" in function_body(code, "Function ApplyRelief(Form akItem, int aiCount)"),
-      "relief must consult the INI bridge lists")
+check("int Function GetReliefFlags(Form akItem) native" in code,
+      "the quest must declare the single native relief bridge function")
+check(code.count(" native") == 1,
+      "exactly one native keeps a not-loaded DLL to one unbound-native error per call")
+relief_body = function_body(code, "Function ApplyRelief(Form akItem, int aiCount)")
+check("GetReliefFlags(" in relief_body, "relief must consult the INI bridge flags")
+check("(akItem as Potion)" in relief_body and "(akItem as Potion)" in function_body(code, "bool Function IsExtraReliefItem(Form akItem)"),
+      "the native must only be called for ingestibles, so weapon/armour equips never hit an unbound native")
 check("IsExtraReliefItem(" in consumable,
       "the consumable rule must accept INI bridge entries")
 
 root = SOURCE.parents[4]
 relief_source = text(root / "src/RadReliefConfig.cpp") if (root / "src/RadReliefConfig.cpp").is_file() else ""
-check("RegisterPapyrusFunctions" in relief_source and "InstallPapyrusBridge" in relief_source,
+check("RegisterPapyrusFunctions" in relief_source and "InstallPapyrusBridge" in relief_source and
+      "GetReliefFlags" in relief_source,
       "the native relief bridge must register the Papyrus functions")
 for key in ("ExtraFoodKeywords", "ExtraThirstKeywords", "ExtraFoodItems", "ExtraThirstItems"):
     check(key in relief_source, f"the native bridge must read [Relief] {key}")
 check("LookupForm(" in relief_source, "the bridge must resolve plugin + local id through TESDataHandler")
+check("plugin or form not found" in relief_source and "malformed, expected" in relief_source,
+      "malformed/missing entries must be logged with their raw text")
+check("only the first part is used" in relief_source,
+      "a truncated [Relief] list must warn instead of silently dropping entries")
 main_source = text(root / "src/main.cpp") if (root / "src/main.cpp").is_file() else ""
 check("RadReliefConfig::InstallPapyrusBridge()" in main_source,
       "F4SEPlugin_Load must install the relief bridge before scripts load")
@@ -168,7 +185,7 @@ class PairModel:
         if not self.ready:
             self.clear()
         self.equips = [(f, t) for f, t in self.equips if now - t <= PAIR_WINDOW]
-        self.removes = [(f, c, t) for f, c, t in self.removes if now - t <= PAIR_WINDOW]
+        self.removes = [(f, t) for f, t in self.removes if now - t <= PAIR_WINDOW]
 
     @staticmethod
     def find(entries, form):
@@ -181,50 +198,54 @@ class PairModel:
         self.prune(now)
         match = self.find(self.removes, form)
         if match >= 0:
-            count = self.removes[match][1]
             self.removes.pop(match)
-            self.reliefs.append((form, count))
+            self.reliefs.append((form, 1))
             return
         self.equips.append((form, now))
 
-    def pair_remove(self, form, count, now):
+    def pair_remove(self, form, now):
         self.prune(now)
         match = self.find(self.equips, form)
         if match >= 0:
             self.equips.pop(match)
-            self.reliefs.append((form, count))
+            self.reliefs.append((form, 1))
             return
-        self.removes.append((form, count, now))
+        self.removes.append((form, now))
 
 
 model = PairModel()
 model.pair_equip("A", 0.0)
 check(model.ready, "a pairing call on a fresh model must initialise the arrays (None-array guard)")
-model.pair_remove("A", 1, 0.1)
+model.pair_remove("A", 0.1)
 check(model.reliefs == [("A", 1)], "equip then remove must credit exactly one relief")
 model = PairModel()
-model.pair_remove("A", 1, 0.0)
+model.pair_remove("A", 0.0)
 model.pair_equip("A", 0.1)
 check(model.reliefs == [("A", 1)], "remove then equip must credit exactly one relief (order independence)")
 model = PairModel()
 model.pair_equip("A", 0.0)
-model.pair_remove("A", 1, 0.1)
+model.pair_remove("A", 0.1)
 model.pair_equip("A", 0.2)
-model.pair_remove("A", 1, 0.3)
+model.pair_remove("A", 0.3)
 check(model.reliefs == [("A", 1), ("A", 1)], "two uses in a row must credit twice")
 model = PairModel()
 model.pair_equip("A", 0.0)
-model.pair_remove("A", 1, PAIR_WINDOW + 0.5)
+model.pair_remove("A", PAIR_WINDOW + 0.5)
 check(model.reliefs == [], "an equip older than the pair window must not pair with a later removal")
 model = PairModel()
 model.pair_equip("A", 0.0)
 model.pair_equip("A", 0.1)
-model.pair_remove("A", 1, 0.2)
+model.pair_remove("A", 0.2)
 check(model.reliefs == [("A", 1)], "a duplicate equip must not double-credit one removal")
 model = PairModel()
-model.pair_remove("A", 1, 0.0)
+model.pair_remove("A", 0.0)
 model.pair_equip("B", 0.1)
 check(model.reliefs == [], "a stale remove candidate must not pair with a different form")
+model = PairModel()
+model.pair_remove("A", 0.0)
+model.pair_equip("A", 0.1)
+check(model.reliefs == [("A", 1)],
+      "a drop followed by eating the same item must credit one use, not the dropped stack size")
 
 if failures:
     for failure in failures:

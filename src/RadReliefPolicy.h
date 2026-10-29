@@ -25,6 +25,25 @@ namespace RadReliefPolicy
         return a_text.substr(first, last - first + 1);
     }
 
+    // Constraint: one raw token per comma; empty tokens are dropped so a trailing comma is not an error.
+    inline std::vector<std::string_view> SplitEntries(std::string_view a_raw)
+    {
+        std::vector<std::string_view> out;
+        std::size_t                   start = 0;
+        for (;;)
+        {
+            const auto comma = a_raw.find(',', start);
+            const auto piece = comma == std::string_view::npos ? a_raw.substr(start) : a_raw.substr(start, comma - start);
+            const auto trimmed = Trim(piece);
+            if (!trimmed.empty())
+                out.push_back(trimmed);
+            if (comma == std::string_view::npos)
+                break;
+            start = comma + 1;
+        }
+        return out;
+    }
+
     // Constraint: "Plugin.esp:0xLOCALID" only, and the local id must stay below 0x01000000.
     inline bool ParseFormRef(std::string_view a_entry, FormRef& a_out)
     {
@@ -53,22 +72,13 @@ namespace RadReliefPolicy
     {
         std::vector<FormRef> out;
         std::size_t          invalid = 0;
-        std::size_t          start = 0;
-        for (;;)
+        for (const auto piece : SplitEntries(a_raw))
         {
-            const auto comma = a_raw.find(',', start);
-            const auto piece = comma == std::string_view::npos ? a_raw.substr(start) : a_raw.substr(start, comma - start);
-            if (!Trim(piece).empty())
-            {
-                FormRef ref;
-                if (ParseFormRef(piece, ref))
-                    out.push_back(std::move(ref));
-                else
-                    ++invalid;
-            }
-            if (comma == std::string_view::npos)
-                break;
-            start = comma + 1;
+            FormRef ref;
+            if (ParseFormRef(piece, ref))
+                out.push_back(std::move(ref));
+            else
+                ++invalid;
         }
         if (a_invalidCount)
             *a_invalidCount = invalid;

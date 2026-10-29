@@ -103,6 +103,17 @@ int main()
     Require(!ParseHotkey("-1", hotkey));
     Require(!ParseHotkey("zz", hotkey));
     Require(!ParseHotkey("0x1000", hotkey));
+    // Constraint: leading-zero forms are rejected rather than silently read as octal.
+    Require(!ParseHotkey("010", hotkey));
+    Require(!ParseHotkey("08", hotkey));
+    Require((ParseHotkey("0", hotkey) && hotkey == 0));
+    // Constraint: a trailing INI comment is ignored, and left/right Shift are never mask keys.
+    Require(ParseHotkey("117 ; F6", hotkey) && hotkey == 117);
+    Require(ParseHotkey("0x75;F6", hotkey) && hotkey == 0x75);
+    Require(!ParseHotkey("; only a comment", hotkey));
+    Require(!IsUsableHotkey(0xA0) && !IsUsableHotkey(0xA1));
+    // Constraint: the choke warning must outlast the auto-don so a masked player never gasps.
+    static_assert(kChokeGraceTicks > kAutoMaskStableTicks);
     // Constraint: a duplicate disables BOTH keys, so INI order cannot decide which one loses.
     const auto dupPair = ValidateHotkeyPair(0x75, 0x75);
     Require(dupPair.replace == 0 && dupPair.repair == 0 && dupPair.duplicateRejected);
@@ -123,6 +134,10 @@ int main()
     Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm:0", reliefRef));
     Require(!RadReliefPolicy::ParseFormRef(":0x800", reliefRef));
     Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm:0xZZ", reliefRef));
+    // Constraint: a leading-zero local id is rejected, while plain decimal and 0x-hex are accepted.
+    Require(!RadReliefPolicy::ParseFormRef("Fallout4.esm:010", reliefRef));
+    Require(RadReliefPolicy::ParseFormRef("Fallout4.esm:0x10", reliefRef) && reliefRef.localID == 0x10);
+    Require(RadReliefPolicy::ParseFormRef("Fallout4.esm:16", reliefRef) && reliefRef.localID == 16);
     std::size_t reliefInvalid = 0;
     const auto  reliefList = RadReliefPolicy::ParseList(
         " Fallout4.esm:0x58AB8 , , Fallout4.esm:0x0E9284, broken ", &reliefInvalid);
@@ -130,6 +145,7 @@ int main()
     Require(reliefInvalid == 1);
     Require(reliefList[0].localID == 0x58AB8 && reliefList[1].localID == 0xE9284);
     Require(RadReliefPolicy::ParseList("", nullptr).empty());
+    Require(RadReliefPolicy::SplitEntries(" A:0x1 , , B.esp:2, ").size() == 2);
     // Constraint: interiors, shelter, powered shelters and a sealed suit are not rad-weather exposure.
     Require(RadWeatherExposed(true, false, false, false, false));
     Require(!RadWeatherExposed(true, true, false, false, false));

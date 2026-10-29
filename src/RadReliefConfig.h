@@ -19,6 +19,6 @@ namespace RadReliefConfig
     // Constraint: the INI is read on the game-main thread after records are available; retried until then.
     void ActivateOnGameThread();
 
-    bool IsExtraFood(const RE::TESForm* a_form);
-    bool IsExtraThirst(const RE::TESForm* a_form);
+    // Constraint: bit 1 = food relief, bit 2 = thirst relief; one native call answers both.
+    int ReliefFlags(const RE::TESForm* a_form);
 }
