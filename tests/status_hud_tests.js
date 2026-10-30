@@ -65,6 +65,7 @@ const css=fs.readFileSync(path.join(view,'radhud.css'),'utf8');
 for(const id of ['#maskOverlay','#visorFog']){const block=(css.match(new RegExp(id.replace('#','\\#')+'\\s*\\{([\\s\\S]*?)\\}'))||[])[1]||'';assert.ok(!/mask-image/.test(block),'the visor effects must not rely on CSS mask-image (Ultralight support is unproven): '+id);}
 assert.match(css,/url\("visor_fog\.png"\)/,'the fog must use the baked clear-zone PNG');
 assert.match(htmlOf('radhud.html'),/id="maskOverlay"[^>]*src="gasmask_overlay\.png"/,'the overlay must use the baked clear-zone PNG');
+assert.match(fs.readFileSync(path.join(view,'radhud.js'),'utf8'),/var MASK_PNG_ENABLED = false;[\s\S]*d\.on && MASK_PNG_ENABLED/,'the PNG visor stays disabled while the 3D mask view is deployed');
 function htmlOf(name){return fs.readFileSync(path.join(view,name),'utf8');}
 const zlib=require('node:zlib');
 function readPngAlpha(file){

@@ -34,12 +34,14 @@ window.updateFilter = function(json) {
 };
 
 var MASK_ON_DELAY = 0.0;
+// Constraint: the 3D RadMaskView.nif replaces the PNG visor for now; flip this back to restore gasmask_overlay.png.
+var MASK_PNG_ENABLED = false;
 window.setMask = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
     var el = document.getElementById("maskOverlay");
     if (!el) return;
-    if (d.on) {
+    if (d.on && MASK_PNG_ENABLED) {
       el.style.transitionDelay = MASK_ON_DELAY + "s";
       el.classList.add("on");
     } else {

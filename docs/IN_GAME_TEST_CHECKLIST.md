@@ -34,12 +34,12 @@ matches. Mark everything else NOT RUN.
   AUTO-EQUIP MASK on and EQUIP IN COMBAT off, enter rad weather during combat: chip reads HELD, mask goes on after combat.
 
 ## 3. Power-armor overlay
-- **Wear a power-armor helmet and a gas mask.** Expected: no visor overlay; foley/filter values still update.
+- **Wear a power-armor helmet and a gas mask.** Expected: no visor view (PNG overlay is off, see section 12; the 3D view is the visor); foley/filter values still update.
   Proof: no overlay on screen; FalloutAnomaly.log `[ChokeDiag] realMasked=true` while `maskOn` is false is not logged,
   so record a screenshot state instead.
-- **Leave the PA helmet on, debug `mask:on`.** Expected: overlay shows (override wins).
+- **Leave the PA helmet on, debug `mask:on`.** Expected: the 3D mask view shows (override wins).
 
-## 4. Overlay vs HUD
+## 4. Visor vs HUD (3D mask view; the PNG overlay is off)
 - **Wear the mask in a settlement and accept a notification / gain XP / open a loot list.** Expected: the top-left
   message text, the bottom-centre XP bar and the centre loot/prompt are readable through the visor; the corners and
   edges keep the visor look. Proof: visual check (no log line).
@@ -105,3 +105,7 @@ matches. Mark everything else NOT RUN.
 
 ## 11. Empty bottle returned after drinking
 - **Fill a bottle at a water source, then drink the Dirty or Purified Water.** Expected: the water is consumed, thirst drops, and one Empty Bottle (BottleEmpty01) is added back to the inventory. Log: `consume-apply ... drank=true`. Drinking other drinks adds no bottle. Unverified in game.
+
+## 12. M50 mask view (3D visor) and PNG overlay off
+- **Equip a gas mask in first person.** Expected: the 3D M50 interior (rubber seal, valve housings, glass) is drawn and no flat `gasmask_overlay.png` appears. Unverified in game.
+- **Look for** missing-texture pink or white shapes, a black glass pane, the seal clipping the cheeks, and a frame-rate drop (278k tris).
