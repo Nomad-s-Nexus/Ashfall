@@ -11,6 +11,13 @@ float Property SleepRecoveryPerHour = 0.12 Auto
 float Property InterruptedScale = 0.5 Auto
 float Property FoodScale = 0.20 Auto
 float Property DrinkScale = 0.25 Auto
+; Constraint: Tuned() keys match RadNeedsTuningPolicy::kSpecs order.
+int Property kTuneRate = 0 Auto Const
+int Property kTuneHunger = 1 Auto Const
+int Property kTuneThirst = 2 Auto Const
+int Property kTuneSleep = 3 Auto Const
+int Property kTuneFood = 4 Auto Const
+int Property kTuneDrink = 5 Auto Const
 float Property AlcoholHydrationScale = 0.25 Auto
 float Property TickGameHours = 0.25 Auto
 float Property MaxElapsedHours = 240.0 Auto
@@ -271,6 +278,17 @@ EndFunction
 ; Constraint: extra relief entries are resolved by the native INI bridge; no HC_* form is read.
 int Function GetReliefFlags(Form akItem) native
 
+; Constraint: the native returns override + 1.0 and 0.0 when unset or unbound, so a missing DLL keeps the defaults.
+float Function TuningOverride(int aiKey) native
+
+float Function Tuned(int aiKey, float afDefault)
+    float raw = TuningOverride(aiKey)
+    if raw > 0.0
+        return raw - 1.0
+    endif
+    return afDefault
+EndFunction
+
 bool Function IsExtraReliefItem(Form akItem)
     if !(akItem as Potion)
         return false
@@ -300,10 +318,10 @@ Function ApplyRelief(Form akItem, int aiCount)
     endif
     float portion = PortionFor(akItem)
     if ate
-        AddDebt("hunger", -1.0 * portion * FoodScale)
+        AddDebt("hunger", -1.0 * portion * Tuned(kTuneFood, FoodScale))
     endif
     if drank
-        AddDebt("thirst", -1.0 * portion * DrinkScale * hydration)
+        AddDebt("thirst", -1.0 * portion * Tuned(kTuneDrink, DrinkScale) * hydration)
     endif
     Debug.Trace("[RadSurvivalQuest] consume-apply " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
 EndFunction
@@ -410,9 +428,10 @@ Function AccrueElapsed(float afHours)
 EndFunction
 
 Function Accrue(float afHours)
-    AddDebt("hunger", HourlyHunger * afHours)
-    AddDebt("thirst", HourlyThirst * afHours)
-    AddDebt("sleep", HourlySleepDebt * afHours)
+    float rate = Tuned(kTuneRate, 1.0)
+    AddDebt("hunger", Tuned(kTuneHunger, HourlyHunger) * rate * afHours)
+    AddDebt("thirst", Tuned(kTuneThirst, HourlyThirst) * rate * afHours)
+    AddDebt("sleep", Tuned(kTuneSleep, HourlySleepDebt) * rate * afHours)
     TickDiseases(afHours)
 EndFunction
 

@@ -135,8 +135,8 @@ check("RemoveCandidateForms.Find(" in code and "EquipCandidateForms.Find(" in co
 # Constraint: the relief INI bridge assertions follow.
 check("int Function GetReliefFlags(Form akItem) native" in code,
       "the quest must declare the single native relief bridge function")
-check(code.count(" native") == 1,
-      "exactly one native keeps a not-loaded DLL to one unbound-native error per call")
+check(code.count(" native") == 2 and "float Function TuningOverride(int aiKey) native" in code,
+      "only the relief and tuning natives may exist, keeping a not-loaded DLL to a bounded error count")
 relief_body = function_body(code, "Function ApplyRelief(Form akItem, int aiCount)")
 check("GetReliefFlags(" in relief_body, "relief must consult the INI bridge flags")
 check("(akItem as Potion)" in relief_body and "(akItem as Potion)" in function_body(code, "bool Function IsExtraReliefItem(Form akItem)"),

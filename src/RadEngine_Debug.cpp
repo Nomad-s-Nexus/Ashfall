@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "RadNeedsTuning.h"
 
 using namespace RadInternal;
 
@@ -243,6 +244,11 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
         char m[96];
         std::snprintf(m, sizeof(m), "[DEBUG] Storm ghoul spawn chance = %.0f%%.", percent);
         Notify(m, false);
+    }
+    else if (a.rfind("tune:", 0) == 0)
+    {
+        RadNeedsTuning::Handle(std::string_view(a).substr(std::strlen("tune:")));
+        RadHud::GetSingleton().PushNeedsTuning(RadNeedsTuning::Json());
     }
     else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
     else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);

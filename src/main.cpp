@@ -7,6 +7,7 @@
 #include "RadCorrectnessPolicy.h"
 #include "RadLifecycle.h"
 #include "RadLifecycleDispatch.h"
+#include "RadNeedsTuning.h"
 #include "RadReliefConfig.h"
 #include <RE/U/UI.h>
 #include <RE/P/PlayerCharacter.h>
@@ -556,6 +557,7 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
 
         // Constraint: register the relief bridge before any Papyrus script can call the native functions.
         RadReliefConfig::InstallPapyrusBridge();
+        RadNeedsTuning::Install();
 
         logger->info("✓ Plugin loaded successfully. Awaiting game events...");
 

@@ -130,6 +130,52 @@ function setGhoulSettings(state) {
 }
 
 
+var TUNING = [
+  ["RateMultiplier", "NEEDS RATE", 0, 5, 0.05, 1],
+  ["HourlyHunger", "HUNGER /H", 0, 0.5, 0.005, 100],
+  ["HourlyThirst", "THIRST /H", 0, 0.5, 0.005, 100],
+  ["HourlySleepDebt", "FATIGUE /H", 0, 0.5, 0.005, 100],
+  ["FoodScale", "FOOD RELIEF", 0, 1, 0.01, 100],
+  ["DrinkScale", "DRINK RELIEF", 0, 1, 0.01, 100]
+];
+
+function tuneLabel(row, value) {
+  return row[5] === 1 ? "x" + Number(value).toFixed(2) : (Number(value) * 100).toFixed(1) + "%";
+}
+
+function tuneRows() {
+  var host = document.getElementById("tuneRows");
+  if (!host || host.firstChild) return host;
+  TUNING.forEach(function(row) {
+    var line = document.createElement("div");
+    line.className = "ghoul-range tune-range";
+    line.innerHTML = '<label for="tune-' + row[0] + '">' + row[1] + '</label>' +
+      '<input id="tune-' + row[0] + '" type="range" min="' + row[2] + '" max="' + row[3] + '" step="' + row[4] + '">' +
+      '<output id="tuneval-' + row[0] + '"></output>';
+    var input = line.querySelector("input");
+    input.oninput = function() { document.getElementById("tuneval-" + row[0]).textContent = tuneLabel(row, input.value); };
+    input.onchange = function() { cmd("tune:" + row[0] + ":" + Number(input.value).toFixed(4)); };
+    host.appendChild(line);
+  });
+  return host;
+}
+
+window.setNeedsTuning = function(json) {
+  try {
+    var d = (typeof json === "string") ? JSON.parse(json) : json;
+    tuneRows();
+    TUNING.forEach(function(row) {
+      var entry = d && d[row[0]];
+      var input = document.getElementById("tune-" + row[0]);
+      var output = document.getElementById("tuneval-" + row[0]);
+      if (!entry || !input || !output) return;
+      input.value = entry.v;
+      output.textContent = tuneLabel(row, entry.v);
+      output.classList.toggle("tuned", !!entry.o);
+    });
+  } catch (e) {}
+};
+
 window.setArmorInfo = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;

@@ -38,6 +38,7 @@ public:
     void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);
     void PushGhoulSettings(bool enabled, float chance);
+    void PushNeedsTuning(const std::string& json);
     void ResetClimateForSession() noexcept;
     void PushTheme(uint64_t view);
 

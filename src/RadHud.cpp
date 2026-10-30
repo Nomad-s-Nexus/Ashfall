@@ -2,6 +2,7 @@
 #include "RadHud.h"
 #include "RadiationEngine.h"
 #include "ClimateRuntime.h"
+#include "RadNeedsTuning.h"
 
 // RE headers BEFORE PrismaUI_F4_API.h: the API header pulls in Windows.h, whose macros clobber
 // engine struct layouts (e.g. TESFile) if the RE headers are parsed afterwards.
@@ -439,6 +440,14 @@ void RadHud::PushGhoulSettings(bool enabled, float chance)
     api->InteropCall(_view, "setGhoulSettings", json);
 }
 
+void RadHud::PushNeedsTuning(const std::string& json)
+{
+    if (!_api || _view == 0 || !_domReady) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view)) return;
+    api->InteropCall(_view, "setNeedsTuning", json.c_str());
+}
+
 bool RadHud::ShowSpecialInfo(const std::vector<std::string>& lines)
 {
     if (!_api || _view == 0 || !_domReady) return false;
@@ -671,6 +680,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugNextFocusRetryMs = 0;
             api->InteropCall(_view, "SetDebugMenu", "1");
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
+            PushNeedsTuning(RadNeedsTuning::Json());
         }
         else
         {
