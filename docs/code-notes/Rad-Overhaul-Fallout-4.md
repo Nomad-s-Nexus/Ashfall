@@ -751,8 +751,10 @@ Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`, `:Apply
 anything changes". Two multipliers stacked against the player. `PortionFor` gave every item a 0.5 floor plus
 `value/100`, capped at 1.0, and `ApplyRelief` multiplied that by `FoodScale = 0.20` / `DrinkScale = 0.25`. The values
 below are the winners in this load order, measured through FO4IDE (`get_record` shows the winner; `ALCH\Value` read
-from that plugin) on 2026-10-30. Only the `Fallout4.esm` rows can be re-checked from the repo; `FWHardcore_Food.esp`
-and the Ashfall `RadiationOverhaul.esp` are installed mods, not repo files, so CI cannot re-derive those values. Cheap items resolved to about 0.11 hunger / 0.14 thirst, i.e. only ~2 game hours of hunger drain.
+from that plugin) on 2026-10-30. The `RadiationOverhaul.esp` rows and Nuka-Cola can be re-derived from tracked files
+(`deploy/RadiationOverhaul.esp` stores the ALCH value in `ENIT`; the `DATA` field is weight). Only the
+`FWHardcore_Food.esp` rows depend on an installed mod that is not in the repo, so those rows are measured here and are
+not CI-verifiable (`deploy/RadiationOverhaul.esp:ALCH\Value`, checked against `deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`). Cheap items resolved to about 0.11 hunger / 0.14 thirst, i.e. only ~2 game hours of hunger drain.
 Then `StageForHeld` kept a held stage until the debt fell a further `StageHysteresis = 0.04` below the band edge, so a
 drop could need several items before the HUD stage or penalty spell changed.
 
@@ -787,8 +789,9 @@ then re-raised it on the next tick, causing penalty-spell churn and stage-notifi
 
 **Feedback.** A confirmed food use now raises `Debug.Notification("Hunger eased")`, a drink raises
 `Debug.Notification("Thirst quenched")`, both gated by the existing `ShowNotifications` property and only when the
-matching debt actually fell by at least 0.01 (so a clamped pool at 0, alcohol's small hydration, and a refused relief
-stay silent). No new event owner: the disease layer stays a second script, and `ApplyRelief` still routes through
+matching debt actually fell by at least 0.01 (so a clamped pool at 0 and a refused relief stay silent; alcohol still
+notifies, only its magnitude is the documented exception (`deploy/Scripts/Source/User/RadSurvivalQuest.psc:ApplyRelief`). No new event owner: the disease layer stays a second script,
+and `ApplyRelief` still routes through
 `Diseases.ConsumeItem`.
 
 **Chems and vanilla Survival.** `ApplyRelief` only runs for food/drink keywords (plus the disease script's cure item),

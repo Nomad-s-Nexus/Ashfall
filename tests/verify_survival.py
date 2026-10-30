@@ -480,6 +480,8 @@ for gold in (5, 50):
     portion = min(cap, floor + gold / step)
     check(portion * food_scale >= 0.15 and portion * drink_scale >= 0.18,
           f"a {gold}-cap item must relieve at least 0.15 hunger / 0.18 thirst")
+check(0.75 <= floor <= 0.9 and 1.3 <= cap <= 1.6 and 50 <= step <= 200, "portion floor/cap/step out of tuned range")
+check(min(cap, floor + 10000 / step) == cap, "a very high-value item must clamp to the documented cap")
 debt = function_body(source, "Function AddDebt(string asPool, float afDelta)")
 check("if afDelta < 0.0" in debt and "UpdatePenaltyStages(asPool)" in debt,
       "item relief must reconcile its own pool immediately or a neighbouring pool's stage flaps")
@@ -491,9 +493,7 @@ check('asReliefPool == "hunger"' in update_body and 'asReliefPool == "thirst"' i
 relief = function_body(source, "Function ApplyRelief(Form akItem, int aiCount)")
 check("Debug.Notification(\"Hunger eased\")" in relief and "Debug.Notification(\"Thirst quenched\")" in relief,
       "a confirmed food/drink use must give the player feedback")
-check("hungerBefore - 0.01" in relief and "thirstBefore - 0.01" in relief and
-      "hydration = AlcoholHydrationScale" in relief,
-      "feedback fires only on a real drop; alcohol hydration stays the documented exception")
+check("hungerBefore - 0.01" in relief and "thirstBefore - 0.01" in relief and "hydration = AlcoholHydrationScale" in relief, "feedback fires only on a real drop; alcohol hydration is documented")
 readme = ROOT / "README.md"
 check("needs.json" not in text(readme) if readme.is_file() else True,
       "the README must not still describe the removed needs.json rates")

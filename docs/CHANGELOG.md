@@ -4,8 +4,8 @@
 ## 2026-10-30: food/drink relief is no longer trivial
 
 **A normal meal or drink now visibly moves hunger/thirst.** `PortionFor` gives every item a 0.8 floor (was 0.5) and a
-1.5 cap (was 1.0), still scaled by gold value, so a 5-cap Dirty Water now relieves 0.21 thirst (was 0.14) and a 10-cap
-meal relieves 0.18 hunger (was 0.12). `FoodScale` (0.20) and `DrinkScale` (0.25) stay the editable Auto knobs. Item relief and sleep recovery now
+1.5 cap (was 1.0), still scaled by gold value, so a 5-cap Dirty Water now relieves 0.21 thirst (was 0.14) and a 10-cap meal
+relieves 0.18 hunger (was 0.12). `FoodScale` (0.20) and `DrinkScale` (0.25) stay the editable Auto knobs. Item relief and sleep recovery now
 bypass `StageHysteresis` while hourly accrual keeps the 0.04 anti-flap band, so one item that crosses a band edge
 changes the stage on that use. A confirmed food use shows "Hunger eased"; a drink shows "Thirst quenched"
 (`ShowNotifications` still gates it, and it only fires on a real, non-clamped drop). Alcohol is the documented

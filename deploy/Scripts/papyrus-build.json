@@ -22,7 +22,7 @@
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "f938b55761690adffb7d37d981087c9453f4d6c8a7655f8bf3e5e2ce9048009a",
+      "sourceSha256": "7c09eeff45791068b2ed7be1f039470a0262fa1160b247ffc7c190b153a7fcb8",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
       "pexSha256": "7e58000be7a1ec1a43b4becb3d008b3e8f99ced8b0bf96703c3e0d2762d4ba31",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
