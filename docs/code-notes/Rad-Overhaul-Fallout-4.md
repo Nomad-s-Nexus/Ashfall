@@ -751,10 +751,11 @@ Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`, `:Apply
 anything changes". Two multipliers stacked against the player. `PortionFor` gave every item a 0.5 floor plus
 `value/100`, capped at 1.0, and `ApplyRelief` multiplied that by `FoodScale = 0.20` / `DrinkScale = 0.25`. The values
 below are the winners in this load order, measured through FO4IDE (`get_record` shows the winner; `ALCH\Value` read
-from that plugin) on 2026-10-30. The `RadiationOverhaul.esp` rows and Nuka-Cola can be re-derived from tracked files
+from that plugin) on 2026-10-30. The `RadiationOverhaul.esp` rows can be re-derived from tracked files
 (`deploy/RadiationOverhaul.esp` stores the ALCH value in `ENIT`; the `DATA` field is weight). Only the
 `FWHardcore_Food.esp` rows depend on an installed mod that is not in the repo, so those rows are measured here and are
-not CI-verifiable (`deploy/RadiationOverhaul.esp:ALCH\Value`, checked against `deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`). Cheap items resolved to about 0.11 hunger / 0.14 thirst, i.e. only ~2 game hours of hunger drain.
+not CI-verifiable, and Nuka-Cola needs the installed `Fallout4.esm` like those rows
+(`deploy/RadiationOverhaul.esp:ALCH\Value`, checked against `deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`). Cheap items resolved to about 0.11 hunger / 0.14 thirst, i.e. only ~2 game hours of hunger drain.
 Then `StageForHeld` kept a held stage until the debt fell a further `StageHysteresis = 0.04` below the band edge, so a
 drop could need several items before the HUD stage or penalty spell changed.
 
