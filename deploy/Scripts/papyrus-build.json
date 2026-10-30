@@ -38,9 +38,9 @@
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "4d0133c8d9162d9bd0aef374e8fb39ff9defea6284710ec1dc2422c29c0ec994",
+      "sourceSha256": "791a554d08d0cb76e9aa3af168d9b347af8ae770ac5996942e60938fe811ba9b",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "1d6ec0999763c3f0ee96e1c3956f2e40f149c59d017b369d73d61831e34db058",
+      "pexSha256": "8ac1b2866be41ca51ce6b5b4c81b4a8468e855f398b8c67e901bfcb36bce6148",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
     }
   ]

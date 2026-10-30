@@ -102,3 +102,6 @@ matches. Mark everything else NOT RUN.
   workshop AI package: that is the answer this probe exists to give, report it.
 - **After 24 game hours** the effect dispels (`RadOutbreak finish`) and the settler returns to work.
 - Sounds are not wired yet (CoughSound/SneezeSound empty): silence is expected.
+
+## 11. Empty bottle returned after drinking
+- **Fill a bottle at a water source, then drink the Dirty or Purified Water.** Expected: the water is consumed, thirst drops, and one Empty Bottle (BottleEmpty01) is added back to the inventory. Log: `consume-apply ... drank=true`. Drinking other drinks adds no bottle. Unverified in game.

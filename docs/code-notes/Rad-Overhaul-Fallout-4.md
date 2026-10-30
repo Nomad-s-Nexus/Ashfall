@@ -1273,3 +1273,9 @@ Paths are relative to `art-src/mask-view/`. Where a script's removed text is ide
 - `RadOutbreakEffect::OnEffectStart` skips the player, the dead and essential actors only. Quest-marked exclusion, companion
   "ill but never dead" handling and stage-3 death are not built yet.
 - Sound properties are None-safe until the ElevenLabs clips are exported into the repo.
+
+### Empty bottle returned after drinking filled water
+
+- `deploy/Scripts/Source/User/RadSurvivalQuest.psc:RadSurvivalQuest::ReturnEmptyBottle` runs from `RadSurvivalQuest::ApplyRelief`, so it fires only on a confirmed consume (equip and removal pair) and only while `IsActive()` is true (so not under vanilla Survival, which `src/WaterBottleFill.cpp:ActivateSink::ProcessEvent` also yields to).
+- It matches the two items `WaterBottleFill.cpp:FillOneBottle` hands out, WaterDirty (0x366BF) and WaterPurified (0x366C0), and gives back one `BottleEmpty01` (0xDF221) per drink. The original bottle type is not recorded on the water item, so the returned bottle is always that one.
+- Any WaterDirty or WaterPurified drunk returns a bottle, including looted, bought or purifier-made water, because the filled item carries no origin tag. Pairing is by form within `PairWindowSeconds`, so a drop and a drink of the same water inside that window can credit one bottle.

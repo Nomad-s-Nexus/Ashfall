@@ -301,6 +301,7 @@ Function ApplyRelief(Form akItem, int aiCount)
     if aiCount <= 0
         return
     endif
+    ReturnEmptyBottle(akItem, aiCount)
     ; Constraint: taint and cure route through the disease script on a confirmed removal.
     if Diseases != None
         Diseases.ConsumeItem(akItem, aiCount, IsActive())
@@ -325,6 +326,17 @@ Function ApplyRelief(Form akItem, int aiCount)
         AddDebt("thirst", -1.0 * portion * Tuned(kTuneDrink, DrinkScale) * hydration)
     endif
     Debug.Trace("[RadSurvivalQuest] consume-apply " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
+EndFunction
+
+Function ReturnEmptyBottle(Form akItem, int aiCount)
+    ; Constraint: WaterDirty 0x366BF and WaterPurified 0x366C0 are what the bottle fill hands out; BottleEmpty01 is 0xDF221.
+    if akItem != Game.GetFormFromFile(0x000366BF, "Fallout4.esm") && akItem != Game.GetFormFromFile(0x000366C0, "Fallout4.esm")
+        return
+    endif
+    Form bottle = Game.GetFormFromFile(0x000DF221, "Fallout4.esm")
+    if bottle != None
+        Game.GetPlayer().AddItem(bottle, aiCount, false)
+    endif
 EndFunction
 
 float Function PortionFor(Form akItem)
