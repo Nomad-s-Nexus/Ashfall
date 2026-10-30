@@ -28,7 +28,7 @@
       <button class="dbg-tab"    id="tabbtn-wthr" onclick="showTab('wthr')">WEATHER</button>
       <button class="dbg-tab"    id="tabbtn-ghouls" onclick="showTab('ghouls')">GHOULS</button>
       <button class="dbg-tab"    id="tabbtn-armor" onclick="showTab('armor')">ARMOR</button>
-      <button class="dbg-tab"    id="tabbtn-survival" onclick="showTab('survival')">SURVIVAL</button>
+      <button class="dbg-tab"    id="tabbtn-survival" onclick="showTab('survival')">SETTINGS</button>
   <button class="dbg-tab"    id="tabbtn-hud"  onclick="showTab('hud')">HUD LAYOUT</button>
     </div>
 
@@ -269,8 +269,8 @@
       <p>Default rates, adjustable below: hunger +5%/h, thirst +10%/h, fatigue +2.5%/h, and 34/67/90% are stage 1/2/3. Rest recovers fatigue 12%/h; food relieves 20% of an item's portion, drink 25%, alcohol hydrates at 25%.</p>
       <p>Exposure fills from ambient time, wounds, swimming, tainted food and rad weather. At 100% an illness starts, incubates, then stages up; a cure item or an uninterrupted rest clears it and grants immunity.</p>
     </section>
-    <div class="dbg-sec">SURVIVAL RATES (LIVE)</div>
-    <div class="dbg-help">Applies from the next survival tick and is saved to the INI. NEEDS RATE scales all three pools; lower it if a slow timescale makes needs outrun you.</div>
+    <div class="dbg-sec">SETTINGS (LIVE)</div>
+    <div class="dbg-help">Every slider and toggle applies immediately and is saved to the INI. NEEDS RATE scales all three pools; lower it if a slow timescale makes needs outrun you. Gold values are changed from the default.</div>
     <div id="tuneRows"></div>
     <div class="dbg-row"><button class="warn" onclick="cmd('tune:reset')">RESET TO DEFAULTS</button></div>
   </div><!-- /tab-survival -->

@@ -15,11 +15,11 @@ function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
 function ring(id,f,c){document.getElementById(id).setAttribute('stroke-dashoffset',(c*(1-Math.max(0,Math.min(1,f)))).toFixed(2));}
 function stageOf(v){return v<STAGE1?0:v<STAGE2?1:v<STAGE3?2:3;}
 function renderNeeds(d){
- var any=false;
+ var always=d.always===true||d.always===1,any=always;
  [['hunger','Hunger'],['thirst','Thirst'],['sleepDebt','Sleep debt']].forEach(function(pair){
   var id=pair[0],value=pct(d[id]),stage=stageOf(value),e=document.getElementById(id),f=1-value/100;
   document.getElementById(id+'Value').textContent=value+'%';
-  e.hidden=stage===0;
+  e.hidden=stage===0&&!always;
   e.className='status '+(_phos?(f<.25?'danger':f<=.5?'warn':''):(stage>=2?'danger':'warn'));
   if(_phos){ring(id+'Ring',f,125.66);document.getElementById(id+'Cap').textContent=PHOS_WORDS[id][f>.66?0:f>.5?1:f>=.25?2:3];}
   if(stage>0)any=true;

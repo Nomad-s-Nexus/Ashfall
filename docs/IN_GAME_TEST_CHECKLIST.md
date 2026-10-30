@@ -27,6 +27,11 @@ matches. Mark everything else NOT RUN.
   drink's rads also applied in the same press. Proof: FalloutAnomaly.log `[Water] filled one ...` line; bottle count.
 - **Activate the same fountain without sneaking.** Expected: drinks normally, no bottle consumed, no `[Water] filled`
   line.
+- **Turn SNEAK TO FILL off in the SETTINGS tab, then activate the fountain without sneaking.** Expected: one bottle
+  filled (HUD message, `[Water] filled` line); record whether the fountain's drink also applied in the same press.
+  Turn it back on: plain activation drinks only again.
+- **Turn AUTO-EQUIP MASK off, walk into rad weather.** Expected: the mask stays off and the AUTO chip reads OFF. With
+  AUTO-EQUIP MASK on and EQUIP IN COMBAT off, enter rad weather during combat: chip reads HELD, mask goes on after combat.
 
 ## 3. Power-armor overlay
 - **Wear a power-armor helmet and a gas mask.** Expected: no visor overlay; foley/filter values still update.

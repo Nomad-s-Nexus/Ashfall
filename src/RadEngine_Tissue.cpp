@@ -197,7 +197,7 @@ void RadiationEngine::CheckActiveCures(float currentRads, float currentHP, bool 
         // different save's game clock or mask state can never be mistaken for elapsed gameplay.
         const bool reseed = !s_filterJumpInit || _prevRads < 0.0f || _prevHP < 0.0f || nowDays <= 0.0f;
         if (!reseed && !deltaValid && nowDays > s_prevFilterGameDays &&
-            _filterItem && s_prevFilterMasked && s_prevFilterExposed)
+            _filterItem && _filterEnabled && s_prevFilterMasked && s_prevFilterExposed)
         {
             const float gameHours = (nowDays - s_prevFilterGameDays) * 24.0f;
             float timeScale = 0.0f;

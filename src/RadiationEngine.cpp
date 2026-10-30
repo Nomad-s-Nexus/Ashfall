@@ -1,6 +1,7 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
 #include "RadMaskOwnership.h"
+#include "RadNeedsTuning.h"
 
 #include <RE/I/IMenu.h>
 #include <RE/U/UI.h>
@@ -366,7 +367,7 @@ void RadiationEngine::Update()
         RadHud::GetSingleton().PushMask(maskOn);   // OVERLAY still follows the override (debug preview)
 
         // ---- Gas-mask FILTER (drain) + CONDITION (durability); a failed mask chokes in rad weather ----
-        const bool filterSys = (_filterItem != nullptr);
+        const bool filterSys = (_filterItem != nullptr) && _filterEnabled;
         const bool condSys   = _conditionEnabled;
         if (filterSys || condSys)
         {
@@ -423,6 +424,10 @@ void RadiationEngine::Update()
                                               condSys ? _maskCondition : -1.0f,
                                               realMasked ? _filterSparesCache : 0, realMasked);
         }
+        else
+        {
+            RadHud::GetSingleton().PushFilter(-1.0f, -1.0f, 0, realMasked);
+        }
 
         const bool airSheltered = IsPlayerSheltered() || IsPlayerInPoweredShelter();
         const bool airSealed = IsPlayerInPowerArmor();
@@ -431,6 +436,9 @@ void RadiationEngine::Update()
             ((filterSys && _filterCharge <= 0.0f) || (condSys && _maskCondition <= 0.0f));
         const float airHealthLoss = _chokingEnabled && airExposed && (!realMasked || failedAirMask)
             ? _chokeHealthPerSec * (realMasked ? _chokeFailedFactor : 1.0f) : 0.0f;
+        const auto* airPlayer = RE::PlayerCharacter::GetSingleton();
+        const int   airAutoMask = !RadNeedsTuning::On(RadNeedsTuningPolicy::kAutoEquipMask, true) ? 0
+            : (!RadNeedsTuning::On(RadNeedsTuningPolicy::kAutoEquipInCombat, true) && airPlayer && airPlayer->IsInCombat()) ? 2 : 1;
         RadHud::GetSingleton().PushAir(json{
             { "contaminated", inRadWeather }, { "sheltered", airSheltered }, { "sealed", airSealed },
             { "masked", realMasked }, { "failed", failedAirMask }, { "chokingEnabled", _chokingEnabled },
@@ -440,7 +448,8 @@ void RadiationEngine::Update()
                 ? 100.0f / _filterDurationSec : 0.0f },
             { "charge", filterSys ? std::round(_filterCharge) : -1.0f },
             { "condition", condSys ? std::round(_maskCondition) : -1.0f },
-            { "spares", realMasked ? _filterSparesCache : 0 }
+            { "spares", realMasked ? _filterSparesCache : 0 },
+            { "autoMask", airAutoMask }
         }.dump());
 
         // ---- Choke-gate diagnostic (opt-in via the `shelter` debug command) ----
@@ -468,7 +477,7 @@ void RadiationEngine::Update()
         if (_chokingEnabled && inRadWeather && actorValue->health)
         {
             const bool exposed = !IsPlayerSheltered() && !IsPlayerInPoweredShelter() && !IsPlayerInPowerArmor();
-            const bool filterDead = (_filterItem != nullptr) && _filterCharge <= 0.0f;
+            const bool filterDead = (_filterItem != nullptr) && _filterEnabled && _filterCharge <= 0.0f;
             const bool maskBroken = _conditionEnabled && _maskCondition <= 0.0f;
             const bool failedMask = realMasked && (filterDead || maskBroken);
             const bool choking    = exposed && (!realMasked || failedMask);
@@ -572,7 +581,11 @@ void RadiationEngine::Update()
             _wasRadExposed = step.applied;
             _radExposedCandidate = step.candidate;
             _radExposedStreak = step.streak;
-            if (step.equip && !IsWearingGasMask())
+            const bool donAllowed = RadNeedsTuning::On(RadNeedsTuningPolicy::kAutoEquipMask, true) &&
+                (RadNeedsTuning::On(RadNeedsTuningPolicy::kAutoEquipInCombat, true) || !player->IsInCombat());
+            if (step.equip && !donAllowed)
+                _wasRadExposed = 0;
+            else if (step.equip && !IsWearingGasMask())
             {
                 if (auto* mask = FindInventoryMask())
                 {

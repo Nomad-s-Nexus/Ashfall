@@ -1,6 +1,14 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## Unreleased: sneak-to-fill toggle and AUTO mask chip (build-verified only)
+
+**New `WaterRequireSneak` toggle** in the debug-menu SETTINGS tab (WATER BOTTLES). Off fills a bottle on a plain
+activation, so water can be collected without sneaking; it overrides `[Water] RequireModifier` live and an empty value
+keeps the INI. **New AUTO chip** in the breathing-protection widget shows whether the auto-equip mask is OFF, ON or HELD
+for combat, so a mask that stays off is explained on screen. Contracts: `tests/status_hud_tests.js`,
+`tests/needs_tuning_policy_tests.cpp`, `tests/verify_needs_tuning.py`. Not yet compiled or tested in game.
+
 ## 2026-10-29: roofless-interior rain (Concord Museum of Freedom, build-verified only)
 
 **Rain can now reach the player inside one approved roofless interior.** `climate_weather.json` gained a

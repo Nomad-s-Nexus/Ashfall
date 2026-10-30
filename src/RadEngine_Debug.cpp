@@ -247,7 +247,12 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     }
     else if (a.rfind("tune:", 0) == 0)
     {
-        RadNeedsTuning::Handle(std::string_view(a).substr(std::strlen("tune:")));
+        const auto command = std::string_view(a).substr(std::strlen("tune:"));
+        RadNeedsTuning::Handle(command);
+        if (command == "reset")
+            LoadFilterIni();
+        else
+            ApplyTuning();
         RadHud::GetSingleton().PushNeedsTuning(RadNeedsTuning::Json());
     }
     else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);

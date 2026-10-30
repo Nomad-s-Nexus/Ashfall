@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "RadHud.h"
+#include "RadNeedsTuning.h"
 #include <RE/D/DifficultyLevel.h>
 #include <RE/P/PlayerCharacter.h>
 #include "PrismaUI_F4_API.h"
@@ -63,7 +64,8 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         { "thirst", percent(snapshot.pools.thirst01) },
         { "sleepDebt", percent(snapshot.pools.sleepDebt01) },
         { "risk", percent(snapshot.risk01) },
-        { "disease", snapshot.diseasePacked }
+        { "disease", snapshot.diseasePacked },
+        { "always", RadNeedsTuning::On(RadNeedsTuningPolicy::kAlwaysShowNeeds, false) }
     }.dump();
     if (payload == _needsPayload) return;
     _needsPayload = payload;

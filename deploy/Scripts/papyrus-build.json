@@ -22,17 +22,17 @@
     {
       "script": "RadSurvivalDiseases",
       "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
-      "sourceSha256": "9b1fa79f4b0d9923d7b24e5ec2ce67bdf365c3a704ae964a92d8685e336f5bcc",
+      "sourceSha256": "3c08b31550e5e84eaaf4b75ff7184622a91ac119d9e72a40377420dbe6964174",
       "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
-      "pexSha256": "837e457eb4235a90954331df8763c06baeb20d25d6dd329bb7d134a549d4c532",
-      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
+      "pexSha256": "a5d2c55a910fb50d1d60632e1d2205d1556dab15bc6819499023a83f650ea335",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
     },
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "c5a2e71c27c57161a1777d0a115289b887893584a71e36dfa9798c469e55eaee",
+      "sourceSha256": "4d0133c8d9162d9bd0aef374e8fb39ff9defea6284710ec1dc2422c29c0ec994",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "6cbd37695498cbee13bc4a88d8c9c636f8403e9c24ffc2184dd70a0d06be71e1",
+      "pexSha256": "1d6ec0999763c3f0ee96e1c3956f2e40f149c59d017b369d73d61831e34db058",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
     }
   ]

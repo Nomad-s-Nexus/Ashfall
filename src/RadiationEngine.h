@@ -285,6 +285,10 @@ private:
     bool            _stormsEnabled     = true;      // [Storm] Enabled (0 = no managed storms at all)
     float           _stormMinRealMin   = 35.0f;     // [Storm] MinMinutes
     float           _stormMaxRealMin   = 90.0f;     // [Storm] MaxMinutes
+    float           _stormGapAppliedMin = 0.0f;     // effective gap last applied (0 = none yet), so a slider move reschedules
+    float           _stormGapAppliedMax = 0.0f;
+    std::uint16_t   _stormBedApplied   = 0xFFFF;    // attenuation last set on the playing storm bed (0xFFFF = none)
+    std::uint16_t   _ambientBedApplied = 0xFFFF;    // attenuation last set on the playing general bed
     double          _vanillaRadstormGapSec = 60.0 * 60.0;  // [Storm] VanillaRadstormGapMinutes
     int             _domeLeadTicks     = 3 * 60 * 4; // [Storm] DomeLeadMinutes — silent dome-only lead before the alarm (default 3 min)
     // Debug-only lead override, consumed by the next BeginStorm. -1 = use _domeLeadTicks. A forced
@@ -325,6 +329,7 @@ private:
     void BeginStorm(int typeIndex);    // start the dome-only APPROACH lead for a storm type
     void EnterWarningPhase();          // APPROACH lead elapsed -> alarm + alert + dust roll-in + Warning
     void EnterStormPhase(StormPhase phase, int durationTicks);
+    void EffectiveStormGap(float& a_min, float& a_max) const;  // INI gap with the live sliders applied, Max never below Min
     void ScheduleNextStorm();          // pick the next storm's game-time
     float GameDays() const;            // current GameDaysPassed (0 if unavailable)
     int  RollStormType() const;        // weighted random index into kStormTypes
@@ -386,7 +391,9 @@ private:
     int   _filterLowWarned   = 0;       // 0 none / 1 low(<=20) / 2 depleted — reset on refill
     int   _filterSparesCache = 0;       // cached count of the filter item (HUD "xN filters" text only)
     int   _filterCountTick   = 0;       // throttle countdown for refreshing _filterSparesCache
+    bool  _filterEnabled     = true;    // [Tuning] FilterEnabled; false: the filter never drains or fails
     void  LoadFilterIni();              // read the [Filter] + [Condition] INI sections
+    void  ApplyTuning();                // overlay the live [Tuning] overrides on the INI-loaded members
     void  ReloadHotkeysFromIni();       // re-read + revalidate the two keybinds (debug menu open, no restart)
     void  LoadMaskConfig();             // read the [Masks] INI section (extra keywords / listed armors)
     void  ReplaceFilter(bool silent);   // consume one filter item -> charge 100
@@ -432,7 +439,7 @@ private:
     void ApplyStormExposure();         // per-tick rads + HP damage from the active storm
     void UpdateAmbientAudio();         // per-tick: storm bed (by current weather) + general exterior bed
     void EnsureBed(RE::BSSoundHandle& handle, const char*& curPath,
-                   const char* wantPath, std::uint16_t atten);  // (re)loop/switch/stop a looping bed
+                   const char* wantPath, std::uint16_t atten, std::uint16_t& applied);  // (re)loop/switch/stop a looping bed
     void UpdateStormFXVisibility();    // show/hide the storm dome + IMAD by player shelter state (no fog indoors)
     void ApplyStormPeakToNPCs();       // storm peak: heal exterior ghoul NPCs, protect all others
     bool IsGhoulActor(RE::Actor* a) const;  // true if the actor's race carries ActorTypeGhoul

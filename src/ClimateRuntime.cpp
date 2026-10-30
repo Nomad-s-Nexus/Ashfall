@@ -3,6 +3,7 @@
 #include "ClimateEnvironmentPolicy.h"
 #include "ClimateStagePolicy.h"
 #include "RadHud.h"
+#include "RadNeedsTuning.h"
 
 #include <chrono>
 #include <RE/B/BSSpinLock.h>
@@ -158,6 +159,12 @@ void ClimateRuntime::Update()
     const float nowDays = GameDays();
     const auto pauseInfo = QueryPauseInfo();
 
+    using RadNeedsTuningPolicy::Key;
+    RadClimatePolicy::Tuning tuning{};
+    tuning.coolingScale = RadNeedsTuning::On(Key::kTemperatureEnabled, true) ? RadNeedsTuning::Value(Key::kColdIntensity, 1.0f) : 0.0f;
+    tuning.wetnessGainScale = RadNeedsTuning::On(Key::kWetnessEnabled, true) ? RadNeedsTuning::Value(Key::kWetnessSoakRate, 1.0f) : 0.0f;
+    tuning.wetnessDryScale = RadNeedsTuning::Value(Key::kWetnessDryRate, 1.0f);
+
     RadClimatePolicy::StepResult result{};
     const char* branchName = "init";
     float appliedSeconds = 0.0f;
@@ -165,7 +172,7 @@ void ClimateRuntime::Update()
     if (_prevGameDays < 0.0f)
     {
         _prevGameDays = nowDays;
-        result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
+        result = RadClimatePolicy::Step(_state, environment, protection, 0.0f, tuning);
         branchName = "init";
         appliedSeconds = 0.0f;
     }
@@ -181,7 +188,7 @@ void ClimateRuntime::Update()
                 RadClimatePolicy::ElapsedGameSeconds(gameDaysElapsed),
                 RadClimatePolicy::kMaximumTimeJumpHours * 3600.0f);
             const auto jumpStart = std::chrono::steady_clock::now();
-            result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpGameSeconds, RadClimatePolicy::kMaximumStepSeconds);
+            result = RadClimatePolicy::StepTimeJump(_state, environment, protection, jumpGameSeconds, RadClimatePolicy::kMaximumStepSeconds, tuning);
             const double jumpWallMs = std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - jumpStart).count();
             const auto jumpSubsteps = static_cast<unsigned>(std::ceil(
@@ -195,7 +202,7 @@ void ClimateRuntime::Update()
         }
         else if (pauseInfo.isPaused || gameDaysElapsed <= 0.0f)
         {
-            result = RadClimatePolicy::Step(_state, environment, protection, 0.0f);
+            result = RadClimatePolicy::Step(_state, environment, protection, 0.0f, tuning);
             branchName = "paused";
             appliedSeconds = 0.0f;
         }
@@ -204,11 +211,11 @@ void ClimateRuntime::Update()
             const float gameSeconds = RadClimatePolicy::ElapsedGameSeconds(gameDaysElapsed);
             if (gameSeconds > RadClimatePolicy::kMaximumStepSeconds)
             {
-                result = RadClimatePolicy::StepTimeJump(_state, environment, protection, gameSeconds, RadClimatePolicy::kMaximumStepSeconds);
+                result = RadClimatePolicy::StepTimeJump(_state, environment, protection, gameSeconds, RadClimatePolicy::kMaximumStepSeconds, tuning);
             }
             else
             {
-                result = RadClimatePolicy::Step(_state, environment, protection, gameSeconds);
+                result = RadClimatePolicy::Step(_state, environment, protection, gameSeconds, tuning);
             }
             branchName = "normal";
             appliedSeconds = gameSeconds;

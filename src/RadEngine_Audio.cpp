@@ -46,12 +46,13 @@ void RadiationEngine::StopStormCue(std::uint16_t fadeMs)
 // program-wide. If they ever lose `inline`, each .cpp gets its own copy pointing at its own string
 // literal, the compare goes permanently true across TUs, and the bed re-triggers EVERY TICK.
 void RadiationEngine::EnsureBed(RE::BSSoundHandle& handle, const char*& curPath,
-                                const char* wantPath, std::uint16_t atten)
+                                const char* wantPath, std::uint16_t atten, std::uint16_t& applied)
 {
     if (!wantPath)
     {
         if (handle.IsValid()) { handle.FadeOutAndRelease(1000); handle = RE::BSSoundHandle{}; }
         curPath = nullptr;
+        applied = 0xFFFF;
         return;
     }
     if (curPath != wantPath)   // switching to a different bed: fade the old out first
@@ -62,7 +63,15 @@ void RadiationEngine::EnsureBed(RE::BSSoundHandle& handle, const char*& curPath,
     if (!handle.IsValid() || !handle.IsPlaying())   // initial start OR looped past the end
     {
         if (Play2DSound(wantPath, handle))
+        {
             handle.SetStaticAttenuation(atten);
+            applied = atten;
+        }
+    }
+    else if (applied != atten)   // a volume slider moved: retune the playing bed instead of waiting for the loop restart
+    {
+        handle.SetStaticAttenuation(atten);
+        applied = atten;
     }
 }
 
@@ -100,14 +109,14 @@ void RadiationEngine::UpdateAmbientAudio()
     if (stormBed && exposed)
     {
         // Storm active + outdoors: play its bed, silence the general one.
-        EnsureBed(_stormSoundHandle, _curStormBed, stormBed, _stormBedAtten);
-        EnsureBed(_ambientBedHandle, _curAmbientBed, nullptr, 0);
+        EnsureBed(_stormSoundHandle, _curStormBed, stormBed, _stormBedAtten, _stormBedApplied);
+        EnsureBed(_ambientBedHandle, _curAmbientBed, nullptr, 0, _ambientBedApplied);
     }
     else
     {
-        EnsureBed(_stormSoundHandle, _curStormBed, nullptr, 0);
+        EnsureBed(_stormSoundHandle, _curStormBed, nullptr, 0, _stormBedApplied);
         // General background bed: any exterior when enabled (indoors is silent).
         const char* want = (_ambientEnabled && !interior) ? kAmbientBedPath : nullptr;
-        EnsureBed(_ambientBedHandle, _curAmbientBed, want, _ambientAtten);
+        EnsureBed(_ambientBedHandle, _curAmbientBed, want, _ambientAtten, _ambientBedApplied);
     }
 }

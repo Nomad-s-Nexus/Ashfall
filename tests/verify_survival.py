@@ -556,7 +556,7 @@ check("RiskPerRainHour" in weather_exposure, "rain must add the tuned hourly amo
 check(weather_exposure.count("AddRisk(") == 2,
       "both sky sources must go through the shared exposure rule, not their own pond")
 check("afHours" in weather_exposure, "sky exposure must scale with the elapsed interval")
-for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
+for guard in ("abActive", "DiseasesOn()", "DiseaseId > 0"):
     check(guard in weather_exposure, f"sky exposure must be gated by {guard}")
 rad_weather = function_body(disease_code, "bool Function IsRadWeather(Form akWeather)")
 check("RadWeatherForms" in rad_weather, "the rad weather set must be cached, not resolved per tick")
@@ -570,7 +570,7 @@ check("RadWeatherForms = resolved" in resolved_weather,
 check("resolved.Length == 0" in resolved_weather,
       "an empty resolve must not be cached, or a missing plugin is never retried")
 add_risk = function_body(disease_code, "Function AddRisk(float afAmount, bool abActive)")
-for guard in ("abActive", "DiseasesEnabled", "IsImmune(", "DiseaseId > 0"):
+for guard in ("abActive", "DiseasesOn()", "IsImmune(", "DiseaseId > 0"):
     check(guard in add_risk, f"exposure must be gated by {guard}")
 check("StartDisease(" in add_risk, "a pool filled by exposure must start an illness")
 check("MirrorRisk()" in add_risk, "exposure must refresh the risk mirror")
@@ -599,7 +599,7 @@ check("MirrorDisease()" in cure_body and "MirrorRisk()" in cure_body,
       "a cure must refresh both HUD mirrors")
 
 reconcile_body = function_body(disease_code, "Function Reconcile(bool abActive)")
-check("abActive" in reconcile_body and "DiseasesEnabled" in reconcile_body,
+check("abActive" in reconcile_body and "DiseasesOn()" in reconcile_body,
       "the disease ability must follow the layer gate and the enable switch")
 apply_body = function_body(disease_code, "Function ApplySpell(Spell akWanted)")
 check("AddSpell(" in apply_body and "RemoveSpell(" in apply_body,
@@ -656,7 +656,7 @@ check("NotifyDisease(" in consume_body,
       "a cure taken while healthy must say so instead of vanishing silently")
 check("ExposureConsume(" in consume_body, "a consumed item must charge the taint exposure")
 taint_body = function_body(disease_code, "Function ExposureConsume(Form akItem, int aiCount, bool abActive)")
-for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
+for guard in ("abActive", "DiseasesOn()", "DiseaseId > 0"):
     check(guard in taint_body, f"taint consumption must be gated by {guard}")
 check("AddRisk(" in taint_body, "taint must charge the pool through the shared exposure rule")
 check("CategoryRisk(" in taint_body, "the per-category amount must come from the tuning")

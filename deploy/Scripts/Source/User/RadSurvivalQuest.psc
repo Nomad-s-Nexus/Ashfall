@@ -18,6 +18,7 @@ int Property kTuneThirst = 2 Auto Const
 int Property kTuneSleep = 3 Auto Const
 int Property kTuneFood = 4 Auto Const
 int Property kTuneDrink = 5 Auto Const
+int Property kTuneSleepRecovery = 6 Auto Const
 float Property AlcoholHydrationScale = 0.25 Auto
 float Property TickGameHours = 0.25 Auto
 float Property MaxElapsedHours = 240.0 Auto
@@ -359,7 +360,7 @@ Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)
     if hours < 0.0
         hours = 0.0
     endif
-    float recovery = hours * SleepRecoveryPerHour
+    float recovery = hours * Tuned(kTuneSleepRecovery, SleepRecoveryPerHour)
     if abInterrupted
         recovery = recovery * InterruptedScale
     endif

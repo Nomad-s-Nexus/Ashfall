@@ -131,31 +131,77 @@ function setGhoulSettings(state) {
 
 
 var TUNING = [
-  ["RateMultiplier", "NEEDS RATE", 0, 5, 0.05, 1],
-  ["HourlyHunger", "HUNGER /H", 0, 0.5, 0.005, 100],
-  ["HourlyThirst", "THIRST /H", 0, 0.5, 0.005, 100],
-  ["HourlySleepDebt", "FATIGUE /H", 0, 0.5, 0.005, 100],
-  ["FoodScale", "FOOD RELIEF", 0, 1, 0.01, 100],
-  ["DrinkScale", "DRINK RELIEF", 0, 1, 0.01, 100]
+  ["SURVIVAL RATES", [
+    ["RateMultiplier", "NEEDS RATE", 0.05, "x"], ["HourlyHunger", "HUNGER /H", 0.005, "%"],
+    ["HourlyThirst", "THIRST /H", 0.005, "%"], ["HourlySleepDebt", "FATIGUE /H", 0.005, "%"],
+    ["FoodScale", "FOOD RELIEF", 0.01, "%"], ["DrinkScale", "DRINK RELIEF", 0.01, "%"],
+    ["SleepRecovery", "REST /H", 0.005, "%"]]],
+  ["DISEASES", [
+    ["DiseasesEnabled", "DISEASES"], ["DiseaseBaseRisk", "BASE RISK /H", 0.002, "%"],
+    ["RiskRadWeather", "RAD WEATHER", 0.01, "%"], ["RiskRain", "RAIN", 0.005, "%"],
+    ["RiskWound", "WOUNDS", 0.005, "%"], ["RiskSwim", "SWIMMING", 0.005, "%"],
+    ["RiskTaintedFood", "TAINTED FOOD", 0.01, "%"], ["RiskTaintedWater", "TAINTED WATER", 0.01, "%"],
+    ["RiskContaminated", "CONTAMINATED", 0.01, "%"]]],
+  ["GAS MASK AND FILTER", [
+    ["FilterEnabled", "FILTERS"], ["FilterDuration", "FILTER LIFE", 30, "n", " s"],
+    ["FilterChokeRads", "CHOKE RADS", 0.5, "n", " rad/s"], ["FilterAutoReplace", "AUTO-SWAP FILTER"],
+    ["ConditionEnabled", "MASK WEAR"], ["ConditionDamage", "WEAR / HIT", 0.5, "n"],
+    ["ConditionAutoRepair", "AUTO-REPAIR"],
+    ["AutoEquipMask", "AUTO-EQUIP MASK"], ["AutoEquipInCombat", "EQUIP IN COMBAT"]]],
+  ["CHOKING", [
+    ["ChokingEnabled", "CHOKING"], ["ChokeHealthPerSec", "HP DRAIN /S", 0.1, "n"],
+    ["ChokeFailedFactor", "FAILED FILTER", 0.05, "x"], ["ChokeSounds", "COUGH SOUNDS"]]],
+  ["AMBIENT AND STORMS", [
+    ["AmbientEnabled", "AMBIENT"], ["AmbientVolume", "AMBIENT VOL", 1, "n", "%"],
+    ["StormVolume", "STORM VOL", 1, "n", "%"], ["StormsEnabled", "RAD STORMS"],
+    ["StormMinMinutes", "STORM MIN", 1, "n", " min"], ["StormMaxMinutes", "STORM MAX", 1, "n", " min"]]],
+  ["TEMPERATURE AND WETNESS", [
+    ["TemperatureEnabled", "TEMPERATURE"], ["ColdIntensity", "COLD", 0.05, "x"],
+    ["WetnessEnabled", "WETNESS"], ["WetnessSoakRate", "SOAK RATE", 0.05, "x"],
+    ["WetnessDryRate", "DRY RATE", 0.05, "x"]]],
+  ["HUD", [["AlwaysShowNeeds", "ALWAYS SHOW NEEDS"]]],
+  ["WATER BOTTLES", [["WaterRequireSneak", "SNEAK TO FILL"]]]
 ];
 
-function tuneLabel(row, value) {
-  return row[5] === 1 ? "x" + Number(value).toFixed(2) : (Number(value) * 100).toFixed(1) + "%";
+function tuneText(row, value) {
+  var v = Number(value);
+  if (row[3] === "x") return "x" + v.toFixed(2);
+  if (row[3] === "%") return (v * 100).toFixed(1) + "%";
+  return v.toFixed(row[2] < 1 ? 1 : 0) + (row[4] || "");
 }
+
+function tuneCommand(key, value) { cmd("tune:" + key + ":" + Number(value).toFixed(4)); }
 
 function tuneRows() {
   var host = document.getElementById("tuneRows");
   if (!host || host.firstChild) return host;
-  TUNING.forEach(function(row) {
-    var line = document.createElement("div");
-    line.className = "ghoul-range tune-range";
-    line.innerHTML = '<label for="tune-' + row[0] + '">' + row[1] + '</label>' +
-      '<input id="tune-' + row[0] + '" type="range" min="' + row[2] + '" max="' + row[3] + '" step="' + row[4] + '">' +
-      '<output id="tuneval-' + row[0] + '"></output>';
-    var input = line.querySelector("input");
-    input.oninput = function() { document.getElementById("tuneval-" + row[0]).textContent = tuneLabel(row, input.value); };
-    input.onchange = function() { cmd("tune:" + row[0] + ":" + Number(input.value).toFixed(4)); };
-    host.appendChild(line);
+  TUNING.forEach(function(group) {
+    var head = document.createElement("div");
+    head.className = "dbg-sec";
+    head.textContent = group[0];
+    host.appendChild(head);
+    group[1].forEach(function(row) {
+      var key = row[0];
+      var line = document.createElement("div");
+      if (row.length === 2) {
+        line.className = "ghoul-range tune-range tune-toggle";
+        line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
+          '<input id="tune-' + key + '" type="checkbox"><output id="tuneval-' + key + '"></output>';
+        var box = line.querySelector("input");
+        box.onchange = function() {
+          document.getElementById("tuneval-" + key).textContent = box.checked ? "ON" : "OFF";
+          tuneCommand(key, box.checked ? 1 : 0);
+        };
+      } else {
+        line.className = "ghoul-range tune-range";
+        line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
+          '<input id="tune-' + key + '" type="range" step="' + row[2] + '"><output id="tuneval-' + key + '"></output>';
+        var input = line.querySelector("input");
+        input.oninput = function() { document.getElementById("tuneval-" + key).textContent = tuneText(row, input.value); };
+        input.onchange = function() { tuneCommand(key, input.value); };
+      }
+      host.appendChild(line);
+    });
   });
   return host;
 }
@@ -164,14 +210,23 @@ window.setNeedsTuning = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
     tuneRows();
-    TUNING.forEach(function(row) {
-      var entry = d && d[row[0]];
-      var input = document.getElementById("tune-" + row[0]);
-      var output = document.getElementById("tuneval-" + row[0]);
-      if (!entry || !input || !output) return;
-      input.value = entry.v;
-      output.textContent = tuneLabel(row, entry.v);
-      output.classList.toggle("tuned", !!entry.o);
+    TUNING.forEach(function(group) {
+      group[1].forEach(function(row) {
+        var entry = d && d[row[0]];
+        var input = document.getElementById("tune-" + row[0]);
+        var output = document.getElementById("tuneval-" + row[0]);
+        if (!entry || !input || !output) return;
+        if (row.length === 2) {
+          input.checked = entry.v >= 0.5;
+          output.textContent = input.checked ? "ON" : "OFF";
+        } else {
+          input.min = entry.min;
+          input.max = entry.max;
+          input.value = entry.v;
+          output.textContent = tuneText(row, entry.v);
+        }
+        output.classList.toggle("tuned", !!entry.o);
+      });
     });
   } catch (e) {}
 };

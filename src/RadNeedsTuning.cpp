@@ -22,10 +22,11 @@ namespace
     using namespace RadNeedsTuningPolicy;
 
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
-    constexpr const char* kSection = "Survival";
+    constexpr const char* kSection = "Tuning";
     constexpr float       kUnset = std::numeric_limits<float>::quiet_NaN();
 
     std::array<std::atomic<float>, kCount> g_values;
+    std::array<std::atomic<float>, kCount> g_live;
 
     bool IsSet(float a_value)
     {
@@ -37,7 +38,7 @@ namespace
         if (!::WritePrivateProfileStringA(kSection, std::string(kSpecs[a_index].key).c_str(), a_text, kIni))
         {
             if (auto logger = spdlog::get("FalloutAnomaly"))
-                logger->warn("[Tuning] Could not write [Survival] {} to the INI (error {}); the change is live but will not persist.",
+                logger->warn("[Tuning] Could not write [Tuning] {} to the INI (error {}); the change is live but will not persist.",
                     kSpecs[a_index].key, ::GetLastError());
         }
     }
@@ -67,7 +68,7 @@ namespace
             if (!ParseValue(buffer, parsed) || !Accept(i, parsed, accepted))
             {
                 if (logger)
-                    logger->warn("[Tuning] [Survival] {}='{}' is not a usable number; the script default stays.", key, buffer);
+                    logger->warn("[Tuning] [Tuning] {}='{}' is not a usable number; the script default stays.", key, buffer);
                 continue;
             }
             Store(i, accepted, false);
@@ -79,7 +80,7 @@ namespace
     // Constraint: returns override + 1.0, or 0.0 when unset, so an unbound native (also 0.0) never reads as a zero rate.
     float PapyrusTuningOverride(RE::TESQuest&, std::int32_t a_key)
     {
-        if (a_key < 0 || static_cast<std::size_t>(a_key) >= kCount)
+        if (a_key < 0 || static_cast<std::size_t>(a_key) >= kPapyrusKeys)
             return 0.0f;
         const float value = g_values[static_cast<std::size_t>(a_key)].load(std::memory_order_acquire);
         return IsSet(value) ? value + 1.0f : 0.0f;
@@ -90,8 +91,9 @@ namespace
         if (!a_vm)
             return false;
         a_vm->BindNativeMethod("RadSurvivalQuest", "TuningOverride", PapyrusTuningOverride, std::nullopt, false);
+        a_vm->BindNativeMethod("RadSurvivalDiseases", "TuningOverride", PapyrusTuningOverride, std::nullopt, false);
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->info("[Tuning] Papyrus bridge registered (TuningOverride).");
+            logger->info("[Tuning] Papyrus bridge registered (TuningOverride on the quest and the diseases script).");
         return true;
     }
 }
@@ -99,6 +101,8 @@ namespace
 void RadNeedsTuning::Install()
 {
     for (auto& slot : g_values)
+        slot.store(kUnset, std::memory_order_relaxed);
+    for (auto& slot : g_live)
         slot.store(kUnset, std::memory_order_relaxed);
     LoadIni();
 
@@ -149,12 +153,29 @@ std::string RadNeedsTuning::Json()
     for (std::size_t i = 0; i < kCount; ++i)
     {
         const float value = g_values[i].load(std::memory_order_acquire);
-        char        entry[96];
-        std::snprintf(entry, sizeof(entry), "%s\"%.*s\":{\"v\":%.4f,\"o\":%s}", i ? "," : "",
+        const float live = g_live[i].load(std::memory_order_acquire);
+        const float shown = IsSet(value) ? value : (IsSet(live) ? live : kSpecs[i].reference);
+        char        entry[192];
+        std::snprintf(entry, sizeof(entry), "%s\"%.*s\":{\"v\":%.4f,\"o\":%s,\"min\":%.4f,\"max\":%.4f,\"t\":%s}", i ? "," : "",
             static_cast<int>(kSpecs[i].key.size()), kSpecs[i].key.data(),
-            IsSet(value) ? value : kSpecs[i].reference, IsSet(value) ? "true" : "false");
+            shown, IsSet(value) ? "true" : "false",
+            kSpecs[i].min, kSpecs[i].max, kSpecs[i].toggle ? "true" : "false");
         json += entry;
     }
     json += "}";
     return json;
+}
+
+void RadNeedsTuning::SetLive(RadNeedsTuningPolicy::Key a_key, float a_value)
+{
+    if (a_key < kCount)
+        g_live[a_key].store(a_value, std::memory_order_release);
+}
+
+float RadNeedsTuning::Value(RadNeedsTuningPolicy::Key a_key, float a_fallback)
+{
+    if (a_key >= kCount)
+        return a_fallback;
+    const float value = g_values[a_key].load(std::memory_order_acquire);
+    return IsSet(value) ? value : a_fallback;
 }

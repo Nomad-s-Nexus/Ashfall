@@ -3,6 +3,7 @@
 #include "RadLifecycleDispatch.h"
 #include "Hooks.h"
 #include "RadMaskOwnership.h"
+#include "RadNeedsTuning.h"
 
 using namespace RadInternal;
 
@@ -582,6 +583,7 @@ void RadiationEngine::LoadFilterIni()
 
     ReloadHotkeysFromIni();
     LoadMaskConfig();
+    ApplyTuning();
 
     Log()->info(
         "[Filter] duration={}s, replaceKey=0x{:X}, autoReplace={}, choke={:.1f}/s | "
@@ -594,6 +596,60 @@ void RadiationEngine::LoadFilterIni()
         _chokingEnabled, _chokeHealthPerSec, _chokeFailedFactor, _chokeSounds,
         _ambientEnabled, _ambientAtten, _stormBedAtten,
         _stormsEnabled, _stormMinRealMin, _stormMaxRealMin, _vanillaRadstormGapSec / 60.0);
+}
+
+
+void RadiationEngine::ApplyTuning()
+{
+    using RadNeedsTuningPolicy::Key;
+    const auto value = [](Key a_key, float a_current) { return RadNeedsTuning::Value(a_key, a_current); };
+    const auto flag = [](Key a_key, bool a_current) { return RadNeedsTuning::On(a_key, a_current); };
+
+    _filterEnabled = flag(Key::kFilterEnabled, true);
+    _filterDurationSec = std::max(1, static_cast<int>(value(Key::kFilterDuration, static_cast<float>(_filterDurationSec))));
+    _filterChokeRads = value(Key::kFilterChokeRads, _filterChokeRads);
+    _filterAutoReplace = flag(Key::kFilterAutoReplace, _filterAutoReplace);
+    _conditionEnabled = flag(Key::kConditionEnabled, _conditionEnabled);
+    _conditionHitDamage = value(Key::kConditionDamage, _conditionHitDamage);
+    _conditionAutoRepair = flag(Key::kConditionAutoRepair, _conditionAutoRepair);
+    _chokingEnabled = flag(Key::kChokingEnabled, _chokingEnabled);
+    _chokeHealthPerSec = value(Key::kChokeHealthPerSec, _chokeHealthPerSec);
+    _chokeFailedFactor = value(Key::kChokeFailedFactor, _chokeFailedFactor);
+    _chokeSounds = flag(Key::kChokeSounds, _chokeSounds);
+    _ambientEnabled = flag(Key::kAmbientEnabled, _ambientEnabled);
+    if (const float volume = value(Key::kAmbientVolume, -1.0f); volume >= 0.0f)
+        _ambientAtten = static_cast<std::uint16_t>((100 - std::clamp(static_cast<int>(volume), 0, 100)) * 30);
+    if (const float volume = value(Key::kStormVolume, -1.0f); volume >= 0.0f)
+        _stormBedAtten = static_cast<std::uint16_t>((100 - std::clamp(static_cast<int>(volume), 0, 100)) * 30);
+    _stormsEnabled = flag(Key::kStormsEnabled, _stormsEnabled);
+
+    float gapMin = 0.0f, gapMax = 0.0f;
+    EffectiveStormGap(gapMin, gapMax);
+    if (_stormGapAppliedMin > 0.0f && (gapMin != _stormGapAppliedMin || gapMax != _stormGapAppliedMax))
+        _stormScheduled = false;   // Constraint: a moved gap slider redraws the pending storm; the first apply keeps a loaded schedule.
+    _stormGapAppliedMin = gapMin;
+    _stormGapAppliedMax = gapMax;
+
+    using RadNeedsTuning::SetLive;
+    const auto live = [](bool a_on) { return a_on ? 1.0f : 0.0f; };
+    const auto percent = [](std::uint16_t a_atten) { return 100.0f - static_cast<float>(a_atten) / 30.0f; };
+    SetLive(Key::kFilterEnabled, live(_filterEnabled));
+    SetLive(Key::kFilterDuration, static_cast<float>(_filterDurationSec));
+    SetLive(Key::kFilterChokeRads, _filterChokeRads);
+    SetLive(Key::kFilterAutoReplace, live(_filterAutoReplace));
+    SetLive(Key::kConditionEnabled, live(_conditionEnabled));
+    SetLive(Key::kConditionDamage, _conditionHitDamage);
+    SetLive(Key::kConditionAutoRepair, live(_conditionAutoRepair));
+    SetLive(Key::kChokingEnabled, live(_chokingEnabled));
+    SetLive(Key::kChokeHealthPerSec, _chokeHealthPerSec);
+    SetLive(Key::kChokeFailedFactor, _chokeFailedFactor);
+    SetLive(Key::kChokeSounds, live(_chokeSounds));
+    SetLive(Key::kAmbientEnabled, live(_ambientEnabled));
+    SetLive(Key::kAmbientVolume, percent(_ambientAtten));
+    SetLive(Key::kStormVolume, percent(_stormBedAtten));
+    SetLive(Key::kStormsEnabled, live(_stormsEnabled));
+    SetLive(Key::kStormMinMinutes, gapMin);
+    SetLive(Key::kStormMaxMinutes, gapMax);
 }
 
 
@@ -648,7 +704,7 @@ int RadiationEngine::FilterItemCount() const
 // Consume one filter from the player's inventory and refill the charge to 100%.
 void RadiationEngine::ReplaceFilter(bool silent)
 {
-    if (!_filterItem) return;
+    if (!_filterItem || !_filterEnabled) return;
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 

@@ -2,6 +2,7 @@
 #include "WaterBottleFill.h"
 
 #include "Hooks.h"
+#include "RadNeedsTuning.h"
 #include "RadWaterFillPolicy.h"
 
 #include <RE/B/BGSKeyword.h>
@@ -69,6 +70,7 @@ namespace
         g_config.enabled = ::GetPrivateProfileIntA("Water", "Enabled", 1, kIni) != 0;
         g_config.skipVanillaSurvival = ::GetPrivateProfileIntA("Water", "SkipWhenVanillaSurvival", 1, kIni) != 0;
         g_config.requireModifier = ::GetPrivateProfileIntA("Water", "RequireModifier", 1, kIni) != 0;
+        RadNeedsTuning::SetLive(RadNeedsTuningPolicy::kWaterRequireSneak, g_config.requireModifier ? 1.0f : 0.0f);
     }
 
     // Constraint: an unresolved form is skipped, never guessed -- a wrong form ID would remove the wrong item.
@@ -266,7 +268,8 @@ namespace
             const auto bottle = waterSource ? FirstBottleHeld(player) : RadWaterFillPolicy::kBottleNotFound;
             const bool vanillaSurvival =
                 g_config.skipVanillaSurvival && player->GetDifficultyLevel() == RE::DifficultyLevel::kTrueSurvival;
-            const bool modifierHeld = !g_config.requireModifier || player->IsSneaking();
+            const bool modifierHeld =
+                !RadNeedsTuning::On(RadNeedsTuningPolicy::kWaterRequireSneak, g_config.requireModifier) || player->IsSneaking();
             const auto decision = RadWaterFillPolicy::Decide(g_config.enabled, waterSource, vanillaSurvival, modifierHeld,
                 bottle == RadWaterFillPolicy::kBottleNotFound ? 0 : 1);
             if (decision != RadWaterFillPolicy::Decision::kFill)
