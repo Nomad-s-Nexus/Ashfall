@@ -158,7 +158,7 @@ clear_calls = function_body(code, "Function ClearAllPenalties()")
 for pool in ("hunger", "thirst", "sleep"):
     check(f'ApplyStagePenalty("{pool}", 0)' in clear_calls,
           f"ClearAllPenalties must clear the {pool} spell")
-update_body = function_body(code, "Function UpdatePenaltyStages(bool abImmediate)")
+update_body = function_body(code, "Function UpdatePenaltyStages(string asReliefPool)")
 check("ClearAllPenalties()" in update_body,
       "a suspended layer must clear its penalties")
 
@@ -195,9 +195,9 @@ check("ClearPenaltyCache()" in function_body(code, "Function ResyncPenalties()")
 
 # Constraint: the tick must reconcile after the active/suspended branch, not inside one of them.
 timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
-check("UpdatePenaltyStages(false)" in timer_body,
+check("UpdatePenaltyStages(\"\")" in timer_body,
       "the game-time tick must reconcile penalties")
-check("UpdatePenaltyStages(false)" in timer_body[timer_body.rfind("endif"):],
+check("UpdatePenaltyStages(\"\")" in timer_body[timer_body.rfind("endif"):],
       "the tick must reconcile after the active/suspended branch, not inside one of them")
 
 for forbidden in ("HC_Manager", "HC_", "GetHardcore", "SurvivalModeEnabled"):
@@ -471,24 +471,29 @@ for prop, expected in (("HourlyHunger", 0.05), ("HourlyThirst", 0.10), ("HourlyS
     check(re.search(rf"float Property {prop} = [0-9.]+ Auto$", source, re.M) is not None,
           f"{prop} must stay a writable Auto float (no Const), or retuning needs a recompile")
 
-# Constraint: one ordinary item must move a third of a stage; PortionFor owns the 0.8 floor / 1.5 cap.
+# Constraint: one ordinary item must move a third of a stage; PortionFor owns the floor/cap/step.
 portion_body = function_body(source, "float Function PortionFor(Form akItem)")
-check("float portion = 0.8" in portion_body and "1.5" in portion_body,
-      "PortionFor needs the 0.8 floor and 1.5 cap so cheap items are not trivial")
-def scale(name):
-    match = re.search(rf"float Property {name} = ([0-9.]+) Auto", source)
-    return float(match.group(1)) if match else 0.0
+floor = float(re.search(r"float portion = ([0-9.]+)", portion_body).group(1)); cap = float(re.search(r"if portion > ([0-9.]+)", portion_body).group(1)); step = float(re.search(r"/ ([0-9.]+)", portion_body).group(1))
+scale = lambda name: float(re.search(rf"float Property {name} = ([0-9.]+) Auto", source).group(1))
 food_scale, drink_scale = scale("FoodScale"), scale("DrinkScale")
 for gold in (5, 50):
-    portion = min(1.5, 0.8 + gold / 100.0)
+    portion = min(cap, floor + gold / step)
     check(portion * food_scale >= 0.15 and portion * drink_scale >= 0.18,
           f"a {gold}-cap item must relieve at least 0.15 hunger / 0.18 thirst")
+debt = function_body(source, "Function AddDebt(string asPool, float afDelta)")
+check("if afDelta < 0.0" in debt and "UpdatePenaltyStages(asPool)" in debt,
+      "item relief must reconcile its own pool immediately or a neighbouring pool's stage flaps")
 held = function_body(source, "int Function StageForHeld(float afDebt, int aiCurrent, bool abImmediate)")
 check("if abImmediate" in held and "return StageFor(afDebt)" in held,
       "item relief must bypass the stage hysteresis so one use can drop a stage visibly")
+check('asReliefPool == "hunger"' in update_body and 'asReliefPool == "thirst"' in update_body,
+      "only the pool that received relief may skip the hysteresis")
 relief = function_body(source, "Function ApplyRelief(Form akItem, int aiCount)")
 check("Debug.Notification(\"Hunger eased\")" in relief and "Debug.Notification(\"Thirst quenched\")" in relief,
       "a confirmed food/drink use must give the player feedback")
+check("hungerBefore - 0.01" in relief and "thirstBefore - 0.01" in relief and
+      "hydration = AlcoholHydrationScale" in relief,
+      "feedback fires only on a real drop; alcohol hydration stays the documented exception")
 readme = ROOT / "README.md"
 check("needs.json" not in text(readme) if readme.is_file() else True,
       "the README must not still describe the removed needs.json rates")
@@ -526,7 +531,6 @@ for call, signature in (("Diseases.Tick(", "Function TickDiseases(float afHours)
     check("IsActive()" in wrapper, f"{signature} must pass the layer gate down")
 check("RestCureDiseases(" in sleep_body, "the sleep handler must offer the rest cure")
 check("ReconcileDiseases(" in timer_body, "the tick must reconcile the disease ability")
-
 risk_body = function_body(
     disease_code, "Function AccrueRisk(float afHours, bool abActive, int aiHungerStage, int aiThirstStage, int aiSleepStage)")
 check("HourlyRisk" in risk_body and "RiskPerWeakStage" in risk_body,
@@ -534,7 +538,6 @@ check("HourlyRisk" in risk_body and "RiskPerWeakStage" in risk_body,
 check("IsImmune(" in risk_body, "risk must honour the immunity window")
 check("StartDisease(" in risk_body, "a full risk pool must start an illness")
 check("DiseaseId > 0" in risk_body, "risk must not build while an illness is live")
-
 hit_exposure = function_body(disease_code, "Function ExposureHit(bool abActive)")
 check("HitCooldownSeconds" in hit_exposure,
       "a hit needs a cooldown, or an automatic burst floods the pool")
@@ -575,7 +578,6 @@ for guard in ("abActive", "DiseasesEnabled", "IsImmune(", "DiseaseId > 0"):
     check(guard in add_risk, f"exposure must be gated by {guard}")
 check("StartDisease(" in add_risk, "a pool filled by exposure must start an illness")
 check("MirrorRisk()" in add_risk, "exposure must refresh the risk mirror")
-
 immune_body = function_body(disease_code, "bool Function IsImmune()")
 check("ImmunityUntil" in immune_body and "GetCurrentGameTime(" in immune_body,
       "immunity must expire on game time")
@@ -585,13 +587,11 @@ for phase in ("IncubationHours", "Stage2Hours", "Stage3Hours"):
     check(phase in advance_body, f"disease escalation must use {phase}")
 check("Reconcile(" in advance_body, "a stage change must re-apply the ability")
 check("abActive" in advance_body, "disease progression must freeze while the layer is suspended")
-
 rest_body = function_body(
     disease_code, "Function TryRestCure(float afHours, bool abInterrupted, bool abActive)")
 check("abInterrupted" in rest_body, "an interrupted night must not cure")
 check("RestCureBaseHours" in rest_body, "the rest cure needs a duration threshold")
 check("CureDisease()" in rest_body, "a long enough rest must cure")
-
 cure_body = function_body(disease_code, "Function CureDisease()")
 check("ImmunityUntil =" in cure_body, "a cure must open an immunity window")
 check("DiseaseId = 0" in cure_body, "a cure must clear the disease id")

@@ -742,17 +742,17 @@ same text, relocated so the source carries only constraints.
 
 - Same per-game-hour rate as live rest, gated on current rads.
 
+## Needs relief tuning: one food/drink must visibly move the pools (2026-10-30)
 
-## Needs relief tuning: one food/drink must visibly move the pools (2026-10-29)
-
-Reference: `Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`, `:ApplyRelief`,
-`:StageForHeld`, `:UpdatePenaltyStages`, `Rad-Overhaul-Fallout-4/tests/verify_survival.py`, `Rad-Overhaul-Fallout-4/docs/IN_GAME_TEST_CHECKLIST.md`.
+Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:PortionFor`, `:ApplyRelief`, `:StageForHeld`,
+`:UpdatePenaltyStages`, `:AddDebt`, `tests/verify_survival.py`, `docs/IN_GAME_TEST_CHECKLIST.md`.
 
 **Reported symptom and root cause.** "Food/drink items barely reduce hunger/thirst; it takes about three items before
 anything changes". Two multipliers stacked against the player. `PortionFor` gave every item a 0.5 floor plus
 `value/100`, capped at 1.0, and `ApplyRelief` multiplied that by `FoodScale = 0.20` / `DrinkScale = 0.25`. The values
 below are the winners in this load order, measured through FO4IDE (`get_record` shows the winner; `ALCH\Value` read
-from that plugin). Cheap items resolved to about 0.11 hunger / 0.14 thirst, i.e. only ~2 game hours of hunger drain.
+from that plugin) on 2026-10-30. Only the `Fallout4.esm` rows can be re-checked from the repo; `FWHardcore_Food.esp`
+and the Ashfall `RadiationOverhaul.esp` are installed mods, not repo files, so CI cannot re-derive those values. Cheap items resolved to about 0.11 hunger / 0.14 thirst, i.e. only ~2 game hours of hunger drain.
 Then `StageForHeld` kept a held stage until the debt fell a further `StageHysteresis = 0.04` below the band edge, so a
 drop could need several items before the HUD stage or penalty spell changed.
 
@@ -761,27 +761,35 @@ drop could need several items before the HUD stage or penalty spell changed.
 | Dirty Water, WaterInstitute, Bubblegum (FWHardcore_Food.esp) | 5 | 0.55 | 0.11 | 0.14 | 0.85 | 0.17 | 0.21 |
 | steakMolerat (RadiationOverhaul.esp), MeatBloatfly (FWHardcore_Food.esp) | 8 | 0.58 | 0.12 | 0.15 | 0.88 | 0.18 | 0.22 |
 | BlamcoMacAndCheese, PorknBeans, FoodPackInstitute (FWHardcore_Food.esp) | 10 | 0.60 | 0.12 | 0.15 | 0.90 | 0.18 | 0.23 |
-| steakDog, steakMutantHound (RadiationOverhaul.esp) | 12 | 0.62 | 0.12 | 0.16 | 0.92 | 0.18 | 0.23 |
+| steakDog (RadiationOverhaul.esp), steakMutantHound (FWHardcore_Food.esp) | 12 | 0.62 | 0.12 | 0.16 | 0.92 | 0.18 | 0.23 |
 | FancyLadSnackCakes, MeatMirelurk (FWHardcore_Food.esp) | 18 | 0.68 | 0.14 | 0.17 | 0.98 | 0.20 | 0.25 |
 | NukaCola (Fallout4.esm), InstaMash, SalisburySteak, MirelurkEgg, NoodleCup (FWHardcore_Food.esp) | 20 | 0.70 | 0.14 | 0.18 | 1.00 | 0.20 | 0.25 |
 | Cram, LukowskisPottedMeat (FWHardcore_Food.esp) | 25 | 0.75 | 0.15 | 0.19 | 1.05 | 0.21 | 0.26 |
 | steakBrahmin, steakMirelurk (RadiationOverhaul.esp) | 40 | 0.90 | 0.18 | 0.23 | 1.20 | 0.24 | 0.30 |
 | WaterPurified (FWHardcore_Food.esp) | 75 | 1.00 | 0.20 | 0.25 | 1.50 (cap) | 0.30 | 0.38 |
-| SteakDeathclaw, SteakMirelurkQueen (FWHardcore_Food.esp) | 130 | 1.00 | 0.20 | 0.25 | 1.50 (cap) | 0.30 | 0.38 |
+| SteakDeathclaw, SteakMirelurkQueen (RadiationOverhaul.esp) | 130 | 1.00 | 0.20 | 0.25 | 1.50 (cap) | 0.30 | 0.38 |
+| Beer/liquor (alcohol, `AlcoholHydrationScale` 0.25) | 12 | 0.62 | - | 0.04 | 0.92 | - | 0.06 |
 
 **Formula change.** `PortionFor` is now `clamp(0.8 + value/100, 0.8, 1.5)`; `FoodScale`/`DrinkScale` stay the Auto
 tuning knobs, so MCM/xEdit retuning still works without a recompile. One ordinary item now clears the 0.15 hunger and
 0.18 thirst targets from the request (about half of the first 0.34 band), and a single item that crosses a band edge
-now shows immediately.
+now shows immediately. The columns are `portion x FoodScale` and `portion x DrinkScale`; a drink only applies the
+thirst column (`ate` needs the food keyword) and a food only the hunger column. **Alcohol is the documented
+exception:** `AlcoholHydrationScale` keeps a 12-cap beer at about 0.06 thirst, intentionally below the 0.18 target,
+because alcohol hydrates far less than water.
 
-**Hysteresis.** `StageForHeld` takes an `abImmediate` flag: `AddDebt` passes true when the delta is negative (item
-relief, sleep recovery) and false for hourly accrual, so relief uses the plain `StageFor` result while accrual keeps
-the 0.04 anti-flap band. The alternative (dropping `StageHysteresis` to 0.02) was rejected because it still hides an
-item that lands just above a band edge.
+**Hysteresis.** `StageForHeld` takes an `abImmediate` flag computed per pool from `asReliefPool`: `AddDebt` passes
+the pool that received a negative delta (item relief, sleep recovery) and an empty string for hourly accrual, so only
+the relieved pool uses the plain `StageFor` result while the other pools and all accrual keep the 0.04 anti-flap band.
+Passing a global "negative delta" flag would have cleared a held stage on a neighbouring pool that never moved and
+then re-raised it on the next tick, causing penalty-spell churn and stage-notification spam. The alternative (dropping
+`StageHysteresis` to 0.02) was rejected because it still hides an item that lands just above a band edge.
 
 **Feedback.** A confirmed food use now raises `Debug.Notification("Hunger eased")`, a drink raises
-`Debug.Notification("Thirst quenched")`, both gated by the existing `ShowNotifications` property. No new event owner:
-the disease layer stays a second script, and `ApplyRelief` still routes through `Diseases.ConsumeItem`.
+`Debug.Notification("Thirst quenched")`, both gated by the existing `ShowNotifications` property and only when the
+matching debt actually fell by at least 0.01 (so a clamped pool at 0, alcohol's small hydration, and a refused relief
+stay silent). No new event owner: the disease layer stays a second script, and `ApplyRelief` still routes through
+`Diseases.ConsumeItem`.
 
 **Chems and vanilla Survival.** `ApplyRelief` only runs for food/drink keywords (plus the disease script's cure item),
 so chems never touch the pools. No `HC_*` form or `HC_Manager` reference is added; the layer still suspends while
@@ -791,4 +799,6 @@ vanilla Survival is active.
 computed from the shipped formula, not observed in game. **Not verified in game:** that Papyrus delivers exactly one
 confirmed use per item (the pending count path can miss a use if the engine consumes before the tick - the pairing
 rewrite lives on the separate needs/disease branch), the notification placement, and the actual HUD stage change. The
-checklist section below is the in-game check.
+checklist section below is the in-game check. The confirmation path on this branch is still the count-drop design;
+the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
+mistaken for a use here.

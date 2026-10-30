@@ -1,7 +1,6 @@
 ScriptName RadSurvivalQuest extends Quest
 
-; Constraint: HC_Manager and every HC_* form are read and written nowhere here.
-; Constraint: relief needs a confirmed inventory count drop, never the equip event.
+; Constraint: Constraint: HC_Manager and every HC_* form are read and written nowhere here. Constraint: relief needs a confirmed inventory count drop, never the equip event.
 
 ; tuning - the only source of the pool rates; the three GLOBs are the HUD contract
 
@@ -89,15 +88,15 @@ Event OnInit()
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] ready at game day " + LastGameTime)
 EndEvent
+
 Function ArmSleepWaitEvents()
-    ; Unregister first: a script instance that survived a load can already be
-    ; registered, and a duplicate registration delivers every sleep/wait event
-    ; twice. This runs on init only; OnPlayerLoadGame does not re-arm it.
+; Constraint: Unregister first: a script instance that survived a load can already be registered, and a duplicate registration delivers every sleep/wait event twice. This runs on init only; OnPlayerLoadGame does not re-arm it.
     UnregisterForPlayerSleep()
     UnregisterForPlayerWait()
     RegisterForPlayerSleep()
     RegisterForPlayerWait()
 EndFunction
+
 Function ArmPlayerEvents(Actor player)
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
@@ -115,8 +114,7 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
         return
     endif
 
-    ; A save restore moves the clock; re-anchor so the loaded interval is not
-    ; read as elapsed play time.
+; Constraint: A save restore moves the clock; re-anchor so the loaded interval is not read as elapsed play time.
     LastGameTime = Utility.GetCurrentGameTime()
     SleepStartTime = -1.0
     WaitStartTime = -1.0
@@ -142,17 +140,17 @@ Event OnTimerGameTime(int aiTimerID)
         AdvanceTo(Utility.GetCurrentGameTime())
         ExpirePending()
     else
-        ; Suspended: keep the clock anchored so turning vanilla Survival off
-        ; mid-save cannot be read as hours of skipped play.
+; Constraint: Suspended: keep the clock anchored so turning vanilla Survival off mid-save cannot be read as hours of skipped play.
         LastGameTime = Utility.GetCurrentGameTime()
     endif
 
     ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
-    UpdatePenaltyStages(false)
+    UpdatePenaltyStages("")
     ReconcileDiseases()
 
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
+
 Function RestartTimer()
     CancelTimerGameTime(kTimerID)
     StartTimerGameTime(TickGameHours, kTimerID)
@@ -196,6 +194,7 @@ Event Actor.OnPlayerSwimming(Actor akSender)
     endif
     Diseases.ExposureSwim(IsActive())
 EndEvent
+
 Function ArmPending(Form akItem, int aiCount)
     ; Constraint: a second item used before the tick must not overwrite the first.
     if PendingForm && PendingForm2
@@ -217,6 +216,7 @@ Function ArmPending(Form akItem, int aiCount)
         PendingRealTime2 = Utility.GetCurrentRealTime()
     endif
 EndFunction
+
 Function ExpirePending()
     if PendingForm && PendingRealTime >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime >= PendingExpirySeconds
         Form first = PendingForm
@@ -236,6 +236,7 @@ Function ExpirePending()
         ConfirmConsumption(second, secondCount)
     endif
 EndFunction
+
 Function ConfirmConsumption(Form akItem, int aiArmed)
     Actor player = Game.GetPlayer()
     if !player || !akItem
@@ -246,6 +247,7 @@ Function ConfirmConsumption(Form akItem, int aiArmed)
         ApplyRelief(akItem, aiArmed - now)
     endif
 EndFunction
+
 Function ClearPending()
     PendingForm = None
     PendingCount = 0
@@ -254,6 +256,7 @@ Function ClearPending()
     PendingCount2 = 0
     PendingRealTime2 = -1.0
 EndFunction
+
 Function ApplyRelief(Form akItem, int aiCount)
     if aiCount <= 0
         return
@@ -273,6 +276,8 @@ Function ApplyRelief(Form akItem, int aiCount)
         hydration = AlcoholHydrationScale
     endif
 
+    float hungerBefore = HungerDebt
+    float thirstBefore = ThirstDebt
     float portion = PortionFor(akItem)
     if ate
         AddDebt("hunger", -1.0 * portion * FoodScale)
@@ -280,10 +285,10 @@ Function ApplyRelief(Form akItem, int aiCount)
     if drank
         AddDebt("thirst", -1.0 * portion * DrinkScale * hydration)
     endif
-    if ShowNotifications && ate
+    if ShowNotifications && ate && HungerDebt <= hungerBefore - 0.01
         Debug.Notification("Hunger eased")
     endif
-    if ShowNotifications && drank
+    if ShowNotifications && drank && ThirstDebt <= thirstBefore - 0.01
         Debug.Notification("Thirst quenched")
     endif
     Debug.Trace("[RadSurvivalQuest] consumed " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
@@ -333,8 +338,7 @@ Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)
     endif
     AddDebt("sleep", -1.0 * recovery)
 
-    ; Sleep advances game time without ticks: accrue it once, then restart the
-    ; timer so the next interval is measured from the wake-up.
+; Constraint: Sleep advances game time without ticks: accrue it once, then restart the timer so the next interval is measured from the wake-up.
     AccrueElapsed(hours)
     RestCureDiseases(hours, abInterrupted)
     RestartTimer()
@@ -372,6 +376,7 @@ Event OnPlayerWaitStop(bool abInterrupted)
 EndEvent
 
 ; progression
+
 Function AdvanceTo(float nowDays)
     if LastGameTime < 0.0
         LastGameTime = nowDays
@@ -388,6 +393,7 @@ Function AdvanceTo(float nowDays)
     LastGameTime = nowDays
     Accrue(hours)
 EndFunction
+
 Function AccrueElapsed(float afHours)
     if afHours <= 0.0
         return
@@ -398,6 +404,7 @@ Function AccrueElapsed(float afHours)
     LastGameTime = Utility.GetCurrentGameTime()
     Accrue(afHours)
 EndFunction
+
 Function Accrue(float afHours)
     AddDebt("hunger", HourlyHunger * afHours)
     AddDebt("thirst", HourlyThirst * afHours)
@@ -416,7 +423,11 @@ Function AddDebt(string asPool, float afDelta)
         SleepDebt = Clamp01(SleepDebt + afDelta)
         MirrorToGlobal(RadSurvival_Sleep, SleepDebt)
     endif
-    UpdatePenaltyStages(afDelta < 0.0)
+    if afDelta < 0.0
+        UpdatePenaltyStages(asPool)
+    else
+        UpdatePenaltyStages("")
+    endif
 EndFunction
 
 float Function Clamp01(float afValue)
@@ -443,25 +454,17 @@ Function MirrorToGlobal(GlobalVariable akTarget, float afValue)
     endif
 EndFunction
 
-; -----------------------------------------------------------------------------
-; penalties - staged ability spells authored in RadSurvival.esp
-;
-; One spell per pool per stage (1-3), 1:1 with the stage the pools compute. A stage
-; change removes the spell that is on the player and adds the new one, so penalties
-; never stack and relief takes the spell off. Stage 0 means no spell at all.
-; -----------------------------------------------------------------------------
+; Constraint: ----------------------------------------------------------------------------- penalties - staged ability spells authored in RadSurvival.esp One spell per pool per stage (1-3), 1:1 with the stage the pools compute. A stage change removes the spell that is on the player and adds the new one, so penalties never stack and relief takes the spell off. Stage 0 means no spell at all. -----------------------------------------------------------------------------
 
-Function UpdatePenaltyStages(bool abImmediate)
+Function UpdatePenaltyStages(string asReliefPool)
     if !IsActive()
-        ; Suspended (disabled, or vanilla Survival owns the player): no Rad penalty may
-        ; survive the gate. The pools keep their values and resume with the layer.
+; Constraint: Suspended (disabled, or vanilla Survival owns the player): no Rad penalty may survive the gate. The pools keep their values and resume with the layer.
         ClearAllPenalties()
         return
     endif
 
-    ; Invariant: reconcile all three pools every call; ApplyStagePenalty is idempotent per pool.
-    ; Constraint: the trackers below gate only the notifications, never the reconcile.
-    int hunger = StageForHeld(HungerDebt, HungerStage, abImmediate)
+; Constraint: Invariant: reconcile all three pools every call; ApplyStagePenalty is idempotent per pool. Constraint: the trackers below gate only the notifications, never the reconcile.
+    int hunger = StageForHeld(HungerDebt, HungerStage, asReliefPool == "hunger")
     bool hungerRose = hunger > HungerStage
     HungerStage = hunger
     ApplyStagePenalty("hunger", hunger)
@@ -469,7 +472,7 @@ Function UpdatePenaltyStages(bool abImmediate)
         NotifyStage("hunger", hunger)
     endif
 
-    int thirst = StageForHeld(ThirstDebt, ThirstStage, abImmediate)
+    int thirst = StageForHeld(ThirstDebt, ThirstStage, asReliefPool == "thirst")
     bool thirstRose = thirst > ThirstStage
     ThirstStage = thirst
     ApplyStagePenalty("thirst", thirst)
@@ -477,7 +480,7 @@ Function UpdatePenaltyStages(bool abImmediate)
         NotifyStage("thirst", thirst)
     endif
 
-    int sleep = StageForHeld(SleepDebt, SleepStage, abImmediate)
+    int sleep = StageForHeld(SleepDebt, SleepStage, asReliefPool == "sleep")
     bool sleepRose = sleep > SleepStage
     SleepStage = sleep
     ApplyStagePenalty("sleep", sleep)
@@ -550,10 +553,7 @@ Function ClearAllPenalties()
 EndFunction
 
 Function ResyncPenalties()
-    ; Recount the stages from the pools, then let ApplyStagePenalty reconcile the spells.
-    ; Applied*Spell is saved state, so an unchanged stage does nothing and a retuned
-    ; table is picked up on the next load instead of doubling a spell.
-    ; Constraint: the cache must be dropped on every load so a retuned table is picked up.
+; Constraint: Recount the stages from the pools, then let ApplyStagePenalty reconcile the spells. Applied*Spell is saved state, so an unchanged stage does nothing and a retuned table is picked up on the next load instead of doubling a spell. Constraint: the cache must be dropped on every load so a retuned table is picked up.
     ClearPenaltyCache()
     HungerStage = StageFor(HungerDebt)
     ThirstStage = StageFor(ThirstDebt)

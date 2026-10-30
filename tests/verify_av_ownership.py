@@ -104,11 +104,11 @@ for path in sorted(list(SRC.glob("*.cpp")) + list(SRC.glob("*.h")) + list(SCRIPT
         check(token not in body, f"{path.name} writes an actor value directly with {token}")
 
 quest = read(SCRIPTS / "RadSurvivalQuest.psc")
-suspend = quest.split("Function UpdatePenaltyStages(bool abImmediate)", 1)[1].split("int Function StageFor", 1)[0]
+suspend = quest.split("Function UpdatePenaltyStages(string asReliefPool)", 1)[1].split("int Function StageFor", 1)[0]
 check("if !IsActive()" in suspend and "ClearAllPenalties()" in suspend,
       "a suspended layer must clear its penalty abilities")
 tick = quest.split("Event OnTimerGameTime(", 1)[1].split("Function RestartTimer", 1)[0]
-check("UpdatePenaltyStages(false)" in tick and "ReconcileDiseases()" in tick,
+check("UpdatePenaltyStages(\"\")" in tick and "ReconcileDiseases()" in tick,
       "the tick must reconcile both ability sets, penalties and diseases")
 
 disease_script = read(SCRIPTS / "RadSurvivalDiseases.psc")
