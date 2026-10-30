@@ -89,7 +89,6 @@ Event OnInit()
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] ready at game day " + LastGameTime)
 EndEvent
-
 Function ArmSleepWaitEvents()
     ; Unregister first: a script instance that survived a load can already be
     ; registered, and a duplicate registration delivers every sleep/wait event
@@ -99,7 +98,6 @@ Function ArmSleepWaitEvents()
     RegisterForPlayerSleep()
     RegisterForPlayerWait()
 EndFunction
-
 Function ArmPlayerEvents(Actor player)
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
@@ -150,12 +148,11 @@ Event OnTimerGameTime(int aiTimerID)
     endif
 
     ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
-    UpdatePenaltyStages()
+    UpdatePenaltyStages(false)
     ReconcileDiseases()
 
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
-
 Function RestartTimer()
     CancelTimerGameTime(kTimerID)
     StartTimerGameTime(TickGameHours, kTimerID)
@@ -199,7 +196,6 @@ Event Actor.OnPlayerSwimming(Actor akSender)
     endif
     Diseases.ExposureSwim(IsActive())
 EndEvent
-
 Function ArmPending(Form akItem, int aiCount)
     ; Constraint: a second item used before the tick must not overwrite the first.
     if PendingForm && PendingForm2
@@ -221,7 +217,6 @@ Function ArmPending(Form akItem, int aiCount)
         PendingRealTime2 = Utility.GetCurrentRealTime()
     endif
 EndFunction
-
 Function ExpirePending()
     if PendingForm && PendingRealTime >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime >= PendingExpirySeconds
         Form first = PendingForm
@@ -241,7 +236,6 @@ Function ExpirePending()
         ConfirmConsumption(second, secondCount)
     endif
 EndFunction
-
 Function ConfirmConsumption(Form akItem, int aiArmed)
     Actor player = Game.GetPlayer()
     if !player || !akItem
@@ -252,7 +246,6 @@ Function ConfirmConsumption(Form akItem, int aiArmed)
         ApplyRelief(akItem, aiArmed - now)
     endif
 EndFunction
-
 Function ClearPending()
     PendingForm = None
     PendingCount = 0
@@ -261,7 +254,6 @@ Function ClearPending()
     PendingCount2 = 0
     PendingRealTime2 = -1.0
 EndFunction
-
 Function ApplyRelief(Form akItem, int aiCount)
     if aiCount <= 0
         return
@@ -288,17 +280,24 @@ Function ApplyRelief(Form akItem, int aiCount)
     if drank
         AddDebt("thirst", -1.0 * portion * DrinkScale * hydration)
     endif
+    if ShowNotifications && ate
+        Debug.Notification("Hunger eased")
+    endif
+    if ShowNotifications && drank
+        Debug.Notification("Thirst quenched")
+    endif
     Debug.Trace("[RadSurvivalQuest] consumed " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
 EndFunction
 
+; Constraint: cheap items still relieve a visible share; value scales above the floor.
 float Function PortionFor(Form akItem)
-    float portion = 0.5
+    float portion = 0.8
     int value = akItem.GetGoldValue()
     if value > 0
-        portion = 0.5 + (value as float) / 100.0
+        portion = portion + (value as float) / 100.0
     endif
-    if portion > 1.0
-        portion = 1.0
+    if portion > 1.5
+        portion = 1.5
     endif
     return portion
 EndFunction
@@ -373,7 +372,6 @@ Event OnPlayerWaitStop(bool abInterrupted)
 EndEvent
 
 ; progression
-
 Function AdvanceTo(float nowDays)
     if LastGameTime < 0.0
         LastGameTime = nowDays
@@ -390,7 +388,6 @@ Function AdvanceTo(float nowDays)
     LastGameTime = nowDays
     Accrue(hours)
 EndFunction
-
 Function AccrueElapsed(float afHours)
     if afHours <= 0.0
         return
@@ -401,7 +398,6 @@ Function AccrueElapsed(float afHours)
     LastGameTime = Utility.GetCurrentGameTime()
     Accrue(afHours)
 EndFunction
-
 Function Accrue(float afHours)
     AddDebt("hunger", HourlyHunger * afHours)
     AddDebt("thirst", HourlyThirst * afHours)
@@ -420,7 +416,7 @@ Function AddDebt(string asPool, float afDelta)
         SleepDebt = Clamp01(SleepDebt + afDelta)
         MirrorToGlobal(RadSurvival_Sleep, SleepDebt)
     endif
-    UpdatePenaltyStages()
+    UpdatePenaltyStages(afDelta < 0.0)
 EndFunction
 
 float Function Clamp01(float afValue)
@@ -455,7 +451,7 @@ EndFunction
 ; never stack and relief takes the spell off. Stage 0 means no spell at all.
 ; -----------------------------------------------------------------------------
 
-Function UpdatePenaltyStages()
+Function UpdatePenaltyStages(bool abImmediate)
     if !IsActive()
         ; Suspended (disabled, or vanilla Survival owns the player): no Rad penalty may
         ; survive the gate. The pools keep their values and resume with the layer.
@@ -465,7 +461,7 @@ Function UpdatePenaltyStages()
 
     ; Invariant: reconcile all three pools every call; ApplyStagePenalty is idempotent per pool.
     ; Constraint: the trackers below gate only the notifications, never the reconcile.
-    int hunger = StageForHeld(HungerDebt, HungerStage)
+    int hunger = StageForHeld(HungerDebt, HungerStage, abImmediate)
     bool hungerRose = hunger > HungerStage
     HungerStage = hunger
     ApplyStagePenalty("hunger", hunger)
@@ -473,7 +469,7 @@ Function UpdatePenaltyStages()
         NotifyStage("hunger", hunger)
     endif
 
-    int thirst = StageForHeld(ThirstDebt, ThirstStage)
+    int thirst = StageForHeld(ThirstDebt, ThirstStage, abImmediate)
     bool thirstRose = thirst > ThirstStage
     ThirstStage = thirst
     ApplyStagePenalty("thirst", thirst)
@@ -481,7 +477,7 @@ Function UpdatePenaltyStages()
         NotifyStage("thirst", thirst)
     endif
 
-    int sleep = StageForHeld(SleepDebt, SleepStage)
+    int sleep = StageForHeld(SleepDebt, SleepStage, abImmediate)
     bool sleepRose = sleep > SleepStage
     SleepStage = sleep
     ApplyStagePenalty("sleep", sleep)
@@ -490,7 +486,11 @@ Function UpdatePenaltyStages()
     endif
 EndFunction
 
-int Function StageForHeld(float afDebt, int aiCurrent)
+int Function StageForHeld(float afDebt, int aiCurrent, bool abImmediate)
+    ; Constraint: item relief skips the hysteresis so one use can drop a stage visibly.
+    if abImmediate
+        return StageFor(afDebt)
+    endif
     ; Constraint: a held stage only steps down after clearing its threshold by the band.
     if aiCurrent >= 3 && afDebt >= 0.90 - StageHysteresis
         return 3

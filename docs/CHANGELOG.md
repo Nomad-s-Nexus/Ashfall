@@ -1,6 +1,17 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-10-29: food/drink relief is no longer trivial
+
+**A normal meal or drink now visibly moves hunger/thirst.** `PortionFor` gives every item a 0.8 floor (was 0.5) and a
+1.5 cap (was 1.0), still scaled by gold value, so a 5-cap Dirty Water now relieves 0.17 hunger / 0.21 thirst (was 0.11 /
+0.14). `FoodScale` (0.20) and `DrinkScale` (0.25) stay the editable Auto knobs. Item relief and sleep recovery now
+bypass `StageHysteresis` while hourly accrual keeps the 0.04 anti-flap band, so one item that crosses a band edge
+changes the stage on that use. A confirmed food use shows "Hunger eased"; a drink shows "Thirst quenched"
+(`ShowNotifications` still gates it). Chems still never feed the pools, no `HC_*` form is touched, and the disease
+script remains the only second owner. Values measured from the winning records with FO4IDE; relief numbers are
+computed, **not verified in game**.
+
 ## 2026-07-19: black storm dome FIXED (confirmed in-game); storm siren logging + debug lead
 
 **Black dome [FIXED — confirmed in-game 2026-07-19].** Closes the Issue 1 left open by pt13 below.

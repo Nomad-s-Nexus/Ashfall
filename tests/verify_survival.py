@@ -1,35 +1,27 @@
 """Survival contract checks for the vanilla Papyrus quest and Rad-owned records."""
-
 import json
 import re
 import struct
 import sys
 from pathlib import Path
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalQuest.psc"
 COMPILED = ROOT / "deploy/Scripts/RadSurvivalQuest.pex"
 DISEASE_SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalDiseases.psc"
 DISEASE_COMPILED = ROOT / "deploy/Scripts/RadSurvivalDiseases.pex"
 PLUGIN = ROOT / "deploy/RadSurvival.esp"
-
 PEX_MAGIC = bytes((0xDE, 0xC0, 0x57, 0xFA))
 SCRIPT_NAME = "RadSurvivalQuest"
 GLOB_EDITOR_IDS = ("RadSurvival_Hunger", "RadSurvival_Thirst", "RadSurvival_Sleep")
 PROPERTY_NAMES = GLOB_EDITOR_IDS
 REMOVED_RUNTIME = re.compile(r"(?<![A-Za-z])" + "Hy" + "dra" + r"(?![A-Za-z])", re.IGNORECASE)
-
 failures = []
-
-
 def check(condition, message):
     if not condition:
         failures.append(message)
 
-
 def text(path):
     return path.read_text(encoding="utf-8")
-
 
 def code_only(papyrus):
     lines = []
@@ -38,27 +30,22 @@ def code_only(papyrus):
         lines.append(line if cut < 0 else line[:cut])
     return "\n".join(lines)
 
-
 def function_body(source_code, signature):
     match = re.search(re.escape(signature) + r"(.*?)\nEndFunction", source_code, re.S)
     return match.group(1) if match else ""
 
-
 check(SOURCE.is_file(), f"missing {SOURCE.relative_to(ROOT)}")
 source = text(SOURCE) if SOURCE.is_file() else ""
 code = code_only(source)
-
 check(DISEASE_SOURCE.is_file(), f"missing {DISEASE_SOURCE.relative_to(ROOT)}")
 disease_source = text(DISEASE_SOURCE) if DISEASE_SOURCE.is_file() else ""
 disease_code = code_only(disease_source)
-
 check(f"ScriptName {SCRIPT_NAME} extends Quest" in code,
       f"script must declare 'ScriptName {SCRIPT_NAME} extends Quest'")
 check(SCRIPT_NAME in SOURCE.name, "script file name must match the script name")
 check(re.search(r"Function\s+\w+\([^)]*\)\s+Global\b", code) is None,
       "quest scripts must use instance functions, not global functions")
 check("Import " not in code, "quest script must not import a script-extender namespace")
-
 for required in (
     'RegisterForRemoteEvent(player, "OnItemEquipped")',
     'UnregisterForRemoteEvent(player, "OnItemEquipped")',
@@ -111,19 +98,16 @@ check("Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)" in co
 check("Event OnPlayerWaitStart(" in code, "wait start must be handled")
 check("Event OnPlayerWaitStop(bool abInterrupted)" in code, "wait stop must be handled")
 check("Event OnTimerGameTime(int aiTimerID)" in code, "the game-time timer must be handled")
-
 timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
 check("StartTimerGameTime(" in timer_body,
       "StartTimerGameTime is one-shot, so OnTimerGameTime must re-arm it")
 check("CancelTimerGameTime(" in code, "the timer must be cancelled before a jump restart")
-
 sleep_body = function_body(code, "Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)")
 check("abInterrupted" in sleep_body and "InterruptedScale" in sleep_body,
       "interrupted sleep must scale recovery")
 check("AccrueElapsed(" in sleep_body, "sleep must accrue its own elapsed interval")
 wait_body = function_body(code, "Event OnPlayerWaitStop(bool abInterrupted)")
 check("AccrueElapsed(" in wait_body, "waiting must accrue its own elapsed interval")
-
 check("MaxElapsedHours" in code and "240.0" in code, "progression must clamp a large jump")
 check("Utility.GetCurrentGameTime" in code, "progression must use game time")
 check("GetDifficulty()" in code and "kVanillaSurvivalDifficulty" in code,
@@ -174,7 +158,7 @@ clear_calls = function_body(code, "Function ClearAllPenalties()")
 for pool in ("hunger", "thirst", "sleep"):
     check(f'ApplyStagePenalty("{pool}", 0)' in clear_calls,
           f"ClearAllPenalties must clear the {pool} spell")
-update_body = function_body(code, "Function UpdatePenaltyStages()")
+update_body = function_body(code, "Function UpdatePenaltyStages(bool abImmediate)")
 check("ClearAllPenalties()" in update_body,
       "a suspended layer must clear its penalties")
 
@@ -211,9 +195,9 @@ check("ClearPenaltyCache()" in function_body(code, "Function ResyncPenalties()")
 
 # Constraint: the tick must reconcile after the active/suspended branch, not inside one of them.
 timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
-check("UpdatePenaltyStages()" in timer_body,
+check("UpdatePenaltyStages(false)" in timer_body,
       "the game-time tick must reconcile penalties")
-check("UpdatePenaltyStages()" in timer_body[timer_body.rfind("endif"):],
+check("UpdatePenaltyStages(false)" in timer_body[timer_body.rfind("endif"):],
       "the tick must reconcile after the active/suspended branch, not inside one of them")
 
 for forbidden in ("HC_Manager", "HC_", "GetHardcore", "SurvivalModeEnabled"):
@@ -275,10 +259,8 @@ if PLUGIN.is_file():
             check(form_id.to_bytes(4, "little") in vmad,
                   f"VMAD property value is not bound to 0x{form_id:08X}")
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plugin_reader
-
 manifest_path = ROOT / "tools/rad_penalty_spells.json"
 check(manifest_path.is_file(), "missing tools/rad_penalty_spells.json")
 manifest = json.loads(text(manifest_path)) if manifest_path.is_file() else {"spells": []}
@@ -475,7 +457,6 @@ if PLUGIN.is_file():
     check(quest_script.get("Diseases") == 0x01000800,
           "the quest script's Diseases property must bind the quest form, or the cure cannot reach the disease script")
 
-
 def tune(props, name):
     return float(props[name]) if isinstance(props.get(name), (int, float)) else None
 
@@ -489,6 +470,25 @@ for prop, expected in (("HourlyHunger", 0.05), ("HourlyThirst", 0.10), ("HourlyS
               f"{prop} is {value}, expected {expected}: the quest script owns the pool rates")
     check(re.search(rf"float Property {prop} = [0-9.]+ Auto$", source, re.M) is not None,
           f"{prop} must stay a writable Auto float (no Const), or retuning needs a recompile")
+
+# Constraint: one ordinary item must move a third of a stage; PortionFor owns the 0.8 floor / 1.5 cap.
+portion_body = function_body(source, "float Function PortionFor(Form akItem)")
+check("float portion = 0.8" in portion_body and "1.5" in portion_body,
+      "PortionFor needs the 0.8 floor and 1.5 cap so cheap items are not trivial")
+def scale(name):
+    match = re.search(rf"float Property {name} = ([0-9.]+) Auto", source)
+    return float(match.group(1)) if match else 0.0
+food_scale, drink_scale = scale("FoodScale"), scale("DrinkScale")
+for gold in (5, 50):
+    portion = min(1.5, 0.8 + gold / 100.0)
+    check(portion * food_scale >= 0.15 and portion * drink_scale >= 0.18,
+          f"a {gold}-cap item must relieve at least 0.15 hunger / 0.18 thirst")
+held = function_body(source, "int Function StageForHeld(float afDebt, int aiCurrent, bool abImmediate)")
+check("if abImmediate" in held and "return StageFor(afDebt)" in held,
+      "item relief must bypass the stage hysteresis so one use can drop a stage visibly")
+relief = function_body(source, "Function ApplyRelief(Form akItem, int aiCount)")
+check("Debug.Notification(\"Hunger eased\")" in relief and "Debug.Notification(\"Thirst quenched\")" in relief,
+      "a confirmed food/drink use must give the player feedback")
 readme = ROOT / "README.md"
 check("needs.json" not in text(readme) if readme.is_file() else True,
       "the README must not still describe the removed needs.json rates")
