@@ -12,6 +12,14 @@
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadMaskViewFX.psc"
     },
     {
+      "script": "RadOutbreakEffect",
+      "source": "deploy/Scripts/Source/User/RadOutbreakEffect.psc",
+      "sourceSha256": "11fadd720ac1ceb55dd799e21a68353fcf2017e7a13d4e1d9eb27120ee7cd149",
+      "pex": "deploy/Scripts/RadOutbreakEffect.pex",
+      "pexSha256": "1b8bb1784bd599ad8270869b3484706dbd2435f1c87713ab8eaeb898355cd065",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadOutbreakEffect.psc"
+    },
+    {
       "script": "RadStormFX",
       "source": "deploy/Scripts/Source/User/RadStormFX.psc",
       "sourceSha256": "f3d8c57327e768c8643703e82443caa02f032921c0238bacb58309e46fb3e7a4",

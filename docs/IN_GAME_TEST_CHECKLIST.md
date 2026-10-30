@@ -93,3 +93,12 @@ matches. Mark everything else NOT RUN.
 ## 9. Needs persistence
 - **New character:** hunger/thirst/sleep start at 0 (GLOB defaults). Log: `[RadSurvivalQuest] ready at game day ...`.
 - **Load a save:** log `post-load anchor H/T/S=...` matches the HUD; no stale jump.
+
+## 10. NPC outbreak, milestone 1 probe (RadOutbreak.esp, off unless the spell is added by hand)
+- **Select a settler in the console and run `addspell XX000801`** (XX = RadOutbreak.esp load-order prefix). Expected log line
+  `RadOutbreak start actor=... stage=1` in the Papyrus log.
+- **Wait about 6 game hours (Wait menu or `wait`).** Expected: `RadOutbreak stage2`, then `RadOutbreak bed` and the settler
+  lies in the nearest bed that is not in use. If the settler keeps working or stands still, the `Bed.Activate(Patient)` route is beaten by the
+  workshop AI package: that is the answer this probe exists to give, report it.
+- **After 24 game hours** the effect dispels (`RadOutbreak finish`) and the settler returns to work.
+- Sounds are not wired yet (CoughSound/SneezeSound empty): silence is expected.

@@ -1262,3 +1262,14 @@ Paths are relative to `art-src/mask-view/`. Where a script's removed text is ide
 - `src/RadEngine_Mask.cpp:RadiationEngine::ApplyTuning` and `src/RadNeedsTuning.cpp:SetLive`: `ApplyTuning` publishes the value in force for every C++-side key, and `Json` shows override, else live value, else the table reference. A hand-edited INI value (for example `[Filter] DurationSeconds=600`) therefore shows as 600 instead of the table default.
 - `src/WaterBottleFill.cpp:WaterBottleFill::ActivateOnGameThread`: the sneak requirement reads `RadNeedsTuning::On(kWaterRequireSneak, g_config.requireModifier)` on every activation, so the panel toggle (`WaterRequireSneak`) overrides `[Water] RequireModifier` live and an unset toggle falls back to the INI. With sneak off a plain activation both fills a bottle and runs the vanilla drink; whether the drink's rads also apply is the open question already in the checklist. `LoadConfig` publishes the INI value through `SetLive` so the panel shows the real value.
 - `src/RadiationEngine.cpp:RadiationEngine::Update` (air payload): `autoMask` is 0 when `AutoEquipMask` is off, 2 when it is armed but `AutoEquipInCombat` is off and the player is in combat, else 1. `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_filter.html:renderFilter` shows it as the AUTO chip (OFF warns, HELD, ON) and hides the chip when the field is absent, so an older engine build still renders.
+
+## NPC outbreak milestone 1
+
+- `deploy/Scripts/Source/User/RadOutbreakEffect.psc:RadOutbreakEffect` is an ActiveMagicEffect on an ability spell
+  (`deploy/RadOutbreak.esp` 000801 -> MGEF 000800, Script archetype). State (stage, start time) lives on the effect, so it is
+  saved with the actor and cleared by Dispel.
+- `RadOutbreakEffect::EnsureInBed` finds beds with the vanilla `IsSleepFurniture` keyword (021B18) and calls `Bed.Activate(Patient)`
+  instead of authoring an AI package. Unproven in game: a workshop package may override it. The `Probe` trace lines are the evidence.
+- `RadOutbreakEffect::OnEffectStart` skips the player, the dead and essential actors only. Quest-marked exclusion, companion
+  "ill but never dead" handling and stage-3 death are not built yet.
+- Sound properties are None-safe until the ElevenLabs clips are exported into the repo.

@@ -1,6 +1,6 @@
 # NPC outbreak system: plan
 
-Status: plan only. Nothing here is implemented. Source: the Discord outbreak design pasted by the user on 2026-10-30.
+Status: milestone 1 probe written (RadOutbreakEffect.psc, RadOutbreak.esp), unproven in game. The rest is plan only. Source: the Discord outbreak design pasted by the user on 2026-10-30.
 Scope is NPCs in general (settlers, companions, wanderers), not settlers alone.
 
 ## What exists today
