@@ -4,6 +4,14 @@
   "sourceRoot": "deploy/Scripts/Source/User",
   "scripts": [
     {
+      "script": "RadMaskViewFX",
+      "source": "deploy/Scripts/Source/User/RadMaskViewFX.psc",
+      "sourceSha256": "b412ecce6847fcfb18f64187705ee113b78f1ce983e5b4f1cc3d0392eb176678",
+      "pex": "deploy/Scripts/RadMaskViewFX.pex",
+      "pexSha256": "490e2f5f74eae009e4eb0a74732fd205c1c5b8e7ad98983fcdfe3364a7cff030",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadMaskViewFX.psc"
+    },
+    {
       "script": "RadStormFX",
       "source": "deploy/Scripts/Source/User/RadStormFX.psc",
       "sourceSha256": "f3d8c57327e768c8643703e82443caa02f032921c0238bacb58309e46fb3e7a4",
