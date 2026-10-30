@@ -1,27 +1,35 @@
 """Survival contract checks for the vanilla Papyrus quest and Rad-owned records."""
+
 import json
 import re
 import struct
 import sys
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalQuest.psc"
 COMPILED = ROOT / "deploy/Scripts/RadSurvivalQuest.pex"
 DISEASE_SOURCE = ROOT / "deploy/Scripts/Source/User/RadSurvivalDiseases.psc"
 DISEASE_COMPILED = ROOT / "deploy/Scripts/RadSurvivalDiseases.pex"
 PLUGIN = ROOT / "deploy/RadSurvival.esp"
+
 PEX_MAGIC = bytes((0xDE, 0xC0, 0x57, 0xFA))
 SCRIPT_NAME = "RadSurvivalQuest"
 GLOB_EDITOR_IDS = ("RadSurvival_Hunger", "RadSurvival_Thirst", "RadSurvival_Sleep")
 PROPERTY_NAMES = GLOB_EDITOR_IDS
 REMOVED_RUNTIME = re.compile(r"(?<![A-Za-z])" + "Hy" + "dra" + r"(?![A-Za-z])", re.IGNORECASE)
+
 failures = []
+
+
 def check(condition, message):
     if not condition:
         failures.append(message)
 
+
 def text(path):
     return path.read_text(encoding="utf-8")
+
 
 def code_only(papyrus):
     lines = []
@@ -30,22 +38,27 @@ def code_only(papyrus):
         lines.append(line if cut < 0 else line[:cut])
     return "\n".join(lines)
 
+
 def function_body(source_code, signature):
     match = re.search(re.escape(signature) + r"(.*?)\nEndFunction", source_code, re.S)
     return match.group(1) if match else ""
 
+
 check(SOURCE.is_file(), f"missing {SOURCE.relative_to(ROOT)}")
 source = text(SOURCE) if SOURCE.is_file() else ""
 code = code_only(source)
+
 check(DISEASE_SOURCE.is_file(), f"missing {DISEASE_SOURCE.relative_to(ROOT)}")
 disease_source = text(DISEASE_SOURCE) if DISEASE_SOURCE.is_file() else ""
 disease_code = code_only(disease_source)
+
 check(f"ScriptName {SCRIPT_NAME} extends Quest" in code,
       f"script must declare 'ScriptName {SCRIPT_NAME} extends Quest'")
 check(SCRIPT_NAME in SOURCE.name, "script file name must match the script name")
 check(re.search(r"Function\s+\w+\([^)]*\)\s+Global\b", code) is None,
       "quest scripts must use instance functions, not global functions")
 check("Import " not in code, "quest script must not import a script-extender namespace")
+
 for required in (
     'RegisterForRemoteEvent(player, "OnItemEquipped")',
     'UnregisterForRemoteEvent(player, "OnItemEquipped")',
@@ -98,16 +111,19 @@ check("Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)" in co
 check("Event OnPlayerWaitStart(" in code, "wait start must be handled")
 check("Event OnPlayerWaitStop(bool abInterrupted)" in code, "wait stop must be handled")
 check("Event OnTimerGameTime(int aiTimerID)" in code, "the game-time timer must be handled")
+
 timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
 check("StartTimerGameTime(" in timer_body,
       "StartTimerGameTime is one-shot, so OnTimerGameTime must re-arm it")
 check("CancelTimerGameTime(" in code, "the timer must be cancelled before a jump restart")
+
 sleep_body = function_body(code, "Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)")
 check("abInterrupted" in sleep_body and "InterruptedScale" in sleep_body,
       "interrupted sleep must scale recovery")
 check("AccrueElapsed(" in sleep_body, "sleep must accrue its own elapsed interval")
 wait_body = function_body(code, "Event OnPlayerWaitStop(bool abInterrupted)")
 check("AccrueElapsed(" in wait_body, "waiting must accrue its own elapsed interval")
+
 check("MaxElapsedHours" in code and "240.0" in code, "progression must clamp a large jump")
 check("Utility.GetCurrentGameTime" in code, "progression must use game time")
 check("GetDifficulty()" in code and "kVanillaSurvivalDifficulty" in code,
@@ -259,8 +275,10 @@ if PLUGIN.is_file():
             check(form_id.to_bytes(4, "little") in vmad,
                   f"VMAD property value is not bound to 0x{form_id:08X}")
 
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plugin_reader
+
 manifest_path = ROOT / "tools/rad_penalty_spells.json"
 check(manifest_path.is_file(), "missing tools/rad_penalty_spells.json")
 manifest = json.loads(text(manifest_path)) if manifest_path.is_file() else {"spells": []}
@@ -457,6 +475,7 @@ if PLUGIN.is_file():
     check(quest_script.get("Diseases") == 0x01000800,
           "the quest script's Diseases property must bind the quest form, or the cure cannot reach the disease script")
 
+
 def tune(props, name):
     return float(props[name]) if isinstance(props.get(name), (int, float)) else None
 
@@ -491,7 +510,8 @@ check("if abImmediate" in held and "return StageFor(afDebt)" in held,
 check('asReliefPool == "hunger"' in update_body and 'asReliefPool == "thirst"' in update_body,
       "only the pool that received relief may skip the hysteresis")
 relief = function_body(source, "Function ApplyRelief(Form akItem, int aiCount)")
-check("Debug.Notification(\"Hunger eased\")" in relief and "Debug.Notification(\"Thirst quenched\")" in relief,
+check("Debug.Notification(\"Hunger eased\")" in relief and "Debug.Notification(\"Thirst quenched\")" in relief
+      and "Debug.Notification(\"Thirst eased\")" in relief,
       "a confirmed food/drink use must give the player feedback")
 check("hungerBefore - 0.01" in relief and "thirstBefore - 0.01" in relief and "hydration = AlcoholHydrationScale" in relief, "feedback fires only on a real drop; alcohol hydration is documented")
 readme = ROOT / "README.md"
@@ -531,6 +551,7 @@ for call, signature in (("Diseases.Tick(", "Function TickDiseases(float afHours)
     check("IsActive()" in wrapper, f"{signature} must pass the layer gate down")
 check("RestCureDiseases(" in sleep_body, "the sleep handler must offer the rest cure")
 check("ReconcileDiseases(" in timer_body, "the tick must reconcile the disease ability")
+
 risk_body = function_body(
     disease_code, "Function AccrueRisk(float afHours, bool abActive, int aiHungerStage, int aiThirstStage, int aiSleepStage)")
 check("HourlyRisk" in risk_body and "RiskPerWeakStage" in risk_body,
@@ -538,6 +559,7 @@ check("HourlyRisk" in risk_body and "RiskPerWeakStage" in risk_body,
 check("IsImmune(" in risk_body, "risk must honour the immunity window")
 check("StartDisease(" in risk_body, "a full risk pool must start an illness")
 check("DiseaseId > 0" in risk_body, "risk must not build while an illness is live")
+
 hit_exposure = function_body(disease_code, "Function ExposureHit(bool abActive)")
 check("HitCooldownSeconds" in hit_exposure,
       "a hit needs a cooldown, or an automatic burst floods the pool")
@@ -578,6 +600,7 @@ for guard in ("abActive", "DiseasesEnabled", "IsImmune(", "DiseaseId > 0"):
     check(guard in add_risk, f"exposure must be gated by {guard}")
 check("StartDisease(" in add_risk, "a pool filled by exposure must start an illness")
 check("MirrorRisk()" in add_risk, "exposure must refresh the risk mirror")
+
 immune_body = function_body(disease_code, "bool Function IsImmune()")
 check("ImmunityUntil" in immune_body and "GetCurrentGameTime(" in immune_body,
       "immunity must expire on game time")
@@ -587,11 +610,13 @@ for phase in ("IncubationHours", "Stage2Hours", "Stage3Hours"):
     check(phase in advance_body, f"disease escalation must use {phase}")
 check("Reconcile(" in advance_body, "a stage change must re-apply the ability")
 check("abActive" in advance_body, "disease progression must freeze while the layer is suspended")
+
 rest_body = function_body(
     disease_code, "Function TryRestCure(float afHours, bool abInterrupted, bool abActive)")
 check("abInterrupted" in rest_body, "an interrupted night must not cure")
 check("RestCureBaseHours" in rest_body, "the rest cure needs a duration threshold")
 check("CureDisease()" in rest_body, "a long enough rest must cure")
+
 cure_body = function_body(disease_code, "Function CureDisease()")
 check("ImmunityUntil =" in cure_body, "a cure must open an immunity window")
 check("DiseaseId = 0" in cure_body, "a cure must clear the disease id")

@@ -73,6 +73,7 @@ int CachedSleepStage = -1
 Spell CachedSleepSpell = None
 
 ; lifecycle
+
 Event OnInit()
     Actor player = Game.GetPlayer()
     if !player
@@ -88,6 +89,7 @@ Event OnInit()
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] ready at game day " + LastGameTime)
 EndEvent
+
 Function ArmSleepWaitEvents()
     ; Unregister first: a script instance that survived a load can already be
     ; registered, and a duplicate registration delivers every sleep/wait event
@@ -97,6 +99,7 @@ Function ArmSleepWaitEvents()
     RegisterForPlayerSleep()
     RegisterForPlayerWait()
 EndFunction
+
 Function ArmPlayerEvents(Actor player)
     UnregisterForRemoteEvent(player, "OnItemEquipped")
     RegisterForRemoteEvent(player, "OnItemEquipped")
@@ -107,6 +110,7 @@ Function ArmPlayerEvents(Actor player)
     UnregisterForRemoteEvent(player, "OnPlayerSwimming")
     RegisterForRemoteEvent(player, "OnPlayerSwimming")
 EndFunction
+
 Event Actor.OnPlayerLoadGame(Actor akSender)
     Actor player = Game.GetPlayer()
     if !player
@@ -130,6 +134,7 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
 EndEvent
 
 ; timer - StartTimerGameTime is one-shot, so the handler re-arms it
+
 Event OnTimerGameTime(int aiTimerID)
     if aiTimerID != kTimerID
         return
@@ -150,12 +155,14 @@ Event OnTimerGameTime(int aiTimerID)
 
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
+
 Function RestartTimer()
     CancelTimerGameTime(kTimerID)
     StartTimerGameTime(TickGameHours, kTimerID)
 EndFunction
 
 ; consumption
+
 Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)
     if !IsActive()
         return
@@ -170,6 +177,7 @@ Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference ak
 
     ArmPending(akBaseObject, player.GetItemCount(akBaseObject))
 EndEvent
+
 Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource, Projectile akProjectile, bool abPowerAttack, bool abSneakAttack, bool abBashAttack, bool abHitBlocked, string apMaterial)
     Actor player = Game.GetPlayer()
     if !player
@@ -184,12 +192,14 @@ Event OnHit(ObjectReference akTarget, ObjectReference akAggressor, Form akSource
         Diseases.ExposureHit(IsActive())
     endif
 EndEvent
+
 Event Actor.OnPlayerSwimming(Actor akSender)
     if Diseases == None
         return
     endif
     Diseases.ExposureSwim(IsActive())
 EndEvent
+
 Function ArmPending(Form akItem, int aiCount)
     ; Constraint: a second item used before the tick must not overwrite the first.
     if PendingForm && PendingForm2
@@ -211,6 +221,7 @@ Function ArmPending(Form akItem, int aiCount)
         PendingRealTime2 = Utility.GetCurrentRealTime()
     endif
 EndFunction
+
 Function ExpirePending()
     if PendingForm && PendingRealTime >= 0.0 && Utility.GetCurrentRealTime() - PendingRealTime >= PendingExpirySeconds
         Form first = PendingForm
@@ -230,6 +241,7 @@ Function ExpirePending()
         ConfirmConsumption(second, secondCount)
     endif
 EndFunction
+
 Function ConfirmConsumption(Form akItem, int aiArmed)
     Actor player = Game.GetPlayer()
     if !player || !akItem
@@ -240,6 +252,7 @@ Function ConfirmConsumption(Form akItem, int aiArmed)
         ApplyRelief(akItem, aiArmed - now)
     endif
 EndFunction
+
 Function ClearPending()
     PendingForm = None
     PendingCount = 0
@@ -248,6 +261,7 @@ Function ClearPending()
     PendingCount2 = 0
     PendingRealTime2 = -1.0
 EndFunction
+
 Function ApplyRelief(Form akItem, int aiCount)
     if aiCount <= 0
         return
@@ -280,7 +294,11 @@ Function ApplyRelief(Form akItem, int aiCount)
         Debug.Notification("Hunger eased")
     endif
     if ShowNotifications && drank && ThirstDebt <= thirstBefore - 0.01
-        Debug.Notification("Thirst quenched")
+        if hydration < 1.0
+            Debug.Notification("Thirst eased")
+        else
+            Debug.Notification("Thirst quenched")
+        endif
     endif
     Debug.Trace("[RadSurvivalQuest] consumed " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
 EndFunction
@@ -368,6 +386,7 @@ Event OnPlayerWaitStop(bool abInterrupted)
 EndEvent
 
 ; progression
+
 Function AdvanceTo(float nowDays)
     if LastGameTime < 0.0
         LastGameTime = nowDays
@@ -384,6 +403,7 @@ Function AdvanceTo(float nowDays)
     LastGameTime = nowDays
     Accrue(hours)
 EndFunction
+
 Function AccrueElapsed(float afHours)
     if afHours <= 0.0
         return
@@ -394,6 +414,7 @@ Function AccrueElapsed(float afHours)
     LastGameTime = Utility.GetCurrentGameTime()
     Accrue(afHours)
 EndFunction
+
 Function Accrue(float afHours)
     AddDebt("hunger", HourlyHunger * afHours)
     AddDebt("thirst", HourlyThirst * afHours)

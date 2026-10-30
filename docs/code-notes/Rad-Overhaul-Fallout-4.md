@@ -789,7 +789,7 @@ then re-raised it on the next tick, causing penalty-spell churn and stage-notifi
 `StageHysteresis` to 0.02) was rejected because it still hides an item that lands just above a band edge.
 
 **Feedback.** A confirmed food use now raises `Debug.Notification("Hunger eased")`, a drink raises
-`Debug.Notification("Thirst quenched")`, both gated by the existing `ShowNotifications` property and only when the
+`Debug.Notification("Thirst quenched")` (`"Thirst eased"` when the item is alcohol, so a weak beer does not claim to quench; `deploy/Scripts/Source/User/RadSurvivalQuest.psc:ApplyRelief`), both gated by the existing `ShowNotifications` property and only when the
 matching debt actually fell by at least 0.01 (so a clamped pool at 0 and a refused relief stay silent; alcohol still
 notifies, only its magnitude is the documented exception (`deploy/Scripts/Source/User/RadSurvivalQuest.psc:ApplyRelief`). No new event owner: the disease layer stays a second script,
 and `ApplyRelief` still routes through
