@@ -4,7 +4,7 @@ A radiation and environmental survival overhaul for Fallout 4 supporting OG 1.10
 `RadiationOverhaul.esp` + optional PrismaUI HUD. The core ESP references `Fallout4.esm`
 (plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The native storm-dome lighting
 currently still resolves two LIGH forms from `KORsAnomaly Stripped.esp`; making those records
-fully self-contained is tracked in issue #19.
+fully self-contained is tracked in the issue tracker.
 
 Author: NomadsReach
 
@@ -53,7 +53,6 @@ DLL-to-ESP FormID contract.
 ## Layout
 
 ```
-Rad-Overhaul-Fallout-4/
 ├── src/              C++ F4SE plugin source
 ├── data/             runtime configuration loaded by the DLL
 ├── deploy/           game-ready package
@@ -73,7 +72,7 @@ Rad-Overhaul-Fallout-4/
 ## Build the DLL
 
 ```powershell
-cd path\to\Rad-Overhaul-Fallout-4
+cd path\to\Ashfall
 xmake
 # output: build\release\FalloutAnomalyRadiation.dll
 ```

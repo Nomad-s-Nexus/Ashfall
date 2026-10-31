@@ -753,7 +753,7 @@ for path in ROOT.rglob("*"):
     if not path.is_file():
         continue
     rel = path.relative_to(ROOT)
-    if rel.parts[0] == "docs":
+    if rel.parts[0] in ("docs", ".git"):
         continue
     if path.resolve() == Path(__file__).resolve():
         continue

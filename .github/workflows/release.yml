@@ -1,59 +1,53 @@
-name: Rad Overhaul release
+name: Release
 
-# Builds the Windows DLL natively (MSVC) on the self-hosted Windows runner, packages the full mod
-# (deploy/ tree + the freshly-built FalloutAnomalyRadiation.dll), and publishes
-# a GitHub Release with the installable zip attached.
-#
-# Trigger: push a tag matching rad-overhaul-v*  (e.g. rad-overhaul-v1.0.0),
-# or run manually via workflow_dispatch with an explicit version.
+# Builds the DLL on the self-hosted Windows runner, packages deploy/ plus the fresh
+# FalloutAnomalyRadiation.dll, and publishes a GitHub Release with the zip attached.
+# Trigger: push a tag matching rad-overhaul-v* (for example rad-overhaul-v1.2.0).
 
 on:
   push:
     tags:
       - "rad-overhaul-v*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Release tag to create/publish (e.g. rad-overhaul-v1.0.0)"
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: rad-overhaul-release-${{ github.event.inputs.version || github.ref_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   release:
-    name: Build, package & publish (MSVC, self-hosted Windows)
-    runs-on: largepluginmods-windows
+    name: Build, package and publish
+    # Constraint: needs the private commonlib_NonVR checkout, so it only runs once the self-hosted runner is enabled.
+    if: vars.ASHFALL_NATIVE_BUILD == 'true'
+    runs-on: [self-hosted, windows, ashfall]
     defaults:
       run:
         shell: pwsh
+    env:
+      TAG: ${{ github.ref_name }}
+      ASSET: RadiationOverhaul-${{ github.ref_name }}.zip
+      PYTHONUTF8: "1"
 
     steps:
-      - name: Resolve release tag
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify the tag is on main
         run: |
           $ErrorActionPreference = 'Stop'
-          $tag = '${{ github.event.inputs.version || github.ref_name }}'
-          if (-not $tag.StartsWith('rad-overhaul-v')) { throw "refusing to release non rad-overhaul-v* tag: $tag" }
-          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "ASSET=RadiationOverhaul-$tag.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw "tag $env:TAG is not reachable from main" }
 
-      - name: Checkout repository
-        uses: https://github.com/actions/checkout@v4
-
-      - name: Verify commonlib_NonVR (RE authority)
+      - name: Verify commonlib_NonVR reference
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          # Constraint: the release builds against the same runner-provisioned checkout the PR build validates,
-          # so the release path needs no repository secret and cannot clone over the shared authority checkout.
-          # Rad Overhaul builds ONLY against PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR (private),
-          # never Dear-Modding-FO4/CommonLibF4 or any other CommonLib. Bump this SHA deliberately.
-          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'   # commonlib_NonVR: AE CreateExplosionAtLocation 2192306 (#72), public inventory event sources, survival bindings
+          # Constraint: bump this SHA deliberately; the release must build the same CommonLib the CI build validated.
+          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'
           $commonLib = $env:COMMONLIBF4_PATH
           if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
           $pinned = (git -C $commonLib rev-parse HEAD).Trim()
@@ -63,27 +57,27 @@ jobs:
           $submodule = (git -C $commonLib submodule status --recursive) -join "`n"
           if ($submodule -match '(?m)^[+U-]') { throw 'CommonLib submodule does not match its pin' }
           if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) {
-            throw 'RE-Work marker missing — checkout is not commonlib_NonVR'
+            throw 'RE-Work marker missing; checkout is not commonlib_NonVR'
           }
           Write-Host "commonlib_NonVR: $pinned"
-          "COMMONLIBF4_PATH=$commonLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Verify runner tools
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          # Constraint: xmake comes from the provisioned runner, like the PR build. A marketplace
-          # setup action is not mirrored on this instance and fails to resolve before any step runs.
           xmake --version
           node --version
           python --version
+          gh --version
 
       - name: Run release contract tests
-        working-directory: Rad-Overhaul-Fallout-4
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          python --version
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           python tests/verify_ci_deploy.py
           python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
           python tests/verify_mask_extras.py
@@ -93,6 +87,7 @@ jobs:
           python tests/verify_ghoul_contract.py
           python tests/verify_storm_spawn_ownership.py
           python tests/verify_serialization_policy.py
+          python tests/verify_rad_stack_integration.py
           python tests/verify_survival.py
           python tests/verify_survival_diseases.py
           python tests/verify_survival_menu.py
@@ -101,17 +96,18 @@ jobs:
           python tests/verify_papyrus_pex.py
 
       - name: Configure (MSVC)
-        working-directory: Rad-Overhaul-Fallout-4
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           foreach ($dir in @('build', 'build-msvc', '.xmake')) {
             if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
           }
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           xmake f -p windows -a x64 -m release --builddir=build-msvc -y
 
       - name: Build and run release policy tests
-        working-directory: Rad-Overhaul-Fallout-4
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -120,11 +116,9 @@ jobs:
           foreach ($t in $tests) { & ".\build\tests\$t.exe" }
 
       - name: Build
-        working-directory: Rad-Overhaul-Fallout-4
         run: xmake build -vD -y FalloutAnomalyRadiation
 
       - name: Package mod archive
-        working-directory: Rad-Overhaul-Fallout-4
         run: |
           $ErrorActionPreference = 'Stop'
           $dll = Get-Item 'build/release/FalloutAnomalyRadiation.dll'
@@ -139,20 +133,22 @@ jobs:
           $asset = Join-Path $env:GITHUB_WORKSPACE $env:ASSET
           if (Test-Path $asset) { Remove-Item -Force $asset }
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $asset
-          Write-Host '--- archive contents (top) ---'
-          Get-ChildItem -Path $stage -Depth 1 -Name | Sort-Object
           if (-not (Test-Path $asset)) { throw "archive $asset was not created" }
 
       - name: Publish release
         env:
-          FORGEJO_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
+          $PSNativeCommandUseErrorActionPreference = $false
           $asset = Join-Path $env:GITHUB_WORKSPACE $env:ASSET
-          ./Rad-Overhaul-Fallout-4/tools/publish_release.ps1 `
-            -ApiBase $env:GITHUB_SERVER_URL `
-            -Repo $env:GITHUB_REPOSITORY `
-            -Tag $env:TAG `
-            -AssetPath $asset `
-            -NotesPath 'Rad-Overhaul-Fallout-4/RELEASE_NOTES.md'
+          $title = "Rad Overhaul $env:TAG"
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit $env:TAG --title $title --notes-file RELEASE_NOTES.md
+            if ($LASTEXITCODE -ne 0) { throw 'gh release edit failed' }
+            gh release upload $env:TAG $asset --clobber
+          } else {
+            gh release create $env:TAG $asset --verify-tag --title $title --notes-file RELEASE_NOTES.md
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'gh release publish failed' }
