@@ -199,7 +199,6 @@ bool NeedsConsumptionTrace::ActivateOnGameThread()
     auto* equipManager = RE::ActorEquipManager::GetSingleton();
     auto* inventory = RE::BGSInventoryInterface::GetSingleton();
     const bool equip = Register<RE::ActorEquipManagerEvent::Event>(equipManager, &equipSink, "ActorEquipManager");
-    // Constraint: commonlibf4-nomad inherits the inventory event sources privately, so only a C-style cast reaches the base.
     auto* countSource = (RE::BSTEventSource<RE::InventoryInterface::CountChangedEvent>*)(inventory);
     const bool count = Register<RE::InventoryInterface::CountChangedEvent>(countSource, &countSink, "CountChanged");
     const bool container = Register(RE::TESContainerChangedEvent::GetEventSource(), &containerSink, "TESContainerChanged");
