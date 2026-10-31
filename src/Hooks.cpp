@@ -15,6 +15,8 @@
 #include "RadiationEngine.h"
 #include "RadHud.h"
 #include "RadLifecycleDispatch.h"
+#include <chrono>
+#include <cstdlib>
 
 #ifdef MAX_PATH
 #undef MAX_PATH
@@ -370,6 +372,7 @@ namespace Hooks
         if (generation == 0) return;
 
         const auto nowRep = TickClock::now().time_since_epoch().count();
+        if (!s_updateTaskQueued.load()) s_updateQueuedAt.store(nowRep);
         bool expected = false;
         if (!s_updateTaskQueued.compare_exchange_strong(expected, true))
         {
@@ -533,7 +536,7 @@ namespace Hooks
         if (logger) logger->info("[Hook] Installing PlayerCharacter::Update producer hook...");
         // Constraint: a second write would capture our own hook as the original and recurse forever.
         static std::atomic_bool s_updateHookWriteAttempted{ false };
-        if (s_updateHookWriteAttempted.exchange(true))
+        if (s_updateHookWriteAttempted.load())
         {
             if (logger) logger->critical("[Hook] PlayerCharacter::Update slot was already written by this plugin; refusing a second install.");
             return false;
@@ -558,6 +561,7 @@ namespace Hooks
                 return false;
             }
             // Constraint: publish last; same slot as above.
+            s_updateHookWriteAttempted.store(true);
             slots.write_vfunc(RE::VTABLE_INDEX::Actor::Update, &PlayerCharacter_Update_Hook);
             std::atexit([] { Shutdown(); });
 
