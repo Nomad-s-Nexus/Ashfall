@@ -21,6 +21,7 @@ jobs:
   contracts:
     name: Contract tests
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: pwsh
