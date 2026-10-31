@@ -20,15 +20,17 @@ namespace
     {
         cell = player ? player->GetParentCell() : nullptr;
         world = player ? player->cachedWorldspace : nullptr;
-        return player && player->Get3D() && cell && cell->IsExterior() && cell->IsAttached() && world &&
-            cell->worldSpace == world;
+        if (!player || !player->Get3D() || !cell || !cell->IsAttached()) return false;
+        if (cell->IsInterior()) { world = nullptr; return true; }
+        return cell->IsExterior() && world && cell->worldSpace == world;
     }
 
     bool IsValidDomeReference(RE::TESObjectREFR* ref, RE::TESWorldSpace* world)
     {
         if (!ref || ref->IsDeleted() || ref->IsDisabled()) return false;
         auto* cell = ref->GetParentCell();
-        return cell && cell->IsExterior() && cell->IsAttached() && cell->worldSpace == world;
+        if (!cell || !cell->IsAttached()) return false;
+        return cell->IsInterior() ? world == nullptr : cell->IsExterior() && cell->worldSpace == world;
     }
 }
 
@@ -46,15 +48,15 @@ void RadiationEngine::SpawnStormDome()
     if (_stormDomeUp) return;
     auto* dh     = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!dh || !player || !player->cachedWorldspace) return;
+    if (!dh || !player) return;
 
     ClearStormDome();
 
     const RE::NiPoint3 base = player->GetPosition();
-    auto* const playerCell = player->GetParentCell();
-    auto* const playerWorld = player->cachedWorldspace;
-    if (!playerCell || !playerCell->IsExterior() || !playerCell->IsAttached() || playerCell->worldSpace != playerWorld)
-        return;
+    RE::TESObjectCELL* playerCell = nullptr;
+    RE::TESWorldSpace* playerWorld = nullptr;
+    if (!IsValidDomeOwner(player, playerCell, playerWorld)) return;
+    auto* const interiorCell = playerCell->IsInterior() ? playerCell : nullptr;
     int placed = 0;
     for (int k = 0; k < 4; ++k)
     {
@@ -63,7 +65,7 @@ void RadiationEngine::SpawnStormDome()
         data.object    = static_cast<RE::TESBoundObject*>(_stormDomeForms[k]);
         data.location  = { base.x, base.y, base.z + kStormDomeZOffset };
         data.direction = { 0.0f, 0.0f, 0.0f };
-        data.interior  = nullptr;
+        data.interior  = interiorCell;
         data.world     = playerWorld;
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
@@ -83,7 +85,7 @@ void RadiationEngine::SpawnStormDome()
     _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
 
     bool lit = false, flare = false;
-    if (placed > 0)
+    if (placed > 0 && !interiorCell)
     {
         auto placeLight = [&](RE::TESBoundObject* obj, float nodeZ) -> bool {
             if (!obj) return false;
@@ -358,7 +360,8 @@ void RadiationEngine::UpdateStormDomeLifecycle()
             break;
         }
     }
-    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld) || staleReference)
+    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld) || staleReference ||
+        (!playerWorld && !sameCell))
     {
         Log()->info("[StormFX] Dome owner changed (cellSame={}, worldSame={}); recreating references.",
             sameCell, sameWorld);
@@ -384,6 +387,7 @@ void RadiationEngine::UpdateStormDomeFollow()
     RE::TESObjectCELL* playerCell = nullptr;
     RE::TESWorldSpace* playerWorld = nullptr;
     if (!IsValidDomeOwner(player, playerCell, playerWorld) || playerWorld != _stormDomeWorld) return;
+    if (!playerWorld && playerCell != _stormDomeCell) return;
 
     const auto playerPosition = player->GetPosition();
     bool needsMove = false;

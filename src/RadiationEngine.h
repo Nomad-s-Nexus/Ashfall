@@ -472,7 +472,7 @@ private:
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads
-    void SpawnStormDome();                          // place the dome layers overhead (exterior only)
+    void SpawnStormDome();                          // place the dome layers overhead
     void ClearStormDome();                          // disable + release the dome layers
     void UpdateStormDomeLifecycle();                // 4 Hz spawn/retry/worldspace ownership only
     void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
