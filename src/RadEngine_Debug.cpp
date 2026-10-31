@@ -214,6 +214,7 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "clear")                DebugClearAll();
     else if (a == "heal")                 DebugHeal();
     else if (a == "weather:clear")        DebugClearWeather();
+    else if (a == "weather:lock")         DebugLockWeather();
     else if (a.rfind("forceweather:", 0) == 0) DebugForceWeatherByForm(a.substr(std::strlen("forceweather:")));
     else if (a.rfind("weather:", 0) == 0) DebugPreviewWeather(static_cast<int>(numAfter("weather:")));
     else if (a == "ghouls:on")
@@ -253,7 +254,6 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "god:on")               { _debugGod = true;  Notify("[DEBUG] God mode ON.",  false); }
     else if (a == "god:off")              { _debugGod = false; Notify("[DEBUG] God mode OFF.", false); }
     else if (a.rfind("time:", 0) == 0)    DebugTime(a.substr(std::strlen("time:")));
-    else if (a == "weather:lock")         DebugLockWeather();
     else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
     else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
     else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);
