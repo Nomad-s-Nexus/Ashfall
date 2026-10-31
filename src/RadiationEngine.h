@@ -121,6 +121,7 @@ public:
     void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugTime(const std::string& arg);           // "freeze" | "resume" | "hour:<0-24>" (showcase)
+    void DebugApplyNeeds(const std::string& arg);     // "h:t:s:disease:stage" -> Papyrus RadShowcase.Apply (showcase)
     void DebugLockWeather();                          // hold the current weather against natural changes (showcase)
     void KeepPlayerAlive();                           // god mode tick: clears health damage every update
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
