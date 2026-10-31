@@ -467,6 +467,8 @@ private:
     bool _stormDomeUp = false;
     bool _stormDomeSeekAudit = false;
     bool _stormDomeManualDrive = false;
+    float  _stormDomeBlend = 0.0f;                  // 0..1 ramp published to VolClouds (Ashfall_GetStormDomeBlend)
+    double _stormDomeBlendSec = 0.0;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads
