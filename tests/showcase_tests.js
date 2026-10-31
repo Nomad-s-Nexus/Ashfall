@@ -98,9 +98,9 @@ assert.equal(sentCommands.at(-1), 'endstorm');
 resetSent();
 showcase.run('fever');
 advanceSeconds(1);
-assert.deepEqual(sentCommands, ['time:freeze', 'needs:0:0:0:1:2'], 'needs scene freezes time before applying');
+assert.deepEqual(sentCommands, ['time:freeze', 'needs:-1:-1:-1:1:2'], 'needs scene freezes time before applying');
 advanceSeconds(20);
-assert.equal(sentCommands.at(-1), 'needs:0:0:0:0:0', 'needs scene reverts to zero');
+assert.equal(sentCommands.at(-1), 'needs:-1:-1:-1:0:0', 'needs scene reverts only what it set');
 
 resetSent();
 showcase.run('needsclear');
@@ -110,7 +110,7 @@ assert.deepEqual(sentCommands, ['needs:0:0:0:0:0', 'time:resume'], 'clear needs 
 for (const scene of showcase.scenes.filter((s) => s.steps.some(([, c]) => c.startsWith('needs:')))) {
   for (const [, command] of scene.steps) {
     if (!command.startsWith('needs:')) continue;
-    assert.match(command, /^needs:[0-9.]+:[0-9.]+:[0-9.]+:[0-2]:[0-3]$/, 'well-formed needs command in ' + scene.id);
+    assert.match(command, /^needs:(-1|[0-9.]+):(-1|[0-9.]+):(-1|[0-9.]+):(-1|[0-2]):[0-3]$/, 'well-formed needs command in ' + scene.id);
   }
 }
 

@@ -280,11 +280,11 @@ var SHOWCASE_SCENES = [
   { id: "acidrain", label: "Acid rain",   steps: [[0, "forceweather:RadiationOverhaul.esp|000843"], [30, "weather:clear"]] },
   { id: "mask",     label: "Mask and filter", steps: [[0, "mask:on"], [0, "filter:full"], [8, "filter:low"], [8, "filter:dead"], [8, "filter:replace"], [6, "mask:auto"]] },
   { id: "rads",     label: "Radiation",   steps: [[0, "rads:200"], [6, "tissue:150"], [8, "rads:600"], [10, "heal"], [2, "clear"]] },
-  { id: "peckish",  label: "Peckish",     steps: [[0, "time:freeze"], [0, "needs:0.5:0:0:0:0"], [10, "needs:0:0:0:0:0"]] },
-  { id: "starving", label: "Starving",    steps: [[0, "time:freeze"], [0, "needs:0.95:0:0:0:0"], [10, "needs:0:0:0:0:0"]] },
-  { id: "exhausted", label: "Exhausted",  steps: [[0, "time:freeze"], [0, "needs:0:0:0.95:0:0"], [10, "needs:0:0:0:0:0"]] },
-  { id: "fever",    label: "Fever stage 2", steps: [[0, "time:freeze"], [0, "needs:0:0:0:1:2"], [10, "needs:0:0:0:0:0"]] },
-  { id: "wasting",  label: "Wasting stage 3", steps: [[0, "time:freeze"], [0, "needs:0:0:0:2:3"], [10, "needs:0:0:0:0:0"]] },
+  { id: "peckish",  label: "Peckish",     steps: [[0, "time:freeze"], [0, "needs:0.5:-1:-1:-1:0"], [10, "needs:0:-1:-1:-1:0"]] },
+  { id: "starving", label: "Starving",    steps: [[0, "time:freeze"], [0, "needs:0.95:-1:-1:-1:0"], [10, "needs:0:-1:-1:-1:0"]] },
+  { id: "exhausted", label: "Exhausted",  steps: [[0, "time:freeze"], [0, "needs:-1:-1:0.95:-1:0"], [10, "needs:-1:-1:0:-1:0"]] },
+  { id: "fever",    label: "Fever stage 2", steps: [[0, "time:freeze"], [0, "needs:-1:-1:-1:1:2"], [10, "needs:-1:-1:-1:0:0"]] },
+  { id: "wasting",  label: "Wasting stage 3", steps: [[0, "time:freeze"], [0, "needs:-1:-1:-1:2:3"], [10, "needs:-1:-1:-1:0:0"]] },
   { id: "needsclear", label: "Clear needs", steps: [[0, "needs:0:0:0:0:0"], [0, "time:resume"]] }
 ];
 
