@@ -17,6 +17,9 @@ namespace Hooks
     void SetStormIMADFadeActive(bool active) noexcept;
     void QueueDomeFollow();
 
+    void SetStormDomeBlend(float blend) noexcept;
+    bool InstallSkyCloudHook();
+
     // Queue work for the verified game-main thread. Calls made from the main thread run inline.
     // Returns false when PrismaUI is present but its dispatcher is not ready yet, or when the
     // no-PrismaUI Win32 fallback cannot accept/wake the task. Callers may safely retry later.

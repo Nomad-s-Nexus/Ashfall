@@ -152,23 +152,13 @@ void RadiationEngine::UpdateStormShake()
         NativeShakeCamera(kStormShakeRumbleStrength, kStormShakeRumbleDuration);
     }
 }
-namespace
-{
-    std::atomic<float> g_stormDomeBlend{ 0.0f };
-}
-
-extern "C" __declspec(dllexport) float Ashfall_GetStormDomeBlend()
-{
-    return g_stormDomeBlend.load(std::memory_order_relaxed);
-}
-
 void RadiationEngine::UpdateDomeAnimation()
 {
     const float dt = static_cast<float>(std::clamp(_playSeconds - _stormDomeBlendSec, 0.0, 1.0));
     _stormDomeBlendSec = _playSeconds;
     const float step = dt / kStormDomeBlendRampSec;
     _stormDomeBlend = std::clamp(_stormDomeBlend + (_stormDomeUp ? step : -step), 0.0f, 1.0f);
-    g_stormDomeBlend.store(_stormDomeBlend, std::memory_order_relaxed);
+    Hooks::SetStormDomeBlend(_stormDomeBlend);
 
     if (!_stormDomeUp || _stormDomeRefs.empty()) return;
     if (_stormDomeAnimStarted)
@@ -301,6 +291,7 @@ void RadiationEngine::ResetStormDomeForLoad()
     _stormDomeRefs.clear();
     _stormDomeUp = false;
     _stormDomeBlend = 0.0f;
+    Hooks::SetStormDomeBlend(0.0f);
     _stormDomeAnimStarted = false;
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
