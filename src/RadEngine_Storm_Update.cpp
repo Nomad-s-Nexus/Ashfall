@@ -116,9 +116,6 @@ void RadiationEngine::UpdateStorm()
 
     case StormPhase::Approach:
     {
-        const bool exposed = !IsPlayerSheltered();
-        if (!exposed && _stormDomeUp) ClearStormDome();
-
         if (--_stormTicksLeft <= 0)
         {
             logger->info("[StormSeq] APPROACH complete ({} s elapsed) -> WARNING.", _activeLeadTicks / 4);
@@ -238,7 +235,6 @@ void RadiationEngine::UpdateStorm()
                 if (_stormFXVisible && IsPlayerSheltered())
                 {
                     TriggerStormFX(false);
-                    ClearStormDome();
                     _stormFXVisible = false;
                 }
                 --_stormTicksLeft;
@@ -269,7 +265,6 @@ void RadiationEngine::UpdateStorm()
             else if (_stormFXVisible && IsPlayerSheltered())
             {
                 TriggerStormFX(false);
-                ClearStormDome();
                 _stormFXVisible = false;
             }
             --_stormTicksLeft;

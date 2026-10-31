@@ -18,11 +18,14 @@ namespace Hooks
 
         std::atomic<float> s_domeBlend{ 0.0f };
         std::atomic_bool s_installed{ false };
+        std::atomic<std::uint32_t> s_cloudPasses{ 0 };
+        std::atomic<std::uint32_t> s_cloudPassesScaled{ 0 };
         using SetupGeometryFn = void (*)(void*, void*);
         SetupGeometryFn s_original = nullptr;
 
         void SetupGeometryHook(void* shader, void* pass)
         {
+            s_cloudPasses.fetch_add(1, std::memory_order_relaxed);
             const float blend = s_domeBlend.load(std::memory_order_relaxed);
             float* alpha = nullptr;
             float saved = 0.0f;
@@ -31,6 +34,7 @@ namespace Hooks
                 auto* property = *reinterpret_cast<char**>(static_cast<char*>(pass) + kPassPropertyOffset);
                 if (property && *reinterpret_cast<const int*>(property + kSkyObjectTypeOffset) == kSkyObjectClouds)
                 {
+                    s_cloudPassesScaled.fetch_add(1, std::memory_order_relaxed);
                     alpha = reinterpret_cast<float*>(property + kBlendAlphaOffset);
                     saved = *alpha;
                     *alpha = saved * (1.0f - blend);
@@ -44,6 +48,12 @@ namespace Hooks
     void SetStormDomeBlend(float blend) noexcept
     {
         s_domeBlend.store(blend, std::memory_order_relaxed);
+    }
+
+    void GetSkyCloudStats(std::uint32_t& passes, std::uint32_t& scaled) noexcept
+    {
+        passes = s_cloudPasses.load(std::memory_order_relaxed);
+        scaled = s_cloudPassesScaled.load(std::memory_order_relaxed);
     }
 
     bool InstallSkyCloudHook()

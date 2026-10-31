@@ -43,7 +43,7 @@ void RadiationEngine::SpawnStormDome()
             ClearStormDome();
         return;
     }
-    if (_stormDomeUp || IsPlayerSheltered()) return;
+    if (_stormDomeUp) return;
     auto* dh     = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!dh || !player || !player->cachedWorldspace) return;
@@ -164,6 +164,9 @@ void RadiationEngine::UpdateDomeAnimation()
     if (_stormDomeAnimStarted)
     {
         const float rel = static_cast<float>(_playSeconds - _stormDomeBeginSec);
+        static int s_auditBucket = -1;
+        const int bucket = static_cast<int>(rel) / 3;
+        if (_stormDomeManualDrive && bucket != s_auditBucket) { s_auditBucket = bucket; _stormDomeSeekAudit = true; }
         const bool audit = _stormDomeSeekAudit;
         _stormDomeSeekAudit = false;
         if (!audit && !_stormDomeManualDrive) return;
@@ -181,6 +184,9 @@ void RadiationEngine::UpdateDomeAnimation()
                 anyAudited = true;
                 Log()->info("[StormFX] Dome sequence audit {} offset={:.2f} startTime={:.2f} lastScaled={:.2f} state={} owner={}",
                     i, seq->offset, seq->startTime, seq->lastScaledTime, static_cast<int>(seq->state.get()), seq->owner == mgr);
+                std::uint32_t passes = 0, scaled = 0;
+                Hooks::GetSkyCloudStats(passes, scaled);
+                Log()->info("[StormFX] Dome blend={:.2f} skyPasses={} cloudPassesScaled={} rel={:.1f}", _stormDomeBlend, passes, scaled, rel);
                 if (seq->offset < -1.0e30f && !_stormDomeManualDrive)
                 {
                     _stormDomeManualDrive = true;
@@ -310,8 +316,8 @@ void RadiationEngine::UpdateStormDomeLifecycle()
     }
     const bool domePhase = _stormPhase == StormPhase::Approach ||
         _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
-    const bool exposed = !IsPlayerSheltered();
-    if (!domePhase || !exposed)
+    constexpr bool exposed = true;
+    if (!domePhase)
     {
         _stormDomeRespawnRetryTicks = 0;
         return;

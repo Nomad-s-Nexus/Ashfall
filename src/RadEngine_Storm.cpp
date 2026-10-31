@@ -65,8 +65,7 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _dustBuildupActive = false;   // no weather build-up during the silent lead
     _debugWeatherHold  = false;   // a real storm takes over from any debug-held weather
 
-    if (!IsPlayerSheltered())
-        SpawnStormDome();
+    SpawnStormDome();
 
     EnterStormPhase(StormPhase::Approach, leadTicks);
     logger->info("[StormSeq] t=0 APPROACH begin: silent. Alarm in {} s.", leadTicks / 4);
