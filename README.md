@@ -2,9 +2,8 @@
 
 A radiation and environmental survival overhaul for Fallout 4 supporting OG 1.10.163 and AE 1.11.240; NG 1.10.980-1.10.984 and other unverified runtimes are intentionally unsupported. The package includes an F4SE DLL +
 `RadiationOverhaul.esp` + optional PrismaUI HUD. The core ESP references `Fallout4.esm`
-(plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The native storm-dome lighting
-currently still resolves two LIGH forms from `KORsAnomaly Stripped.esp`; making those records
-fully self-contained is tracked in the issue tracker.
+(plus `DLCCoast` / `DLCNukaWorld` for merged overrides). The storm-dome lights are owned by
+`RadiationOverhaul.esp`, so no other plugin is required.
 
 Author: NomadsReach
 

@@ -518,6 +518,12 @@ void RadHud::ResetDebugMenuForSession()
     _debugNextFocusRetryMs = 0;
     SetLocalHudEditorPreview(false);
     SetDebugMenu(false);
+    _survivalPayload.clear();
+    HideNeeds();
+}
+
+void RadHud::HideNeeds()
+{
     _needsPayload.clear();
     if (_api && _needsView)
     {

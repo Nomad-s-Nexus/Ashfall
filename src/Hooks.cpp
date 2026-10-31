@@ -62,11 +62,13 @@ namespace Hooks
     // enqueue another input poll or 4 Hz engine tick while one of the same kind is already waiting.
     static std::atomic_bool s_inputTaskQueued{ false };
     static std::atomic_bool s_updateTaskQueued{ false };
+    using TickClock = std::chrono::steady_clock;
+    static std::atomic<TickClock::rep> s_updateQueuedAt{ 0 };
+    static constexpr std::chrono::seconds kUpdateStallLimit{ 10 };
 
     // PlayerCharacter::Update is a worker job and may migrate between worker threads across frames.
     // Protect every piece of throttle/log cadence state explicitly rather than relying on one stable
     // worker identity. The critical section is tiny and only entered for the player update.
-    using TickClock = std::chrono::steady_clock;
     static constexpr float kUpdateInterval = 0.25f;  // seconds -> 4 Hz
     static std::mutex s_tickStateMutex;
     static TickClock::time_point s_lastTick;
@@ -367,9 +369,17 @@ namespace Hooks
         const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
         if (generation == 0) return;
 
+        const auto nowRep = TickClock::now().time_since_epoch().count();
         bool expected = false;
         if (!s_updateTaskQueued.compare_exchange_strong(expected, true))
-            return;
+        {
+            if (TickClock::duration(nowRep - s_updateQueuedAt.load()) < kUpdateStallLimit)
+                return;
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->warn("[Hook] Queued engine tick has not run for {}s; dispatcher may have stopped pumping. Re-queuing.",
+                    kUpdateStallLimit.count());
+        }
+        s_updateQueuedAt.store(nowRep);
 
         bool queued = false;
         try
@@ -417,6 +427,30 @@ namespace Hooks
         // Constraint: a task queued when the session ends may never run, so its flag is cleared here.
         s_inputTaskQueued.store(false, std::memory_order_release);
         s_updateTaskQueued.store(false, std::memory_order_release);
+    }
+
+    static REL::Relocation<std::uintptr_t>& PlayerVtable()
+    {
+        static REL::Relocation<std::uintptr_t> slots(RE::VTABLE::PlayerCharacter[0]);  // table from the documentation in CommonLib headers, unchanged
+        return slots;
+    }
+
+    void Shutdown() noexcept
+    {
+        if (auto hook = s_mainThreadMsgHook.exchange(nullptr))
+            ::UnhookWindowsHookEx(hook);
+        if (s_updateHookInstalled && original_Update.address() != 0)
+        {
+            try
+            {
+                // Constraint: restore the original at the same slot the install wrote.
+                PlayerVtable().write_vfunc(RE::VTABLE_INDEX::Actor::Update, original_Update.address());
+            }
+            catch (...)
+            {
+            }
+            s_updateHookInstalled = false;
+        }
     }
 
     // Worker-thread hook: call the original and produce main-thread work only.
@@ -508,9 +542,9 @@ namespace Hooks
         {
             // PlayerCharacter::Update overrides Actor::Update at the same vtable slot. The slot index is
             // owned by the authority (commonlib_NonVR RE::VTABLE_INDEX::Actor::Update) — no local 0x0CF.
-            static REL::Relocation<std::uintptr_t> PlayerCharacter_vtable(RE::VTABLE::PlayerCharacter[0]);
-            original_Update = PlayerCharacter_vtable.write_vfunc(
-                RE::VTABLE_INDEX::Actor::Update, &PlayerCharacter_Update_Hook);
+            auto& slots = PlayerVtable();
+            // Constraint: store the original before publishing the hook.
+            original_Update = *reinterpret_cast<std::uintptr_t*>(slots.address() + sizeof(void*) * RE::VTABLE_INDEX::Actor::Update);
 
             if (original_Update.address() == 0)
             {
@@ -523,6 +557,9 @@ namespace Hooks
                 if (logger) logger->critical("[Hook] PlayerCharacter::Update original resolved to the Rad producer itself; refusing the hook.");
                 return false;
             }
+            // Constraint: publish last; same slot as above.
+            slots.write_vfunc(RE::VTABLE_INDEX::Actor::Update, &PlayerCharacter_Update_Hook);
+            std::atexit([] { Shutdown(); });
 
             {
                 std::lock_guard<std::mutex> lock(s_tickStateMutex);
