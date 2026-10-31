@@ -806,3 +806,10 @@ rewrite lives on the separate needs/disease branch), the notification placement,
 checklist section below is the in-game check. The confirmation path on this branch is still the count-drop design;
 the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
 mistaken for a use here.
+
+## Showcase tab
+
+- `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:SHOWCASE_SCENES` lists each scene as `[delaySeconds, debugCommand]` steps. `RadShowcase.run` and `RadShowcase.startTour` only schedule those existing `radDebug` commands with `setTimeout`, so no native code is involved and the commands drain on the main thread as usual.
+- `radhud.js:RadShowcase.startTour` sends `close` first: closing the menu only unfocuses the view (`src/RadHud.cpp:RadHud::SetDebugMenu`), so the page and its timers keep running while the panel is hidden for recording.
+- `radhud.js:SetDebugMenu` calls `RadShowcase.stop` when the menu opens, so Shift+F8 cancels a running tour. Storm scenes send `skipwarn` four seconds in and `endstorm` after about 50 seconds; the lengths are the numbers in `SHOWCASE_SCENES`.
+- `tests/showcase_tests.js` runs the page script under fake timers and checks the scene buttons, the scheduled commands, stop and the tour.

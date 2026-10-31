@@ -29,6 +29,7 @@
       <button class="dbg-tab"    id="tabbtn-ghouls" onclick="showTab('ghouls')">GHOULS</button>
       <button class="dbg-tab"    id="tabbtn-armor" onclick="showTab('armor')">ARMOR</button>
       <button class="dbg-tab"    id="tabbtn-survival" onclick="showTab('survival')">SURVIVAL</button>
+      <button class="dbg-tab"    id="tabbtn-showcase" onclick="showTab('showcase')">SHOWCASE</button>
   <button class="dbg-tab"    id="tabbtn-hud"  onclick="showTab('hud')">HUD LAYOUT</button>
     </div>
 
@@ -270,6 +271,17 @@
       <p>Exposure fills from ambient time, wounds, swimming, tainted food and rad weather. At 100% an illness starts, incubates, then stages up; a cure item or an uninterrupted rest clears it and grants immunity.</p>
     </section>
   </div><!-- /tab-survival -->
+
+  <div class="dbg-pane" id="tab-showcase">
+      <div class="dbg-sec">SHOWCASE SCENES</div>
+      <div class="dbg-help">One click plays a scripted scene using the debug commands. The tour closes this menu and runs every scene in order; Shift+F8 stops it and reopens the menu.</div>
+      <div class="dbg-row" id="showcaseScenes"></div>
+      <div class="dbg-row">
+        <button onclick="RadShowcase.startTour()">PLAY FULL TOUR</button>
+        <button class="warn" onclick="RadShowcase.stop()">STOP</button>
+      </div>
+      <div class="dbg-help" id="showcaseStatus">Idle.</div>
+    </div><!-- /tab-showcase -->
 
   <div class="dbg-pane" id="tab-hud">
       <div class="dbg-sec">HUD LAYOUT EDITOR</div>
