@@ -1,0 +1,23 @@
+name: Set up commonlibf4-nomad
+description: Clone the pinned G-A-R-D-E-N/commonlibf4-nomad (public) and export COMMONLIBF4_PATH.
+
+runs:
+  using: composite
+  steps:
+    - shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $PSNativeCommandUseErrorActionPreference = $true
+        # Constraint: bump this SHA deliberately; native builds and releases must use the same CommonLib.
+        $sha = '19a5e0dcae23491b2905e8e81ccf8f3c75ad96af'
+        $dir = Join-Path $env:RUNNER_TEMP 'commonlibf4-nomad'
+        if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
+        git init -q $dir
+        git -C $dir remote add origin https://github.com/G-A-R-D-E-N/commonlibf4-nomad.git
+        git -C $dir fetch -q --depth 1 origin $sha
+        git -C $dir checkout -q FETCH_HEAD
+        git -C $dir submodule update --init --recursive --depth 1
+        $head = (git -C $dir rev-parse HEAD).Trim()
+        if ($head -ne $sha) { throw "commonlibf4-nomad is at $head, expected $sha" }
+        Write-Host "commonlibf4-nomad: $head"
+        "COMMONLIBF4_PATH=$dir" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV

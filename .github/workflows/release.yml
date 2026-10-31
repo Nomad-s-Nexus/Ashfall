@@ -1,8 +1,6 @@
 name: Release
 
-# Builds the DLL on the self-hosted Windows runner, packages deploy/ plus the fresh
-# FalloutAnomalyRadiation.dll, and publishes a GitHub Release with the zip attached.
-# Trigger: push a tag matching rad-overhaul-v* (for example rad-overhaul-v1.2.0).
+# Constraint: tag rad-overhaul-v* builds the DLL on a hosted runner and publishes the packaged zip.
 
 on:
   push:
@@ -17,21 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  disabled:
-    name: Native build disabled
-    if: vars.ASHFALL_NATIVE_BUILD != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "::error::ASHFALL_NATIVE_BUILD is not true; no release was built for $GITHUB_REF_NAME"
-          exit 1
-
   release:
     name: Build, package and publish
-    # Constraint: needs the private commonlib_NonVR checkout, so it only runs once the self-hosted runner is enabled.
-    if: vars.ASHFALL_NATIVE_BUILD == 'true'
-    runs-on: [self-hosted, windows, ashfall]
-    timeout-minutes: 90
+    runs-on: windows-latest
+    timeout-minutes: 120
     defaults:
       run:
         shell: pwsh
@@ -52,33 +39,19 @@ jobs:
           git merge-base --is-ancestor HEAD origin/main
           if ($LASTEXITCODE -ne 0) { throw "tag $env:TAG is not reachable from main" }
 
-      - name: Verify commonlib_NonVR reference
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          # Constraint: bump this SHA deliberately; the release must build the same CommonLib the CI build validated.
-          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'
-          $commonLib = $env:COMMONLIBF4_PATH
-          if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
-          $pinned = (git -C $commonLib rev-parse HEAD).Trim()
-          if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
-          if (git -C $commonLib status --porcelain --untracked-files=no) { throw 'CommonLib reference has tracked changes' }
-          git -C $commonLib submodule foreach --recursive 'git diff --exit-code HEAD'
-          $submodule = (git -C $commonLib submodule status --recursive) -join "`n"
-          if ($submodule -match '(?m)^[+U-]') { throw 'CommonLib submodule does not match its pin' }
-          if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) {
-            throw 'RE-Work marker missing; checkout is not commonlib_NonVR'
-          }
-          Write-Host "commonlib_NonVR: $pinned"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Verify runner tools
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          xmake --version
-          node --version
-          python --version
-          gh --version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "3.0.0"
+
+      - uses: ./.github/actions/setup-commonlib
 
       - name: Run release contract tests
         run: |
@@ -93,7 +66,6 @@ jobs:
           python tests/verify_mask_extras.py
           python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
           python tests/verify_local_hud_editor.py
-          python tests/verify_ae_runtime_support.py
           python tests/verify_ghoul_contract.py
           python tests/verify_storm_spawn_ownership.py
           python tests/verify_serialization_policy.py

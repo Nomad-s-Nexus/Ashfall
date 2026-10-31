@@ -48,7 +48,7 @@ jobs:
           $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $vs) { throw 'Visual Studio C++ tools not found' }
           & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
-          # verify_ae_runtime_support.py needs the private CommonLib checkout, so it runs in the native job.
+          # Constraint: verify_ae_runtime_support.py is excluded until it is rewritten for commonlibf4-nomad.
           $python = @(
             'verify_ci_deploy.py',
             'verify_mask_catalog.py deploy/RadiationOverhaul.esp',
@@ -91,51 +91,27 @@ jobs:
           if ($failed) { throw "contract tests failed: $($failed -join ', ')" }
 
   native:
-    name: Native build (self-hosted Windows)
+    name: Native build
     needs: contracts
-    # Constraint: the DLL links the private commonlib_NonVR checkout, which only a provisioned runner has.
-    # Never on pull_request: a fork PR runs its own copy of this file, so any guard here could be edited away.
-    # Same-repo pushes need write access. Off until the repo variable ASHFALL_NATIVE_BUILD is "true".
-    if: vars.ASHFALL_NATIVE_BUILD == 'true' && github.event_name != 'pull_request'
-    timeout-minutes: 60
-    runs-on: [self-hosted, windows, ashfall]
+    # Constraint: never on pull_request, so a fork PR cannot get a DLL built from its own workflow copy.
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 90
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          python-version: "3.12"
 
-      - name: Verify commonlib_NonVR reference
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          $commonLibSha = 'ed383ff935eea00566a371eff0d6a97ae4bda548'
-          $commonLib = $env:COMMONLIBF4_PATH
-          if (-not $commonLib) { throw 'Runner COMMONLIBF4_PATH is not configured' }
-          $pinned = (git -C $commonLib rev-parse HEAD).Trim()
-          if ($pinned -ne $commonLibSha) { throw "commonlib_NonVR checkout $pinned does not match pin $commonLibSha" }
-          if (git -C $commonLib status --porcelain --untracked-files=no) { throw 'CommonLib reference has tracked changes' }
-          git -C $commonLib submodule foreach --recursive 'git diff --exit-code HEAD'
-          $submodule = (git -C $commonLib submodule status --recursive) -join "`n"
-          if ($submodule -match '(?m)^[+U-]') { throw 'CommonLib submodule does not match its pin' }
-          if (-not (Test-Path (Join-Path $commonLib 'RE-Work') -PathType Container)) { throw 'CommonLib RE-Work marker missing' }
-          Write-Host "commonlib_NonVR: $pinned"
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "3.0.0"
 
-      - name: Verify runner tools
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          xmake --version
-          node --version
-          python --version
-
-      - name: CommonLib-dependent contract test
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          python tests/verify_ae_runtime_support.py
+      - uses: ./.github/actions/setup-commonlib
 
       - name: Configure (MSVC)
         run: |
