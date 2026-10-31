@@ -4,6 +4,7 @@
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
+#include <RE/N/NiUpdateData.h>
 #include <RE/N/NiAVObject.h>
 #include <RE/N/NiObjectNET.h>
 #include <RE/T/TESObjectCELL.h>
@@ -76,6 +77,7 @@ void RadiationEngine::SpawnStormDome()
         _stormDomeCell = playerCell;
         _stormDomeWorld = playerWorld;
     }
+    _stormDomeManualDrive = false;
     _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
 
     bool lit = false, flare = false;
@@ -153,17 +155,48 @@ void RadiationEngine::UpdateDomeAnimation()
     if (!_stormDomeUp || _stormDomeRefs.empty()) return;
     if (_stormDomeAnimStarted)
     {
-        if (!_stormDomeSeekAudit) return;
+        const float rel = static_cast<float>(_playSeconds - _stormDomeBeginSec);
+        const bool audit = _stormDomeSeekAudit;
         _stormDomeSeekAudit = false;
+        if (!audit && !_stormDomeManualDrive) return;
+        bool anyAudited = false;
         for (auto& layer : _stormDomeRefs)
         {
             auto ptr = layer.handle.get();
             auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
             auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
             if (!mgr) continue;
+            for (std::uint16_t i = 0; audit && i < mgr->GetSequenceCount(); ++i)
+            {
+                auto* seq = mgr->GetSequenceAt(i);
+                if (!seq) continue;
+                anyAudited = true;
+                Log()->info("[StormFX] Dome sequence audit {} offset={:.2f} startTime={:.2f} lastScaled={:.2f} state={} owner={}",
+                    i, seq->offset, seq->startTime, seq->lastScaledTime, static_cast<int>(seq->state.get()), seq->owner == mgr);
+                if (seq->offset < -1.0e30f && !_stormDomeManualDrive)
+                {
+                    _stormDomeManualDrive = true;
+                    Log()->warn("[StormFX] Dome sequence never advanced; driving the controller manager manually.");
+                }
+            }
+        }
+        if (audit && !anyAudited) _stormDomeSeekAudit = true;
+        if (!_stormDomeManualDrive) return;
+        RE::NiUpdateData data;
+        data.time = rel;
+        for (auto& layer : _stormDomeRefs)
+        {
+            auto ptr = layer.handle.get();
+            auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
+            auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
+            if (!mgr) continue;
+            mgr->Update(data);   // the engine never ticks this manager: drive it from storm time
+            if (layer.manualSeeded) continue;
             for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
                 if (auto* seq = mgr->GetSequenceAt(i))
-                    Log()->info("[StormFX] Dome sequence audit {} offset={:.2f} startTime={:.2f}", i, seq->offset, seq->startTime);
+                    seq->offset = RadCorrectnessPolicy::DomeSeekSeconds(rel, kStormDomeTimelineSec) - rel;
+            layer.manualSeeded = true;
+            if (audit) _stormDomeSeekAudit = true;   // re-audit next tick to prove lastScaled advances
         }
         return;
     }

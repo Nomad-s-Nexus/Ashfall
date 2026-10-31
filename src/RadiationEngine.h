@@ -458,6 +458,7 @@ private:
         RE::ObjectRefHandle handle;
         float zOffset;
         bool animStarted = false;
+        bool manualSeeded = false;
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
@@ -465,6 +466,7 @@ private:
     int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
     bool _stormDomeSeekAudit = false;
+    bool _stormDomeManualDrive = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads
