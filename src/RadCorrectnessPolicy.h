@@ -41,6 +41,13 @@ namespace RadCorrectnessPolicy
         return theme != 1;
     }
 
+    constexpr float DomeSeekSeconds(double elapsedSec, float timelineSec)
+    {
+        const double cap = timelineSec > 1.0f ? static_cast<double>(timelineSec) - 1.0 : 0.0;
+        if (!(elapsedSec > 0.0)) return 0.0f;
+        return static_cast<float>(elapsedSec < cap ? elapsedSec : cap);
+    }
+
     constexpr bool ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)
     {
         return managedStorm || vanillaRadstorm;

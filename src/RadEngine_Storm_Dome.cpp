@@ -165,8 +165,11 @@ void RadiationEngine::UpdateDomeAnimation()
         for (std::uint16_t i = 0; i < n; ++i)
         {
             RE::NiControllerSequence* seq = mgr->GetSequenceAt(i);
-            if (seq)
-                seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
+            if (!seq) continue;
+            seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
+            const float seek = RadCorrectnessPolicy::DomeSeekSeconds(_playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec);
+            if (seek > 0.0f) seq->offset += seek * seq->frequency;
+            Log()->info("[StormFX] Dome sequence {} seek={:.1f}s offset={:.2f} frequency={:.2f}", i, seek, seq->offset, seq->frequency);
         }
         if (n > 0) ++animated;
     }
