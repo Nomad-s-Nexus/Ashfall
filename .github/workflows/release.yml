@@ -17,11 +17,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  disabled:
+    name: Native build disabled
+    if: vars.ASHFALL_NATIVE_BUILD != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::ASHFALL_NATIVE_BUILD is not true; no release was built for $GITHUB_REF_NAME"
+          exit 1
+
   release:
     name: Build, package and publish
     # Constraint: needs the private commonlib_NonVR checkout, so it only runs once the self-hosted runner is enabled.
     if: vars.ASHFALL_NATIVE_BUILD == 'true'
     runs-on: [self-hosted, windows, ashfall]
+    timeout-minutes: 90
     defaults:
       run:
         shell: pwsh
@@ -104,6 +114,7 @@ jobs:
           }
           $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
           $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
           & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           xmake f -p windows -a x64 -m release --builddir=build-msvc -y
 

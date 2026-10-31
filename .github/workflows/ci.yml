@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - "**"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +34,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "2.9.9"
 
       - name: Run contract tests
         run: |
@@ -89,10 +93,10 @@ jobs:
     name: Native build (self-hosted Windows)
     needs: contracts
     # Constraint: the DLL links the private commonlib_NonVR checkout, which only a provisioned runner has.
-    # Off until the repo variable ASHFALL_NATIVE_BUILD is "true". Fork PRs never reach a self-hosted runner.
-    if: >-
-      vars.ASHFALL_NATIVE_BUILD == 'true' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    # Never on pull_request: a fork PR runs its own copy of this file, so any guard here could be edited away.
+    # Same-repo pushes need write access. Off until the repo variable ASHFALL_NATIVE_BUILD is "true".
+    if: vars.ASHFALL_NATIVE_BUILD == 'true' && github.event_name != 'pull_request'
+    timeout-minutes: 60
     runs-on: [self-hosted, windows, ashfall]
     defaults:
       run:
