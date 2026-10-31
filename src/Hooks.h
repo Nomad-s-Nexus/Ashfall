@@ -25,5 +25,7 @@ namespace Hooks
     // Constraint: clears the producer flags, or a lifecycle boundary strands the tick forever.
     void ResetQueuedTaskFlags() noexcept;
 
+    void Shutdown() noexcept;
+
     bool IsGameMainThread();
 }
