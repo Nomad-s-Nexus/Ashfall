@@ -276,6 +276,21 @@
       <div class="dbg-sec">SHOWCASE SCENES</div>
       <div class="dbg-help">One click plays a scripted scene using the debug commands. The tour closes this menu and runs every scene in order; Shift+F8 stops it and reopens the menu.</div>
       <div class="dbg-row" id="showcaseScenes"></div>
+      <div class="dbg-sec">CAMERA</div>
+      <div class="dbg-row">
+        <button onclick="cmd('god:on')">God ON</button>
+        <button onclick="cmd('god:off')">God OFF</button>
+        <button onclick="cmd('time:freeze')">Freeze time</button>
+        <button onclick="cmd('time:resume')">Resume time</button>
+      </div>
+      <div class="dbg-row">
+        <button onclick="cmd('time:hour:6')">Dawn</button>
+        <button onclick="cmd('time:hour:12')">Noon</button>
+        <button onclick="cmd('time:hour:19')">Dusk</button>
+        <button onclick="cmd('time:hour:0')">Midnight</button>
+        <button onclick="cmd('weather:lock')">Lock weather</button>
+        <button class="warn" onclick="cmd('weather:clear')">Release weather</button>
+      </div>
       <div class="dbg-row">
         <button onclick="RadShowcase.startTour()">PLAY FULL TOUR</button>
         <button class="warn" onclick="RadShowcase.stop()">STOP</button>

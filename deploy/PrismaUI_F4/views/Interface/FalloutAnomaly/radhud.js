@@ -313,6 +313,7 @@ var RadShowcase = window.RadShowcase = (function() {
   }
   function startTour() {
     stop();
+    cmd("god:on");
     var at = 2;
     for (var i = 0; i < scenes.length; i++) {
       (function(scene, when) { later(function() { status("Tour: " + scene.label + "."); }, when); })(scenes[i], at);

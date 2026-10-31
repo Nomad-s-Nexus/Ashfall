@@ -58,6 +58,7 @@
 #include <RE/B/BSScript_Internal_AttachedScript.h>
 #include <RE/C/Calendar.h>
 #include <RE/S/Sky.h>
+#include <RE/C/Calendar.h>
 #include <RE/T/TESWeather.h>
 #include <RE/B/BSAudioManager.h>
 #include <RE/B/BSSoundHandle.h>
