@@ -109,7 +109,7 @@ jobs:
 
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
-          xmake-version: "3.0.0"
+          xmake-version: "3.0.9"
 
       - uses: ./.github/actions/setup-commonlib
 
