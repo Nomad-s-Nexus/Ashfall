@@ -464,6 +464,28 @@ Function MirrorToGlobal(GlobalVariable akTarget, float afValue)
     endif
 EndFunction
 
+; Constraint: showcase entry, reached only through RadShowcase.Apply; a negative value leaves that pool or disease unchanged.
+Function DebugSetNeeds(float afHunger, float afThirst, float afSleep, int aiDisease, int aiStage)
+    if afHunger >= 0.0
+        HungerDebt = Clamp01(afHunger)
+    endif
+    if afThirst >= 0.0
+        ThirstDebt = Clamp01(afThirst)
+    endif
+    if afSleep >= 0.0
+        SleepDebt = Clamp01(afSleep)
+    endif
+    MirrorAll()
+    ; Invariant: each call reconciles all pools; naming a pool lets its stage drop without hysteresis.
+    UpdatePenaltyStages("hunger")
+    UpdatePenaltyStages("thirst")
+    UpdatePenaltyStages("sleep")
+    if Diseases != None && aiDisease >= 0
+        Diseases.DebugSetDisease(aiDisease, aiStage, IsActive())
+    endif
+    Debug.Trace("[RadSurvivalQuest] showcase H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt + " disease=" + aiDisease + " stage=" + aiStage)
+EndFunction
+
 ; -----------------------------------------------------------------------------
 ; penalties - staged ability spells authored in RadSurvival.esp
 ;
