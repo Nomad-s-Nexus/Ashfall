@@ -150,13 +150,30 @@ void RadiationEngine::UpdateStormShake()
 }
 void RadiationEngine::UpdateDomeAnimation()
 {
-    if (!_stormDomeUp || _stormDomeAnimStarted || _stormDomeRefs.empty()) return;
+    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
+    if (_stormDomeAnimStarted)
+    {
+        if (!_stormDomeSeekAudit) return;
+        _stormDomeSeekAudit = false;
+        for (auto& layer : _stormDomeRefs)
+        {
+            auto ptr = layer.handle.get();
+            auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
+            auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
+            if (!mgr) continue;
+            for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
+                if (auto* seq = mgr->GetSequenceAt(i))
+                    Log()->info("[StormFX] Dome sequence audit {} offset={:.2f} startTime={:.2f}", i, seq->offset, seq->startTime);
+        }
+        return;
+    }
     int animated = 0, pending = 0;
     for (auto& layer : _stormDomeRefs)
     {
         auto ptr = layer.handle.get();
         auto* ref = ptr.get();
         if (!ref) continue;
+        if (layer.animStarted) { ++animated; continue; }
         auto* obj3d = ref->Get3D();
         if (!obj3d) { ++pending; continue; }   // 3D not attached yet — retry next tick
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
@@ -171,11 +188,12 @@ void RadiationEngine::UpdateDomeAnimation()
             if (seek > 0.0f) seq->offset += seek * seq->frequency;
             Log()->info("[StormFX] Dome sequence {} seek={:.1f}s offset={:.2f} frequency={:.2f}", i, seek, seq->offset, seq->frequency);
         }
-        if (n > 0) ++animated;
+        if (n > 0) { layer.animStarted = true; ++animated; }
     }
     if (pending == 0)   // every ref's 3D has loaded — stop polling
     {
         _stormDomeAnimStarted = true;
+        _stormDomeSeekAudit = true;
         Log()->info("[StormFX] Dome animation activated on {} layer(s).", animated);
 
         auto* pl = RE::PlayerCharacter::GetSingleton();
