@@ -68,7 +68,7 @@ void RadiationEngine::EnsureBed(RE::BSSoundHandle& handle, const char*& curPath,
             applied = atten;
         }
     }
-    else if (applied != atten)   // a volume slider moved: retune the playing bed instead of waiting for the loop restart
+    else if (applied != atten)
     {
         handle.SetStaticAttenuation(atten);
         applied = atten;

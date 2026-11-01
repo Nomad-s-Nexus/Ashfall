@@ -568,7 +568,7 @@ void RadiationEngine::RepairLeakedCarryWeight()
 
     if (!RadiationSerialization::RestoredCarryPenaltyHeld(_appliedCarryPen, total, permanent))
     {
-        Log()->warn("[Load] Restored carry penalty {:.1f} but the game holds none (total {:.1f}, base {:.1f}) — dropping restored penalties.",
+        Log()->warn("[Load] Restored carry penalty {:.1f} but the game holds none (total {:.1f}, base {:.1f}) - dropping restored penalties.",
             _appliedCarryPen, total, permanent);
         _appliedCarryPen = _appliedHealPen = _appliedSpeedPen = _appliedApPen = 0.0f;
     }

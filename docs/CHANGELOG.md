@@ -88,7 +88,7 @@ CarryWeight writes are additive actor-value modifiers that cannot cancel another
 **Food and drink now relieve the Rad survival pools.** The quest script used to arm a candidate on
 `Actor.OnItemEquipped` with `GetItemCount` and confirm on a later tick by watching the count fall.
 That is timing-dependent: if the engine consumes the aid item before the Papyrus event is delivered,
-the armed count is already the post-consumption count and relief never fires — which matches the
+the armed count is already the post-consumption count and relief never fires - which matches the
 tester's "eating and drinking never change hunger/thirst". Relief now runs on `ObjectReference.OnItemRemoved`
 (registered remotely with `AddInventoryEventFilter(None)`), only when the destination container is
 None and an `OnItemEquipped` for the same form arrived within 2 s, so exactly one credit is given per
@@ -104,16 +104,16 @@ ALCH records carry a covered keyword; two drinks that carry only the vanilla
 
 **Empty bottles at water sources.** Sneak-activating a drinking water source while holding an empty
 bottle now consumes one bottle and adds one water item, through a native `TESActivateEvent` sink that
-runs independently of the vanilla `HC_*` Survival path — no `HC_*` record is read or written, and the
+runs independently of the vanilla `HC_*` Survival path - no `HC_*` record is read or written, and the
 activated source's `spellOnDrink` is never consulted. Built-in tables cover the 26 vanilla empty-bottle
 items and the ten vanilla/DLC drinking activators, plus the `AnimFurnWaterPump` keyword for mod-added
 pumps. **Output rule: Dirty Water everywhere except inside the maintained Vault 81 cells (`Vault81`,
 `Vault81Entry`), which give Purified Water.** The decision uses only the player's current parent cell
-— the activated source's type and `spellOnDrink` are never consulted. Everything outside those two
+- the activated source's type and `spellOnDrink` are never consulted. Everything outside those two
 cells is therefore dirty: the other vaults (75, 95, 111, 114, 118, 88, the Vault-Tec Workshop and
 DLC03 vaults), the Vault-Tec lab (`Vault81Secret`), the Vault 81 holding cell and the Vault 81
 exterior. Settlement pumps and sinks, DLC and vault fountains and the irradiated
-`Vault_WaterFountain01_Rads` follow the same cell-only rule — the source type never decides by itself.
+`Vault_WaterFountain01_Rads` follow the same cell-only rule - the source type never decides by itself.
 The clean check keys on the parent cell, never on the location, because `Vault81Ext` shares
 `Vault81Location`; anything unresolved or exterior reads as dirty, and the code never fails open to
 clean. Every fill shows a HUD message, so a consumed bottle is never silent, and a bottle the engine
@@ -136,7 +136,7 @@ activation without sneaking.
 flag, so after `BurstSteps` iterations the magnitude went negative and the rumble timer never started.
 The loop is now bounded by `I < BurstSteps`, which lets the existing `If (_shaking) StartTimer(...)`
 run. `DebugNotify` now defaults to false so the on-screen `[StormFX]` spam stops. This repairs the
-script only: the Papyrus shake has never run on any save (`SetStage` fails — see `docs/ISSUES_FIXED.md`),
+script only: the Papyrus shake has never run on any save (`SetStage` fails - see `docs/ISSUES_FIXED.md`),
 and the native `NativeShakeCamera` path is what actually shakes the camera.
 
 ## 2026-07-19: black storm dome FIXED (confirmed in-game); storm siren logging + debug lead

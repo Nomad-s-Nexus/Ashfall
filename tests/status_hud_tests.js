@@ -131,7 +131,7 @@ climate.context.setTheme('phosphor');
 assert.ok(climate.context.document.body.classes.has('theme-phosphor'));
 climate.context.setTheme('classic');
 assert.ok(!climate.context.document.body.classes.has('theme-phosphor'));
-const radTheme={document:{body:{classList:{toggle(name,on){this.last=[name,on];}}}}};
+const radTheme={document:{getElementById:()=>null,body:{classList:{toggle(name,on){this.last=[name,on];}}}}};
 radTheme.window=radTheme;vm.createContext(radTheme);
 vm.runInContext(fs.readFileSync(path.join(view,'radhud.js'),'utf8'),radTheme);
 radTheme.setTheme('phosphor');assert.deepEqual(radTheme.document.body.classList.last,['theme-phosphor',true]);

@@ -151,7 +151,7 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
                 readExact(candidate.speed) && readExact(candidate.ap);
             if (!read || !RadiationSerialization::IsValidPenaltyState(candidate))
             {
-                logger->warn("[Load] Tissue-penalty record #{} v{} len {} is invalid or truncated — ignoring.",
+                logger->warn("[Load] Tissue-penalty record #{} v{} len {} is invalid or truncated - ignoring.",
                     penaltySeen, version, length);
                 continue;
             }
@@ -339,7 +339,7 @@ void RadiationEngine::LoadState(const F4SE::SerializationInterface* a_intfc)
     }
     else if (penaltySeen > 0)
     {
-        logger->warn("[Load] {} tissue-penalty record(s) present but not one agreeing valid record — penalties start at 0.",
+        logger->warn("[Load] {} tissue-penalty record(s) present but not one agreeing valid record - penalties start at 0.",
             penaltySeen);
     }
 
