@@ -120,6 +120,9 @@ public:
     void DebugClearWeather();                         // release any forced weather
     void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
+    void DebugTime(const std::string& arg);
+    void DebugLockWeather();
+    void KeepPlayerAlive();
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
     void DispelNegativeSpecials();                    // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)
     // Called from the PrismaUI JS listener (Ultralight thread). It ONLY enqueues the command;
@@ -418,6 +421,8 @@ private:
     bool ComputeEnclosedByStructure() const;
     bool _playerEnclosed    = false;   // cached result of the roof-fan raycast (storms only)
     int  _enclosedCheckTick = 0;       // countdown to the next raycast re-evaluation
+    bool  _debugGod          = false;
+    float _frozenTimeScale   = -1.0f;
     bool _debugShelter      = false;   // debug: live-Notify the roof-fan result + run the raycast even with no storm
     void ApplyStormExposure();         // per-tick rads + HP damage from the active storm
     void UpdateAmbientAudio();         // per-tick: storm bed (by current weather) + general exterior bed

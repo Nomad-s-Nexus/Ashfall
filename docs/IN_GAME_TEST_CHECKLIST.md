@@ -31,3 +31,9 @@ branch traces `consume-arm` / `consume-confirm` / `consume-apply` instead.
 
 Not covered here (other branches own those sections): fountain bottles, mask overlay, auto-don, hotkeys, needs
 persistence.
+
+## Showcase tab
+- **Open the debug menu (Shift+F8), SHOWCASE tab, press a scene button.** Expected: the scene's commands fire in order (storm starts, fast-forwards to Active, ends).
+- **Press PLAY FULL TOUR.** Expected: the menu closes and every scene plays in turn with no menu visible; Shift+F8 reopens the menu and stops the tour.
+- **CAMERA row: God ON, Freeze time, Noon, Lock weather.** Expected: health stays full while god is on, the clock stops until Resume time, the hour jumps to the preset, and the weather holds until Release weather.
+- **Resume time before saving.** A save made while time is frozen stores a time scale of 0.
