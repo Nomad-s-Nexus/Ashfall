@@ -143,7 +143,7 @@ namespace
             return false;
         a_vm->BindNativeMethod("RadNatives", "GetReliefFlags", PapyrusGetReliefFlags, std::nullopt, false);
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->info("[Relief] Papyrus bridge registered (RadNatives.GetReliefFlags, global).");
+            logger->info("[Relief] Papyrus bridge registered (GetReliefFlags).");
         return true;
     }
 }
