@@ -63,7 +63,6 @@ public:
     void Update();
     // Called EVERY frame (not the 4Hz tick) so hotkeys are never missed between ticks.
     void PollInput();
-    void UpdateStormDomeFollow();
     void UpdateStormIMADFade();
     void ApplyDebuffs(uint32_t radLevel);
 
@@ -227,6 +226,10 @@ private:
     // gameplay (the update hook stops ticking in menus).
     static constexpr int kStormTypeCount = 5;
     RE::TESWeather* _stormWeathers[kStormTypeCount] = {};  // forced skies (0x840..0x844)
+    RE::TESWeather* _stormSkyVanilla = nullptr;
+    RE::TESWeather* StormSkyWeather(int typeIndex) const;
+    void ResetStormWeatherLatches();
+    int             _stormRollDiagTick = 0;
     RE::TESGlobal*  _nextEmissionGlobal = nullptr;  // persists next storm game-time (0x852)
     RE::TESGlobal*  _forceStormGlobal = nullptr;    // console debug trigger (0x853)
     StormPhase      _stormPhase = StormPhase::Idle;
@@ -282,8 +285,7 @@ private:
     float           _stormMinRealMin   = 35.0f;     // [Storm] MinMinutes
     float           _stormMaxRealMin   = 90.0f;     // [Storm] MaxMinutes
     double          _vanillaRadstormGapSec = 60.0 * 60.0;  // [Storm] VanillaRadstormGapMinutes
-    int             _domeLeadTicks     = 3 * 60 * 4; // [Storm] DomeLeadMinutes — silent dome-only lead before the alarm (default 3 min)
-    // Debug-only lead override, consumed by the next BeginStorm. -1 = use _domeLeadTicks. A forced
+    int             _stormLeadTicks    = 3 * 60 * 4;
     // storm shortens ONLY the silent lead; warningTicks and everything after stay at real timings.
     int             _forcedLeadTicks   = -1;
     int             _activeLeadTicks   = 0;         // lead the in-flight storm actually used (for logging)
@@ -442,33 +444,6 @@ private:
     void SpawnFireRing();                           // place a ring of fire hazards around player
     void ClearFireRefs();                           // disable + release all live fire refs
 
-    // STORM DOME (KORs CloudArena, bundled) — spawned NATIVELY, not via the RadStormFX Papyrus quest.
-    // SetStage()/OnStageSet historically proved unreliable (returned false, the Papyrus event never fired
-    // even with the stage table rebuilt), so the dome is placed the same way the fire ring is —
-    // TESDataHandler::CreateReferenceAtLocation. The whole engine tick now runs on the verified game-main
-    // thread (marshaled by Hooks.cpp); the rotating cloud animation is baked into the NIFs, so a placed
-    // ref just plays it.
-    RE::TESForm* _stormDomeForms[4] = {};          // FARO_StormDome01..04 (scriptless ACTI copies)
-    RE::TESBoundObject* _stormDomeLight = nullptr; // FARO_StormDomeLight (TopLightNode) — the cloud shapes are
-                                                   // effect-LIT, so this light IS the glowing-vortex look.
-    RE::TESBoundObject* _stormDomeFlare = nullptr; // FARO_StormDomeFlare (LensFlareNode) — the bright eye/glare
-    struct StormDomeLayer
-    {
-        RE::ObjectRefHandle handle;
-        float zOffset;
-    };
-    std::vector<StormDomeLayer> _stormDomeRefs;
-    RE::TESObjectCELL* _stormDomeCell = nullptr;
-    RE::TESWorldSpace* _stormDomeWorld = nullptr;
-    int _stormDomeRespawnRetryTicks = 0;
-    bool _stormDomeUp = false;
-    bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
-                                                    // NiController animation (KORs' STATIC records do), so
-                                                    // UpdateDomeAnimation force-activates it once 3D loads
-    void SpawnStormDome();                          // place the dome layers overhead (exterior only)
-    void ClearStormDome();                          // disable + release the dome layers
-    void UpdateStormDomeLifecycle();                // 4 Hz spawn/retry/worldspace ownership only
-    void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
     // Native camera shake (replaces the RadStormFX Papyrus shake, which never fired — SetStage
     // returned false every time). -1 = inactive for both counters.
     int  _shakeBurstStep  = -1;                     // >=0: decaying burst step in progress
@@ -513,7 +488,6 @@ private:
     void RetryStormGhoulCleanup();
     void RetireUnresolvedStormGhouls();
     void ResetStormGhoulStateForLoad();
-    void ResetStormDomeForLoad();
     void SpawnStormGhouls();   // % chance to unleash a 5-20 strong persistent hunter pack (lethal storms)
     void ClearStormGhouls();   // disable + delete all spawned ghoul refs
     void CheckGhoulPackCleanup();  // despawn the pack once the player leaves the area

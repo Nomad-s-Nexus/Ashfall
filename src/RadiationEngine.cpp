@@ -175,6 +175,10 @@ void RadiationEngine::Update()
         // pre-Option-B gameplay timing (effects begin when the storm actually arrives).
         if (inRadWeather && _dustBuildupActive && _stormPhase == StormPhase::Warning)
             inRadWeather = false;
+        if (inRadWeather && _stormPhase == StormPhase::Warning && _activeStormType >= 0 &&
+            RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType) && sky &&
+            sky->currentWeather == StormSkyWeather(_activeStormType))
+            inRadWeather = false;
 
         const bool needsShelterEval = stormActive || rainyWeather || inRadWeather;
 
@@ -285,9 +289,6 @@ void RadiationEngine::Update()
 
         // Dust Storm continuous camera dust — re-applies the blowing-dust art on a short cadence.
         UpdateDustMotes();
-
-        // Start the dome's rotation/shader animation once its 3D attaches (native ACTI refs don't auto-start).
-        UpdateDomeAnimation();
 
         // Ambient audio beds — per-storm bed (driven by current weather, so debug ForceWeather plays
         // it too) + a general exterior background bed. Runs every tick, independent of storm phase.
@@ -533,7 +534,7 @@ void RadiationEngine::Update()
             }
             _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
         }
-        if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold))
+        if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold || _stormPhase == StormPhase::Active))
             SpawnStormGhouls();
 
         // Apply debuffs based on EFFECTIVE radiation (drives stage perks -> SPECIAL + Pipboy + IMAD).

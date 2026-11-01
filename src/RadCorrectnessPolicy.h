@@ -15,11 +15,6 @@ namespace RadCorrectnessPolicy
         auto operator==(const Position&) const -> bool = default;
     };
 
-    constexpr Position DomePosition(Position player, float zOffset)
-    {
-        return { player.x, player.y, player.z + zOffset };
-    }
-
     struct NukePlacement
     {
         Position strike;
@@ -36,27 +31,14 @@ namespace RadCorrectnessPolicy
         return { strike, std::atan2(player.x - strike.x, player.y - strike.y) };
     }
 
-    constexpr bool StormUsesDome(int theme)
-    {
-        return theme != 1;
-    }
-
     constexpr bool ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)
     {
         return managedStorm || vanillaRadstorm;
     }
 
-    constexpr bool ShouldRecreateDomeForOwner(bool domeUp, [[maybe_unused]] bool sameCell, bool sameWorld)
+    constexpr bool UsesVanillaRadstormSky(int typeIndex)
     {
-        // Exterior parent-cell changes are normal streaming while the player moves through one
-        // worldspace. Recreating every layer on those boundaries causes the visible dome snap/jitter.
-        // Only a real worldspace ownership change requires destructive recreation.
-        return domeUp && !sameWorld;
-    }
-
-    constexpr bool ShouldRetryDomeSpawn(bool domePhase, bool exposed, bool domeUp, int retryTicks)
-    {
-        return domePhase && exposed && !domeUp && retryTicks >= 4;
+        return typeIndex == 0 || typeIndex == 2;
     }
 
     constexpr bool IsGasMask(bool fillsMouth, bool hasKeyword)

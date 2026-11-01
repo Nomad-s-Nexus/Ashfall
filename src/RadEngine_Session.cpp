@@ -21,7 +21,6 @@ void RadiationEngine::RevertState()
     _lastRadWeatherFormID = 0;
     _stormScheduled   = false;
     ResetStormGhoulStateForLoad();
-    ResetStormDomeForLoad();
     // Constraint: fire handles die with the session; there is nothing left here to disable.
     _fireRefs.clear();
     _filterCharge     = 100.0f;   // fresh full filter for a new game / co-saveless load
@@ -111,7 +110,6 @@ void RadiationEngine::OnPostLoad()
     ClearStormGhouls();
     ClearStormIMAD();
     TriggerStormFX(false);  // clear shake left dangling by the load
-    ClearStormDome();
     _pendingLoadFXCleanup = true;
     if (_stormSoundHandle.IsValid()) _stormSoundHandle.FadeOutAndRelease(500);  // kill leftover storm audio
     if (_ambientBedHandle.IsValid()) _ambientBedHandle.FadeOutAndRelease(500);  // and the general bed

@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "RadCorrectnessPolicy.h"
 
 using namespace RadInternal;
 
@@ -89,6 +90,14 @@ void RadiationEngine::UpdateAmbientAudio()
     // jumps to full under a still-clear sky. The general exterior bed covers the approach.
     if (stormBed && _dustBuildupActive && _stormPhase == StormPhase::Warning)
         stormBed = nullptr;
+    if (!stormBed && _stormPhase == StormPhase::Active &&
+        _activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
+        RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType))
+    {
+        const RE::TESWeather* shared = StormSkyWeather(_activeStormType);
+        if (shared && shared->GetFormID() == wid)
+            stormBed = kStormTypes[_activeStormType].ambient;
+    }
 
     const bool interior = [] {
         auto* pc = RE::PlayerCharacter::GetSingleton();

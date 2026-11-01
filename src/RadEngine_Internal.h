@@ -185,6 +185,8 @@ namespace RadInternal
     // Vanilla radstorm weather FormIDs (Fallout4.esm). When one of these becomes the
     // active weather we play the warning sound once.
     constexpr uint32_t kRadstormWeathers[] = { 0x1C3D5E, 0x2392A3, 0x222394, 0x24A3C0 };
+    constexpr uint32_t kStormRadSkyWeatherPrimary  = 0x24A3C0;
+    constexpr uint32_t kStormRadSkyWeatherFallback = 0x1C3D5E;
 
     inline bool IsRadstormWeather(uint32_t formID)
     {
@@ -209,9 +211,6 @@ namespace RadInternal
     constexpr float kRadstormVetoMaxPct = 0.10f;
 
     // Storm onset sequence: the cloud dome fades in overhead first, THEN the siren goes up. This is the
-    // gap between the two (4 Hz ticks) — long enough for the dome's engine fade-in to actually read on
-    // screen before the alarm starts, so the storm builds instead of everything landing at once.
-    constexpr int kSirenAfterDomeTicks = 8 * 4;   // ~8 s
 
     // Custom storm audio. WAV/XWM only — engine does not play MP3.
     // Vanilla-radstorm soft warning cue. Repointed off the old loose "My Audio.wav" (a stereo PCM wav,
@@ -497,15 +496,6 @@ namespace RadInternal
     // overhang count as shelter, which is physically correct for sky radiation. Interior-cell and
     // Pulowski checks run first, so this only fires for outdoor (incl. player-built) cover.
     // -----------------------------------------------------------------------
-    // Storm dome Z offset from the player. MUST be ~0: the CloudArena mesh's ORIGIN IS AT ITS BOTTOM and
-    // it extends ~11000 units UPWARD (authored ObjectBounds z = -1042 .. +11040; the NIF's TopLightNode
-    // sits at local z+10000, near the mesh top). So any positive offset lifts the whole dome — at the old
-    // 3800/6000 the bottom RIM floated above the player's head and only a grazing upper band was visible
-    // (read as "too high / too large / blurry"). At 0 the rim sits at player-1042 (below the feet, hidden
-    // by terrain) and the dome arches over the entire sky as authored. Those old offsets were ours, not
-    // KORs' — the stripped plugin has no placed refs and no script places it, so there was never an
-    // original offset to copy.
-    constexpr float kStormDomeZOffset     = 0.0f;
     // -----------------------------------------------------------------------
     // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
     //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)
@@ -523,14 +513,6 @@ namespace RadInternal
     // transiently invalid (streaming), retry the step up to this many ticks, then abandon the burst and
     // hand over to the sustained rumble (which self-retries safely) so the burst can't spin forever.
     constexpr int   kStormShakeBurstMaxRetries   = 20;     // ~5 s at 4 Hz
-    // Arena lights for the effect-LIT cloud shapes. KORs' script does PlaceAtNode on two nodes in the dome
-    // NIF; we mirror BOTH at their authored local heights. The glowing-vortex look IS this lighting: the
-    // clouds are lit brightest at the eye and fall off outward. (Do NOT bake the clouds self-emissive to
-    // "fix" darkness — that flattens the gradient and makes the light a no-op.)
-    // Both nodes carry translation only (identity rotation), so PlaceAtNode applies NO rotation — place
-    // these unrotated. An earlier pitch-down guess was wrong.
-    constexpr float kStormDomeLightNodeZ  = 10000.0f;  // TopLightNode  -> ArenaLight01 (radius 20000)
-    constexpr float kStormDomeLensFlareZ  = 7800.0f;   // LensFlareNode -> ArenaLight02 (lens flare/glow)
 
     // Continuous camera dust (Dust Storm). Re-apply the dust ArtObject to the camera slightly faster
     // than it expires so it overlaps into a steady blowing-dust effect rather than pulsing.

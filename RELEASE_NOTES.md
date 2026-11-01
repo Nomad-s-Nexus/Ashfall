@@ -28,8 +28,7 @@ archive is a ready-to-install mod: the complete `deploy/` tree plus a freshly bu
   panel gained a SURVIVAL pane showing pools, stages, exposure and illness, and its detail
   text is scaled up so vitals and armor values read at a glance.
 - **Storm weather handoff.** Managed weather returns smoothly without handing control back
-  to a captured vanilla radstorm; the storm dome follows the player across cell and
-  worldspace transitions; the fallback dispatch queue and dome-follow producer are bounded;
+  to a captured vanilla radstorm; the storm sky rolls in at the warning phase; the fallback dispatch queue and the storm visuals producer are bounded;
   distant firestorm strikes are placed only in a loaded exterior worldspace, on terrain,
   facing the player.
 - **Mask defaults that do not strand you.** Filter life is 20 minutes, **F6** replaces a

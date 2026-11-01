@@ -150,23 +150,18 @@ void RadiationEngine::EnsureEslLoaded()
             _nukeExplosionForm ? "resolved" : "MISSING");
     }
 
-    // from Anomaly's CloudArena. They MUST be scriptless — placing the real KORs activator
+
     {
-        int resolved = 0;
-        for (int k = 0; k < 4; ++k)
-        {
-            RE::TESForm* f = dh->LookupForm(0x805 + k, kEslName);
-            _stormDomeForms[k] = (f && f->GetFormType() == RE::ENUM_FORM_ID::kACTI) ? f : nullptr;
-            if (_stormDomeForms[k]) ++resolved;
-        }
-        RE::TESForm* lf = dh->LookupForm(0x889, kEslName);   // FARO_StormDomeLight (was KORs ArenaLight01)
-        _stormDomeLight = (lf && lf->GetFormType() == RE::ENUM_FORM_ID::kLIGH)
-            ? static_cast<RE::TESBoundObject*>(lf) : nullptr;
-        RE::TESForm* ff = dh->LookupForm(0x88A, kEslName);   // FARO_StormDomeFlare (was KORs ArenaLight02, lens flare)
-        _stormDomeFlare = (ff && ff->GetFormType() == RE::ENUM_FORM_ID::kLIGH)
-            ? static_cast<RE::TESBoundObject*>(ff) : nullptr;
-        logger->info("[ESL] Storm dome layers (FARO_StormDome01..04): {}/4 resolved; arena light {}, lens flare {}.",
-            resolved, _stormDomeLight ? "resolved" : "NOT found", _stormDomeFlare ? "resolved" : "NOT found");
+        RE::TESForm* pForm = dh->LookupForm(kStormRadSkyWeatherPrimary, "Fallout4.esm");
+        RE::TESForm* fForm = dh->LookupForm(kStormRadSkyWeatherFallback, "Fallout4.esm");
+        RE::TESWeather* primary = (pForm && pForm->GetFormType() == RE::ENUM_FORM_ID::kWTHR)
+            ? static_cast<RE::TESWeather*>(pForm) : nullptr;
+        RE::TESWeather* fallback = (fForm && fForm->GetFormType() == RE::ENUM_FORM_ID::kWTHR)
+            ? static_cast<RE::TESWeather*>(fForm) : nullptr;
+        _stormSkyVanilla = primary ? primary : fallback;
+        logger->info("[ESL] Storm sky weather 0x{:06X}: {}; fallback 0x{:06X}: {}.",
+            kStormRadSkyWeatherPrimary, primary ? "resolved" : "NOT found",
+            kStormRadSkyWeatherFallback, fallback ? "resolved" : "NOT found");
     }
 
     for (int i = 0; i < kStormTypeCount && i < kStormTypeTableSize; ++i)

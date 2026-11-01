@@ -14,7 +14,18 @@ void RadiationEngine::UpdateStorm()
 {
     auto logger = Log();
     UpdateWeatherHandoff();
-    UpdateStormDomeLifecycle();
+
+    if ((_stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active) &&
+        _activeStormType >= 0 && _activeStormType < kStormTypeTableSize && ++_stormRollDiagTick % 8 == 0)
+    {
+        if (auto* sky = RE::Sky::GetSingleton())
+            logger->info("[RollDiag] {} phase={} pct={:.2f} cur=0x{:06X} last=0x{:06X}",
+                kStormTypes[_activeStormType].name,
+                _stormPhase == StormPhase::Warning ? "Warning" : "Active",
+                sky->currentWeatherPct,
+                sky->currentWeather ? sky->currentWeather->GetFormID() : 0u,
+                sky->lastWeather ? sky->lastWeather->GetFormID() : 0u);
+    }
 
     if (_stormPhase != StormPhase::Active && _wasInRadWeather == 0 &&
         !_autoMaskedNpcs.empty() && --_npcMaskScanTick <= 0)
@@ -116,9 +127,6 @@ void RadiationEngine::UpdateStorm()
 
     case StormPhase::Approach:
     {
-        const bool exposed = !IsPlayerSheltered();
-        if (!exposed && _stormDomeUp) ClearStormDome();
-
         if (--_stormTicksLeft <= 0)
         {
             logger->info("[StormSeq] APPROACH complete ({} s elapsed) -> WARNING.", _activeLeadTicks / 4);
@@ -149,7 +157,7 @@ void RadiationEngine::UpdateStorm()
 
             StopStormCue(kRadstormCueFalloffMs);
 
-            if (RE::TESWeather* w = _stormWeathers[_activeStormType])
+            if (RE::TESWeather* w = StormSkyWeather(_activeStormType))
             {
                 if (auto* sky = RE::Sky::GetSingleton())
                 {
@@ -238,7 +246,6 @@ void RadiationEngine::UpdateStorm()
                 if (_stormFXVisible && IsPlayerSheltered())
                 {
                     TriggerStormFX(false);
-                    ClearStormDome();
                     _stormFXVisible = false;
                 }
                 --_stormTicksLeft;
@@ -269,7 +276,6 @@ void RadiationEngine::UpdateStorm()
             else if (_stormFXVisible && IsPlayerSheltered())
             {
                 TriggerStormFX(false);
-                ClearStormDome();
                 _stormFXVisible = false;
             }
             --_stormTicksLeft;
@@ -314,7 +320,6 @@ void RadiationEngine::UpdateStorm()
             ClearFireRefs();        // remove any spawned fire hazards
             FadeOutStormIMAD(3.0f);
             TriggerStormFX(false);  // stop shake (Papyrus, if it ever works)
-            ClearStormDome();       // despawn the native cloud dome
             _stormFXVisible = false;
             EnterStormPhase(StormPhase::Aftermath, st.aftermathTicks);
             ReleaseStormWeather();  // hand the sky back to the vanilla system

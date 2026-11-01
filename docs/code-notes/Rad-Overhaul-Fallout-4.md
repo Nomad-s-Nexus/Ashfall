@@ -806,3 +806,61 @@ rewrite lives on the separate needs/disease branch), the notification placement,
 checklist section below is the in-game check. The confirmation path on this branch is still the count-drop design;
 the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
 mistaken for a use here.
+
+## Storm dome removed; Ash and Sulfur use the vanilla Glowing Sea radstorm sky (2026-11-01)
+
+Reference: `src/RadEngine_ESL.cpp` (vanilla resolution), `src/RadEngine_Storm_Weather.cpp:StormSkyWeather`,
+`src/RadCorrectnessPolicy.h:UsesVanillaRadstormSky`, `src/RadEngine_Weather.cpp:CheckRadstormWarning`,
+`src/RadiationEngine.cpp` (rad-weather gate and ghoul gate), `src/RadEngine_Audio.cpp` (storm bed).
+
+Removed: the native dome (spawn, clear, reset, lifecycle, follow, animation and the four dome policy helpers), the dome
+form resolution, the dome members and constants, and the dome calls on the storm start, warning, active, aftermath, shelter,
+load and debug paths. Kept: `NativeShakeCamera`, `UpdateStormShake` and `UpdateDustMotes`, which stay in
+`RadEngine_Storm_Effects.cpp` (renamed from `RadEngine_Storm_Dome.cpp`). The visual producer keeps its 33 ms cadence and generation guard
+as `QueueStormVisuals`, which drives only the IMAD fade (the file is `Hooks_StormVisuals.cpp`, renamed from `Hooks_DomeFollow.cpp`). The INI key
+`DomeLeadMinutes` is now `StormLeadMinutes`; the legacy key is read only when the new one is absent.
+
+The sky swap:
+- `kStormRadSkyWeatherPrimary` is form ID `0x24A3C0` and `kStormRadSkyWeatherFallback` is `0x1C3D5E` (both
+  `RadEngine_Internal.h`). The vanilla pointer is resolved in `RadEngine_ESL.cpp` before the loop that tunes the custom
+  storm weathers, and stored in `_stormSkyVanilla`. That loop never sees the vanilla record.
+- `UsesVanillaRadstormSky(type)` is true only for type indices 0 (Ash Fallout) and 2 (Toxic Sulfur Storm). Acid Rain (3),
+  Rad Firestorm (1) and Dust Storm (4) are excluded.
+- `StormSkyWeather(type)` returns the vanilla weather for those types, and the type's own custom weather otherwise.
+  Unresolved vanilla forms fall back to the custom weather.
+
+Facts about the weather records. Source: `Fallout4.esm`, read by parsing the master's records with Python in this session.
+- The custom storm weathers (form IDs `0x840` Ash, `0x841` Firestorm, `0x842` Sulfur, `0x844` Dust) already carry the
+  RadStormSpell form ID `0x1C5E7B` (magnitude 5.0) and the spell form ID `0x23EC91` in their UNAM lists. Acid Rain
+  (`0x843`) carries no weather spell.
+- Vanilla `0x24A3C0` carries no RadStormSpell. Its UNAM lists only `0x23EC91`, whose effect (form ID `0x18EFF5`) has
+  magnitude 6.0. Ash and Sulfur therefore see equal or lower weather-spell dosing than before.
+- Vanilla `0x1C3D5E` is overridden by `RadiationOverhaul.esp` with an orange, silent palette, so it is not the primary.
+- The `RadWeatherList` form list in `RadiationOverhaul.esp` includes `0x24A3C0` (checked by parsing the plugin), so mask,
+  choke and rad-weather membership still apply while the vanilla sky is up.
+- The Papyrus rad-weather list (`RadSurvivalDiseases`), per the research report, lists `0x1C3D5E` and `0x840` to `0x844`
+  but not `0x24A3C0`. While the vanilla sky is current, disease exposure accrual from the weather does not count. This
+  cannot be fixed without a Papyrus recompile. Not re-verified in this change.
+- Acid Rain is excluded because it has real rain precipitation and carries no weather spell; the vanilla sky would add
+  the 6.0 spell dosing and lose the rain.
+
+Double-apply guards (one managed storm must start its siren, ghoul pack and storm bed once):
+- `CheckRadstormWarning` returns early while a managed storm is in progress. A vanilla radstorm that is our own sky
+  therefore does not start a second siren, a second ghoul pack or a cooldown record.
+- The rad-weather entry that spawns ghouls (`RadiationEngine.cpp`) now also requires the Active phase when the sky is the
+  vanilla radstorm. During Warning, rad-weather membership is held false for those types, so the entry happens once, at
+  the Active hit.
+- The storm bed is picked from `_activeStormType` in Active when the sky is the vanilla weather, because the vanilla form
+  ID matches no storm type's weather ID. It is held until Active, like the rad-weather membership.
+
+Warning roll-in. `EnterWarningPhase` starts the vanilla sky roll-in for types 0 and 2 (capturing the return target
+first). `DebugForceStorm` releases the forced sky only when `_weatherForced` is true; otherwise it runs
+`ResetStormWeatherLatches`, which the release also runs. `UpdateStorm` logs `[RollDiag]` every 8 ticks in Warning and
+Active. The approach lead is now silent dead time before the siren and the roll-in; only the INI key changed.
+
+Risks, all not verified in game:
+- Ash and Sulfur show the vanilla green palette and aurora; our IMAD layers apply over the vanilla green image spaces.
+- The roll-in duration depends on the vanilla record's transition speed (the research report gives about 54 s at the
+  vanilla value). That value is not changed here.
+- The Papyrus disease-accrual gap above.
+- Acid Rain loses nothing, since it is unchanged, but the silent lead is now dead time for the custom-weather storms.
