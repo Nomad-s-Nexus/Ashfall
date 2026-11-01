@@ -249,6 +249,7 @@ private:
     // immune to the GameDaysPassed quirks (prewar carryover, the 2077->2287 jump not advancing it).
     double          _playSeconds      = 0.0;        // accumulated real seconds of active play
     double          _nextStormPlaySec = 0.0;        // _playSeconds value at which the next storm fires
+    double          _stormDomeBeginSec = 0.0;
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
@@ -461,16 +462,22 @@ private:
     {
         RE::ObjectRefHandle handle;
         float zOffset;
+        bool animStarted = false;
+        bool manualSeeded = false;
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
     RE::TESWorldSpace* _stormDomeWorld = nullptr;
     int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
+    bool _stormDomeSeekAudit = false;
+    bool _stormDomeManualDrive = false;
+    float  _stormDomeBlend = 0.0f;
+    double _stormDomeBlendSec = 0.0;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads
-    void SpawnStormDome();                          // place the dome layers overhead (exterior only)
+    void SpawnStormDome();
     void ClearStormDome();                          // disable + release the dome layers
     void UpdateStormDomeLifecycle();                // 4 Hz spawn/retry/worldspace ownership only
     void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load

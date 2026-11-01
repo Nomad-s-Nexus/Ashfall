@@ -4,6 +4,9 @@
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
+#include <RE/N/NiUpdateData.h>
+#include <algorithm>
+#include <atomic>
 #include <RE/N/NiAVObject.h>
 #include <RE/N/NiObjectNET.h>
 #include <RE/T/TESObjectCELL.h>
@@ -17,15 +20,17 @@ namespace
     {
         cell = player ? player->GetParentCell() : nullptr;
         world = player ? player->cachedWorldspace : nullptr;
-        return player && player->Get3D() && cell && cell->IsExterior() && cell->IsAttached() && world &&
-            cell->worldSpace == world;
+        if (!player || !player->Get3D() || !cell || !cell->IsAttached()) return false;
+        if (cell->IsInterior()) { world = nullptr; return true; }
+        return cell->IsExterior() && world && cell->worldSpace == world;
     }
 
     bool IsValidDomeReference(RE::TESObjectREFR* ref, RE::TESWorldSpace* world)
     {
         if (!ref || ref->IsDeleted() || ref->IsDisabled()) return false;
         auto* cell = ref->GetParentCell();
-        return cell && cell->IsExterior() && cell->IsAttached() && cell->worldSpace == world;
+        if (!cell || !cell->IsAttached()) return false;
+        return cell->IsInterior() ? world == nullptr : cell->IsExterior() && cell->worldSpace == world;
     }
 }
 
@@ -40,18 +45,18 @@ void RadiationEngine::SpawnStormDome()
             ClearStormDome();
         return;
     }
-    if (_stormDomeUp || IsPlayerSheltered()) return;
+    if (_stormDomeUp) return;
     auto* dh     = RE::TESDataHandler::GetSingleton();
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!dh || !player || !player->cachedWorldspace) return;
+    if (!dh || !player) return;
 
     ClearStormDome();
 
     const RE::NiPoint3 base = player->GetPosition();
-    auto* const playerCell = player->GetParentCell();
-    auto* const playerWorld = player->cachedWorldspace;
-    if (!playerCell || !playerCell->IsExterior() || !playerCell->IsAttached() || playerCell->worldSpace != playerWorld)
-        return;
+    RE::TESObjectCELL* playerCell = nullptr;
+    RE::TESWorldSpace* playerWorld = nullptr;
+    if (!IsValidDomeOwner(player, playerCell, playerWorld)) return;
+    auto* const interiorCell = playerCell->IsInterior() ? playerCell : nullptr;
     int placed = 0;
     for (int k = 0; k < 4; ++k)
     {
@@ -60,7 +65,7 @@ void RadiationEngine::SpawnStormDome()
         data.object    = static_cast<RE::TESBoundObject*>(_stormDomeForms[k]);
         data.location  = { base.x, base.y, base.z + kStormDomeZOffset };
         data.direction = { 0.0f, 0.0f, 0.0f };
-        data.interior  = nullptr;
+        data.interior  = interiorCell;
         data.world     = playerWorld;
         auto handle = dh->CreateReferenceAtLocation(data);
         if (static_cast<bool>(handle))
@@ -76,10 +81,11 @@ void RadiationEngine::SpawnStormDome()
         _stormDomeCell = playerCell;
         _stormDomeWorld = playerWorld;
     }
+    _stormDomeManualDrive = false;
     _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
 
     bool lit = false, flare = false;
-    if (placed > 0)
+    if (placed > 0 && !interiorCell)
     {
         auto placeLight = [&](RE::TESBoundObject* obj, float nodeZ) -> bool {
             if (!obj) return false;
@@ -150,13 +156,73 @@ void RadiationEngine::UpdateStormShake()
 }
 void RadiationEngine::UpdateDomeAnimation()
 {
-    if (!_stormDomeUp || _stormDomeAnimStarted || _stormDomeRefs.empty()) return;
+    const float dt = static_cast<float>(std::clamp(_playSeconds - _stormDomeBlendSec, 0.0, 1.0));
+    _stormDomeBlendSec = _playSeconds;
+    const float step = dt / kStormDomeBlendRampSec;
+    _stormDomeBlend = std::clamp(_stormDomeBlend + (_stormDomeUp ? step : -step), 0.0f, 1.0f);
+    Hooks::SetStormDomeBlend(_stormDomeBlend);
+
+    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
+    if (_stormDomeAnimStarted)
+    {
+        const float rel = static_cast<float>(_playSeconds - _stormDomeBeginSec);
+        static int s_auditBucket = -1;
+        const int bucket = static_cast<int>(rel) / 3;
+        if (_stormDomeManualDrive && bucket != s_auditBucket) { s_auditBucket = bucket; _stormDomeSeekAudit = true; }
+        const bool audit = _stormDomeSeekAudit;
+        _stormDomeSeekAudit = false;
+        if (!audit && !_stormDomeManualDrive) return;
+        bool anyAudited = false;
+        for (auto& layer : _stormDomeRefs)
+        {
+            auto ptr = layer.handle.get();
+            auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
+            auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
+            if (!mgr) continue;
+            for (std::uint16_t i = 0; audit && i < mgr->GetSequenceCount(); ++i)
+            {
+                auto* seq = mgr->GetSequenceAt(i);
+                if (!seq) continue;
+                anyAudited = true;
+                Log()->info("[StormFX] Dome sequence audit {} offset={:.2f} startTime={:.2f} lastScaled={:.2f} state={} owner={}",
+                    i, seq->offset, seq->startTime, seq->lastScaledTime, static_cast<int>(seq->state.get()), seq->owner == mgr);
+                std::uint32_t passes = 0, scaled = 0;
+                Hooks::GetSkyCloudStats(passes, scaled);
+                Log()->info("[StormFX] Dome blend={:.2f} skyPasses={} cloudPassesScaled={} rel={:.1f}", _stormDomeBlend, passes, scaled, rel);
+                if (seq->offset < -1.0e30f && !_stormDomeManualDrive)
+                {
+                    _stormDomeManualDrive = true;
+                    Log()->warn("[StormFX] Dome sequence never advanced; driving the controller manager manually.");
+                }
+            }
+        }
+        if (audit && !anyAudited) _stormDomeSeekAudit = true;
+        if (!_stormDomeManualDrive) return;
+        RE::NiUpdateData data;
+        data.time = rel;
+        for (auto& layer : _stormDomeRefs)
+        {
+            auto ptr = layer.handle.get();
+            auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
+            auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
+            if (!mgr) continue;
+            mgr->Update(data);
+            if (layer.manualSeeded) continue;
+            for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
+                if (auto* seq = mgr->GetSequenceAt(i))
+                    seq->offset = RadCorrectnessPolicy::DomeSeekSeconds(rel, kStormDomeTimelineSec) - rel;
+            layer.manualSeeded = true;
+            if (audit) _stormDomeSeekAudit = true;
+        }
+        return;
+    }
     int animated = 0, pending = 0;
     for (auto& layer : _stormDomeRefs)
     {
         auto ptr = layer.handle.get();
         auto* ref = ptr.get();
         if (!ref) continue;
+        if (layer.animStarted) { ++animated; continue; }
         auto* obj3d = ref->Get3D();
         if (!obj3d) { ++pending; continue; }   // 3D not attached yet — retry next tick
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
@@ -165,14 +231,18 @@ void RadiationEngine::UpdateDomeAnimation()
         for (std::uint16_t i = 0; i < n; ++i)
         {
             RE::NiControllerSequence* seq = mgr->GetSequenceAt(i);
-            if (seq)
-                seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
+            if (!seq) continue;
+            seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
+            const float seek = RadCorrectnessPolicy::DomeSeekSeconds(_playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec);
+            if (seek > 0.0f) seq->offset += seek * seq->frequency;
+            Log()->info("[StormFX] Dome sequence {} seek={:.1f}s offset={:.2f} frequency={:.2f}", i, seek, seq->offset, seq->frequency);
         }
-        if (n > 0) ++animated;
+        if (n > 0) { layer.animStarted = true; ++animated; }
     }
     if (pending == 0)   // every ref's 3D has loaded — stop polling
     {
         _stormDomeAnimStarted = true;
+        _stormDomeSeekAudit = true;
         Log()->info("[StormFX] Dome animation activated on {} layer(s).", animated);
 
         auto* pl = RE::PlayerCharacter::GetSingleton();
@@ -228,6 +298,8 @@ void RadiationEngine::ResetStormDomeForLoad()
     // Constraint: a load kills the layer handles; drop them without resolving a stale pointer.
     _stormDomeRefs.clear();
     _stormDomeUp = false;
+    _stormDomeBlend = 0.0f;
+    Hooks::SetStormDomeBlend(0.0f);
     _stormDomeAnimStarted = false;
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
@@ -246,8 +318,8 @@ void RadiationEngine::UpdateStormDomeLifecycle()
     }
     const bool domePhase = _stormPhase == StormPhase::Approach ||
         _stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active;
-    const bool exposed = !IsPlayerSheltered();
-    if (!domePhase || !exposed)
+    constexpr bool exposed = true;
+    if (!domePhase)
     {
         _stormDomeRespawnRetryTicks = 0;
         return;
@@ -288,7 +360,8 @@ void RadiationEngine::UpdateStormDomeLifecycle()
             break;
         }
     }
-    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld) || staleReference)
+    if (RadCorrectnessPolicy::ShouldRecreateDomeForOwner(_stormDomeUp, sameCell, sameWorld) || staleReference ||
+        (!playerWorld && !sameCell))
     {
         Log()->info("[StormFX] Dome owner changed (cellSame={}, worldSame={}); recreating references.",
             sameCell, sameWorld);
@@ -314,6 +387,7 @@ void RadiationEngine::UpdateStormDomeFollow()
     RE::TESObjectCELL* playerCell = nullptr;
     RE::TESWorldSpace* playerWorld = nullptr;
     if (!IsValidDomeOwner(player, playerCell, playerWorld) || playerWorld != _stormDomeWorld) return;
+    if (!playerWorld && playerCell != _stormDomeCell) return;
 
     const auto playerPosition = player->GetPosition();
     bool needsMove = false;

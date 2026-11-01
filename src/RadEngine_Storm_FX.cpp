@@ -108,7 +108,6 @@ void RadiationEngine::UpdateStormFXVisibility()
     else
     {
         TriggerStormFX(false);                 // stop shake
-        ClearStormDome();                      // despawn the native dome indoors (it would clip walls)
         FadeOutStormIMAD(1.0f);
     }
 }

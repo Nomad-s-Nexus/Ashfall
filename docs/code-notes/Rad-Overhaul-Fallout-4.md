@@ -37,6 +37,17 @@ Reference: `src/Hooks_DomeFollow.cpp:Hooks::SetDomeFollowActive` and `src/Hooks_
 
 The follow path is inactive outside a live dome, then bounded to approximately 30 Hz with a 16-unit movement threshold and skips refs without loaded 3D. It only updates existing references; spawn, deletion, reparenting, shelter visibility, and worldspace ownership remain on the 4 Hz lifecycle path.
 
+### Storm dome sky hook notes
+
+Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendRampSec`, `src/RadEngine_Internal.h:kStormDomeTimelineSec`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
+
+- Sky hook: `src/Hooks_SkyClouds.cpp` hooks the BSSkyShader primary vtable slot 7 (SetupGeometry). It was proven on OG 1.10.163 only. The NG and AE builds are unverified.
+- AE needs one in-game check: the log line `Sky cloud hook installed` must appear and `cloudPassesScaled` must be greater than 0 while the dome is up.
+- Unverified: the pass type and alpha offsets are copied from the VolClouds hook and have not been checked against commonlib.
+- The dome blend (`_stormDomeBlend`, 0 to 1) is the vanilla cloud fade, published through `Hooks::SetStormDomeBlend`. It is a static atomic inside this plugin; there is no cross-plugin export.
+- `kStormDomeBlendRampSec` is the vanilla cloud fade-out and fade-in time around the dome. `kStormDomeTimelineSec` is the length of the baked `Storm` sequence in `CloudArena01_4.nif`.
+- `FODomeBlackHole.dds` is unused now that the dome is the baked NIF.
+- Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `BeginStorm`, kept in `_stormDomeBeginSec`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
 ## Regression coverage
 
 `tests/verify_hud_fallback.py` guards compositor ordering, position/resize behavior, V11 non-blocking dispatch, truthful engine activation, retained HUD-wait retries, optional PrismaHUD recovery, and atomic cross-thread callback publication. `tests/correctness_policy_tests.cpp` covers the policy-level lifecycle and load-generation invariants plus same-world dome streaming versus real worldspace ownership changes.

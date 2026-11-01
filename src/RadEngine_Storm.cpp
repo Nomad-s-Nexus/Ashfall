@@ -58,14 +58,14 @@ void RadiationEngine::BeginStorm(int typeIndex)
     const int leadTicks = (debugForced && _forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
     _forcedLeadTicks = -1;
     _activeLeadTicks = leadTicks;
+    _stormDomeBeginSec = _playSeconds;
     logger->warn("========== STORM APPROACHING: {} ({}) — silent lead {} s ==========",
         st.name, st.lethal ? "LETHAL" : "ambient", leadTicks / 4);
     _sirenDelayTicks = 0;
     _dustBuildupActive = false;   // no weather build-up during the silent lead
     _debugWeatherHold  = false;   // a real storm takes over from any debug-held weather
 
-    if (!IsPlayerSheltered())
-        SpawnStormDome();
+    SpawnStormDome();
 
     EnterStormPhase(StormPhase::Approach, leadTicks);
     logger->info("[StormSeq] t=0 APPROACH begin: silent. Alarm in {} s.", leadTicks / 4);
