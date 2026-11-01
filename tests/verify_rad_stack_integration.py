@@ -42,7 +42,7 @@ def check_fallback_queue():
 
 def check_dome_follow_producer():
     hooks = read("Hooks.cpp")
-    follow = read("Hooks_DomeFollow.cpp")
+    follow = read("Hooks_StormVisuals.cpp")
     header = read("Hooks.h")
     producer = body(hooks, "void PlayerCharacter_Update_Hook(")
     input_poll = body(hooks, "static void QueueInputPoll()")
@@ -179,7 +179,7 @@ def check_generation_behavior():
 
 
 def check_storm_layout():
-    modules = ("RadEngine_Storm.cpp", "RadEngine_Storm_Weather.cpp", "RadEngine_Storm_Dome.cpp",
+    modules = ("RadEngine_Storm.cpp", "RadEngine_Storm_Weather.cpp", "RadEngine_Storm_Effects.cpp",
                "RadEngine_Storm_Actors.cpp", "RadEngine_Storm_FX.cpp", "RadEngine_Storm_Update.cpp")
     for name in modules:
         check(f"storm module present: {name}", (SRC / name).exists())

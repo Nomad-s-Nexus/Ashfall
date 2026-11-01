@@ -6,13 +6,13 @@ SRC = ROOT / "src"
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
 weather_core = (SRC / "RadEngine_Weather.cpp").read_text(encoding="utf-8")
-dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
+effects = (SRC / "RadEngine_Storm_Effects.cpp").read_text(encoding="utf-8")
 storm = (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8")
 storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
 mask = (SRC / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
 debug = (SRC / "RadEngine_Debug.cpp").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
-dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
+visuals_hooks = (SRC / "Hooks_StormVisuals.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 # Constraint: the revert and post-load bodies live in the session module.
@@ -141,7 +141,7 @@ for token in (
 assert load_reset.index("ClearStormGhouls();") < load_reset.index("_stormGhoulCleanupRefs.clear();"), \
     "a load must retire the hunters before it drops the handles that name them"
 
-assert "ResetStormDomeForLoad" not in radiation_engine and "ResetStormDomeForLoad" not in dome, \
+assert "ResetStormDomeForLoad" not in radiation_engine and "ResetStormDomeForLoad" not in effects, \
     "the storm dome load reset was removed with the dome"
 
 update_body = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
@@ -268,7 +268,7 @@ assert startup_release < startup_force
 
 for token in ("UpdateStormDomeLifecycle", "UpdateStormDomeFollow", "SpawnStormDome", "ClearStormDome",
               "IsValidDomeOwner", "IsValidDomeReference", "_stormDomeRefs", "_stormDomeUp"):
-    assert token not in dome and token not in storm_update and token not in storm, \
+    assert token not in effects and token not in storm_update and token not in storm, \
         f"dome lifecycle token must not remain: {token}"
 
 warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
@@ -348,7 +348,7 @@ for body, action in (
     assert "RadLifecycleDispatch::PlayerUpdatesReady(generation)" in body
     assert body.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < body.find(action)
 
-visuals_queue = dome_hooks.split("void QueueStormVisuals()", 1)[1]
+visuals_queue = visuals_hooks.split("void QueueStormVisuals()", 1)[1]
 for token in (
     "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();",
     "[generation]()",
@@ -358,7 +358,7 @@ for token in (
 assert visuals_queue.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < visuals_queue.find(
     "RadiationEngine::GetSingleton().UpdateStormIMADFade();"
 )
-assert "SetDomeFollowActive" not in dome_hooks and "QueueDomeFollow" not in dome_hooks
+assert "SetDomeFollowActive" not in visuals_hooks and "QueueDomeFollow" not in visuals_hooks
 
 for token in (
     "g_playerUpdateGeneration{ 0 }",

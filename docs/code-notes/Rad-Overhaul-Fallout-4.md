@@ -816,8 +816,8 @@ Reference: `src/RadEngine_ESL.cpp` (vanilla resolution), `src/RadEngine_Storm_We
 Removed: the native dome (spawn, clear, reset, lifecycle, follow, animation and the four dome policy helpers), the dome
 form resolution, the dome members and constants, and the dome calls on the storm start, warning, active, aftermath, shelter,
 load and debug paths. Kept: `NativeShakeCamera`, `UpdateStormShake` and `UpdateDustMotes`, which stay in
-`RadEngine_Storm_Dome.cpp` under their old file name. The visual producer keeps its 33 ms cadence and generation guard
-as `QueueStormVisuals`, which drives only the IMAD fade (the file keeps the name `Hooks_DomeFollow.cpp`). The INI key
+`RadEngine_Storm_Effects.cpp` (renamed from `RadEngine_Storm_Dome.cpp`). The visual producer keeps its 33 ms cadence and generation guard
+as `QueueStormVisuals`, which drives only the IMAD fade (the file is `Hooks_StormVisuals.cpp`, renamed from `Hooks_DomeFollow.cpp`). The INI key
 `DomeLeadMinutes` is now `StormLeadMinutes`; the legacy key is read only when the new one is absent.
 
 The sky swap:

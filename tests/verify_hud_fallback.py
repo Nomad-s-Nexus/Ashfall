@@ -159,7 +159,7 @@ def check_source(html_path, source_path):
         for name in (
             'RadEngine_Storm.cpp',
             'RadEngine_Storm_Weather.cpp',
-            'RadEngine_Storm_Dome.cpp',
+            'RadEngine_Storm_Effects.cpp',
             'RadEngine_Storm_Actors.cpp',
             'RadEngine_Storm_FX.cpp',
             'RadEngine_Storm_Update.cpp',
@@ -221,7 +221,7 @@ def check_source(html_path, source_path):
 
     storm_modules = '\n'.join(
         Path(source_path).with_name(name).read_text(encoding='utf-8')
-        for name in ('RadEngine_Storm.cpp', 'RadEngine_Storm_Dome.cpp', 'RadEngine_Storm_FX.cpp',
+        for name in ('RadEngine_Storm.cpp', 'RadEngine_Storm_Effects.cpp', 'RadEngine_Storm_FX.cpp',
                      'RadEngine_Storm_Update.cpp', 'RadEngine_Storm_Weather.cpp')
     )
     begin = storm_modules.split('void RadiationEngine::BeginStorm(int typeIndex)', 1)[1].split('\n}', 1)[0]
@@ -249,7 +249,7 @@ def check_source(html_path, source_path):
     assert 'RadHud::GetSingleton().PushAir(json{' in engine
     hooks = '\n'.join(
         Path(source_path).with_name(name).read_text(encoding='utf-8')
-        for name in ('Hooks.cpp', 'Hooks_Input.cpp', 'Hooks_DomeFollow.cpp')
+        for name in ('Hooks.cpp', 'Hooks_Input.cpp', 'Hooks_StormVisuals.cpp')
     )
     for marker in (
         'class RadInputHandler final : public RE::BSInputEventUser',
@@ -298,7 +298,7 @@ def check_source(html_path, source_path):
         for name in (
             'RadEngine_Storm.cpp',
             'RadEngine_Storm_Weather.cpp',
-            'RadEngine_Storm_Dome.cpp',
+            'RadEngine_Storm_Effects.cpp',
             'RadEngine_Storm_Actors.cpp',
             'RadEngine_Storm_FX.cpp',
             'RadEngine_Storm_Update.cpp',
