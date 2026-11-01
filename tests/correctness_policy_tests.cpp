@@ -42,6 +42,13 @@ int main()
     Require(ShouldReturnToClear(true, false));
     Require(ShouldReturnToClear(false, true));
     Require(!ShouldReturnToClear(false, false));
+    Require(UsesVanillaRadstormSky(0));
+    Require(!UsesVanillaRadstormSky(1));
+    Require(UsesVanillaRadstormSky(2));
+    Require(!UsesVanillaRadstormSky(3));
+    Require(!UsesVanillaRadstormSky(4));
+    Require(!UsesVanillaRadstormSky(-1));
+    Require(!UsesVanillaRadstormSky(5));
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
     Require(IsConfiguredMask(false, true, true));

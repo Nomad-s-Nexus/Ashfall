@@ -151,6 +151,19 @@ void RadiationEngine::EnsureEslLoaded()
     }
 
 
+    {
+        RE::TESForm* pForm = dh->LookupForm(kStormRadSkyWeatherPrimary, "Fallout4.esm");
+        RE::TESForm* fForm = dh->LookupForm(kStormRadSkyWeatherFallback, "Fallout4.esm");
+        RE::TESWeather* primary = (pForm && pForm->GetFormType() == RE::ENUM_FORM_ID::kWTHR)
+            ? static_cast<RE::TESWeather*>(pForm) : nullptr;
+        RE::TESWeather* fallback = (fForm && fForm->GetFormType() == RE::ENUM_FORM_ID::kWTHR)
+            ? static_cast<RE::TESWeather*>(fForm) : nullptr;
+        _stormSkyVanilla = primary ? primary : fallback;
+        logger->info("[ESL] Storm sky weather 0x{:06X}: {}; fallback 0x{:06X}: {}.",
+            kStormRadSkyWeatherPrimary, primary ? "resolved" : "NOT found",
+            kStormRadSkyWeatherFallback, fallback ? "resolved" : "NOT found");
+    }
+
     for (int i = 0; i < kStormTypeCount && i < kStormTypeTableSize; ++i)
     {
         const uint32_t wid = kStormTypes[i].weatherID;

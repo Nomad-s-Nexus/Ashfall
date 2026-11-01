@@ -36,6 +36,11 @@ namespace RadCorrectnessPolicy
         return managedStorm || vanillaRadstorm;
     }
 
+    constexpr bool UsesVanillaRadstormSky(int typeIndex)
+    {
+        return typeIndex == 0 || typeIndex == 2;
+    }
+
     constexpr bool IsGasMask(bool fillsMouth, bool hasKeyword)
     {
         return fillsMouth && hasKeyword;

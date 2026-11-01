@@ -145,7 +145,7 @@ void RadiationEngine::UpdateStorm()
 
             StopStormCue(kRadstormCueFalloffMs);
 
-            if (RE::TESWeather* w = _stormWeathers[_activeStormType])
+            if (RE::TESWeather* w = StormSkyWeather(_activeStormType))
             {
                 if (auto* sky = RE::Sky::GetSingleton())
                 {

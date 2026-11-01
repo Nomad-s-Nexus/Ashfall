@@ -530,7 +530,7 @@ void RadiationEngine::Update()
             }
             _lastRadWeatherFormID = inRadWeather ? currentWeatherID : 0;
         }
-        if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold))
+        if (enteredRadWeather && (!vanillaRadstorm || _debugWeatherHold || _stormPhase == StormPhase::Active))
             SpawnStormGhouls();
 
         // Apply debuffs based on EFFECTIVE radiation (drives stage perks -> SPECIAL + Pipboy + IMAD).

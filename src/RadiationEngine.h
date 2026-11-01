@@ -226,6 +226,9 @@ private:
     // gameplay (the update hook stops ticking in menus).
     static constexpr int kStormTypeCount = 5;
     RE::TESWeather* _stormWeathers[kStormTypeCount] = {};  // forced skies (0x840..0x844)
+    RE::TESWeather* _stormSkyVanilla = nullptr;
+    RE::TESWeather* StormSkyWeather(int typeIndex) const;
+    void ResetStormWeatherLatches();
     RE::TESGlobal*  _nextEmissionGlobal = nullptr;  // persists next storm game-time (0x852)
     RE::TESGlobal*  _forceStormGlobal = nullptr;    // console debug trigger (0x853)
     StormPhase      _stormPhase = StormPhase::Idle;

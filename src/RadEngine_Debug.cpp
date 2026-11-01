@@ -477,7 +477,7 @@ void RadiationEngine::DebugPreviewWeather(int idx)
     auto dlog = Log();
     dlog->warn("[DIAG] DebugPreviewWeather idx={} (count={}).", idx, kStormTypeCount);
     if (idx < 0 || idx >= kStormTypeCount) { dlog->warn("[DIAG]   rejected (out of range)."); return; }
-    RE::TESWeather* w = _stormWeathers[idx];
+    RE::TESWeather* w = StormSkyWeather(idx);
     auto* sky = RE::Sky::GetSingleton();
     dlog->warn("[DIAG]   weather={} sky={}.", w ? "ok" : "NULL", sky ? "ok" : "NULL");
     if (w && sky)

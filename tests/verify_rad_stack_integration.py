@@ -198,6 +198,26 @@ def check_storm_layout():
     policy = read("RadCorrectnessPolicy.h")
     check("ShouldReturnToClear policy survives the dome removal",
           "ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)" in policy)
+    internal = read("RadEngine_Internal.h")
+    weather_storm = read("RadEngine_Storm_Weather.cpp")
+    esl = read("RadEngine_ESL.cpp")
+    weather_core = read("RadEngine_Weather.cpp")
+    rad_engine = read("RadiationEngine.cpp")
+    audio = read("RadEngine_Audio.cpp")
+    check("vanilla radstorm sky constants exist",
+          "kStormRadSkyWeatherPrimary" in internal and "kStormRadSkyWeatherFallback" in internal)
+    check("StormSkyWeather accessor exists",
+          "RadiationEngine::StormSkyWeather(int typeIndex) const" in weather_storm)
+    check("vanilla radstorm sky is resolved outside the mutation loop",
+          "_stormSkyVanilla = primary ? primary : fallback;" in esl
+          and esl.index("_stormSkyVanilla = primary") < esl.index("for (int i = 0; i < kStormTypeCount"))
+    check("vanilla radstorm sky pointer is never mutated", "_stormSkyVanilla->" not in esl)
+    check("CheckRadstormWarning returns during a managed storm",
+          "if (_stormPhase != StormPhase::Idle) return;" in weather_core)
+    check("ghoul gate spawns once per managed storm",
+          "_stormPhase == StormPhase::Active))" in rad_engine)
+    check("storm bed follows the active storm type under the vanilla sky",
+          "RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType)" in audio)
 
 
 def check_ghoul_ownership():

@@ -185,6 +185,8 @@ namespace RadInternal
     // Vanilla radstorm weather FormIDs (Fallout4.esm). When one of these becomes the
     // active weather we play the warning sound once.
     constexpr uint32_t kRadstormWeathers[] = { 0x1C3D5E, 0x2392A3, 0x222394, 0x24A3C0 };
+    constexpr uint32_t kStormRadSkyWeatherPrimary  = 0x24A3C0;
+    constexpr uint32_t kStormRadSkyWeatherFallback = 0x1C3D5E;
 
     inline bool IsRadstormWeather(uint32_t formID)
     {
