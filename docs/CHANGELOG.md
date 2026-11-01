@@ -9,6 +9,18 @@ keeps the INI. **New AUTO chip** in the breathing-protection widget shows whethe
 for combat, so a mask that stays off is explained on screen. Contracts: `tests/status_hud_tests.js`,
 `tests/needs_tuning_policy_tests.cpp`, `tests/verify_needs_tuning.py`. Not yet compiled or tested in game.
 
+## 2026-10-30: food/drink relief is no longer trivial
+
+**A normal meal or drink now visibly moves hunger/thirst.** `PortionFor` gives every item a 0.8 floor (was 0.5) and a
+1.5 cap (was 1.0), still scaled by gold value, so a 5-cap Dirty Water now relieves 0.21 thirst (was 0.14) and a 10-cap meal
+relieves 0.18 hunger (was 0.12). `FoodScale` (0.20) and `DrinkScale` (0.25) stay the editable Auto knobs. Item relief and sleep recovery now
+bypass `StageHysteresis` while hourly accrual keeps the 0.04 anti-flap band, so one item that crosses a band edge
+changes the stage on that use. A confirmed food use shows "Hunger eased"; a drink shows "Thirst quenched" ("Thirst eased" for alcohol)
+(`ShowNotifications` still gates it, and it only fires on a real, non-clamped drop). Alcohol is the documented
+exception: hydration 0.25 keeps a beer around 0.06 thirst by design. Chems still never feed the pools, no `HC_*` form is touched, and the disease
+script remains the only second owner. Values measured from the winning records with FO4IDE; relief numbers are
+computed, **not verified in game**.
+
 ## 2026-10-29: roofless-interior rain (Concord Museum of Freedom, build-verified only)
 
 **Rain can now reach the player inside one approved roofless interior.** `climate_weather.json` gained a

@@ -62,6 +62,11 @@ void NeedsRuntime::Update()
     {
         std::lock_guard lock(_mutex);
         ResolveGlobals();
+        if (!_hunger || !_thirst || !_sleep)
+        {
+            RadHud::GetSingleton().HideNeeds();
+            return;
+        }
         snapshot.pools.hunger01 = ReadGlobal(_hunger);
         snapshot.pools.thirst01 = ReadGlobal(_thirst);
         snapshot.pools.sleepDebt01 = ReadGlobal(_sleep);

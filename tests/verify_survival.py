@@ -173,7 +173,7 @@ clear_calls = function_body(code, "Function ClearAllPenalties()")
 for pool in ("hunger", "thirst", "sleep"):
     check(f'ApplyStagePenalty("{pool}", 0)' in clear_calls,
           f"ClearAllPenalties must clear the {pool} spell")
-update_body = function_body(code, "Function UpdatePenaltyStages()")
+update_body = function_body(code, "Function UpdatePenaltyStages(string asReliefPool)")
 check("ClearAllPenalties()" in update_body,
       "a suspended layer must clear its penalties")
 
@@ -210,9 +210,9 @@ check("ClearPenaltyCache()" in function_body(code, "Function ResyncPenalties()")
 
 # Constraint: the tick must reconcile after the active/suspended branch, not inside one of them.
 timer_body = function_body(code, "Event OnTimerGameTime(int aiTimerID)")
-check("UpdatePenaltyStages()" in timer_body,
+check("UpdatePenaltyStages(\"\")" in timer_body,
       "the game-time tick must reconcile penalties")
-check("UpdatePenaltyStages()" in timer_body[timer_body.rfind("endif"):],
+check("UpdatePenaltyStages(\"\")" in timer_body[timer_body.rfind("endif"):],
       "the tick must reconcile after the active/suspended branch, not inside one of them")
 
 for forbidden in ("HC_Manager", "HC_", "GetHardcore", "SurvivalModeEnabled"):
@@ -488,6 +488,31 @@ for prop, expected in (("HourlyHunger", 0.05), ("HourlyThirst", 0.10), ("HourlyS
               f"{prop} is {value}, expected {expected}: the quest script owns the pool rates")
     check(re.search(rf"float Property {prop} = [0-9.]+ Auto$", source, re.M) is not None,
           f"{prop} must stay a writable Auto float (no Const), or retuning needs a recompile")
+
+# Constraint: one ordinary item must move a third of a stage; PortionFor owns the floor/cap/step.
+portion_body = function_body(source, "float Function PortionFor(Form akItem)")
+floor = float(re.search(r"float portion = ([0-9.]+)", portion_body).group(1)); cap = float(re.search(r"if portion > ([0-9.]+)", portion_body).group(1)); step = float(re.search(r"/ ([0-9.]+)", portion_body).group(1))
+scale = lambda name: float(re.search(rf"float Property {name} = ([0-9.]+) Auto", source).group(1))
+food_scale, drink_scale = scale("FoodScale"), scale("DrinkScale")
+for gold in (5, 50):
+    portion = min(cap, floor + gold / step)
+    check(portion * food_scale >= 0.15 and portion * drink_scale >= 0.18,
+          f"a {gold}-cap item must relieve at least 0.15 hunger / 0.18 thirst")
+check(0.75 <= floor <= 0.9 and 1.3 <= cap <= 1.6 and 50 <= step <= 200, "portion floor/cap/step out of tuned range")
+check(min(cap, floor + 10000 / step) == cap, "a very high-value item must clamp to the documented cap")
+debt = function_body(source, "Function AddDebt(string asPool, float afDelta)")
+check("if afDelta < 0.0" in debt and "UpdatePenaltyStages(asPool)" in debt,
+      "item relief must reconcile its own pool immediately or a neighbouring pool's stage flaps")
+held = function_body(source, "int Function StageForHeld(float afDebt, int aiCurrent, bool abImmediate)")
+check("if abImmediate" in held and "return StageFor(afDebt)" in held,
+      "item relief must bypass the stage hysteresis so one use can drop a stage visibly")
+check('asReliefPool == "hunger"' in update_body and 'asReliefPool == "thirst"' in update_body,
+      "only the pool that received relief may skip the hysteresis")
+relief = function_body(source, "Function ApplyRelief(Form akItem, int aiCount)")
+check("Debug.Notification(\"Hunger eased\")" in relief and "Debug.Notification(\"Thirst quenched\")" in relief
+      and "Debug.Notification(\"Thirst eased\")" in relief,
+      "a confirmed food/drink use must give the player feedback")
+check("hungerBefore - 0.01" in relief and "thirstBefore - 0.01" in relief and "hydration = AlcoholHydrationScale" in relief, "feedback fires only on a real drop; alcohol hydration is documented")
 readme = ROOT / "README.md"
 check("needs.json" not in text(readme) if readme.is_file() else True,
       "the README must not still describe the removed needs.json rates")
@@ -725,7 +750,7 @@ for path in ROOT.rglob("*"):
     if not path.is_file():
         continue
     rel = path.relative_to(ROOT)
-    if rel.parts[0] == "docs":
+    if rel.parts[0] in ("docs", ".git"):
         continue
     if path.resolve() == Path(__file__).resolve():
         continue

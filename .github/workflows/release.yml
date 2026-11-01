@@ -1,0 +1,137 @@
+name: Release
+
+# Constraint: tag rad-overhaul-v* builds the DLL on a hosted runner and publishes the packaged zip.
+
+on:
+  push:
+    tags:
+      - "rad-overhaul-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, package and publish
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      TAG: ${{ github.ref_name }}
+      ASSET: RadiationOverhaul-${{ github.ref_name }}.zip
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify the tag is on main
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw "tag $env:TAG is not reachable from main" }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "3.0.9"
+
+      - uses: ./.github/actions/setup-commonlib
+
+      - name: Run release contract tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          python tests/verify_ci_deploy.py
+          python tests/verify_mask_catalog.py deploy/RadiationOverhaul.esp
+          python tests/verify_mask_extras.py
+          python tests/verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp
+          python tests/verify_local_hud_editor.py
+          python tests/verify_ghoul_contract.py
+          python tests/verify_storm_spawn_ownership.py
+          python tests/verify_serialization_policy.py
+          python tests/verify_rad_stack_integration.py
+          python tests/verify_survival.py
+          python tests/verify_survival_diseases.py
+          python tests/verify_survival_menu.py
+          python tests/verify_needs_globals.py
+          python tests/verify_av_ownership.py
+          python tests/verify_papyrus_pex.py
+
+      - name: Configure (MSVC)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          foreach ($dir in @('build', 'build-msvc', '.xmake')) {
+            if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
+          }
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          xmake f -p windows -a x64 -m release --builddir=build-msvc -y
+
+      - name: Build and run release policy tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tests = @('rad_correctness_policy_tests', 'serialization_policy_tests')
+          foreach ($t in $tests) { xmake build -y $t }
+          foreach ($t in $tests) { & ".\build\tests\$t.exe" }
+
+      - name: Build
+        run: xmake build -vD -y FalloutAnomalyRadiation
+
+      - name: Package mod archive
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dll = Get-Item 'build/release/FalloutAnomalyRadiation.dll'
+          Write-Host "using DLL: $($dll.FullName) ($($dll.Length) bytes)"
+          $stage = Join-Path $env:GITHUB_WORKSPACE 'pkg'
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item -Path 'deploy/*' -Destination $stage -Recurse
+          $plugins = Join-Path $stage 'F4SE/Plugins'
+          New-Item -ItemType Directory -Path $plugins -Force | Out-Null
+          Copy-Item $dll.FullName (Join-Path $plugins 'FalloutAnomalyRadiation.dll')
+          $asset = Join-Path $env:GITHUB_WORKSPACE $env:ASSET
+          if (Test-Path $asset) { Remove-Item -Force $asset }
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $asset
+          if (-not (Test-Path $asset)) { throw "archive $asset was not created" }
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $asset = Join-Path $env:GITHUB_WORKSPACE $env:ASSET
+          $title = "Rad Overhaul $env:TAG"
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit $env:TAG --title $title --notes-file RELEASE_NOTES.md
+            if ($LASTEXITCODE -ne 0) { throw 'gh release edit failed' }
+            gh release upload $env:TAG $asset --clobber
+          } else {
+            gh release create $env:TAG $asset --verify-tag --title $title --notes-file RELEASE_NOTES.md
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'gh release publish failed' }

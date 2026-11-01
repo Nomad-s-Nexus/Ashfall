@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  contracts:
+    name: Contract tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "2.9.9"
+
+      - name: Run contract tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Constraint: verify_rad_stack_integration.py compiles a host C++ probe, so cl.exe must be on PATH.
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          # Constraint: verify_ae_runtime_support.py is excluded until it is rewritten for commonlibf4-nomad.
+          $python = @(
+            'verify_ci_deploy.py',
+            'verify_mask_catalog.py deploy/RadiationOverhaul.esp',
+            'verify_mask_extras.py',
+            'verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp',
+            'verify_local_hud_editor.py',
+            'verify_ghoul_contract.py',
+            'verify_storm_spawn_ownership.py',
+            'verify_serialization_policy.py',
+            'verify_needs_consumption_trace.py',
+            'verify_climate_runtime.py',
+            'verify_climate_protection_config.py',
+            'verify_climate_protection_runtime.py',
+            'verify_climate_heat_config.py',
+            'verify_climate_weather_config.py',
+            'verify_climate_hud.py',
+            'verify_hud_layout_bridge.py',
+            'verify_rad_shelter_cache.py',
+            'verify_rad_stack_integration.py',
+            'verify_survival.py',
+            'verify_survival_diseases.py',
+            'verify_survival_menu.py',
+            'verify_needs_globals.py',
+            'verify_av_ownership.py',
+            'verify_papyrus_pex.py'
+          )
+          $failed = @()
+          foreach ($t in $python) {
+            Write-Host "::group::python tests/$t"
+            python @(-split "tests/$t")
+            if ($LASTEXITCODE -ne 0) { $failed += $t }
+            Write-Host '::endgroup::'
+          }
+          foreach ($t in 'armor_diagnostics_tests.js', 'status_hud_tests.js') {
+            Write-Host "::group::node tests/$t"
+            node "tests/$t"
+            if ($LASTEXITCODE -ne 0) { $failed += $t }
+            Write-Host '::endgroup::'
+          }
+          if ($failed) { throw "contract tests failed: $($failed -join ', ')" }
+
+  native:
+    name: Native build
+    needs: contracts
+    # Constraint: never on pull_request, so a fork PR cannot get a DLL built from its own workflow copy.
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "3.0.9"
+
+      - uses: ./.github/actions/setup-commonlib
+
+      - name: Configure (MSVC)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio C++ tools not found' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          xmake f -p windows -a x64 -m release --builddir=build-msvc -y
+
+      - name: Build and run policy tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tests = @(
+            'rad_correctness_policy_tests',
+            'climate_policy_tests',
+            'climate_weather_policy_tests',
+            'climate_wetness_policy_tests',
+            'needs_policy_tests',
+            'needs_trace_policy_tests',
+            'serialization_policy_tests'
+          )
+          foreach ($t in $tests) { xmake build -y $t }
+          foreach ($t in $tests) { & ".\build\tests\$t.exe" }
+
+      - name: Build
+        run: xmake build -vD -y FalloutAnomalyRadiation
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FalloutAnomalyRadiation-windows-x64
+          path: build/release/FalloutAnomalyRadiation.dll
+          if-no-files-found: error
+          retention-days: 7

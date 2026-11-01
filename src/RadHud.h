@@ -34,6 +34,7 @@ public:
         const RadClimatePolicy::EnvironmentSample& environment, const RadClimatePolicy::StepResult& result);
     void PushAir(const std::string& payload);
     void PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot);
+    void HideNeeds();
     void PushSurvival(const RadNeedsPolicy::NeedsSnapshot& snapshot);
     void PushArmor(float insulation01, float effectiveInsulation01, bool powerArmor,
                    const std::vector<ClimateProtectionRuntime::ArmorInfo>& armor);

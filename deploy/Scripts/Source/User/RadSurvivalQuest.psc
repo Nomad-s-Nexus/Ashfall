@@ -145,7 +145,7 @@ Event OnTimerGameTime(int aiTimerID)
         LastGameTime = Utility.GetCurrentGameTime()
     endif
     ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
-    UpdatePenaltyStages()
+    UpdatePenaltyStages("")
     ReconcileDiseases()
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
@@ -318,12 +318,24 @@ Function ApplyRelief(Form akItem, int aiCount)
     if _AlcoholKeyword != None && akItem.HasKeyword(_AlcoholKeyword)
         hydration = AlcoholHydrationScale
     endif
+    float hungerBefore = HungerDebt
+    float thirstBefore = ThirstDebt
     float portion = PortionFor(akItem)
     if ate
         AddDebt("hunger", -1.0 * portion * Tuned(kTuneFood, FoodScale))
     endif
     if drank
         AddDebt("thirst", -1.0 * portion * Tuned(kTuneDrink, DrinkScale) * hydration)
+    endif
+    if ShowNotifications && ate && HungerDebt <= hungerBefore - 0.01
+        Debug.Notification("Hunger eased")
+    endif
+    if ShowNotifications && drank && ThirstDebt <= thirstBefore - 0.01
+        if hydration < 1.0
+            Debug.Notification("Thirst eased")
+        else
+            Debug.Notification("Thirst quenched")
+        endif
     endif
     Debug.Trace("[RadSurvivalQuest] consume-apply " + akItem + " x" + aiCount + " ate=" + ate + " drank=" + drank)
 EndFunction
@@ -339,14 +351,15 @@ Function ReturnEmptyBottle(Form akItem, int aiCount)
     endif
 EndFunction
 
+; Constraint: cheap items still relieve a visible share; value scales above the floor.
 float Function PortionFor(Form akItem)
-    float portion = 0.5
+    float portion = 0.8
     int value = akItem.GetGoldValue()
     if value > 0
-        portion = 0.5 + (value as float) / 100.0
+        portion = portion + (value as float) / 100.0
     endif
-    if portion > 1.0
-        portion = 1.0
+    if portion > 1.5
+        portion = 1.5
     endif
     return portion
 EndFunction
@@ -459,7 +472,11 @@ Function AddDebt(string asPool, float afDelta)
         SleepDebt = Clamp01(SleepDebt + afDelta)
         MirrorToGlobal(RadSurvival_Sleep, SleepDebt)
     endif
-    UpdatePenaltyStages()
+    if afDelta < 0.0
+        UpdatePenaltyStages(asPool)
+    else
+        UpdatePenaltyStages("")
+    endif
 EndFunction
 
 float Function Clamp01(float afValue)
@@ -486,28 +503,28 @@ Function MirrorToGlobal(GlobalVariable akTarget, float afValue)
 EndFunction
 ; penalties - one staged ability spell per pool per stage; relief removes it, stage 0 means none.
 
-Function UpdatePenaltyStages()
+Function UpdatePenaltyStages(string asReliefPool)
     if !IsActive()
         ; Constraint: no Rad penalty survives the gate; the pools keep their values and resume.
         ClearAllPenalties()
         return
     endif
     ; Invariant: reconcile all three pools every call; the trackers gate notifications only.
-    int hunger = StageForHeld(HungerDebt, HungerStage)
+    int hunger = StageForHeld(HungerDebt, HungerStage, asReliefPool == "hunger")
     bool hungerRose = hunger > HungerStage
     HungerStage = hunger
     ApplyStagePenalty("hunger", hunger)
     if hungerRose
         NotifyStage("hunger", hunger)
     endif
-    int thirst = StageForHeld(ThirstDebt, ThirstStage)
+    int thirst = StageForHeld(ThirstDebt, ThirstStage, asReliefPool == "thirst")
     bool thirstRose = thirst > ThirstStage
     ThirstStage = thirst
     ApplyStagePenalty("thirst", thirst)
     if thirstRose
         NotifyStage("thirst", thirst)
     endif
-    int sleep = StageForHeld(SleepDebt, SleepStage)
+    int sleep = StageForHeld(SleepDebt, SleepStage, asReliefPool == "sleep")
     bool sleepRose = sleep > SleepStage
     SleepStage = sleep
     ApplyStagePenalty("sleep", sleep)
@@ -516,7 +533,11 @@ Function UpdatePenaltyStages()
     endif
 EndFunction
 
-int Function StageForHeld(float afDebt, int aiCurrent)
+int Function StageForHeld(float afDebt, int aiCurrent, bool abImmediate)
+    ; Constraint: item relief skips the hysteresis so one use can drop a stage visibly.
+    if abImmediate
+        return StageFor(afDebt)
+    endif
     ; Constraint: a held stage only steps down after clearing its threshold by the band.
     if aiCurrent >= 3 && afDebt >= 0.90 - StageHysteresis
         return 3

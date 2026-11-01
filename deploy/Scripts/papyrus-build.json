@@ -1,6 +1,6 @@
 {
   "compiler": "FO4IDE built-in Papyrus engine (compile_papyrus, engine=builtin)",
-  "command": "compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/<Script>.psc output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts imports=<vanilla script sources> flags=Institute_Papyrus_Flags.flg debug_info=false engine=builtin",
+  "command": "compile_papyrus source=<repo>/deploy/Scripts/Source/User/<Script>.psc output=<repo>/deploy/Scripts imports=<vanilla script sources> flags=Institute_Papyrus_Flags.flg debug_info=false engine=builtin",
   "sourceRoot": "deploy/Scripts/Source/User",
   "scripts": [
     {
@@ -38,10 +38,10 @@
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "791a554d08d0cb76e9aa3af168d9b347af8ae770ac5996942e60938fe811ba9b",
+      "sourceSha256": "2b79d809441e5b730e767264ca0e3af24ce17f04932d8dfa9ab8e6ef830a05cc",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "8ac1b2866be41ca51ce6b5b4c81b4a8468e855f398b8c67e901bfcb36bce6148",
-      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalQuest.psc"
+      "pexSha256": "809755a3bfa5b4fe78ac34322ee8705520fff77b0d584eeb07b0f3489a709c68",
+      "recordedSource": "E:\\pr42-compile\\src\\RadSurvivalQuest.psc"
     }
   ]
 }

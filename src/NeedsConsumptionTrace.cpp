@@ -199,7 +199,8 @@ bool NeedsConsumptionTrace::ActivateOnGameThread()
     auto* equipManager = RE::ActorEquipManager::GetSingleton();
     auto* inventory = RE::BGSInventoryInterface::GetSingleton();
     const bool equip = Register<RE::ActorEquipManagerEvent::Event>(equipManager, &equipSink, "ActorEquipManager");
-    const bool count = Register<RE::InventoryInterface::CountChangedEvent>(inventory, &countSink, "CountChanged");
+    auto* countSource = (RE::BSTEventSource<RE::InventoryInterface::CountChangedEvent>*)(inventory);
+    const bool count = Register<RE::InventoryInterface::CountChangedEvent>(countSource, &countSink, "CountChanged");
     const bool container = Register(RE::TESContainerChangedEvent::GetEventSource(), &containerSink, "TESContainerChanged");
     const bool effect = Register(RE::TESMagicEffectApplyEvent::GetEventSource(), &effectSink, "TESMagicEffectApply");
     const bool drink = InstallDrinkPotionTrace();

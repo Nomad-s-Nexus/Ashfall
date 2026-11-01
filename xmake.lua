@@ -1,17 +1,13 @@
 -- Set minimum xmake version
 set_xmakever("3.0.0")
 
--- CommonLib authority: PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR is the ONLY supported RE source.
--- CI/release clone it and set COMMONLIBF4_PATH; the local-dev default below must also be a
--- commonlib_NonVR checkout. Do NOT point this at Dear-Modding-FO4/CommonLibF4 or any other CommonLib.
+-- Constraint: G-A-R-D-E-N/commonlibf4-nomad is the only supported CommonLib; CI sets COMMONLIBF4_PATH to it.
 if is_plat("windows") then
-    local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../commonlib_NonVR"
-    -- Fail loud if the checkout is not commonlib_NonVR. RE-Work/ is a directory unique to our fork (absent
-    -- from Dear-Modding/upstream CommonLibF4), so this stops an unrelated CommonLib silently becoming
-    -- authoritative — including a stray ../../CommonLibF4 left over from an older layout.
-    if not os.isdir(path.join(commonlib_path, "RE-Work")) then
-        raise("CommonLib authority check FAILED: '" .. commonlib_path .. "' is not a commonlib_NonVR checkout " ..
-            "(RE-Work/ marker missing). Set COMMONLIBF4_PATH to a PRISMA-USER-INTERFACE-FRAMEWORK/commonlib_NonVR clone.")
+    local commonlib_path = os.getenv("COMMONLIBF4_PATH") or "../../commonlibf4-nomad"
+    -- Constraint: lib/commonlib-shared is a submodule, so this fails on an uninitialised clone.
+    if not os.isdir(path.join(commonlib_path, "lib", "commonlib-shared", "include")) then
+        raise("CommonLib check FAILED: '" .. commonlib_path .. "' is not an initialised commonlibf4-nomad checkout. " ..
+            "Set COMMONLIBF4_PATH to a G-A-R-D-E-N/commonlibf4-nomad clone with submodules.")
     end
     includes(commonlib_path)
 end

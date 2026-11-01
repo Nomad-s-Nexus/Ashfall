@@ -21,6 +21,16 @@ matches. Mark everything else NOT RUN.
 - **Open the Pip-Boy after each step and re-check the pools** (they are mirrored GLOBs) to see the value actually
   moved, not just the trace.
 
+Expected relief amounts (computed from `PortionFor` with the 0.8 floor and 1.5 cap, **not verified in game**):
+- **Cheap meal** (Cram 25 caps, Blamco 10, Pork n Beans 10): hunger falls by 0.18-0.21 (at least 0.15 in the 0..1 GLOB),
+  one "Hunger eased" notification, and the stage changes on that use if the debt was within one band of a threshold.
+- **Cheap drink** (Dirty Water 5, Nuka-Cola 20): thirst falls by 0.21-0.25 (at least 0.18 GLOB), one "Thirst quenched"
+  notification. From stage 1, one cheap drink plus one more item must drop the stage visibly.
+- **High-value meal** (steakBrahmin 40, SteakDeathclaw 130): 0.24-0.30 hunger; the 1.5 portion cap applies.
+- **High-value drink** (Purified Water 75): up to 0.38 thirst.
+- **Alcohol is the documented exception:** a beer relieves only about 0.06 thirst because `AlcoholHydrationScale` is
+  0.25, and shows "Thirst eased". Record it, do not mark it a failure.
+
 ## 2. Fountain sneak-activation
 - **Sneak + activate a drinking fountain holding an empty bottle.** Expected: one HUD "Filled a bottle with dirty
   water", one empty bottle consumed, one Dirty Water added, and (open question, record both outcomes) whether the

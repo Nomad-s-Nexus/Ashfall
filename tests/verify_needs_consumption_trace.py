@@ -21,7 +21,7 @@ for sink in ("ActorEquipManagerEvent::Event", "InventoryInterface::CountChangedE
              "TESContainerChangedEvent", "TESMagicEffectApplyEvent"):
     assert f"RE::BSTEventSink<RE::{sink}>" in trace, sink
 
-assert 'Register<RE::InventoryInterface::CountChangedEvent>(inventory, &countSink, "CountChanged")' in trace
+assert 'Register<RE::InventoryInterface::CountChangedEvent>(countSource, &countSink, "CountChanged")' in trace
 
 assert trace.count("write_vfunc") == 1
 assert "write_vfunc(RE::VTABLE_INDEX::Actor::DrinkPotion, &PlayerDrinkPotionTrace)" in trace

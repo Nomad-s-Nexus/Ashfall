@@ -49,8 +49,8 @@ def main():
     stamp = {
         "compiler": "FO4IDE built-in Papyrus engine (compile_papyrus, engine=builtin)",
         "command": (
-            "compile_papyrus source=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts/Source/User/<Script>.psc "
-            "output=<repo>/Rad-Overhaul-Fallout-4/deploy/Scripts imports=<vanilla script sources> "
+            "compile_papyrus source=<repo>/deploy/Scripts/Source/User/<Script>.psc "
+            "output=<repo>/deploy/Scripts imports=<vanilla script sources> "
             "flags=Institute_Papyrus_Flags.flg debug_info=false engine=builtin"
         ),
         "sourceRoot": SOURCE_ROOT.relative_to(ROOT).as_posix(),

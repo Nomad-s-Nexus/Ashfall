@@ -120,4 +120,4 @@ print("AE CreateExplosionAtLocation coverage: " + ", ".join(
     f"1.11.{build}=0x{offsets['CreateExplosionAtLocation']:X}"
     for build, offsets in ae_offsets.items()))
 print("All ground-probe relocations exist in every CommonLib AE Address Library bin")
-print("Runtime and RE contracts match commonlib_NonVR")
+print("Runtime and RE contracts match commonlibf4-nomad")
