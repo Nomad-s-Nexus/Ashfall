@@ -46,18 +46,18 @@ def check_dome_follow_producer():
     header = read("Hooks.h")
     producer = body(hooks, "void PlayerCharacter_Update_Hook(")
     input_poll = body(hooks, "static void QueueInputPoll()")
-    check("dedicated dome-follow producer exists",
-          "void QueueDomeFollow()" in follow and "void QueueDomeFollow();" in header)
-    check("dome-follow producer is throttled near 30 Hz",
+    check("dedicated storm visuals producer exists",
+          "void QueueStormVisuals()" in follow and "void QueueStormVisuals();" in header)
+    check("storm visuals producer is throttled near 30 Hz",
           "std::chrono::milliseconds(33)" in follow)
-    check("dome-follow task is coalesced",
-          "s_domeFollowTaskQueued.compare_exchange_strong" in follow)
-    check("dome-follow task is generation guarded",
+    check("storm visuals task is coalesced",
+          "s_stormVisualsTaskQueued.compare_exchange_strong" in follow)
+    check("storm visuals task is generation guarded",
           "RadLifecycleDispatch::PlayerUpdatesReady(generation)" in follow)
-    check("player update produces dome follow separately",
-          "QueueDomeFollow();" in producer)
-    check("input polling does not own dome updates",
-          "UpdateStormDome" not in input_poll)
+    check("player update produces storm visuals separately",
+          "QueueStormVisuals();" in producer)
+    check("input polling does not own storm visuals",
+          "UpdateStormIMADFade" not in input_poll)
 
 
 def check_generation_guards():
@@ -186,19 +186,18 @@ def check_storm_layout():
     lines = read("RadEngine_Storm.cpp").count("\n")
     check("storm coordinator stays under 500 lines", lines < 500, f"{lines} lines")
     storm = "\n".join(read(name) for name in modules)
-    dome = read("RadEngine_Storm_Dome.cpp")
-    for symbol in ("void RadiationEngine::SpawnStormDome()", "void RadiationEngine::UpdateStormDomeLifecycle()"):
-        check(f"dome ownership gated by storm dome policy: {symbol}",
-              "StormUsesDome(kStormTypes[_activeStormType].themeId)" in body(dome, symbol).replace("\n}", ""))
+    dome_tokens = ("SpawnStormDome", "ClearStormDome", "UpdateStormDomeLifecycle", "UpdateStormDomeFollow",
+                   "UpdateDomeAnimation", "FARO_StormDome", "kStormDome", "_stormDome")
+    for token in dome_tokens:
+        check(f"no native storm dome spawn path remains: {token}", token not in storm)
     check("Papyrus EnableCloudDome is never mutated", "EnableCloudDome" not in storm)
     fx = body(read("RadEngine_Storm_FX.cpp"), "void RadiationEngine::TriggerStormFX(bool on)")
     firestorm = fx.split("if (st.themeId == 1)", 1)
-    check("Firestorm Papyrus route stops dome stages",
+    check("Firestorm Papyrus route stops stages",
           len(firestorm) == 2 and "_stormFXQuest->SetStage(20);" in firestorm[1].split("else", 1)[0])
-    check("dome follow keeps native ownership in UpdateStormDomeFollow",
-          "void RadiationEngine::UpdateStormDomeFollow()" in dome)
     policy = read("RadCorrectnessPolicy.h")
-    check("Firestorm dome policy is theme 1 only", "return theme != 1;" in policy)
+    check("ShouldReturnToClear policy survives the dome removal",
+          "ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)" in policy)
 
 
 def check_ghoul_ownership():

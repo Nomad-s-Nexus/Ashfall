@@ -533,13 +533,13 @@ void RadiationEngine::LoadFilterIni()
         const int vgap = ::GetPrivateProfileIntA("Storm", "VanillaRadstormGapMinutes", vgapDefault, kIni);
         _vanillaRadstormGapSec = static_cast<double>(std::max(0, vgap)) * 60.0;
 
-        // Silent dome-only APPROACH lead before the alarm + storm proper. Float minutes so it can be
-        // dialled down for testing (e.g. 0.25 = 15 s). Clamped >= 0; 0 = no lead (alarm fires immediately).
         char lb[32]{};
-        ::GetPrivateProfileStringA("Storm", "DomeLeadMinutes", "3.0", lb, sizeof(lb), kIni);
+        ::GetPrivateProfileStringA("Storm", "StormLeadMinutes", "", lb, sizeof(lb), kIni);
+        if (lb[0] == '\0')
+            ::GetPrivateProfileStringA("Storm", "DomeLeadMinutes", "3.0", lb, sizeof(lb), kIni);
         float leadMin = std::strtof(lb, nullptr);
         if (!(leadMin >= 0.0f)) leadMin = 3.0f;
-        _domeLeadTicks = static_cast<int>(leadMin * 60.0f * 4.0f);
+        _stormLeadTicks = static_cast<int>(leadMin * 60.0f * 4.0f);
     }
 
     LoadMaskConfig();

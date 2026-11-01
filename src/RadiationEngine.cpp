@@ -286,9 +286,6 @@ void RadiationEngine::Update()
         // Dust Storm continuous camera dust — re-applies the blowing-dust art on a short cadence.
         UpdateDustMotes();
 
-        // Start the dome's rotation/shader animation once its 3D attaches (native ACTI refs don't auto-start).
-        UpdateDomeAnimation();
-
         // Ambient audio beds — per-storm bed (driven by current weather, so debug ForceWeather plays
         // it too) + a general exterior background bed. Runs every tick, independent of storm phase.
         UpdateAmbientAudio();

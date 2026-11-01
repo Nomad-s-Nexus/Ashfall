@@ -49,13 +49,9 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _debugSkipToActive = false;  // clear any leftover debug fast-forward from a prior storm
     const StormType& st = kStormTypes[typeIndex];
 
-    // STAGED ONSET (R.'s spec): dome-using storms begin with a silent visual lead; Firestorm begins
-    // silently without a dome. The lead has NO siren, NO alert, and NO weather change. Only when it
-    // elapses does EnterWarningPhase() fire the alarm and begin the dust-sky roll-in + the rest of the storm.
     // A debug-forced storm may shorten the silent lead (_forcedLeadTicks); consume it here so the
-    // NEXT natural storm is back to the configured DomeLeadMinutes.
     const bool debugForced = _forcedStormType >= 0;
-    const int leadTicks = (debugForced && _forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
+    const int leadTicks = (debugForced && _forcedLeadTicks >= 0) ? _forcedLeadTicks : _stormLeadTicks;
     _forcedLeadTicks = -1;
     _activeLeadTicks = leadTicks;
     logger->warn("========== STORM APPROACHING: {} ({}) — silent lead {} s ==========",
@@ -64,14 +60,9 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _dustBuildupActive = false;   // no weather build-up during the silent lead
     _debugWeatherHold  = false;   // a real storm takes over from any debug-held weather
 
-    if (!IsPlayerSheltered())
-        SpawnStormDome();
-
     EnterStormPhase(StormPhase::Approach, leadTicks);
     logger->info("[StormSeq] t=0 APPROACH begin: silent. Alarm in {} s.", leadTicks / 4);
 }
-// APPROACH lead elapsed: the storm commits. Fire the alarm + alert together, (re)ensure the dome, and
-// kick off the dust-sky roll-in — then hand to the existing Warning phase (dust build-up) -> Active.
 void RadiationEngine::EnterWarningPhase()
 {
     if (_activeStormType < 0 || _activeStormType >= kStormTypeTableSize) return;

@@ -74,7 +74,7 @@ void RadiationEngine::TriggerStormFX(bool on)
         else if (st.lethal)
         {
             stage = 10;
-            desc = "ash: native shake + dome";
+            desc = "lethal: native shake";
         }
     }
     const bool ok = _stormFXQuest->SetStage(static_cast<std::uint16_t>(stage));
@@ -90,7 +90,6 @@ void RadiationEngine::UpdateStormFXVisibility()
     {
         if (_stormPhase != StormPhase::Warning)
             TriggerStormFX(true);              // shake (Papyrus, lethal); nuke only if not yet fired
-        SpawnStormDome();                      // re-spawn the native dome on stepping back outside
         const bool firestorm = _activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
             kStormTypes[_activeStormType].themeId == 1;
         const bool firestormHolding = firestorm &&
@@ -108,7 +107,6 @@ void RadiationEngine::UpdateStormFXVisibility()
     else
     {
         TriggerStormFX(false);                 // stop shake
-        ClearStormDome();                      // despawn the native dome indoors (it would clip walls)
         FadeOutStormIMAD(1.0f);
     }
 }

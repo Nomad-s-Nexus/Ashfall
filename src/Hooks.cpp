@@ -473,7 +473,7 @@ namespace Hooks
             // Preserve per-frame key responsiveness without touching engine state on this worker.
             QueueInputPoll();
 
-            QueueDomeFollow();
+            QueueStormVisuals();
 
             // Wall-clock throttle: actor delta-time can be zero in fullscreen menus. At most one engine
             // update is produced every 250 ms. The mutex makes this safe even if Fallout migrates the

@@ -237,9 +237,9 @@ def check_source(html_path, source_path):
     ):
         assert marker in active, f'missing bounded Firestorm retry contract: {marker}'
     assert '_stormNukeFired = true' not in active
-    for symbol in ('SpawnStormDome', 'UpdateStormDomeLifecycle'):
-        body = storm_modules.split('void RadiationEngine::' + symbol + '()', 1)[1].split('\n}', 1)[0]
-        assert 'StormUsesDome(kStormTypes[_activeStormType].themeId)' in body
+    for symbol in ('SpawnStormDome', 'ClearStormDome', 'UpdateStormDomeLifecycle', 'UpdateStormDomeFollow',
+                   'UpdateDomeAnimation', 'ResetStormDomeForLoad'):
+        assert f'RadiationEngine::{symbol}(' not in storm_modules, f'dome function must be gone: {symbol}'
     papyrus_fx = storm_modules.split('void RadiationEngine::TriggerStormFX(bool on)', 1)[1].split('\n}', 1)[0]
     firestorm_fx = papyrus_fx.split('if (st.themeId == 1)', 1)[1].split('else if', 1)[0]
     assert '_stormFXQuest->SetStage(20);' in firestorm_fx
@@ -265,38 +265,33 @@ def check_source(html_path, source_path):
         'if (IsPrismaModuleLoaded())',
         'PrismaUI absent; installed Win32 fallback',
         'if (!s_mainThreadMsgHook && !GetPrismaThreadAPI())',
-        's_domeFollowTaskQueued',
-        's_domeFollowActive',
+        's_stormVisualsTaskQueued',
         's_stormImadFadeActive',
-        'SetDomeFollowActive',
         'SetStormIMADFadeActive',
-        'void QueueDomeFollow()',
-        'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
+        'void QueueStormVisuals()',
         'RadiationEngine::GetSingleton().UpdateStormIMADFade();',
-        'QueueDomeFollow();',
-        'kDomeFollowInterval',
+        'QueueStormVisuals();',
+        'kStormVisualsInterval',
         'std::chrono::milliseconds(33)',
-        's_domeFollowActive.load(std::memory_order_acquire)',
         's_stormImadFadeActive.load(std::memory_order_acquire)',
-        'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
+        'if (throttleInitialized && now - lastVisuals < kStormVisualsInterval) return;',
         'kMaxQueuedMainTasks',
         's_mainTasks.size() >= kMaxQueuedMainTasks',
     ):
         if marker not in hooks:
             raise SystemExit(f'missing non-blocking game-thread dispatch contract: {marker}')
-    dome_queue_idx = hooks.index('QueueDomeFollow();')
-    dome_throttle_idx = hooks.index('if (elapsed < kUpdateInterval)', dome_queue_idx)
-    if dome_queue_idx > dome_throttle_idx:
-        raise SystemExit('storm dome follow must be queued before the 4 Hz engine throttle')
-    dome_producer_idx = hooks.index('void QueueDomeFollow()')
-    dome_active_gate_idx = hooks.index('s_domeFollowActive.load(std::memory_order_acquire)', dome_producer_idx)
-    imad_active_gate_idx = hooks.index('s_stormImadFadeActive.load(std::memory_order_acquire)', dome_producer_idx)
-    dome_gate_idx = hooks.index('if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;', dome_producer_idx)
-    dome_dispatch_idx = hooks.index('queued = QueueMainThreadTask', dome_producer_idx)
-    if max(dome_active_gate_idx, imad_active_gate_idx) > dome_gate_idx:
-        raise SystemExit('storm visual active flags must be checked before cadence throttling')
-    if dome_gate_idx > dome_dispatch_idx:
-        raise SystemExit('storm dome follow cadence must be gated before main-thread dispatch')
+    visuals_queue_idx = hooks.index('QueueStormVisuals();')
+    visuals_throttle_idx = hooks.index('if (elapsed < kUpdateInterval)', visuals_queue_idx)
+    if visuals_queue_idx > visuals_throttle_idx:
+        raise SystemExit('storm visuals producer must be queued before the 4 Hz engine throttle')
+    visuals_producer_idx = hooks.index('void QueueStormVisuals()')
+    active_gate_idx = hooks.index('s_stormImadFadeActive.load(std::memory_order_acquire)', visuals_producer_idx)
+    visuals_gate_idx = hooks.index('if (throttleInitialized && now - lastVisuals < kStormVisualsInterval) return;', visuals_producer_idx)
+    visuals_dispatch_idx = hooks.index('queued = QueueMainThreadTask', visuals_producer_idx)
+    if active_gate_idx > visuals_gate_idx:
+        raise SystemExit('storm visual active flag must be checked before cadence throttling')
+    if visuals_gate_idx > visuals_dispatch_idx:
+        raise SystemExit('storm visuals cadence must be gated before main-thread dispatch')
 
     storm_source = '\n'.join(
         Path(source_path).with_name(name).read_text(encoding='utf-8')
@@ -309,32 +304,17 @@ def check_source(html_path, source_path):
             'RadEngine_Storm_Update.cpp',
         )
     )
-    for marker in (
-        'void RadiationEngine::UpdateStormDomeLifecycle()',
-        'void RadiationEngine::UpdateStormDomeFollow()',
-        'kStormDomeFollowDistanceThreshold',
-        'needsMove',
-        'ref->Get3D()',
-        'playerWorld != _stormDomeWorld',
-        'UpdateStormDomeLifecycle();',
-        'ref->Update3DPosition(true);',
-        'IsValidDomeOwner',
-        'IsValidDomeReference',
-        'cell->worldSpace == world',
-    ):
-        if marker not in storm_source:
-            raise SystemExit(f'missing smooth dome follow contract: {marker}')
-    for forbidden in ('ShouldFollowDomeOnTick', '_stormDomeFollowTick', 'Called once per player update'):
+    for forbidden in ('SpawnStormDome', 'ClearStormDome', 'StormDome', 'kStormDome', '_stormDome',
+                      'UpdateDomeAnimation', 'FARO_StormDome', 'IsValidDomeOwner'):
         if forbidden in storm_source:
-            raise SystemExit(f'obsolete tick-throttled dome follow state remains: {forbidden}')
+            raise SystemExit(f'native storm dome spawn or follow path must not remain: {forbidden}')
 
     engine_header = Path(source_path).with_name('RadiationEngine.h').read_text(encoding='utf-8')
-    if 'void UpdateStormDomeFollow();' not in engine_header:
-        raise SystemExit('RadiationEngine must expose per-frame dome follow')
     if 'void UpdateStormIMADFade();' not in engine_header:
         raise SystemExit('RadiationEngine must expose bounded IMAD fade updates')
-    if '_stormDomeFollowTick' in engine_header:
-        raise SystemExit('obsolete dome follow tick member must not return')
+    for forbidden in ('UpdateStormDomeFollow', '_stormDomeFollowTick', 'void UpdateStormDomeLifecycle'):
+        if forbidden in engine_header:
+            raise SystemExit(f'dome member or method must not remain in RadiationEngine.h: {forbidden}')
 
     for forbidden in (
         'WaitForPrismaDispatcher',
