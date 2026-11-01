@@ -806,3 +806,17 @@ rewrite lives on the separate needs/disease branch), the notification placement,
 checklist section below is the in-game check. The confirmation path on this branch is still the count-drop design;
 the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
 mistaken for a use here.
+
+## Showcase tab: scene buttons, auto tour and debug state (2026-11-01)
+
+The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed list of debug commands, and the auto tour plays every scene in turn with the menu closed. Both only use the existing debug command path (`DispatchDebugCommand`); no new gameplay logic runs outside it.
+
+**God mode.** `god:on` sets `_debugGod`, and `KeepPlayerAlive` restores health damage on every Update tick (4 Hz). A burst larger than the current health inside one tick can still kill the player. Rads still reduce max health, so god mode does not stop radiation sickness.
+
+**Time freeze.** `time:freeze` saves the current `timeScale` and writes 0; `time:resume` restores the saved value. A save made while time is frozen stores a timeScale of 0, so resume time before saving. After a full game restart the saved scale is not restored. `time:hour:<n>` writes the game hour directly, clamped to 0 to 23.99.
+
+**Weather lock.** `weather:lock` holds the current weather through the existing debug weather hold flag (`_debugWeatherHold`). It is freed by the Release Forced Weather button.
+
+**Save state.** The mask scene's `filter:replace` step removes a real filter item from the inventory. The rads, tissue and heal steps change save state. Do not save in the middle of a showcase run.
+
+**Cancelling the tour.** Shift+F8 only cancels the remaining tour steps. A running storm, forced weather or mask state stays in place and must be cleared with the normal clear and release buttons.
