@@ -49,10 +49,10 @@ still observe `[StormCue] Siren started` in a live log and confirm the cue stops
 
 ## OPEN - active engineering
 
-### 4. Storm dome KORs light dependency - GitHub #19 (fixed)
+### 4. Storm dome KORs light dependency - removed with the dome (GitHub #19)
 
-The dome lights resolve from `0x889` and `0x88A` in `RadiationOverhaul.esp`
-(`src/RadEngine_ESL.cpp`), so `KORsAnomaly Stripped.esp` is no longer required.
+The native storm dome was removed in the no-dome change, so the dome light lookups are gone and
+`KORsAnomaly Stripped.esp` is not needed. Issue #19 can close once that change is merged.
 
 ### 5. Worker-thread engine-call audit - GitHub #20
 

@@ -1,6 +1,14 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## 2026-11-01: storm dome removed; Ash and Sulfur use the vanilla Glowing Sea radstorm sky
+
+**The native storm dome is removed.** It placed a set of cloud layers around the player and never reached a stable
+visual. The storm sky is now the only storm visual. Ash Fallout and Toxic Sulfur Storm show the vanilla Glowing Sea
+radstorm weather (form ID `0x24A3C0`, falling back to `0x1C3D5E`) instead of their custom weather records. Acid Rain,
+Rad Firestorm and Dust Storm keep their custom weather and behaviour. The vanilla weather is read from the master and
+never modified. The sky rolls in at the warning phase. The silent lead before the siren is unchanged, and its INI key is
+now `StormLeadMinutes` (the legacy `DomeLeadMinutes` is still read when the new key is absent). **Not verified in game.**
 ## 2026-10-30: food/drink relief is no longer trivial
 
 **A normal meal or drink now visibly moves hunger/thirst.** `PortionFor` gives every item a 0.8 floor (was 0.5) and a
