@@ -6,6 +6,7 @@ plugins, meshes, textures, sounds) plus source.
 ## Third-party assets (included with permission)
 The storm-dome meshes/textures originate from the KORS **Anomaly** mod (Knundrum); they are
 included here **with permission**.
+- First-person mask view (M50 mask model and textures): source and licence to be confirmed by the repository owner before release.
 
 ## Credits
 - Black-hole "event horizon" eye texture: **NASA's Goddard Space Flight Center / Jeremy Schnittman**
