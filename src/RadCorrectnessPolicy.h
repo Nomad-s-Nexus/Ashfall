@@ -43,9 +43,40 @@ namespace RadCorrectnessPolicy
 
     constexpr float DomeSeekSeconds(double elapsedSec, float timelineSec)
     {
-        const double cap = timelineSec > 1.0f ? static_cast<double>(timelineSec) - 1.0 : 0.0;
-        if (!(elapsedSec > 0.0)) return 0.0f;
-        return static_cast<float>(elapsedSec < cap ? elapsedSec : cap);
+        if (!(elapsedSec > 0.0) || !(timelineSec > 1.0f)) return 0.0f;
+        const double period = static_cast<double>(timelineSec);
+        const double wrapped = elapsedSec - period * static_cast<double>(static_cast<long long>(elapsedSec / period));
+        if (!(wrapped > 0.0) || !(wrapped < period)) return 0.0f;
+        return static_cast<float>(wrapped);
+    }
+
+    constexpr double WrapAngleRad(double a)
+    {
+        constexpr double kTau = 6.283185307179586;
+        const double r = a - kTau * static_cast<double>(static_cast<long long>(a / kTau));
+        const double w = r < 0.0 ? r + kTau : r;
+        return w >= kTau ? 0.0 : w;
+    }
+
+    constexpr double SpinAngleRad(double degPerSec, double seconds)
+    {
+        constexpr double kPi = 3.141592653589793;
+        return WrapAngleRad(degPerSec * seconds * kPi / 180.0);
+    }
+
+    constexpr double ClampDomeAnimDelta(double dt, double maxDt)
+    {
+        return !(dt > 0.0) ? 0.0 : (dt > maxDt ? maxDt : dt);
+    }
+
+    constexpr bool ShouldMoveDomeLayer(float distSq, float epsSq)
+    {
+        return distSq > epsSq;
+    }
+
+    constexpr float StormShakeStrength(float base, bool interior)
+    {
+        return interior ? base * 0.35f : base;
     }
 
     constexpr bool ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)

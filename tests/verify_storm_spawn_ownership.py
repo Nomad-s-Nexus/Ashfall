@@ -281,14 +281,16 @@ unresolved_owner = dome_lifecycle.split(
 assert "ClearStormDome();" not in unresolved_owner
 assert "return;" in unresolved_owner
 
+dome_drive = dome.split("void RadiationEngine::DriveDomeAnimation(bool moved)", 1)[1].split("void RadiationEngine::UpdateStormDomeFollow()", 1)[0]
 dome_follow = dome.split("void RadiationEngine::UpdateStormDomeFollow()", 1)[1].split(
     "void RadiationEngine::UpdateDustMotes()", 1
 )[0]
-dome_preflight, dome_move = dome_follow.split("if (!needsMove) return;", 1)
-assert "if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D()) return;" in dome_preflight
-assert "ref->Update3DPosition(true);" in dome_move
-assert "IsValidDomeReference" not in dome_move
-assert "ref->Get3D()" not in dome_move
+assert "if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D())" in dome_follow
+assert "RadCorrectnessPolicy::ShouldMoveDomeLayer(" in dome_follow
+assert "kStormDomeFollowEpsilon" in dome_follow
+assert "ref->Update3DPosition(true);" in dome_follow or "ref->Update3DPosition(true);" in dome_drive
+assert "kStormDomeFollowDistanceThreshold" not in dome_follow
+assert "DriveDomeAnimation(moved);" in dome_follow
 
 warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
     "case StormPhase::Active:", 1

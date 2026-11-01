@@ -465,8 +465,14 @@ private:
     RE::TESWorldSpace* _stormDomeWorld = nullptr;
     int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
-    bool _stormDomeSeekAudit = false;
-    bool _stormDomeManualDrive = false;
+    double _domeAnimTime = 0.0;
+    double _domeAnimLastRealS = -1.0;
+    int _domeAnimLogIndex = 0;
+    bool _domeAnimDriverLogged = false;
+    bool _domeSpinLogged = false;
+    double _domeSeekSec = 0.0;
+    void AdvanceDomeClock();
+    void DriveDomeAnimation(bool moved);
     float  _stormDomeBlend = 0.0f;                  // 0..1 vanilla-cloud fade, published via Hooks::SetStormDomeBlend
     double _stormDomeBlendSec = 0.0;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
