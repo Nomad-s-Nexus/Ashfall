@@ -48,8 +48,8 @@ def check_dome_follow_producer():
     input_poll = body(hooks, "static void QueueInputPoll()")
     check("dedicated dome-follow producer exists",
           "void QueueDomeFollow()" in follow and "void QueueDomeFollow();" in header)
-    check("dome-follow producer is throttled near 30 Hz",
-          "std::chrono::milliseconds(33)" in follow)
+    check("IMAD fade producer keeps its 33 ms gate and the follow runs every frame",
+          "kImadFadeInterval = std::chrono::milliseconds(33)" in follow)
     check("dome-follow task is coalesced",
           "s_domeFollowTaskQueued.compare_exchange_strong" in follow)
     check("dome-follow task is generation guarded",
@@ -195,8 +195,8 @@ def check_storm_layout():
     firestorm = fx.split("if (st.themeId == 1)", 1)
     check("Firestorm Papyrus route stops dome stages",
           len(firestorm) == 2 and "_stormFXQuest->SetStage(20);" in firestorm[1].split("else", 1)[0])
-    check("dome follow keeps native ownership in UpdateStormDomeFollow",
-          "void RadiationEngine::UpdateStormDomeFollow()" in dome)
+    check("dome follow drives the animation through DriveDomeAnimation",
+          "void RadiationEngine::UpdateStormDomeFollow()" in dome and "DriveDomeAnimation(moved);" in dome)
     policy = read("RadCorrectnessPolicy.h")
     check("Firestorm dome policy is theme 1 only", "return theme != 1;" in policy)
 

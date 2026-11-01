@@ -365,14 +365,14 @@ for body, action in (
     (engine_queue, "RadiationEngine::GetSingleton().Update();"),
 ):
     assert "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();" in body
-    assert "[generation]()" in body
+    assert "[generation" in body
     assert "RadLifecycleDispatch::PlayerUpdatesReady(generation)" in body
     assert body.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < body.find(action)
 
 dome_queue = dome_hooks.split("void QueueDomeFollow()", 1)[1]
 for token in (
     "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();",
-    "[generation]()",
+    "[generation, runImadFade]",
     "RadLifecycleDispatch::PlayerUpdatesReady(generation)",
 ):
     assert token in dome_queue, f"dome producer generation guard is missing: {token}"
