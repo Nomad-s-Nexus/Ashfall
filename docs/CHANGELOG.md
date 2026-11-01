@@ -1,3 +1,6 @@
+## Unreleased: dome animation clock, collision-free mesh and per-frame follow
+
+**The storm dome now animates.** The controller manager's active bit (0x0008) is set by the plugin, which the engine never does for a placed reference, so the dome clock advances. Portal and core nodes spin in code, the mesh is collision-free (players are not blocked at the dome edge), and the Storm sequence loops so the dome does not go dark after 360 s. The follow runs every frame and moves all layers together. The storm shake is kept outdoors and reduced to 35 percent indoors. Not tested in game.
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
