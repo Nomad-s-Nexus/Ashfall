@@ -142,6 +142,7 @@ void RadiationEngine::Update()
             ClearStormIMAD();
         }
         DrainDebugCommands();
+        if (_debugGod) KeepPlayerAlive();
 
         // Is a storm (ours or a vanilla radstorm) currently active? Drives both the shelter raycast
         // and the sheltered rad-block below.

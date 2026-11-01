@@ -37,6 +37,17 @@ Reference: `src/Hooks_DomeFollow.cpp:Hooks::SetDomeFollowActive` and `src/Hooks_
 
 The follow path is inactive outside a live dome, then bounded to approximately 30 Hz with a 16-unit movement threshold and skips refs without loaded 3D. It only updates existing references; spawn, deletion, reparenting, shelter visibility, and worldspace ownership remain on the 4 Hz lifecycle path.
 
+### Storm dome sky hook notes
+
+Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendRampSec`, `src/RadEngine_Internal.h:kStormDomeTimelineSec`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
+
+- Sky hook: `src/Hooks_SkyClouds.cpp` hooks the BSSkyShader primary vtable slot 7 (SetupGeometry). It was proven on OG 1.10.163 only. The NG and AE builds are unverified.
+- AE needs one in-game check: the log line `Sky cloud hook installed` must appear and `cloudPassesScaled` must be greater than 0 while the dome is up.
+- Unverified: the pass type and alpha offsets are copied from the VolClouds hook and have not been checked against commonlib.
+- The dome blend (`_stormDomeBlend`, 0 to 1) is the vanilla cloud fade, published through `Hooks::SetStormDomeBlend`. It is a static atomic inside this plugin; there is no cross-plugin export.
+- `kStormDomeBlendRampSec` is the vanilla cloud fade-out and fade-in time around the dome. `kStormDomeTimelineSec` is the length of the baked `Storm` sequence in `CloudArena01_4.nif`.
+- `FODomeBlackHole.dds` is unused now that the dome is the baked NIF.
+- Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `BeginStorm`, kept in `_stormDomeBeginSec`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
 ## Regression coverage
 
 `tests/verify_hud_fallback.py` guards compositor ordering, position/resize behavior, V11 non-blocking dispatch, truthful engine activation, retained HUD-wait retries, optional PrismaHUD recovery, and atomic cross-thread callback publication. `tests/correctness_policy_tests.cpp` covers the policy-level lifecycle and load-generation invariants plus same-world dome streaming versus real worldspace ownership changes.
@@ -829,3 +840,19 @@ Not tested in game. Log lines to look for:
 - `[StormFX] dome spin: Hole4=found Vortex2=found Vortex3=found`
 
 Not yet included (separate follow-up): the storm sky roll-in at the Warning phase, TransDelta 24 to 16, the [RollDiag] trace, the ReleaseStormWeather and ResetStormWeatherLatches split with the DebugForceStorm change, clear-weather-ends-storm, and the preview dome with its 300 s expiry.
+
+## Showcase tab: scene buttons, auto tour and debug state (2026-11-01)
+
+Reference: `src/RadEngine_Debug.cpp:DispatchDebugCommand` (the showcase buttons and the tour call it).
+
+The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed list of debug commands, and the auto tour plays every scene in turn with the menu closed. Both only use the existing debug command path (`DispatchDebugCommand`); no new gameplay logic runs outside it.
+
+**God mode.** `god:on` sets `_debugGod`, and `KeepPlayerAlive` restores health damage on every Update tick (4 Hz). A burst larger than the current health inside one tick can still kill the player. Rads still reduce max health, so god mode does not stop radiation sickness.
+
+**Time freeze.** `time:freeze` saves the current `timeScale` and writes 0; `time:resume` restores the saved value. A save made while time is frozen stores a timeScale of 0, so resume time before saving. After a full game restart the saved scale is not restored. `time:hour:<n>` writes the game hour directly, clamped to 0 to 23.99.
+
+**Weather lock.** `weather:lock` holds the current weather through the existing debug weather hold flag (`_debugWeatherHold`). It is freed by the Release Forced Weather button.
+
+**Save state.** The mask scene's `filter:replace` step removes a real filter item from the inventory. The rads, tissue and heal steps change save state. Do not save in the middle of a showcase run.
+
+**Cancelling the tour.** Shift+F8 only cancels the remaining tour steps. A running storm, forced weather or mask state stays in place and must be cleared with the normal clear and release buttons.

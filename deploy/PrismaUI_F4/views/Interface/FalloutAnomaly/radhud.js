@@ -220,6 +220,7 @@ window.SetDebugMenu = function(on) {
   if (panel) {
     if (show) panel.classList.add("on"); else panel.classList.remove("on");
   }
+  if (show && window.RadShowcase) window.RadShowcase.stop();
 };
 
 var SURV_POOLS = [["hunger", "Hunger"], ["thirst", "Thirst"], ["sleepDebt", "Fatigue"]];
@@ -254,7 +255,7 @@ window.updateSurvival = function(json) {
 };
 
 function showTab(which) {
-  var tabs = ["rad", "wthr", "ghouls", "armor", "survival", "hud"];
+  var tabs = ["rad", "wthr", "ghouls", "armor", "survival", "showcase", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);
@@ -268,3 +269,69 @@ function showTab(which) {
     panel.scrollTop = 0;
   }
 }
+
+var SHOWCASE_SCENES = [
+  { id: "ash",      label: "Ash storm",   steps: [[0, "storm:0"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "fire",     label: "Firestorm",   steps: [[0, "storm:1"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "sulfur",   label: "Sulfur",      steps: [[0, "storm:2"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "acid",     label: "Acid storm",  steps: [[0, "storm:3"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "dust",     label: "Dust storm",  steps: [[0, "storm:4"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "rain",     label: "Rain",        steps: [[0, "forceweather:Fallout4.esm|1CA7E4"], [30, "weather:clear"]] },
+  { id: "acidrain", label: "Acid rain",   steps: [[0, "forceweather:RadiationOverhaul.esp|000843"], [30, "weather:clear"]] },
+  { id: "mask",     label: "Mask and filter", steps: [[0, "mask:on"], [0, "filter:full"], [8, "filter:low"], [8, "filter:dead"], [8, "filter:replace"], [6, "mask:auto"]] },
+  { id: "rads",     label: "Radiation",   steps: [[0, "rads:200"], [6, "tissue:150"], [8, "rads:600"], [10, "heal"], [2, "clear"]] }
+];
+
+var RadShowcase = window.RadShowcase = (function() {
+  var timers = [];
+  var scenes = SHOWCASE_SCENES;
+  function status(text) { var el = document.getElementById("showcaseStatus"); if (el) el.textContent = text; }
+  function later(fn, seconds) { timers.push(setTimeout(fn, seconds * 1000)); }
+  function sceneLength(scene) {
+    var total = 0;
+    for (var i = 0; i < scene.steps.length; i++) total += scene.steps[i][0];
+    return total + 4;
+  }
+  function schedule(scene, offset) {
+    var at = offset;
+    for (var i = 0; i < scene.steps.length; i++) {
+      at += scene.steps[i][0];
+      (function(command) { later(function() { cmd(command); }, at); })(scene.steps[i][1]);
+    }
+    return offset + sceneLength(scene);
+  }
+  function stop() {
+    for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
+    timers = [];
+    status("Idle.");
+  }
+  function run(id) {
+    stop();
+    for (var i = 0; i < scenes.length; i++) {
+      if (scenes[i].id === id) { schedule(scenes[i], 0); status("Playing " + scenes[i].label + "."); return; }
+    }
+  }
+  function startTour() {
+    stop();
+    cmd("god:on");
+    var at = 2;
+    for (var i = 0; i < scenes.length; i++) {
+      (function(scene, when) { later(function() { status("Tour: " + scene.label + "."); }, when); })(scenes[i], at);
+      at = schedule(scenes[i], at);
+    }
+    later(function() { status("Tour finished."); }, at);
+    cmd("close");
+  }
+  function build() {
+    var row = document.getElementById("showcaseScenes");
+    if (!row) return;
+    for (var i = 0; i < scenes.length; i++) {
+      var b = document.createElement("button");
+      b.textContent = scenes[i].label;
+      (function(id) { b.onclick = function() { run(id); }; })(scenes[i].id);
+      row.appendChild(b);
+    }
+  }
+  build();
+  return { scenes: scenes, run: run, startTour: startTour, stop: stop };
+})();

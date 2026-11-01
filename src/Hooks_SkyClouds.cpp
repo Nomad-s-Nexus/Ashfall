@@ -9,7 +9,6 @@ namespace Hooks
 {
     namespace
     {
-        // TODO-verify: slot/offsets copied from VolClouds (worked on OG); unverified on NG/AE.
         constexpr std::size_t kSetupGeometrySlot = 7;
         constexpr std::ptrdiff_t kPassPropertyOffset = 0x10;
         constexpr std::ptrdiff_t kSkyObjectTypeOffset = 0xA8;
