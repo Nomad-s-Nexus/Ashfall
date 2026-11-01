@@ -119,3 +119,11 @@ Expected relief amounts (computed from `PortionFor` with the 0.8 floor and 1.5 c
 ## 12. M50 mask view (3D visor) and PNG overlay off
 - **Equip a gas mask in first person.** Expected: the 3D M50 interior (rubber seal, valve housings, glass) is drawn and no flat `gasmask_overlay.png` appears. Unverified in game.
 - **Look for** missing-texture pink or white shapes, a black glass pane, the seal clipping the cheeks, and a frame-rate drop (278k tris).
+
+## Showcase tab
+- **Open the debug menu (Shift+F8), SHOWCASE tab, press a scene button.** Expected: the scene's commands fire in order (storm starts, fast-forwards to Active, ends).
+- **Press PLAY FULL TOUR.** Expected: the menu closes and every scene plays in turn with no menu visible; Shift+F8 reopens the menu and stops the tour.
+- **Press Peckish, Starving, Exhausted, Fever stage 2, Wasting stage 3, then Clear needs.** Expected: the clock freezes, the needs widget and survival tab show the scene's pool or disease stage, each scene reverts to zero after 10 seconds, and Clear needs resumes the clock.
+- **CAMERA row: God ON, Freeze time, Noon, Lock weather.** Expected: health stays full while god is on, the clock stops until Resume time, the hour jumps to the preset, and the weather holds until Release weather.
+- **Resume time before saving.** A save made while time is frozen stores a time scale of 0.
+- Needs and disease scenes overwrite your real needs and disease state; do not use them on a save you want to keep, and resume time before saving.

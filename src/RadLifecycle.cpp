@@ -94,6 +94,20 @@ bool RadLifecycle::EnsureEngineActiveOnGameThread()
             }
         }
 
+        static std::atomic_bool s_skyCloudHookTried{ false };
+        if (!s_skyCloudHookTried.exchange(true))
+        {
+            try
+            {
+                const bool ok = Hooks::InstallSkyCloudHook();
+                if (logger) logger->info("[Lifecycle] Sky cloud hook {}", ok ? "installed" : "NOT installed");
+            }
+            catch (const std::exception& ex)
+            {
+                if (logger) logger->error("[Lifecycle] Sky cloud hook failed: {}", ex.what());
+            }
+        }
+
         // HUD integration is optional and must never make the gameplay engine inactive. Retry when
         // PrismaUI itself is missing OR when PrismaUI is present but PrismaHUD was not yet available.
         // Once both providers are acquired, preserve those known-good pointers instead of needlessly

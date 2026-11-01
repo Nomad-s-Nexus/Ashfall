@@ -120,6 +120,36 @@ Function Tick(float afHours, bool abActive, int aiHungerStage, int aiThirstStage
     AdvanceDisease(afHours, abActive)
 EndFunction
 
+; Constraint: showcase entry, called only by RadSurvivalQuest.DebugSetNeeds; disease 0 clears without granting immunity.
+Function DebugSetDisease(int aiDisease, int aiStage, bool abActive)
+    if aiDisease < 0 || aiDisease > 2
+        return
+    endif
+    DiseaseId = aiDisease
+    DiseaseStage = 0
+    DiseaseProgress = 0.0
+    if aiDisease > 0
+        DiseaseStage = aiStage
+        if DiseaseStage < 0
+            DiseaseStage = 0
+        elseif DiseaseStage > 3
+            DiseaseStage = 3
+        endif
+        ; Constraint: progress sits at the stage's entry hour so AdvanceDisease neither skips nor undoes it.
+        if DiseaseStage == 1
+            DiseaseProgress = IncubationHours
+        elseif DiseaseStage == 2
+            DiseaseProgress = Stage2Hours
+        elseif DiseaseStage == 3
+            DiseaseProgress = Stage3Hours
+        endif
+    endif
+    RiskDebt = 0.0
+    Reconcile(abActive)
+    MirrorRisk()
+    MirrorDisease()
+EndFunction
+
 Function Resync(bool abActive)
     EnsureStateVersion()
     if DiseaseId < 0 || DiseaseId > 2

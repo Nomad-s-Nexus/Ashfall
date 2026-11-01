@@ -1,6 +1,9 @@
 #include "RadEngine_Internal.h"
 #include "RadNeedsTuning.h"
 
+#include <RE/B/BSScriptUtil.h>
+#include <RE/G/GameScript.h>
+
 using namespace RadInternal;
 
 // Debug menu: forced storms/weather, rads/tissue tools, SPECIAL repair, diagnostics.
@@ -153,6 +156,12 @@ void RadiationEngine::DrainDebugCommands()
         {
             _maskOverride = -1;
             _debugShelter = false;
+            _debugGod = false;
+            if (_frozenTimeScale >= 0.0f)
+            {
+                if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale) cal->timeScale->value = _frozenTimeScale;
+                _frozenTimeScale = -1.0f;
+            }
             _filterSparesCache = 0;
             _filterCountTick = 0;
             _enclosedCheckTick = 0;
@@ -209,6 +218,7 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "clear")                DebugClearAll();
     else if (a == "heal")                 DebugHeal();
     else if (a == "weather:clear")        DebugClearWeather();
+    else if (a == "weather:lock")         DebugLockWeather();
     else if (a.rfind("forceweather:", 0) == 0) DebugForceWeatherByForm(a.substr(std::strlen("forceweather:")));
     else if (a.rfind("weather:", 0) == 0) DebugPreviewWeather(static_cast<int>(numAfter("weather:")));
     else if (a == "ghouls:on")
@@ -255,6 +265,10 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
             ApplyTuning();
         RadHud::GetSingleton().PushNeedsTuning(RadNeedsTuning::Json());
     }
+    else if (a == "god:on")               { _debugGod = true;  Notify("[DEBUG] God mode ON.",  false); }
+    else if (a == "god:off")              { _debugGod = false; Notify("[DEBUG] God mode OFF.", false); }
+    else if (a.rfind("time:", 0) == 0)    DebugTime(a.substr(std::strlen("time:")));
+    else if (a.rfind("needs:", 0) == 0)   DebugApplyNeeds(a.substr(std::strlen("needs:")));
     else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
     else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
     else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);
@@ -550,6 +564,76 @@ void RadiationEngine::DebugClearWeather()
     _debugWeatherHold = false;   // release the veto hold — the region system takes back over
     ForceClearAndSilence();
     Notify("[DEBUG] weather released (vetoes back on).", false);
+}
+
+
+void RadiationEngine::DebugTime(const std::string& arg)
+{
+    auto* cal = RE::Calendar::GetSingleton();
+    if (!cal || !cal->timeScale || !cal->gameHour) return;
+    if (arg == "freeze")
+    {
+        if (_frozenTimeScale < 0.0f) _frozenTimeScale = cal->timeScale->value;
+        cal->timeScale->value = 0.0f;
+        Notify("[DEBUG] Time frozen.", false);
+    }
+    else if (arg == "resume")
+    {
+        if (_frozenTimeScale >= 0.0f) cal->timeScale->value = _frozenTimeScale;
+        _frozenTimeScale = -1.0f;
+        Notify("[DEBUG] Time resumed.", false);
+    }
+    else if (arg.rfind("hour:", 0) == 0)
+    {
+        cal->gameHour->value = std::clamp(static_cast<float>(std::atof(arg.c_str() + std::strlen("hour:"))), 0.0f, 23.99f);
+        Notify("[DEBUG] Game hour set.", false);
+    }
+}
+
+
+void RadiationEngine::DebugApplyNeeds(const std::string& arg)
+{
+    float hunger = -1.0f, thirst = -1.0f, sleep = -1.0f;
+    int disease = -1, stage = 0;
+    if (std::sscanf(arg.c_str(), "%f:%f:%f:%d:%d", &hunger, &thirst, &sleep, &disease, &stage) != 5)
+    {
+        Notify("[DEBUG] needs: expected hunger:thirst:sleep:disease:stage.", false);
+        return;
+    }
+    auto* game = RE::GameVM::GetSingleton();
+    const auto vm = game ? game->GetVM() : nullptr;
+    if (!vm)
+    {
+        Notify("[DEBUG] needs: the script VM is not available.", false);
+        return;
+    }
+    const RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> noCallback;
+    const bool sent = vm->DispatchStaticCall("RadShowcase", "Apply", noCallback, hunger, thirst, sleep, disease, stage);
+    Notify(sent ? "[DEBUG] needs scene applied." : "[DEBUG] needs: RadShowcase.Apply was not found (is the script compiled?).", false);
+}
+
+
+void RadiationEngine::DebugLockWeather()
+{
+    auto* sky = RE::Sky::GetSingleton();
+    if (!sky || !sky->currentWeather) return;
+    CaptureWeatherReturnTarget();
+    _releaseWeatherOverrideWhenSettled = false;
+    _weatherHandoffSettleTicks = 0;
+    _weatherHandoffWaitTicks = 0;
+    _debugWeatherHold = true;
+    sky->ForceWeather(sky->currentWeather, true);
+    _weatherForced = true;
+    Notify("[DEBUG] Weather locked (use Release Forced Weather to free it).", false);
+}
+
+
+void RadiationEngine::KeepPlayerAlive()
+{
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* av = RE::ActorValue::GetSingleton();
+    if (!player || !av || !av->health) return;
+    player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *av->health, 100000.0f);
 }
 
 

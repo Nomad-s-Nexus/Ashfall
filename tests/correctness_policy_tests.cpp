@@ -63,6 +63,12 @@ int main()
     Require(StormUsesDome(0));
     Require(StormUsesDome(2));
     Require(StormUsesDome(5));
+    Require(DomeSeekSeconds(0.0, 360.0f) == 0.0f);
+    Require(DomeSeekSeconds(-5.0, 360.0f) == 0.0f);
+    Require(DomeSeekSeconds(95.5, 360.0f) == 95.5f);
+    Require(DomeSeekSeconds(900.0, 360.0f) == 359.0f);
+    Require(DomeSeekSeconds(10.0, 0.5f) == 0.0f);
+    Require(DomeSeekSeconds(std::nan(""), 360.0f) == 0.0f);
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
     Require(IsConfiguredMask(false, true, true));

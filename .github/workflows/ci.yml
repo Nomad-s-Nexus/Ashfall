@@ -85,7 +85,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $failed += $t }
             Write-Host '::endgroup::'
           }
-          foreach ($t in 'armor_diagnostics_tests.js', 'status_hud_tests.js') {
+          foreach ($t in 'armor_diagnostics_tests.js', 'status_hud_tests.js', 'showcase_tests.js') {
             Write-Host "::group::node tests/$t"
             node "tests/$t"
             if ($LASTEXITCODE -ne 0) { $failed += $t }

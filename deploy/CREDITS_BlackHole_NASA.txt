@@ -10,6 +10,6 @@ no implied endorsement):
     Reproduction guidelines: https://www.nasa.gov/multimedia/guidelines/
 
 The image was cleaned (annotation labels inpainted out), alpha-matted, and baked
-to textures/FalloutAnomaly/FODomeBlackHole.dds for use as an emissive
-BSEffectShaderProperty-style card (Meshes/KORsMeshes/Anomaly/CloudArena04.nif,
-spawned by FARO_StormDome04).
+to textures/FalloutAnomaly/FODomeBlackHole.dds. The current storm dome
+(Meshes/KORsMeshes/Anomaly/CloudArena01_4.nif) does not reference it; the file
+is kept for the earlier CloudArena04 card.

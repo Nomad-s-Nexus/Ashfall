@@ -1,4 +1,5 @@
 ScriptName RadSurvivalQuest extends Quest
+
 ; Constraint: HC_Manager and every HC_* form are read and written nowhere here.
 ; Constraint: relief is confirmed by the engine's own item-removal event, never by an inventory count.
 
@@ -26,9 +27,11 @@ float Property PairWindowSeconds = 2.0 Auto
 float Property StageHysteresis = 0.04 Auto
 int Property kTimerID = 10 Auto Const
 int Property kVanillaSurvivalDifficulty = 6 Auto Const
+
 bool Property Enabled = true Auto Const
 bool Property SkipWhenVanillaSurvival = true Auto Const
 bool Property ShowNotifications = true Auto Const
+
 ; penalties are staged ability spells; clear this to ship them off without a rebuild
 bool Property PenaltiesEnabled = true Auto Const
 string Property PenaltyPlugin = "RadSurvival.esp" Auto Const
@@ -36,13 +39,16 @@ string Property PenaltyPlugin = "RadSurvival.esp" Auto Const
 int Property HungerPenaltySpellBase = 2061 Auto Const
 int Property ThirstPenaltySpellBase = 2064 Auto Const
 int Property SleepPenaltySpellBase = 2067 Auto Const
+
 ; pool mirrors for the native HUD (assigned when the GLOB records exist)
 
 GlobalVariable Property RadSurvival_Hunger Auto
 GlobalVariable Property RadSurvival_Thirst Auto
 GlobalVariable Property RadSurvival_Sleep Auto
+
 ; Invariant: the disease layer is a second script on this quest, never a second event owner.
 RadSurvivalDiseases Property Diseases Auto
+
 ; state - saved with the quest instance
 
 float HungerDebt = 0.0
@@ -61,10 +67,12 @@ float[] RemoveCandidateTimes
 int HungerStage = 0
 int ThirstStage = 0
 int SleepStage = 0
+
 ; spell actually on the player per pool, so a stage change can replace it exactly once
 Spell AppliedHungerSpell = None
 Spell AppliedThirstSpell = None
 Spell AppliedSleepSpell = None
+
 ; invariant: a reconcile must not resolve the same stage twice
 int CachedHungerStage = -1
 Spell CachedHungerSpell = None
@@ -72,6 +80,7 @@ int CachedThirstStage = -1
 Spell CachedThirstSpell = None
 int CachedSleepStage = -1
 Spell CachedSleepSpell = None
+
 ; lifecycle
 
 Event OnInit()
@@ -79,6 +88,7 @@ Event OnInit()
     if !player
         return
     endif
+
     LastGameTime = Utility.GetCurrentGameTime()
     ClearConsumptionCandidates()
     ArmSleepWaitEvents()
@@ -132,21 +142,25 @@ Event Actor.OnPlayerLoadGame(Actor akSender)
     ResyncDiseases()
     Debug.Trace("[RadSurvivalQuest] post-load anchor H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt)
 EndEvent
+
 ; timer - StartTimerGameTime is one-shot, so the handler re-arms it
 
 Event OnTimerGameTime(int aiTimerID)
     if aiTimerID != kTimerID
         return
     endif
+
     if IsActive()
         AdvanceTo(Utility.GetCurrentGameTime())
     else
         ; Constraint: keep the clock anchored while suspended, so a gating flip is not read as skipped play.
         LastGameTime = Utility.GetCurrentGameTime()
     endif
+
     ; Invariant: reconcile every tick, in both branches (a flipped switch must not wait for a stage).
     UpdatePenaltyStages("")
     ReconcileDiseases()
+
     StartTimerGameTime(TickGameHours, kTimerID)
 EndEvent
 
@@ -154,6 +168,7 @@ Function RestartTimer()
     CancelTimerGameTime(kTimerID)
     StartTimerGameTime(TickGameHours, kTimerID)
 EndFunction
+
 ; consumption
 
 Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)
@@ -318,6 +333,7 @@ Function ApplyRelief(Form akItem, int aiCount)
     if _AlcoholKeyword != None && akItem.HasKeyword(_AlcoholKeyword)
         hydration = AlcoholHydrationScale
     endif
+
     float hungerBefore = HungerDebt
     float thirstBefore = ThirstDebt
     float portion = PortionFor(akItem)
@@ -363,6 +379,7 @@ float Function PortionFor(Form akItem)
     endif
     return portion
 EndFunction
+
 ; sleep and wait
 
 Event OnPlayerSleepStart(float afSleepStartTime, float afDesiredSleepEndTime, ObjectReference akBed)
@@ -373,11 +390,13 @@ Event OnPlayerSleepStop(bool abInterrupted, ObjectReference akBed)
     float now = Utility.GetCurrentGameTime()
     float started = SleepStartTime
     SleepStartTime = -1.0
+
     if !IsActive()
         LastGameTime = now
         RestartTimer()
         return
     endif
+
     float hours = 0.0
     if started >= 0.0
         hours = (now - started) * 24.0
@@ -406,11 +425,13 @@ Event OnPlayerWaitStop(bool abInterrupted)
     float now = Utility.GetCurrentGameTime()
     float started = WaitStartTime
     WaitStartTime = -1.0
+
     if !IsActive()
         LastGameTime = now
         RestartTimer()
         return
     endif
+
     float hours = 0.0
     if started >= 0.0
         hours = (now - started) * 24.0
@@ -418,11 +439,13 @@ Event OnPlayerWaitStop(bool abInterrupted)
     if hours < 0.0
         hours = 0.0
     endif
+
     ; Waiting is not rest: game time accrues, sleep debt does not recover.
     AccrueElapsed(hours)
     RestartTimer()
     Debug.Trace("[RadSurvivalQuest] wait ended hours=" + hours + " sleep=" + SleepDebt)
 EndEvent
+
 ; progression
 
 Function AdvanceTo(float nowDays)
@@ -487,6 +510,7 @@ float Function Clamp01(float afValue)
     endif
     return afValue
 EndFunction
+
 ; GLOB mirrors - the native HUD reads these through TESGlobal
 
 
@@ -501,6 +525,29 @@ Function MirrorToGlobal(GlobalVariable akTarget, float afValue)
         akTarget.SetValue(afValue)
     endif
 EndFunction
+
+; Constraint: showcase entry, reached only through RadShowcase.Apply; a negative value leaves that pool or disease unchanged.
+Function DebugSetNeeds(float afHunger, float afThirst, float afSleep, int aiDisease, int aiStage)
+    if afHunger >= 0.0
+        HungerDebt = Clamp01(afHunger)
+    endif
+    if afThirst >= 0.0
+        ThirstDebt = Clamp01(afThirst)
+    endif
+    if afSleep >= 0.0
+        SleepDebt = Clamp01(afSleep)
+    endif
+    MirrorAll()
+    ; Invariant: each call reconciles all pools; naming a pool lets its stage drop without hysteresis.
+    UpdatePenaltyStages("hunger")
+    UpdatePenaltyStages("thirst")
+    UpdatePenaltyStages("sleep")
+    if Diseases != None && aiDisease >= 0
+        Diseases.DebugSetDisease(aiDisease, aiStage, IsActive())
+    endif
+    Debug.Trace("[RadSurvivalQuest] showcase H/T/S=" + HungerDebt + "/" + ThirstDebt + "/" + SleepDebt + " disease=" + aiDisease + " stage=" + aiStage)
+EndFunction
+
 ; penalties - one staged ability spell per pool per stage; relief removes it, stage 0 means none.
 
 Function UpdatePenaltyStages(string asReliefPool)
@@ -517,6 +564,7 @@ Function UpdatePenaltyStages(string asReliefPool)
     if hungerRose
         NotifyStage("hunger", hunger)
     endif
+
     int thirst = StageForHeld(ThirstDebt, ThirstStage, asReliefPool == "thirst")
     bool thirstRose = thirst > ThirstStage
     ThirstStage = thirst
@@ -524,6 +572,7 @@ Function UpdatePenaltyStages(string asReliefPool)
     if thirstRose
         NotifyStage("thirst", thirst)
     endif
+
     int sleep = StageForHeld(SleepDebt, SleepStage, asReliefPool == "sleep")
     bool sleepRose = sleep > SleepStage
     SleepStage = sleep
@@ -569,10 +618,12 @@ Function ApplyStagePenalty(string asPool, int aiStage)
     if !player
         return
     endif
+
     Spell wanted = None
     if PenaltiesEnabled && aiStage > 0
         wanted = PenaltySpellFor(asPool, aiStage)
     endif
+
     Spell applied = AppliedPenalty(asPool)
     ; Constraint: a spell lost to another mod's dispel must be re-applied on the next reconcile.
     if applied == wanted && (!wanted || player.HasSpell(wanted))
@@ -631,12 +682,14 @@ Spell Function PenaltySpellFor(string asPool, int aiStage)
     else
         return None
     endif
+
     ; Invariant: a repeated stage must not hit the form table again.
     if cachedStage == aiStage
         if cachedSpell
             return cachedSpell
         endif
     endif
+
     ; Constraint: a failed resolve must not be cached, or a missing plugin never retries.
     Spell resolved = Game.GetFormFromFile(first + aiStage - 1, PenaltyPlugin) as Spell
     if !resolved
@@ -702,6 +755,7 @@ Function NotifyStage(string asPool, int aiStage)
     endif
     Debug.Notification(text)
 EndFunction
+
 ; invariant: RadSurvivalDiseases owns the state, this script owns the events
 
 Function TickDiseases(float afHours)
@@ -733,6 +787,7 @@ Function ResyncDiseases()
     endif
     Diseases.Resync(IsActive())
 EndFunction
+
 ; gating
 
 bool Function IsActive()
