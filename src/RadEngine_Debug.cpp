@@ -1,5 +1,8 @@
 #include "RadEngine_Internal.h"
 
+#include <RE/B/BSScriptUtil.h>
+#include <RE/G/GameScript.h>
+
 using namespace RadInternal;
 
 // Debug menu: forced storms/weather, rads/tissue tools, SPECIAL repair, diagnostics.
@@ -254,6 +257,7 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     else if (a == "god:on")               { _debugGod = true;  Notify("[DEBUG] God mode ON.",  false); }
     else if (a == "god:off")              { _debugGod = false; Notify("[DEBUG] God mode OFF.", false); }
     else if (a.rfind("time:", 0) == 0)    DebugTime(a.substr(std::strlen("time:")));
+    else if (a.rfind("needs:", 0) == 0)   DebugApplyNeeds(a.substr(std::strlen("needs:")));
     else if (a == "give:chelation")       DebugGiveItem(0x860, kEslName, 1);
     else if (a == "give:radaway")         DebugGiveItem(0x023742, "Fallout4.esm", 5);
     else if (a == "give:radx")            DebugGiveItem(0x024057, "Fallout4.esm", 5);
@@ -573,6 +577,28 @@ void RadiationEngine::DebugTime(const std::string& arg)
         cal->gameHour->value = std::clamp(static_cast<float>(std::atof(arg.c_str() + std::strlen("hour:"))), 0.0f, 23.99f);
         Notify("[DEBUG] Game hour set.", false);
     }
+}
+
+
+void RadiationEngine::DebugApplyNeeds(const std::string& arg)
+{
+    float hunger = -1.0f, thirst = -1.0f, sleep = -1.0f;
+    int disease = -1, stage = 0;
+    if (std::sscanf(arg.c_str(), "%f:%f:%f:%d:%d", &hunger, &thirst, &sleep, &disease, &stage) != 5)
+    {
+        Notify("[DEBUG] needs: expected hunger:thirst:sleep:disease:stage.", false);
+        return;
+    }
+    auto* game = RE::GameVM::GetSingleton();
+    const auto vm = game ? game->GetVM() : nullptr;
+    if (!vm)
+    {
+        Notify("[DEBUG] needs: the script VM is not available.", false);
+        return;
+    }
+    const RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> noCallback;
+    const bool sent = vm->DispatchStaticCall("RadShowcase", "Apply", noCallback, hunger, thirst, sleep, disease, stage);
+    Notify(sent ? "[DEBUG] needs scene applied." : "[DEBUG] needs: RadShowcase.Apply was not found (is the script compiled?).", false);
 }
 
 

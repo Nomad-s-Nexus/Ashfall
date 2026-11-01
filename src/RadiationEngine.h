@@ -121,6 +121,7 @@ public:
     void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugTime(const std::string& arg);
+    void DebugApplyNeeds(const std::string& arg);
     void DebugLockWeather();
     void KeepPlayerAlive();
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
