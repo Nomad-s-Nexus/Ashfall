@@ -1053,8 +1053,6 @@ vanilla Survival is active.
 
 **Measured versus assumed.** Gold values are measured winners from this load order (FO4IDE). The relief numbers are
 computed from the shipped formula, not observed in game. **Not verified in game:** that Papyrus delivers exactly one
-confirmed use per item (the pending count path can miss a use if the engine consumes before the tick - the pairing
-rewrite lives on the separate needs/disease branch), the notification placement, and the actual HUD stage change. The
-checklist section below is the in-game check. The confirmation path on this branch is still the count-drop design;
-the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
-mistaken for a use here.
+confirmed use per item (the equip/removal pairing rewrite (`RadSurvivalQuest.psc:PairEquip`, `:PairRemove`) is in this branch and
+replaced the old count-drop path), the notification placement, and the actual HUD stage change. The
+checklist section below is the in-game check.
