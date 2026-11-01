@@ -506,8 +506,8 @@ namespace RadInternal
     // KORs' — the stripped plugin has no placed refs and no script places it, so there was never an
     // original offset to copy.
     constexpr float kStormDomeZOffset     = 0.0f;
-    constexpr float kStormDomeBlendRampSec = 20.0f;   // vanilla cloud fade-out/in around the dome
-    constexpr float kStormDomeTimelineSec = 360.0f;   // length of the baked "Storm" sequence in CloudArena01_4.nif
+    constexpr float kStormDomeBlendRampSec = 20.0f;
+    constexpr float kStormDomeTimelineSec = 360.0f;
     // -----------------------------------------------------------------------
     // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
     //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)

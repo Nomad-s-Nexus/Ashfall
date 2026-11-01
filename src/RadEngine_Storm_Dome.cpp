@@ -206,13 +206,13 @@ void RadiationEngine::UpdateDomeAnimation()
             auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
             auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
             if (!mgr) continue;
-            mgr->Update(data);   // the engine never ticks this manager: drive it from storm time
+            mgr->Update(data);
             if (layer.manualSeeded) continue;
             for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
                 if (auto* seq = mgr->GetSequenceAt(i))
                     seq->offset = RadCorrectnessPolicy::DomeSeekSeconds(rel, kStormDomeTimelineSec) - rel;
             layer.manualSeeded = true;
-            if (audit) _stormDomeSeekAudit = true;   // re-audit next tick to prove lastScaled advances
+            if (audit) _stormDomeSeekAudit = true;
         }
         return;
     }
