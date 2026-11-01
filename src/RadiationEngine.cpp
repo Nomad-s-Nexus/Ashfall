@@ -175,6 +175,10 @@ void RadiationEngine::Update()
         // pre-Option-B gameplay timing (effects begin when the storm actually arrives).
         if (inRadWeather && _dustBuildupActive && _stormPhase == StormPhase::Warning)
             inRadWeather = false;
+        if (inRadWeather && _stormPhase == StormPhase::Warning && _activeStormType >= 0 &&
+            RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType) && sky &&
+            sky->currentWeather == StormSkyWeather(_activeStormType))
+            inRadWeather = false;
 
         const bool needsShelterEval = stormActive || rainyWeather || inRadWeather;
 

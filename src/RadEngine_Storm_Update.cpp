@@ -15,6 +15,18 @@ void RadiationEngine::UpdateStorm()
     auto logger = Log();
     UpdateWeatherHandoff();
 
+    if ((_stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active) &&
+        _activeStormType >= 0 && _activeStormType < kStormTypeTableSize && ++_stormRollDiagTick % 8 == 0)
+    {
+        if (auto* sky = RE::Sky::GetSingleton())
+            logger->info("[RollDiag] {} phase={} pct={:.2f} cur=0x{:06X} last=0x{:06X}",
+                kStormTypes[_activeStormType].name,
+                _stormPhase == StormPhase::Warning ? "Warning" : "Active",
+                sky->currentWeatherPct,
+                sky->currentWeather ? sky->currentWeather->GetFormID() : 0u,
+                sky->lastWeather ? sky->lastWeather->GetFormID() : 0u);
+    }
+
     if (_stormPhase != StormPhase::Active && _wasInRadWeather == 0 &&
         !_autoMaskedNpcs.empty() && --_npcMaskScanTick <= 0)
     {

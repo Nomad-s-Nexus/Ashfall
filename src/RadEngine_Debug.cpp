@@ -25,7 +25,8 @@ void RadiationEngine::DebugForceStorm(int typeIndex)
     TriggerStormFX(false);
     _stormFXVisible = false;
     _stormNukeFired = false;
-    ReleaseStormWeather();                  // drop any in-progress storm's forced sky
+    if (_weatherForced) ReleaseStormWeather();
+    else ResetStormWeatherLatches();
     _stormPhase      = StormPhase::Idle;
     // Direct phase reset bypasses EnterStormPhase, so disarm the shake counters here too — otherwise a
     // storm force-started mid-shake leaves them armed and the next Active phase drives phantom rumble.

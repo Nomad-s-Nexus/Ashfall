@@ -90,7 +90,7 @@ void RadiationEngine::UpdateAmbientAudio()
     // jumps to full under a still-clear sky. The general exterior bed covers the approach.
     if (stormBed && _dustBuildupActive && _stormPhase == StormPhase::Warning)
         stormBed = nullptr;
-    if (!stormBed && (_stormPhase == StormPhase::Warning || _stormPhase == StormPhase::Active) &&
+    if (!stormBed && _stormPhase == StormPhase::Active &&
         _activeStormType >= 0 && _activeStormType < kStormTypeTableSize &&
         RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType))
     {

@@ -218,6 +218,16 @@ def check_storm_layout():
           "_stormPhase == StormPhase::Active))" in rad_engine)
     check("storm bed follows the active storm type under the vanilla sky",
           "RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType)" in audio)
+    storm_update_src = read("RadEngine_Storm_Update.cpp")
+    debug_src = read("RadEngine_Debug.cpp")
+    check("Warning roll-in starts the vanilla radstorm sky for types 0 and 2",
+          "sky roll-in armed at WARNING" in weather_storm + read("RadEngine_Storm.cpp")
+          and "UsesVanillaRadstormSky(_activeStormType)" in read("RadEngine_Storm.cpp"))
+    check("RollDiag trace logs phase, pct and weather IDs", "[RollDiag] {} phase={} pct={:.2f}" in storm_update_src)
+    check("rad-weather gate holds during the vanilla Warning roll-in",
+          "_stormPhase == StormPhase::Warning && _activeStormType >= 0" in rad_engine)
+    check("DebugForceStorm releases only when a forced weather is in effect",
+          "if (_weatherForced) ReleaseStormWeather();" in debug_src and "else ResetStormWeatherLatches();" in debug_src)
 
 
 def check_ghoul_ownership():

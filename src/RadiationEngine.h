@@ -229,6 +229,7 @@ private:
     RE::TESWeather* _stormSkyVanilla = nullptr;
     RE::TESWeather* StormSkyWeather(int typeIndex) const;
     void ResetStormWeatherLatches();
+    int             _stormRollDiagTick = 0;
     RE::TESGlobal*  _nextEmissionGlobal = nullptr;  // persists next storm game-time (0x852)
     RE::TESGlobal*  _forceStormGlobal = nullptr;    // console debug trigger (0x853)
     StormPhase      _stormPhase = StormPhase::Idle;
