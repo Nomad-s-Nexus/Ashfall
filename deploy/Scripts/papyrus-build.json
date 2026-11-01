@@ -4,6 +4,14 @@
   "sourceRoot": "deploy/Scripts/Source/User",
   "scripts": [
     {
+      "script": "RadShowcase",
+      "source": "deploy/Scripts/Source/User/RadShowcase.psc",
+      "sourceSha256": "55d9738ec3328c9f590b9119131ca22b0810d632db66a0abaae002074a17b30a",
+      "pex": "deploy/Scripts/RadShowcase.pex",
+      "pexSha256": "61bbab02773cd287be979f2602326e74d036109732bae0e061f2f300b119719a",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadShowcase.psc"
+    },
+    {
       "script": "RadStormFX",
       "source": "deploy/Scripts/Source/User/RadStormFX.psc",
       "sourceSha256": "599971c5017244aa6438244d3ba9788fd9dadac9612e490378d04cf21dc62f69",
@@ -14,17 +22,17 @@
     {
       "script": "RadSurvivalDiseases",
       "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
-      "sourceSha256": "9b1fa79f4b0d9923d7b24e5ec2ce67bdf365c3a704ae964a92d8685e336f5bcc",
+      "sourceSha256": "a9ee505de830c1cdc6733020f1b31b5d3966905a35146b37e3c9624593663af1",
       "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
-      "pexSha256": "837e457eb4235a90954331df8763c06baeb20d25d6dd329bb7d134a549d4c532",
+      "pexSha256": "9402581ebbec306197f85928969802d4eddce09ce691e1ca3fc42198d0709c78",
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
     },
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "95443060c83dc7247b0f31e6d0d743255961d5a28d10b11c962f94eb763c01af",
+      "sourceSha256": "5f41a96d808c49568abb4bdcb4ac56cf3ddf8ec393d14db3a5cd80066b43b8b2",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "3185b5c7ad4b7889f74376dca53db10917001ff369a3b245ceb6e82898ecd0a6",
+      "pexSha256": "e4c5b1a363cfcc1f854e083c13775fa911343138caa58a65f78951908a40ecf3",
       "recordedSource": "E:\\pr77-compile\\src\\RadSurvivalQuest.psc"
     }
   ]
