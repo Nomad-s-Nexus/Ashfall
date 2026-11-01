@@ -12,6 +12,14 @@
       "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadMaskViewFX.psc"
     },
     {
+      "script": "RadNatives",
+      "source": "deploy/Scripts/Source/User/RadNatives.psc",
+      "sourceSha256": "2449331b4449afabd2792c53ba5577fadf5ffec188d4433f7791d4c08b755ed8",
+      "pex": "deploy/Scripts/RadNatives.pex",
+      "pexSha256": "86b85e9451173ebedc6f2facd029cca5653539c482772a41531556b96fe874c8",
+      "recordedSource": "E:\\pr42-compile\\src\\RadNatives.psc"
+    },
+    {
       "script": "RadOutbreakEffect",
       "source": "deploy/Scripts/Source/User/RadOutbreakEffect.psc",
       "sourceSha256": "11fadd720ac1ceb55dd799e21a68353fcf2017e7a13d4e1d9eb27120ee7cd149",
@@ -38,17 +46,17 @@
     {
       "script": "RadSurvivalDiseases",
       "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
-      "sourceSha256": "8baec95295b04e809515112d5a58c08a72f3808df5280612847af5751e60a98d",
+      "sourceSha256": "f18ffb8cb30a304d7aec87091763d499217d0ea4b2347dbc14bde216c5b1fa6e",
       "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
-      "pexSha256": "2ff596c011f2f9d58881e84a85b21fbff3c32c99042b5363bdec11c07006007b",
+      "pexSha256": "68dbb464fb97380c2eafdb9a976b783f9dbe5241def5a6373cdb7b085a879219",
       "recordedSource": "E:\\pr42-compile\\src\\RadSurvivalDiseases.psc"
     },
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "d3c9e491432bce1697647eec31155760b9e2955f5215ec9bac970cdf121becc5",
+      "sourceSha256": "913c87e21712e033779a616025a709ceed38821dc566708a6bfb5bd5f675b321",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "790cf7f16efd41ee54fceece3e6d68874d775702a4be593de4c9dcb21560e67b",
+      "pexSha256": "5820c399aa75a48a28d071c6dc0716d9bf2e65727a2a8009310f764b6192ecde",
       "recordedSource": "E:\\pr42-compile\\src\\RadSurvivalQuest.psc"
     }
   ]
