@@ -14,12 +14,12 @@ bool RadiationEngine::NativeShakeCamera(float strength, float duration)
 {
     if (!REX::FModule::IsRuntimeOG()) return false;   // camera native is OG-only until its AE entry is verified
     auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player || !player->Get3D()) return false;    // 3D not up yet (streaming) — transient
+    if (!player || !player->Get3D()) return false;
     auto* cell = player->parentCell;
-    if (!cell || cell->IsInterior()) return false;    // interior / no cell — no exterior shake
+    if (!cell || cell->IsInterior()) return false;
 
     if (strength > 1.0f) strength = 1.0f;       // native does not clamp; the Papyrus binding did
-    if (strength <= 0.0f) return true;          // valid state, nothing to shake — not a failure
+    if (strength <= 0.0f) return true;
 
     const RE::NiPoint3 pos = player->data.location;
     RE::ShakeCamera(strength, pos, duration);
