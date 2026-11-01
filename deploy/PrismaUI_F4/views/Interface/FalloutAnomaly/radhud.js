@@ -270,6 +270,15 @@ function showTab(which) {
   }
 }
 
+function needsScene(id, label, apply, revert) {
+  return {
+    id: id,
+    label: label,
+    steps: [[0, "time:freeze"], [0, apply], [10, revert], [0, "time:resume"]],
+    abort: [revert, "time:resume"]
+  };
+}
+
 var SHOWCASE_SCENES = [
   { id: "ash",      label: "Ash storm",   steps: [[0, "storm:0"], [4, "skipwarn"], [50, "endstorm"]] },
   { id: "fire",     label: "Firestorm",   steps: [[0, "storm:1"], [4, "skipwarn"], [50, "endstorm"]] },
@@ -280,16 +289,17 @@ var SHOWCASE_SCENES = [
   { id: "acidrain", label: "Acid rain",   steps: [[0, "forceweather:RadiationOverhaul.esp|000843"], [30, "weather:clear"]] },
   { id: "mask",     label: "Mask and filter", steps: [[0, "mask:on"], [0, "filter:full"], [8, "filter:low"], [8, "filter:dead"], [8, "filter:replace"], [6, "mask:auto"]] },
   { id: "rads",     label: "Radiation",   steps: [[0, "rads:200"], [6, "tissue:150"], [8, "rads:600"], [10, "heal"], [2, "clear"]] },
-  { id: "peckish",  label: "Peckish",     steps: [[0, "time:freeze"], [0, "needs:0.5:-1:-1:-1:0"], [10, "needs:0:-1:-1:-1:0"]] },
-  { id: "starving", label: "Starving",    steps: [[0, "time:freeze"], [0, "needs:0.95:-1:-1:-1:0"], [10, "needs:0:-1:-1:-1:0"]] },
-  { id: "exhausted", label: "Exhausted",  steps: [[0, "time:freeze"], [0, "needs:-1:-1:0.95:-1:0"], [10, "needs:-1:-1:0:-1:0"]] },
-  { id: "fever",    label: "Fever stage 2", steps: [[0, "time:freeze"], [0, "needs:-1:-1:-1:1:2"], [10, "needs:-1:-1:-1:0:0"]] },
-  { id: "wasting",  label: "Wasting stage 3", steps: [[0, "time:freeze"], [0, "needs:-1:-1:-1:2:3"], [10, "needs:-1:-1:-1:0:0"]] },
+  needsScene("peckish", "Peckish", "needs:0.5:-1:-1:-1:0", "needs:0:-1:-1:-1:0"),
+  needsScene("starving", "Starving", "needs:0.95:-1:-1:-1:0", "needs:0:-1:-1:-1:0"),
+  needsScene("exhausted", "Exhausted", "needs:-1:-1:0.95:-1:0", "needs:-1:-1:0:-1:0"),
+  needsScene("fever", "Fever stage 2", "needs:-1:-1:-1:1:2", "needs:-1:-1:-1:0:0"),
+  needsScene("wasting", "Wasting stage 3", "needs:-1:-1:-1:2:3", "needs:-1:-1:-1:0:0"),
   { id: "needsclear", label: "Clear needs", steps: [[0, "needs:0:0:0:0:0"], [0, "time:resume"]] }
 ];
 
 var RadShowcase = window.RadShowcase = (function() {
   var timers = [];
+  var pendingAbort = null;
   var scenes = SHOWCASE_SCENES;
   function status(text) { var el = document.getElementById("showcaseStatus"); if (el) el.textContent = text; }
   function later(fn, seconds) { timers.push(setTimeout(fn, seconds * 1000)); }
@@ -300,15 +310,26 @@ var RadShowcase = window.RadShowcase = (function() {
   }
   function schedule(scene, offset) {
     var at = offset;
+    var last = scene.steps.length - 1;
+    if (scene.abort) later(function() { pendingAbort = scene.abort; }, offset);
     for (var i = 0; i < scene.steps.length; i++) {
       at += scene.steps[i][0];
-      (function(command) { later(function() { cmd(command); }, at); })(scene.steps[i][1]);
+      (function(command, isLast) {
+        later(function() {
+          cmd(command);
+          if (isLast && scene.abort) pendingAbort = null;
+        }, at);
+      })(scene.steps[i][1], i === last);
     }
     return offset + sceneLength(scene);
   }
   function stop() {
     for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
     timers = [];
+    if (pendingAbort) {
+      for (var j = 0; j < pendingAbort.length; j++) cmd(pendingAbort[j]);
+      pendingAbort = null;
+    }
     status("Idle.");
   }
   function run(id) {

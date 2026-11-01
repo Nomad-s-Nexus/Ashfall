@@ -596,7 +596,6 @@ void RadiationEngine::DebugApplyNeeds(const std::string& arg)
         Notify("[DEBUG] needs: the script VM is not available.", false);
         return;
     }
-    // Constraint: fire and forget; the Papyrus side logs its own result and no callback is needed.
     const RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> noCallback;
     const bool sent = vm->DispatchStaticCall("RadShowcase", "Apply", noCallback, hunger, thirst, sleep, disease, stage);
     Notify(sent ? "[DEBUG] needs scene applied." : "[DEBUG] needs: RadShowcase.Apply was not found (is the script compiled?).", false);
