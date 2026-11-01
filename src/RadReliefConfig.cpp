@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include <Windows.h>
@@ -131,7 +132,7 @@ namespace
         return Hooks::IsGameMainThread() && LoadIniLists();
     }
 
-    int PapyrusGetReliefFlags(RE::TESQuest&, RE::TESForm* a_form)
+    int PapyrusGetReliefFlags(std::monostate, RE::TESForm* a_form)
     {
         return RadReliefConfig::ReliefFlags(a_form);
     }
@@ -140,9 +141,9 @@ namespace
     {
         if (!a_vm)
             return false;
-        a_vm->BindNativeMethod("RadSurvivalQuest", "GetReliefFlags", PapyrusGetReliefFlags, std::nullopt, false);
+        a_vm->BindNativeMethod("RadNatives", "GetReliefFlags", PapyrusGetReliefFlags, std::nullopt, false);
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->info("[Relief] Papyrus bridge registered (GetReliefFlags).");
+            logger->info("[Relief] Papyrus bridge registered (RadNatives.GetReliefFlags, global).");
         return true;
     }
 }

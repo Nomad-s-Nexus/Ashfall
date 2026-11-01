@@ -291,14 +291,10 @@ Function ClearConsumptionCandidates()
     ConsumptionArraysReady = true
 EndFunction
 
-; Constraint: extra relief entries are resolved by the native INI bridge; no HC_* form is read.
-int Function GetReliefFlags(Form akItem) native
-
-; Constraint: the native returns override + 1.0 and 0.0 when unset or unbound, so a missing DLL keeps the defaults.
-float Function TuningOverride(int aiKey) native
-
+; Constraint: RadNatives.TuningOverride returns override + 1.0 and 0.0 when unset or unbound, so a missing DLL keeps the defaults.
+; Constraint: extra relief entries are resolved by RadNatives.GetReliefFlags, the native INI bridge; no HC_* form is read.
 float Function Tuned(int aiKey, float afDefault)
-    float raw = TuningOverride(aiKey)
+    float raw = RadNatives.TuningOverride(aiKey)
     if raw > 0.0
         return raw - 1.0
     endif
@@ -309,7 +305,7 @@ bool Function IsExtraReliefItem(Form akItem)
     if !(akItem as Potion)
         return false
     endif
-    return GetReliefFlags(akItem) != 0
+    return RadNatives.GetReliefFlags(akItem) != 0
 EndFunction
 
 Function ApplyRelief(Form akItem, int aiCount)
@@ -324,7 +320,7 @@ Function ApplyRelief(Form akItem, int aiCount)
     ResolveKeywords()
     int extra = 0
     if (akItem as Potion)
-        extra = GetReliefFlags(akItem)
+        extra = RadNatives.GetReliefFlags(akItem)
     endif
     bool ate = (_FoodKeyword != None && akItem.HasKeyword(_FoodKeyword)) || extra == 1 || extra == 3
     bool drank = (_NukaKeyword != None && akItem.HasKeyword(_NukaKeyword)) || (_DrinkKeyword != None && akItem.HasKeyword(_DrinkKeyword)) || (_WaterKeyword != None && akItem.HasKeyword(_WaterKeyword)) || extra == 2 || extra == 3

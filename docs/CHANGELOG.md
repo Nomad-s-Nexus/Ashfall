@@ -1,6 +1,10 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## Unreleased: Papyrus natives moved into a global RadNatives script (build-verified only)
+
+**`GetReliefFlags` and `TuningOverride` are now global natives on a new `RadNatives` script.** Bethesda's PapyrusCompiler refused the member natives declared in `RadSurvivalQuest` and `RadSurvivalDiseases` because those scripts are not flagged native. `RadNatives` is `native hidden` and the plugin binds both functions on it, once each, as global (static) natives; both quests call `RadNatives.TuningOverride` and the relief path calls `RadNatives.GetReliefFlags`. Behaviour is unchanged, including a missing DLL keeping the script defaults. The Papyrus bytecode is rebuilt and restamped. Not verified in game: the static binding.
+
 ## Unreleased: sneak-to-fill toggle and AUTO mask chip (build-verified only)
 
 **New `WaterRequireSneak` toggle** in the debug-menu SETTINGS tab (WATER BOTTLES). Off fills a bottle on a plain

@@ -133,12 +133,12 @@ check("RemoveCandidateForms.Find(" in code and "EquipCandidateForms.Find(" in co
       "both pairing directions must use array Find")
 
 # Constraint: the relief INI bridge assertions follow.
-check("int Function GetReliefFlags(Form akItem) native" in code,
-      "the quest must declare the single native relief bridge function")
-check(code.count(" native") == 2 and "float Function TuningOverride(int aiKey) native" in code,
-      "only the relief and tuning natives may exist, keeping a not-loaded DLL to a bounded error count")
+check("RadNatives.GetReliefFlags(" in code and "RadNatives.TuningOverride(" in code,
+      "the quest must reach the natives through the global RadNatives script")
+check(re.search(r"\bnative\b", code) is None,
+      "the quest must not declare any native function, so the Bethesda compiler accepts it")
 relief_body = function_body(code, "Function ApplyRelief(Form akItem, int aiCount)")
-check("GetReliefFlags(" in relief_body, "relief must consult the INI bridge flags")
+check("RadNatives.GetReliefFlags(" in relief_body, "relief must consult the INI bridge flags")
 check("(akItem as Potion)" in relief_body and "(akItem as Potion)" in function_body(code, "bool Function IsExtraReliefItem(Form akItem)"),
       "the native must only be called for ingestibles, so weapon/armour equips never hit an unbound native")
 check("IsExtraReliefItem(" in consumable,

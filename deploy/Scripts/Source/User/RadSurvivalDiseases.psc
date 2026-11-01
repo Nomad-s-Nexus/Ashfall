@@ -100,11 +100,9 @@ Form[] RadWeatherForms
 ; entry points - RadSurvivalQuest must be the only caller (it owns the events)
 ; -----------------------------------------------------------------------------
 
-; Constraint: an override is encoded as value + 1.0 and unset as 0.0, so a missing native reads as unset.
-float Function TuningOverride(int aiKey) native
-
+; Constraint: RadNatives.TuningOverride encodes an override as value + 1.0 and unset as 0.0, so a missing native reads as unset.
 float Function Tuned(int aiKey, float afDefault)
-    float raw = TuningOverride(aiKey)
+    float raw = RadNatives.TuningOverride(aiKey)
     if raw > 0.0
         return raw - 1.0
     endif

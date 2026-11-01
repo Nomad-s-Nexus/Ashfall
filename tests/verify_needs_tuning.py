@@ -22,6 +22,10 @@ def text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.is_file() else ""
 
 
+def code_only(papyrus: str) -> str:
+    return "\n".join(line.split(";", 1)[0] for line in papyrus.splitlines())
+
+
 policy = text(SRC / "RadNeedsTuningPolicy.h")
 runtime = text(SRC / "RadNeedsTuning.cpp")
 quest = text(ROOT / "deploy/Scripts/Source/User/RadSurvivalQuest.psc")
@@ -86,11 +90,28 @@ check("DiseasesEnabled &&" in diseases and "Tuned(kTuneDiseases, 1.0) >= 0.5" in
 check(not re.search(r"if[^\n]*(?<!\w)DiseasesEnabled(?!\s*&&)", diseases.replace("DiseasesEnabled && Tuned", "")),
       "every disease gate must go through DiseasesOn()")
 for source, name in ((quest, "the quest"), (diseases, "the diseases script")):
-    check("float Function TuningOverride(int aiKey) native" in source, f"{name} must declare the native override")
+    check("RadNatives.TuningOverride(aiKey)" in source, f"{name} must read the override through RadNatives")
+    check(not re.search(r"\bnative\b", code_only(source)), f"{name} must not declare any native function")
+    check(not re.search(r"(?<!RadNatives\.)\bTuningOverride\(", code_only(source)), f"{name} must not call TuningOverride outside RadNatives")
     check("if raw > 0.0" in source and "return raw - 1.0" in source, f"{name} Tuned must decode the +1.0 encoding")
 check("value + 1.0f : 0.0f" in runtime, "the native must encode an override as value + 1.0 and unset as 0.0")
-check('"RadSurvivalQuest", "TuningOverride"' in runtime and '"RadSurvivalDiseases", "TuningOverride"' in runtime,
-      "the native must be bound on both scripts")
+check('"RadNatives", "TuningOverride"' in runtime and runtime.count('BindNativeMethod(') == 1,
+      "the native must be bound once, as a global on RadNatives")
+check('"RadSurvivalQuest"' not in runtime and '"RadSurvivalDiseases"' not in runtime, "no per-quest binding may remain")
+check(re.search(r"PapyrusTuningOverride\(std::monostate,", runtime) is not None, "the native must take no self parameter")
+natives = text(ROOT / "deploy/Scripts/Source/User/RadNatives.psc")
+relief_cpp = text(SRC / "RadReliefConfig.cpp")
+natives_code = code_only(natives)
+check(re.match(r"\s*ScriptName RadNatives native hidden\b", natives_code) is not None, "RadNatives must be a native hidden script")
+declared = re.findall(r"^(\w+) Function (\w+)\([^)]*\) global native\s*$", natives_code, re.M)
+check(sorted(declared) == [("float", "TuningOverride"), ("int", "GetReliefFlags")],
+      "RadNatives must declare exactly the two global natives")
+check(natives_code.count("Function") == 2, "RadNatives must contain no other function")
+check('"RadNatives", "GetReliefFlags"' in relief_cpp and relief_cpp.count('BindNativeMethod(') == 1 and
+      "PapyrusGetReliefFlags(std::monostate," in relief_cpp, "the relief native must be bound once as a global on RadNatives")
+for sibling in (ROOT / "deploy/Scripts/Source/User").glob("*.psc"):
+    if sibling.name != "RadNatives.psc":
+        check(not re.search(r"\bnative\b", code_only(text(sibling))), f"{sibling.name} must not declare a native function")
 check("kPapyrusKeys" in runtime, "the native must reject non-Papyrus keys")
 check('constexpr const char* kSection = "Tuning"' in runtime, "overrides persist in [Tuning]")
 

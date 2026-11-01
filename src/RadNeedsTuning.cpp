@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <limits>
 #include <optional>
+#include <variant>
 
 #include <Windows.h>
 
@@ -78,7 +79,7 @@ namespace
     }
 
     // Constraint: returns override + 1.0, or 0.0 when unset, so an unbound native (also 0.0) never reads as a zero rate.
-    float PapyrusTuningOverride(RE::TESQuest&, std::int32_t a_key)
+    float PapyrusTuningOverride(std::monostate, std::int32_t a_key)
     {
         if (a_key < 0 || static_cast<std::size_t>(a_key) >= kPapyrusKeys)
             return 0.0f;
@@ -90,10 +91,9 @@ namespace
     {
         if (!a_vm)
             return false;
-        a_vm->BindNativeMethod("RadSurvivalQuest", "TuningOverride", PapyrusTuningOverride, std::nullopt, false);
-        a_vm->BindNativeMethod("RadSurvivalDiseases", "TuningOverride", PapyrusTuningOverride, std::nullopt, false);
+        a_vm->BindNativeMethod("RadNatives", "TuningOverride", PapyrusTuningOverride, std::nullopt, false);
         if (auto logger = spdlog::get("FalloutAnomaly"))
-            logger->info("[Tuning] Papyrus bridge registered (TuningOverride on the quest and the diseases script).");
+            logger->info("[Tuning] Papyrus bridge registered (RadNatives.TuningOverride, global).");
         return true;
     }
 }
