@@ -48,6 +48,12 @@ Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendR
 - `kStormDomeBlendRampSec` is the vanilla cloud fade-out and fade-in time around the dome. `kStormDomeTimelineSec` is the length of the baked `Storm` sequence in `CloudArena01_4.nif`.
 - `FODomeBlackHole.dds` is unused now that the dome is the baked NIF.
 - Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `BeginStorm`, kept in `_stormDomeBeginSec`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
+### Dome blend and logging
+
+Reference: `src/RadCorrectnessPolicy.h:BlendForSequence`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`, and `src/main.cpp`.
+
+The vanilla cloud blend target is `BlendForSequence(_domeSeekSec + _domeAnimTime, 360)` once the animation has started and 0 before or when the dome is down. The published blend moves toward the target at most `dt / kStormDomeBlendRampSec` per update, so a cleared dome still fades out over about 20 s. `UpdateDomeAnimation` logs `sky cloud hook stats at spawn+30s` once per spawn with the pass and scaled counters of `Hooks::GetSkyCloudStats`; a scaled count of 0 means the sky hook does not match. The plugin log level is info by default (`src/main.cpp`), which drops the per-second roof-fan debug line while `dome anim driver`, `dome anim t=`, `dome spin` and `Papyrus bridge registered` stay. Unverified in game: the sky hook match and the offsets copied from the volumetric cloud hook.
+
 ### Debug storm dome phase
 
 Reference: `src/RadCorrectnessPolicy.h:DomeLeadShiftSeconds`, `src/RadCorrectnessPolicy.h:DomeSeekSecondsForStorm`, `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
