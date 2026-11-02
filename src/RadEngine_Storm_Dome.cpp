@@ -1,6 +1,8 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
 #include "Hooks.h"
+#include <chrono>
+#include <cmath>
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -81,8 +83,12 @@ void RadiationEngine::SpawnStormDome()
         _stormDomeCell = playerCell;
         _stormDomeWorld = playerWorld;
     }
-    _stormDomeManualDrive = false;
-    _stormDomeAnimStarted = false;   // force-start the animation once these refs' 3D attaches
+    _stormDomeAnimStarted = false;
+    _domeAnimTime = 0.0;
+    _domeAnimLastRealS = -1.0;
+    _domeAnimLogIndex = 0;
+    _domeAnimDriverLogged = false;
+    _domeSpinLogged = false;
 
     bool lit = false, flare = false;
     if (placed > 0 && !interiorCell)
@@ -112,10 +118,11 @@ bool RadiationEngine::NativeShakeCamera(float strength, float duration)
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player || !player->Get3D()) return false;    // 3D not up yet (streaming) — transient
     auto* cell = player->parentCell;
-    if (!cell || cell->IsInterior()) return false;    // interior / no cell — no exterior shake
+    if (!cell) return false;
 
     if (strength > 1.0f) strength = 1.0f;       // native does not clamp; the Papyrus binding did
     if (strength <= 0.0f) return true;          // valid state, nothing to shake — not a failure
+    strength = RadCorrectnessPolicy::StormShakeStrength(strength, cell->IsInterior());
 
     const RE::NiPoint3 pos = player->data.location;
     RE::ShakeCamera(strength, pos, duration);
@@ -124,7 +131,6 @@ bool RadiationEngine::NativeShakeCamera(float strength, float duration)
 void RadiationEngine::UpdateStormShake()
 {
     if (_shakeBurstStep < 0 && _shakeRumbleTick < 0) return;
-    if (IsPlayerSheltered()) return;            // sheltered = no screen FX, same rule as the dome
 
     if (_shakeBurstStep >= 0)
     {
@@ -162,60 +168,7 @@ void RadiationEngine::UpdateDomeAnimation()
     _stormDomeBlend = std::clamp(_stormDomeBlend + (_stormDomeUp ? step : -step), 0.0f, 1.0f);
     Hooks::SetStormDomeBlend(_stormDomeBlend);
 
-    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
-    if (_stormDomeAnimStarted)
-    {
-        const float rel = static_cast<float>(_playSeconds - _stormDomeBeginSec);
-        static int s_auditBucket = -1;
-        const int bucket = static_cast<int>(rel) / 3;
-        if (_stormDomeManualDrive && bucket != s_auditBucket) { s_auditBucket = bucket; _stormDomeSeekAudit = true; }
-        const bool audit = _stormDomeSeekAudit;
-        _stormDomeSeekAudit = false;
-        if (!audit && !_stormDomeManualDrive) return;
-        bool anyAudited = false;
-        for (auto& layer : _stormDomeRefs)
-        {
-            auto ptr = layer.handle.get();
-            auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
-            auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
-            if (!mgr) continue;
-            for (std::uint16_t i = 0; audit && i < mgr->GetSequenceCount(); ++i)
-            {
-                auto* seq = mgr->GetSequenceAt(i);
-                if (!seq) continue;
-                anyAudited = true;
-                Log()->info("[StormFX] Dome sequence audit {} offset={:.2f} startTime={:.2f} lastScaled={:.2f} state={} owner={}",
-                    i, seq->offset, seq->startTime, seq->lastScaledTime, static_cast<int>(seq->state.get()), seq->owner == mgr);
-                std::uint32_t passes = 0, scaled = 0;
-                Hooks::GetSkyCloudStats(passes, scaled);
-                Log()->info("[StormFX] Dome blend={:.2f} skyPasses={} cloudPassesScaled={} rel={:.1f}", _stormDomeBlend, passes, scaled, rel);
-                if (seq->offset < -1.0e30f && !_stormDomeManualDrive)
-                {
-                    _stormDomeManualDrive = true;
-                    Log()->warn("[StormFX] Dome sequence never advanced; driving the controller manager manually.");
-                }
-            }
-        }
-        if (audit && !anyAudited) _stormDomeSeekAudit = true;
-        if (!_stormDomeManualDrive) return;
-        RE::NiUpdateData data;
-        data.time = rel;
-        for (auto& layer : _stormDomeRefs)
-        {
-            auto ptr = layer.handle.get();
-            auto* obj3d = ptr.get() ? ptr.get()->Get3D() : nullptr;
-            auto* mgr = obj3d ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
-            if (!mgr) continue;
-            mgr->Update(data);
-            if (layer.manualSeeded) continue;
-            for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
-                if (auto* seq = mgr->GetSequenceAt(i))
-                    seq->offset = RadCorrectnessPolicy::DomeSeekSeconds(rel, kStormDomeTimelineSec) - rel;
-            layer.manualSeeded = true;
-            if (audit) _stormDomeSeekAudit = true;
-        }
-        return;
-    }
+    if (!_stormDomeUp || _stormDomeRefs.empty() || _stormDomeAnimStarted) return;
     int animated = 0, pending = 0;
     for (auto& layer : _stormDomeRefs)
     {
@@ -224,48 +177,28 @@ void RadiationEngine::UpdateDomeAnimation()
         if (!ref) continue;
         if (layer.animStarted) { ++animated; continue; }
         auto* obj3d = ref->Get3D();
-        if (!obj3d) { ++pending; continue; }   // 3D not attached yet — retry next tick
+        if (!obj3d) { ++pending; continue; }
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
-        if (!mgr) continue;                     // the light layer (no controller) — skip
+        if (!mgr) continue;
         const std::uint16_t n = mgr->GetSequenceCount();
         for (std::uint16_t i = 0; i < n; ++i)
         {
             RE::NiControllerSequence* seq = mgr->GetSequenceAt(i);
-            if (!seq) continue;
-            seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
-            const float seek = RadCorrectnessPolicy::DomeSeekSeconds(_playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec);
-            if (seek > 0.0f) seq->offset += seek * seq->frequency;
-            Log()->info("[StormFX] Dome sequence {} seek={:.1f}s offset={:.2f} frequency={:.2f}", i, seek, seq->offset, seq->frequency);
+            if (seq && static_cast<std::int32_t>(seq->state.get()) == 0)
+                seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
         }
         if (n > 0) { layer.animStarted = true; ++animated; }
     }
-    if (pending == 0)   // every ref's 3D has loaded — stop polling
+    if (pending == 0)
     {
         _stormDomeAnimStarted = true;
-        _stormDomeSeekAudit = true;
-        Log()->info("[StormFX] Dome animation activated on {} layer(s).", animated);
-
-        auto* pl = RE::PlayerCharacter::GetSingleton();
-        const RE::NiPoint3 ppos = pl ? pl->GetPosition() : RE::NiPoint3{};
-        auto* pcell = pl ? pl->GetParentCell() : nullptr;
-        Log()->warn("[DomeDump] player pos=({:.0f},{:.0f},{:.0f}) cell=0x{:X}",
-            ppos.x, ppos.y, ppos.z, reinterpret_cast<std::uintptr_t>(pcell));
-        int i = 0;
-        for (auto& layer : _stormDomeRefs)
-        {
-            auto ptr = layer.handle.get(); auto* r = ptr.get();
-            if (!r) { Log()->warn("[DomeDump] [{}] handle DEAD", i++); continue; }
-            const auto p = r->GetPosition();
-            auto* c3d = r->Get3D();
-            Log()->warn("[DomeDump] [{}] base=0x{:08X} 3D={} cell=0x{:X} sameCellAsPlayer={} "
-                        "pos=({:.0f},{:.0f},{:.0f}) dz={:.0f} deleted={} disabled={}",
-                i, r->GetObjectReference() ? r->GetObjectReference()->GetFormID() : 0u,
-                c3d ? "YES" : "NO", reinterpret_cast<std::uintptr_t>(r->GetParentCell()),
-                (r->GetParentCell() == pcell) ? "yes" : "NO",
-                p.x, p.y, p.z, p.z - ppos.z,
-                r->IsDeleted() ? "YES" : "no", r->IsDisabled() ? "YES" : "no");
-            ++i;
-        }
+        _domeSeekSec = RadCorrectnessPolicy::DomeSeekSeconds(_playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec);
+        _domeAnimTime = 0.0;
+        _domeAnimLastRealS = -1.0;
+        _domeAnimLogIndex = 0;
+        _domeAnimDriverLogged = false;
+        _domeSpinLogged = false;
+        Log()->info("[StormFX] Dome animation activated on {} layer(s), storm seek {:.1f}s.", animated, _domeSeekSec);
     }
 }
 
@@ -301,10 +234,10 @@ void RadiationEngine::ResetStormDomeForLoad()
     _stormDomeBlend = 0.0f;
     Hooks::SetStormDomeBlend(0.0f);
     _stormDomeAnimStarted = false;
+    Hooks::SetDomeFollowActive(false);
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
     _stormDomeWorld = nullptr;
-    Hooks::SetDomeFollowActive(false);
 }
 
 void RadiationEngine::UpdateStormDomeLifecycle()
@@ -372,52 +305,172 @@ void RadiationEngine::UpdateStormDomeLifecycle()
 
 }
 
-void RadiationEngine::UpdateStormDomeFollow()
+void RadiationEngine::AdvanceDomeClock()
 {
-    static constexpr float kStormDomeFollowDistanceThreshold = 16.0f;
+    const double nowS = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    const bool first = _domeAnimLastRealS < 0.0;
+    _domeAnimTime += RadCorrectnessPolicy::ClampDomeAnimDelta(first ? 0.0 : nowS - _domeAnimLastRealS, kDomeAnimMaxDeltaSec);
+    _domeAnimLastRealS = nowS;
+}
 
-    if (!_stormDomeUp || _stormDomeRefs.empty())
+static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_seconds)
+{
+    if (!a_node) return;
+    const double angle = RadCorrectnessPolicy::SpinAngleRad(a_degPerSec, a_seconds);
+    const float c = static_cast<float>(std::cos(angle));
+    const float s = static_cast<float>(std::sin(angle));
+    a_node->SetLocalRotate(RE::NiMatrix3(c, -s, 0.0f, 0.0f, s, c, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+}
+
+void RadiationEngine::DriveDomeAnimation(bool moved)
+{
+    RE::NiUpdateData data;
+    data.time = static_cast<float>(_domeAnimTime);
+    if (!_stormDomeAnimStarted)
     {
+        if (moved)
+        {
+            for (auto& layer : _stormDomeRefs)
+            {
+                auto ptr = layer.handle.get();
+                if (auto* ref = ptr.get()) ref->Update3DPosition(true);
+            }
+        }
         return;
     }
 
-    auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player) return;
+    RE::NiControllerSequence* storm = nullptr;
+    for (auto& layer : _stormDomeRefs)
+    {
+        auto ptr = layer.handle.get();
+        auto* ref = ptr.get();
+        if (!ref) continue;
+        auto* obj3d = ref->Get3D();
+        if (!obj3d) continue;
+        auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
+        if (!mgr) continue;
+        const std::uint16_t flagsBefore = mgr->flags.flags;
+        mgr->flags.flags = static_cast<std::uint16_t>(flagsBefore | kDomeManagerActiveFlag);
+        if (!_domeAnimDriverLogged)
+        {
+            _domeAnimDriverLogged = true;
+            Log()->info("[StormFX] dome anim driver: manager flags 0x{:04X} -> 0x{:04X}, sequences={}.",
+                flagsBefore, mgr->flags.flags, mgr->GetSequenceCount());
+        }
+        static_cast<RE::NiTimeController*>(mgr)->Update(data);
+        if (!layer.manualSeeded)
+        {
+            for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
+                if (auto* seq = mgr->GetSequenceAt(i))
+                    seq->offset = static_cast<float>(_domeSeekSec - _domeAnimTime);
+            layer.manualSeeded = true;
+        }
+        if (!storm) storm = mgr->GetSequenceByName(RE::BSFixedString("Storm"));
+        if (!storm) storm = mgr->GetSequenceAt(0);
+    }
+    if (storm)
+    {
+        while (_domeAnimLogIndex < kDomeAnimLogCount && _domeAnimTime >= kDomeAnimLogSeconds[_domeAnimLogIndex])
+        {
+            Log()->info("[StormFX] dome anim t={:.1f}s state={} offset={:.1f}", storm->lastScaledTime,
+                static_cast<std::int32_t>(storm->state.get()), storm->offset);
+            ++_domeAnimLogIndex;
+        }
+    }
 
+    const auto findNode = [this](const char* a_name) -> RE::NiAVObject* {
+        for (auto& layer : _stormDomeRefs)
+        {
+            auto ptr = layer.handle.get();
+            auto* ref = ptr.get();
+            if (!ref) continue;
+            auto* obj3d = ref->Get3D();
+            if (!obj3d) continue;
+            if (auto* node = obj3d->GetObjectByName(RE::BSFixedString(a_name))) return node;
+        }
+        return nullptr;
+    };
+    RE::NiAVObject* hole4 = findNode("Hole4");
+    RE::NiAVObject* vortex2 = findNode("Vortex2");
+    RE::NiAVObject* vortex3 = findNode("Vortex3");
+    if (!_domeSpinLogged)
+    {
+        _domeSpinLogged = true;
+        Log()->info("[StormFX] dome spin: Hole4={} Vortex2={} Vortex3={}",
+            hole4 ? "found" : "missing", vortex2 ? "found" : "missing", vortex3 ? "found" : "missing");
+    }
+    SpinDomeNode(hole4, kPortalSpinDegPerSec, _domeAnimTime);
+    SpinDomeNode(vortex2, -kCoreSpinDegPerSec, _domeAnimTime);
+    SpinDomeNode(vortex3, kCoreSpinDegPerSec * kVortex3SpinScale, _domeAnimTime);
+
+    for (auto& layer : _stormDomeRefs)
+    {
+        auto ptr = layer.handle.get();
+        auto* ref = ptr.get();
+        if (!ref) continue;
+        auto* obj3d = ref->Get3D();
+        if (!obj3d) continue;
+        if (!moved)
+        {
+            obj3d->UpdateDownwardPass(data, 0);
+            continue;
+        }
+        auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
+        const bool wasActive = mgr && (mgr->flags.flags & kDomeManagerActiveFlag) != 0;
+        if (mgr) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags & ~kDomeManagerActiveFlag);
+        ref->Update3DPosition(true);
+        if (mgr && wasActive) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags | kDomeManagerActiveFlag);
+    }
+}
+
+void RadiationEngine::UpdateStormDomeFollow()
+{
+    if (!_stormDomeUp || _stormDomeRefs.empty()) return;
+    AdvanceDomeClock();
+
+    bool moved = false;
+    auto* player = RE::PlayerCharacter::GetSingleton();
     RE::TESObjectCELL* playerCell = nullptr;
     RE::TESWorldSpace* playerWorld = nullptr;
-    if (!IsValidDomeOwner(player, playerCell, playerWorld) || playerWorld != _stormDomeWorld) return;
-    if (!playerWorld && playerCell != _stormDomeCell) return;
-
-    const auto playerPosition = player->GetPosition();
-    bool needsMove = false;
-    for (auto& layer : _stormDomeRefs)
+    if (player && IsValidDomeOwner(player, playerCell, playerWorld) && playerWorld == _stormDomeWorld &&
+        (playerWorld || playerCell == _stormDomeCell))
     {
-        auto ptr = layer.handle.get();
-        auto* ref = ptr.get();
-        if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D()) return;
-
-        const auto desired = RadCorrectnessPolicy::DomePosition(
-            { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
-        const auto current = ref->GetPosition();
-        const float dx = desired.x - current.x;
-        const float dy = desired.y - current.y;
-        const float dz = desired.z - current.z;
-        if ((dx * dx) + (dy * dy) + (dz * dz) >=
-            kStormDomeFollowDistanceThreshold * kStormDomeFollowDistanceThreshold)
-            needsMove = true;
+        const auto playerPosition = player->GetPosition();
+        bool needsMove = false;
+        bool valid = true;
+        for (auto& layer : _stormDomeRefs)
+        {
+            auto ptr = layer.handle.get();
+            auto* ref = ptr.get();
+            if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D())
+            {
+                valid = false;
+                break;
+            }
+            const auto desired = RadCorrectnessPolicy::DomePosition(
+                { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
+            const auto current = ref->GetPosition();
+            const float dx = desired.x - current.x;
+            const float dy = desired.y - current.y;
+            const float dz = desired.z - current.z;
+            if (RadCorrectnessPolicy::ShouldMoveDomeLayer((dx * dx) + (dy * dy) + (dz * dz),
+                    kStormDomeFollowEpsilon * kStormDomeFollowEpsilon))
+                needsMove = true;
+        }
+        if (valid && needsMove)
+        {
+            for (auto& layer : _stormDomeRefs)
+            {
+                auto ptr = layer.handle.get();
+                auto* ref = ptr.get();
+                const auto position = RadCorrectnessPolicy::DomePosition(
+                    { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
+                ref->data.location = { position.x, position.y, position.z };
+            }
+            moved = true;
+        }
     }
-    if (!needsMove) return;
-
-    for (auto& layer : _stormDomeRefs)
-    {
-        auto ptr = layer.handle.get();
-        auto* ref = ptr.get();
-        const auto position = RadCorrectnessPolicy::DomePosition(
-            { playerPosition.x, playerPosition.y, playerPosition.z }, layer.zOffset);
-        ref->data.location = { position.x, position.y, position.z };
-        ref->Update3DPosition(true);
-    }
+    DriveDomeAnimation(moved);
 }
 
 void RadiationEngine::UpdateDustMotes()

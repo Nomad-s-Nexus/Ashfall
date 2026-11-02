@@ -274,11 +274,11 @@ def check_source(html_path, source_path):
         'RadiationEngine::GetSingleton().UpdateStormDomeFollow();',
         'RadiationEngine::GetSingleton().UpdateStormIMADFade();',
         'QueueDomeFollow();',
-        'kDomeFollowInterval',
+        'kImadFadeInterval',
         'std::chrono::milliseconds(33)',
         's_domeFollowActive.load(std::memory_order_acquire)',
         's_stormImadFadeActive.load(std::memory_order_acquire)',
-        'if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;',
+        'if (imadFadeInitialized && now - lastImadFade < kImadFadeInterval) return false;',
         'kMaxQueuedMainTasks',
         's_mainTasks.size() >= kMaxQueuedMainTasks',
     ):
@@ -291,7 +291,7 @@ def check_source(html_path, source_path):
     dome_producer_idx = hooks.index('void QueueDomeFollow()')
     dome_active_gate_idx = hooks.index('s_domeFollowActive.load(std::memory_order_acquire)', dome_producer_idx)
     imad_active_gate_idx = hooks.index('s_stormImadFadeActive.load(std::memory_order_acquire)', dome_producer_idx)
-    dome_gate_idx = hooks.index('if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;', dome_producer_idx)
+    dome_gate_idx = hooks.index('if (imadFadeInitialized && now - lastImadFade < kImadFadeInterval) return false;', dome_producer_idx)
     dome_dispatch_idx = hooks.index('queued = QueueMainThreadTask', dome_producer_idx)
     if max(dome_active_gate_idx, imad_active_gate_idx) > dome_gate_idx:
         raise SystemExit('storm visual active flags must be checked before cadence throttling')
@@ -312,10 +312,10 @@ def check_source(html_path, source_path):
     for marker in (
         'void RadiationEngine::UpdateStormDomeLifecycle()',
         'void RadiationEngine::UpdateStormDomeFollow()',
-        'kStormDomeFollowDistanceThreshold',
-        'needsMove',
+        'kStormDomeFollowEpsilon',
+        'ShouldMoveDomeLayer(',
         'ref->Get3D()',
-        'playerWorld != _stormDomeWorld',
+        'playerWorld == _stormDomeWorld',
         'UpdateStormDomeLifecycle();',
         'ref->Update3DPosition(true);',
         'IsValidDomeOwner',

@@ -818,7 +818,32 @@ checklist section below is the in-game check. The confirmation path on this bran
 the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
 mistaken for a use here.
 
+## Dome animation clock, mesh and follow (unreleased)
+
+What changed:
+- The dome drives each layer's controller manager with a clock from the steady clock, clamped to 0.25 s per step and reset on each spawn.
+- The Storm sequence offset is seeded from the storm's elapsed time, and the seek wraps over the 360 s cycle so a respawned dome continues the timeline.
+- Portal and core nodes (Hole4, Vortex2, Vortex3) are rotated about local +Z: +12, -4 and +2.8 deg/s.
+- The follow moves all layers when any layer is more than 0.01 units off. The producer runs every frame while the dome is up. The IMAD fade keeps its own 33 ms gate.
+- The mesh is the collision-free build with the cycle type changed to LOOP and the portal group moved to (15750, 17250, 32812.5) file units with eight shape scales at 0.4.
+
+Engine facts used (source: decompile of the 1.10.163 executable, unverified in game):
+- NiControllerManager::Update does nothing unless the active bit 0x0008 is set on its NiTimeController flags.
+- Start, Stop and SetTarget are empty for this class, so the engine never sets that bit for a placed reference.
+- The sequence offset sentinel is resolved inside the first sequence update.
+- Activate only applies to a sequence in the inactive state.
+- Manager Update writes local transforms only, so world transforms need a later downward pass.
+
+Not tested in game. Log lines to look for:
+- `[StormFX] dome anim driver: manager flags 0x.... -> 0x....` (the new value should include 0x0008)
+- `[StormFX] dome anim t=...s state=... offset=...` at 1, 5, 15, 30, 60, 120, 240 and 300 s (t should advance and offset should be a finite number, not -3.4e38)
+- `[StormFX] dome spin: Hole4=found Vortex2=found Vortex3=found`
+
+Not yet included (separate follow-up): the storm sky roll-in at the Warning phase, TransDelta 24 to 16, the [RollDiag] trace, the ReleaseStormWeather and ResetStormWeatherLatches split with the DebugForceStorm change, clear-weather-ends-storm, and the preview dome with its 300 s expiry.
+
 ## Showcase tab: scene buttons, auto tour and debug state (2026-11-01)
+
+Reference: `src/RadEngine_Debug.cpp:DispatchDebugCommand` (the showcase buttons and the tour call it).
 
 The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed list of debug commands, and the auto tour plays every scene in turn with the menu closed. Both only use the existing debug command path (`DispatchDebugCommand`); no new gameplay logic runs outside it.
 

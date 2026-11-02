@@ -31,17 +31,18 @@ namespace Hooks
         const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();
         if (generation == 0) return;
 
-        static constexpr auto kDomeFollowInterval = std::chrono::milliseconds(33);
+        static constexpr auto kImadFadeInterval = std::chrono::milliseconds(33);
         static std::mutex throttleMutex;
-        static std::chrono::steady_clock::time_point lastFollow;
-        static bool throttleInitialized = false;
+        static std::chrono::steady_clock::time_point lastImadFade;
+        static bool imadFadeInitialized = false;
         const auto now = std::chrono::steady_clock::now();
-        {
+        const bool runImadFade = [&] {
             std::lock_guard<std::mutex> lock(throttleMutex);
-            if (throttleInitialized && now - lastFollow < kDomeFollowInterval) return;
-            lastFollow = now;
-            throttleInitialized = true;
-        }
+            if (imadFadeInitialized && now - lastImadFade < kImadFadeInterval) return false;
+            lastImadFade = now;
+            imadFadeInitialized = true;
+            return true;
+        }();
 
         bool expected = false;
         if (!s_domeFollowTaskQueued.compare_exchange_strong(expected, true))
@@ -50,13 +51,14 @@ namespace Hooks
         bool queued = false;
         try
         {
-            queued = QueueMainThreadTask([generation]() {
+            queued = QueueMainThreadTask([generation, runImadFade]() {
                 try
                 {
                     if (RadLifecycleDispatch::PlayerUpdatesReady(generation))
                     {
                         RadiationEngine::GetSingleton().UpdateStormDomeFollow();
-                        RadiationEngine::GetSingleton().UpdateStormIMADFade();
+                        if (runImadFade)
+                            RadiationEngine::GetSingleton().UpdateStormIMADFade();
                     }
                 }
                 catch (...)
