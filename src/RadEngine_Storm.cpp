@@ -69,6 +69,8 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _forcedLeadTicks = -1;
     _activeLeadTicks = leadTicks;
     _stormDomeBeginSec = _playSeconds;
+    _stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(
+        static_cast<double>(_domeLeadTicks) / 4.0, static_cast<double>(leadTicks) / 4.0);
     logger->warn("========== STORM APPROACHING: {} ({}) — silent lead {} s ==========",
         st.name, st.lethal ? "LETHAL" : "ambient", leadTicks / 4);
     _sirenDelayTicks = 0;

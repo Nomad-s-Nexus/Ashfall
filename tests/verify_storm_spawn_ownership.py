@@ -260,6 +260,8 @@ assert "_stormRollInTicks  = 0;" in begin_storm
 assert "_fleeTick          = 0;" in begin_storm
 assert "const bool debugForced = _forcedStormType >= 0;" in begin_storm
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
+assert "_stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(" in begin_storm
+assert "DomeSeekSecondsForStorm(" in dome and "_stormDomeLeadShiftSec" in dome
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
     "if (!_nextEmissionGlobal) return;", 1

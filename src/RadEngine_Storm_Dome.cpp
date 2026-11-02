@@ -192,7 +192,8 @@ void RadiationEngine::UpdateDomeAnimation()
     if (pending == 0)
     {
         _stormDomeAnimStarted = true;
-        _domeSeekSec = RadCorrectnessPolicy::DomeSeekSeconds(_playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec);
+        _domeSeekSec = RadCorrectnessPolicy::DomeSeekSecondsForStorm(
+            _playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec, _stormDomeLeadShiftSec);
         _domeAnimTime = 0.0;
         _domeAnimLastRealS = -1.0;
         _domeAnimLogIndex = 0;

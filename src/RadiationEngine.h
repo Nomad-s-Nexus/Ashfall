@@ -255,6 +255,7 @@ private:
     double          _playSeconds      = 0.0;        // accumulated real seconds of active play
     double          _nextStormPlaySec = 0.0;        // _playSeconds value at which the next storm fires
     double          _stormDomeBeginSec = 0.0;
+    double          _stormDomeLeadShiftSec = 0.0;
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override

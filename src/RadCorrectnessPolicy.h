@@ -53,6 +53,20 @@ namespace RadCorrectnessPolicy
         return static_cast<float>(wrapped);
     }
 
+    // Invariant: a shortened debug lead shifts the dome sequence by (natural - actual) seconds.
+    constexpr double DomeLeadShiftSeconds(double naturalLeadSec, double actualLeadSec)
+    {
+        if (!(naturalLeadSec > 0.0) || !(actualLeadSec >= 0.0)) return 0.0;
+        return naturalLeadSec > actualLeadSec ? naturalLeadSec - actualLeadSec : 0.0;
+    }
+
+    constexpr float DomeSeekSecondsForStorm(double elapsedSec, float timelineSec, double leadShiftSec)
+    {
+        if (!(elapsedSec > 0.0)) elapsedSec = 0.0;
+        if (!(leadShiftSec > 0.0)) leadShiftSec = 0.0;
+        return DomeSeekSeconds(elapsedSec + leadShiftSec, timelineSec);
+    }
+
     constexpr double WrapAngleRad(double a)
     {
         constexpr double kTau = 6.283185307179586;

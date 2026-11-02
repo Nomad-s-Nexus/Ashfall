@@ -48,6 +48,12 @@ Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendR
 - `kStormDomeBlendRampSec` is the vanilla cloud fade-out and fade-in time around the dome. `kStormDomeTimelineSec` is the length of the baked `Storm` sequence in `CloudArena01_4.nif`.
 - `FODomeBlackHole.dds` is unused now that the dome is the baked NIF.
 - Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `BeginStorm`, kept in `_stormDomeBeginSec`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
+### Debug storm dome phase
+
+Reference: `src/RadCorrectnessPolicy.h:DomeLeadShiftSeconds`, `src/RadCorrectnessPolicy.h:DomeSeekSecondsForStorm`, `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
+
+The baked `Storm` sequence is nearly invisible for its first 40 s (every shape alpha is 0 at the start and the vortex shapes first exceed 0.05 at 132 to 151 s). A natural storm hides this because the 180 s dome lead plus the 20 s warning brings the warning to about sequence second 200. A debug forced storm uses a 10 s lead, so the dome used to start at sequence 0. `BeginStorm` now stores `_stormDomeLeadShiftSec = naturalLead - actualLead` (0 for natural storms) and the dome seek is `DomeSeekSecondsForStorm(elapsed, 360, shift)`, so a 10 s debug lead starts the dome near sequence 170 s. Natural storms use a zero shift and are unchanged.
+
 ## Regression coverage
 
 `tests/verify_hud_fallback.py` guards compositor ordering, position/resize behavior, V11 non-blocking dispatch, truthful engine activation, retained HUD-wait retries, optional PrismaHUD recovery, and atomic cross-thread callback publication. `tests/correctness_policy_tests.cpp` covers the policy-level lifecycle and load-generation invariants plus same-world dome streaming versus real worldspace ownership changes.
