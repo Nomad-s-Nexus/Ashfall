@@ -259,6 +259,15 @@ begin_storm = storm.split("void RadiationEngine::BeginStorm(int typeIndex)", 1)[
 assert "_stormRollInTicks  = 0;" in begin_storm
 assert "_fleeTick          = 0;" in begin_storm
 assert "const bool debugForced = _forcedStormType >= 0;" in begin_storm
+_main_src = (SRC / "main.cpp").read_text(encoding="utf-8")
+assert "logger->set_level(spdlog::level::info);" in _main_src, "default log level must be info"
+assert "set_level(spdlog::level::debug)" not in _main_src
+for _line in ("dome anim driver", "dome anim t=", "dome spin"):
+    _hit = [l for l in dome.splitlines() if _line in l]
+    assert _hit, _line
+assert "Log()->info(\"[StormFX] dome anim driver" in dome
+assert "Log()->info(\"[StormFX] dome anim t=" in dome
+assert "Log()->info(\"[StormFX] dome spin" in dome
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
 assert "_stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(" in begin_storm
 assert "DomeSeekSecondsForStorm(" in dome and "_stormDomeLeadShiftSec" in dome
