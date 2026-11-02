@@ -413,11 +413,24 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         if (!ref) continue;
         auto* obj3d = ref->Get3D();
         if (!obj3d) continue;
+        const bool recreated = layer.root && layer.root != obj3d;
         if (layer.root != obj3d || (layer.hasManager && (!layer.hole4 || !layer.vortex2 || !layer.vortex3)))
             ResolveDomeLayerNodes(layer, obj3d);
         if (!layer.hasManager) continue;
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
         if (!mgr) continue;
+        if (recreated)
+        {
+            for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
+            {
+                auto* seq = mgr->GetSequenceAt(i);
+                if (seq && static_cast<std::int32_t>(seq->state.get()) == 0)
+                    seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);
+            }
+            layer.manualSeeded = false;
+            _domeShapeMaskDirty = true;
+            Log()->info("[StormFX] dome layer 3D recreated; sequences reactivated and reseeded.");
+        }
         const std::uint16_t flagsBefore = mgr->flags.flags;
         mgr->flags.flags = static_cast<std::uint16_t>(flagsBefore | kDomeManagerActiveFlag);
         if (!_domeAnimDriverLogged)
@@ -431,7 +444,7 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         {
             for (std::uint16_t i = 0; i < mgr->GetSequenceCount(); ++i)
                 if (auto* seq = mgr->GetSequenceAt(i))
-                    seq->offset = static_cast<float>(_domeSeekSec - _domeAnimTime);
+                    seq->offset = RadCorrectnessPolicy::DomeSequenceOffset(static_cast<float>(_domeSeekSec));
             layer.manualSeeded = true;
         }
         if (_domeAnimLogIndex < kDomeAnimLogCount && !storm)

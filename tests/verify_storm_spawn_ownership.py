@@ -308,6 +308,12 @@ assert "DriveDomeAnimation(moved);" in dome_follow
 assert "kDomeDriveIntervalSec" in dome_drive and "_domeDriveLastSec" in dome_drive
 assert "layer.hasManager" in dome_drive and "ResolveDomeLayerNodes(layer, obj3d)" in dome_drive
 assert "layer.root != obj3d" in dome_drive
+assert "const bool recreated = layer.root && layer.root != obj3d;" in dome_drive
+recreate_block = dome_drive.split("if (recreated)", 1)[1].split("const std::uint16_t flagsBefore", 1)[0]
+assert "seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);" in recreate_block
+assert "layer.manualSeeded = false;" in recreate_block and "_domeShapeMaskDirty = true;" in recreate_block
+assert "seq->offset = RadCorrectnessPolicy::DomeSequenceOffset(static_cast<float>(_domeSeekSec));" in dome_drive
+assert "_domeSeekSec - _domeAnimTime" not in dome
 assert dome_drive.count("GetObjectByName") == 0, "node lookups must be cached per layer"
 resolve_body = dome.split("void RadiationEngine::ResolveDomeLayerNodes", 1)[1].split("void RadiationEngine::ResetDomeShapeMask", 1)[0]
 assert resolve_body.count("GetObjectByName") == 3

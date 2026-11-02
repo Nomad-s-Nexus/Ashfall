@@ -104,6 +104,13 @@ int main()
         Require((VisibleShapeMask(100.0) >> DomeShapeIndex("PortalA") & 1u) == 0u);
         Require((VisibleShapeMask(129.0) >> DomeShapeIndex("PortalA") & 1u) == 1u);
     }
+    Require(DomeSequenceOffset(170.5f) == 170.5f);
+    Require(DomeSequenceOffset(0.0f) == 0.0f);
+    Require(DomeSequenceOffset(-3.0f) == 0.0f);
+    Require(DomeSequenceOffset(std::nanf("")) == 0.0f);
+    Require(DomeSequenceOffset(std::numeric_limits<float>::infinity()) == 0.0f);
+    for (const double animTime : { 0.0, 100.0 })
+        Require(Near(static_cast<float>(animTime) + DomeSequenceOffset(170.5f), 170.5f + static_cast<float>(animTime), 1e-3f));
     Require(BlendForSequence(0.0, 360.0f) == 0.0f);
     Require(BlendForSequence(10.0, 360.0f) == 0.0f);
     Require(BlendForSequence(20.0, 360.0f) == 0.0f);

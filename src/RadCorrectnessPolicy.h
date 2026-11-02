@@ -89,6 +89,12 @@ namespace RadCorrectnessPolicy
         return rise < fall ? rise : fall;
     }
 
+    // Invariant: sequence time is animTime + offset, so the offset that lands on the seek is the seek itself.
+    constexpr float DomeSequenceOffset(float seekSec)
+    {
+        return (seekSec >= 0.0f && seekSec < 1.0e9f) ? seekSec : 0.0f;
+    }
+
     constexpr std::uint64_t kAllDomeShapesVisible = (std::uint64_t{ 1 } << RadDomeVisibility::kShapeCount) - 1;
 
     // Invariant: a non-finite, negative or absurd sequence time yields the all-visible mask, never a cull.
