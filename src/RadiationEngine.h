@@ -504,6 +504,10 @@ private:
     void AdvanceDomeClock();
     void DriveDomeAnimation(bool moved);
     void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
+    void ApplyDomeShapeMask(double a_seqTimeSec);
+    void ResetDomeShapeMask();
+    std::uint64_t _domeShapeMask = RadCorrectnessPolicy::kAllDomeShapesVisible;
+    bool _domeShapeMaskDirty = false;
     double _domeDriveLastSec = -1.0e9;
     float  _stormDomeBlend = 0.0f;
     double _stormDomeBlendSec = 0.0;

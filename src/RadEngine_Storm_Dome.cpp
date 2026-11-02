@@ -92,6 +92,7 @@ void RadiationEngine::SpawnStormDome()
     _stormDomeSpawnSec = _playSeconds;
     _domeDriveLastSec = -1.0e9;
     _stormDomeStatsLogged = false;
+    ResetDomeShapeMask();
 
     bool lit = false, flare = false;
     if (placed > 0 && !interiorCell)
@@ -239,6 +240,7 @@ void RadiationEngine::ClearStormDome()
     }
     _stormDomeRefs.clear();
     _stormDomeAnimStarted = false;
+    ResetDomeShapeMask();
     Log()->info("[StormFX] Storm dome cleared ({} layers).", cleared);
 }
 
@@ -250,6 +252,7 @@ void RadiationEngine::ResetStormDomeForLoad()
     _stormDomeBlend = 0.0f;
     Hooks::SetStormDomeBlend(0.0f);
     _stormDomeAnimStarted = false;
+    ResetDomeShapeMask();
     Hooks::SetDomeFollowActive(false);
     _stormDomeRespawnRetryTicks = 0;
     _stormDomeCell = nullptr;
@@ -341,6 +344,7 @@ static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_se
 void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root)
 {
     a_layer.root = a_root;
+    _domeShapeMaskDirty = true;
     a_layer.hasManager = RE::NiControllerManager::GetNiControllerManager(a_root) != nullptr;
     a_layer.hole4 = nullptr;
     a_layer.vortex2 = nullptr;
@@ -349,6 +353,33 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
     a_layer.hole4 = a_root->GetObjectByName(RE::BSFixedString("Hole4"));
     a_layer.vortex2 = a_root->GetObjectByName(RE::BSFixedString("Vortex2"));
     a_layer.vortex3 = a_root->GetObjectByName(RE::BSFixedString("Vortex3"));
+}
+
+void RadiationEngine::ResetDomeShapeMask()
+{
+    _domeShapeMask = RadCorrectnessPolicy::kAllDomeShapesVisible;
+    _domeShapeMaskDirty = false;
+}
+
+void RadiationEngine::ApplyDomeShapeMask(double a_seqTimeSec)
+{
+    const std::uint64_t mask = RadCorrectnessPolicy::VisibleShapeMask(a_seqTimeSec);
+    if (mask == _domeShapeMask && !_domeShapeMaskDirty) return;
+    _domeShapeMask = mask;
+    _domeShapeMaskDirty = false;
+    for (auto& layer : _stormDomeRefs)
+    {
+        if (!layer.hasManager) continue;
+        auto ptr = layer.handle.get();
+        auto* ref = ptr.get();
+        auto* obj3d = ref ? ref->Get3D() : nullptr;
+        if (!obj3d || layer.root != obj3d) continue;
+        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
+        {
+            auto* shape = obj3d->GetObjectByName(RE::BSFixedString(RadDomeVisibility::kShapeNames[i]));
+            if (shape) shape->SetAppCulled(((mask >> i) & 1u) == 0u);
+        }
+    }
 }
 
 void RadiationEngine::DriveDomeAnimation(bool moved)
@@ -431,6 +462,7 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
     SpinDomeNode(hole4, kPortalSpinDegPerSec, _domeAnimTime);
     SpinDomeNode(vortex2, -kCoreSpinDegPerSec, _domeAnimTime);
     SpinDomeNode(vortex3, kCoreSpinDegPerSec * kVortex3SpinScale, _domeAnimTime);
+    ApplyDomeShapeMask(_domeSeekSec + _domeAnimTime);
 
     for (auto& layer : _stormDomeRefs)
     {

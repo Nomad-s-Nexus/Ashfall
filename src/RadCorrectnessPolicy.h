@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RadDomeVisibilityTable.h"
 #include "RadIniParse.h"
 
 #include <atomic>
@@ -86,6 +87,37 @@ namespace RadCorrectnessPolicy
         const float rise = SmoothStep01(kDomeBlendRiseStartSec, kDomeBlendRiseEndSec, t);
         const float fall = 1.0f - SmoothStep01(timelineSec - kDomeBlendFallSec, timelineSec, t);
         return rise < fall ? rise : fall;
+    }
+
+    constexpr std::uint64_t kAllDomeShapesVisible = (std::uint64_t{ 1 } << RadDomeVisibility::kShapeCount) - 1;
+
+    // Invariant: a non-finite, negative or absurd sequence time yields the all-visible mask, never a cull.
+    constexpr std::uint64_t VisibleShapeMask(double seqTimeSec)
+    {
+        if (!(seqTimeSec >= 0.0) || seqTimeSec > 1.0e12) return kAllDomeShapesVisible;
+        const double period = static_cast<double>(RadDomeVisibility::kCycleSec);
+        const double t = seqTimeSec - period * static_cast<double>(static_cast<long long>(seqTimeSec / period));
+        std::uint64_t mask = 0;
+        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
+        {
+            for (int w = RadDomeVisibility::kWindowBegin[i]; w < RadDomeVisibility::kWindowBegin[i + 1]; ++w)
+            {
+                const auto& win = RadDomeVisibility::kWindows[w];
+                if (t >= static_cast<double>(win.start) && t <= static_cast<double>(win.end))
+                {
+                    mask |= std::uint64_t{ 1 } << i;
+                    break;
+                }
+            }
+        }
+        return mask;
+    }
+
+    constexpr int DomeShapeIndex(std::string_view name)
+    {
+        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
+            if (name == RadDomeVisibility::kShapeNames[i]) return i;
+        return -1;
     }
 
     constexpr double WrapAngleRad(double a)

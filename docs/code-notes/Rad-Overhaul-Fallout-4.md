@@ -63,6 +63,16 @@ Reference: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::DriveDomeAnimation`, `
 - `Hole4`, `Vortex2` and `Vortex3` are resolved once per layer by `ResolveDomeLayerNodes` and cached on the layer entry. The cache is re-resolved when a node is null or the layer 3D root pointer changed. The layer vector is cleared by `ClearStormDome` and `ResetStormDomeForLoad`, which drops the cached pointers with it.
 - Unverified in game: the 30 Hz cadence does not show as stepped spin or cloud motion.
 
+### Dome shape visibility windows
+
+Reference: `src/RadCorrectnessPolicy.h:VisibleShapeMask`, `src/RadDomeVisibilityTable.h`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeShapeMask`, and `tools/bake_dome_visibility.py`.
+
+Every one of the 36 shapes in `CloudArena01_4.nif` is invisible by its static alpha, so all visibility comes from 36 alpha float controllers on the 360 s `Storm` sequence. The baker reads those keys, takes the stretches where alpha exceeds 0.01, pads each by 2 s, merges them and wraps them over the cycle into `RadDomeVisibilityTable.h` (135 windows). `VisibleShapeMask(seqTime)` returns a 64-bit mask of shapes that should be drawn. `ApplyDomeShapeMask` runs from `DriveDomeAnimation` after the dome clock is running, and only when the mask changes (or a layer root was re-resolved) it looks the shapes up by name and calls `SetAppCulled(!visible)`. No shape pointer is kept. Spawn, clear and load reset the mask to all visible. A non-finite or negative sequence time returns all visible, and nothing is culled before the animation clock starts.
+
+- Hook: `NiAVObject::SetAppCulled` is virtual slot 0x2D in the commonlib header and `GetAppCulled` reads flag bit 0. The shape is culled by the renderer; the controller manager updates its targets by controller, not by scene traversal.
+- Unverified in game: that a culled shape keeps animating its alpha controller (if it does not, the shape would stay hidden past its window start; the 2 s pad covers a short stall only).
+- Contract: `tests/verify_dome_visibility.py` compares the table names with the 36 BSTriShape names in the shipped NIF and requires the committed header to equal a fresh bake (`tools/bake_dome_visibility.py --check`).
+
 ## Regression coverage
 
 `tests/verify_hud_fallback.py` guards compositor ordering, position/resize behavior, V11 non-blocking dispatch, truthful engine activation, retained HUD-wait retries, optional PrismaHUD recovery, and atomic cross-thread callback publication. `tests/correctness_policy_tests.cpp` covers the policy-level lifecycle and load-generation invariants plus same-world dome streaming versus real worldspace ownership changes.
