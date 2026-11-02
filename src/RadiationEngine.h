@@ -17,6 +17,7 @@
 class RadiationConfig;
 namespace F4SE { class SerializationInterface; }
 namespace RE {
+    class NiAVObject;
     class Actor;
     class ActorValueInfo;
     class PlayerCharacter;
@@ -483,6 +484,11 @@ private:
         float zOffset;
         bool animStarted = false;
         bool manualSeeded = false;
+        RE::NiAVObject* root = nullptr;
+        bool hasManager = false;
+        RE::NiAVObject* hole4 = nullptr;
+        RE::NiAVObject* vortex2 = nullptr;
+        RE::NiAVObject* vortex3 = nullptr;
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
@@ -497,6 +503,8 @@ private:
     double _domeSeekSec = 0.0;
     void AdvanceDomeClock();
     void DriveDomeAnimation(bool moved);
+    void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
+    double _domeDriveLastSec = -1.0e9;
     float  _stormDomeBlend = 0.0f;
     double _stormDomeBlendSec = 0.0;
     double _stormDomeSpawnSec = 0.0;

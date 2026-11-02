@@ -305,6 +305,15 @@ assert "kStormDomeFollowEpsilon" in dome_follow
 assert "ref->Update3DPosition(true);" in dome_follow or "ref->Update3DPosition(true);" in dome_drive
 assert "kStormDomeFollowDistanceThreshold" not in dome_follow
 assert "DriveDomeAnimation(moved);" in dome_follow
+assert "kDomeDriveIntervalSec" in dome_drive and "_domeDriveLastSec" in dome_drive
+assert "layer.hasManager" in dome_drive and "ResolveDomeLayerNodes(layer, obj3d)" in dome_drive
+assert "layer.root != obj3d" in dome_drive
+assert dome_drive.count("GetObjectByName") == 0, "node lookups must be cached per layer"
+resolve_body = dome.split("void RadiationEngine::ResolveDomeLayerNodes", 1)[1].split("void RadiationEngine::DriveDomeAnimation", 1)[0]
+assert resolve_body.count("GetObjectByName") == 3
+internal_src = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
+assert "kStormDomeFollowEpsilon = 64.0f;" in internal_src
+assert "kDomeDriveIntervalSec = 1.0 / 30.0;" in internal_src
 
 warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
     "case StormPhase::Active:", 1

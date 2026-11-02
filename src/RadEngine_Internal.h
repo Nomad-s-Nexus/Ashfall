@@ -508,7 +508,8 @@ namespace RadInternal
     constexpr float kStormDomeZOffset     = 0.0f;
     constexpr double kDomeAnimMaxDeltaSec = 0.25;
     constexpr std::uint16_t kDomeManagerActiveFlag = 0x0008;
-    constexpr float kStormDomeFollowEpsilon = 0.01f;
+    constexpr float kStormDomeFollowEpsilon = 64.0f;
+    constexpr double kDomeDriveIntervalSec = 1.0 / 30.0;
     constexpr double kPortalSpinDegPerSec = 12.0;
     constexpr double kCoreSpinDegPerSec = 4.0;
     constexpr double kVortex3SpinScale = 0.7;

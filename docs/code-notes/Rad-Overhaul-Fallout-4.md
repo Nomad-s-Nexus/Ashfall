@@ -35,7 +35,7 @@ The ownership policy therefore keeps the current dome references alive across sa
 
 Reference: `src/Hooks_DomeFollow.cpp:Hooks::SetDomeFollowActive` and `src/Hooks_DomeFollow.cpp:Hooks::QueueDomeFollow`.
 
-The follow path is inactive outside a live dome, then bounded to approximately 30 Hz with a 16-unit movement threshold and skips refs without loaded 3D. It only updates existing references; spawn, deletion, reparenting, shelter visibility, and worldspace ownership remain on the 4 Hz lifecycle path.
+The follow path is inactive outside a live dome, then bounded to approximately 30 Hz and skips refs without loaded 3D. The reposition threshold is `src/RadEngine_Internal.h:kStormDomeFollowEpsilon` (64 world units, raised from 0.01 because the dome is about 14000 units wide and the parallax is invisible). It only updates existing references; spawn, deletion, reparenting, shelter visibility, and worldspace ownership remain on the 4 Hz lifecycle path.
 
 ### Storm dome sky hook notes
 
@@ -53,6 +53,15 @@ Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendR
 Reference: `src/RadCorrectnessPolicy.h:DomeLeadShiftSeconds`, `src/RadCorrectnessPolicy.h:DomeSeekSecondsForStorm`, `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
 
 The baked `Storm` sequence is nearly invisible for its first 40 s (every shape alpha is 0 at the start and the vortex shapes first exceed 0.05 at 132 to 151 s). A natural storm hides this because the 180 s dome lead plus the 20 s warning brings the warning to about sequence second 200. A debug forced storm uses a 10 s lead, so the dome used to start at sequence 0. `BeginStorm` now stores `_stormDomeLeadShiftSec = naturalLead - actualLead` (0 for natural storms) and the dome seek is `DomeSeekSecondsForStorm(elapsed, 360, shift)`, so a 10 s debug lead starts the dome near sequence 170 s. Natural storms use a zero shift and are unchanged.
+
+### Dome animation clock, mesh and follow
+
+Reference: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::DriveDomeAnimation`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ResolveDomeLayerNodes`, and `src/RadEngine_Internal.h:kDomeDriveIntervalSec`.
+
+- The drive runs at about 30 Hz (`kDomeDriveIntervalSec`) off the real elapsed dome clock `_domeAnimTime`, so animation speed is unchanged and the spin angle (`SpinAngleRad` of the same clock) stays continuous. A frame that moved the dome still runs, so the follow update is never skipped.
+- Only layers that own a controller manager are driven. Three of the four layer meshes are 234-byte stubs without one, so they skip the manager update and `UpdateDownwardPass`.
+- `Hole4`, `Vortex2` and `Vortex3` are resolved once per layer by `ResolveDomeLayerNodes` and cached on the layer entry. The cache is re-resolved when a node is null or the layer 3D root pointer changed. The layer vector is cleared by `ClearStormDome` and `ResetStormDomeForLoad`, which drops the cached pointers with it.
+- Unverified in game: the 30 Hz cadence does not show as stepped spin or cloud motion.
 
 ## Regression coverage
 

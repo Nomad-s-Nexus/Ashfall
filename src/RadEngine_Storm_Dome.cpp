@@ -90,6 +90,7 @@ void RadiationEngine::SpawnStormDome()
     _domeAnimDriverLogged = false;
     _domeSpinLogged = false;
     _stormDomeSpawnSec = _playSeconds;
+    _domeDriveLastSec = -1.0e9;
     _stormDomeStatsLogged = false;
 
     bool lit = false, flare = false;
@@ -208,6 +209,7 @@ void RadiationEngine::UpdateDomeAnimation()
         _domeSeekSec = RadCorrectnessPolicy::DomeSeekSecondsForStorm(
             _playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec, _stormDomeLeadShiftSec);
         _domeAnimTime = 0.0;
+        _domeDriveLastSec = -1.0e9;
         _domeAnimLastRealS = -1.0;
         _domeAnimLogIndex = 0;
         _domeAnimDriverLogged = false;
@@ -336,6 +338,19 @@ static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_se
     a_node->SetLocalRotate(RE::NiMatrix3(c, -s, 0.0f, 0.0f, s, c, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 }
 
+void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root)
+{
+    a_layer.root = a_root;
+    a_layer.hasManager = RE::NiControllerManager::GetNiControllerManager(a_root) != nullptr;
+    a_layer.hole4 = nullptr;
+    a_layer.vortex2 = nullptr;
+    a_layer.vortex3 = nullptr;
+    if (!a_layer.hasManager) return;
+    a_layer.hole4 = a_root->GetObjectByName(RE::BSFixedString("Hole4"));
+    a_layer.vortex2 = a_root->GetObjectByName(RE::BSFixedString("Vortex2"));
+    a_layer.vortex3 = a_root->GetObjectByName(RE::BSFixedString("Vortex3"));
+}
+
 void RadiationEngine::DriveDomeAnimation(bool moved)
 {
     RE::NiUpdateData data;
@@ -353,7 +368,13 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         return;
     }
 
+    if (!moved && _domeAnimTime - _domeDriveLastSec < kDomeDriveIntervalSec) return;
+    _domeDriveLastSec = _domeAnimTime;
+
     RE::NiControllerSequence* storm = nullptr;
+    RE::NiAVObject* hole4 = nullptr;
+    RE::NiAVObject* vortex2 = nullptr;
+    RE::NiAVObject* vortex3 = nullptr;
     for (auto& layer : _stormDomeRefs)
     {
         auto ptr = layer.handle.get();
@@ -361,6 +382,9 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         if (!ref) continue;
         auto* obj3d = ref->Get3D();
         if (!obj3d) continue;
+        if (layer.root != obj3d || (layer.hasManager && (!layer.hole4 || !layer.vortex2 || !layer.vortex3)))
+            ResolveDomeLayerNodes(layer, obj3d);
+        if (!layer.hasManager) continue;
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
         if (!mgr) continue;
         const std::uint16_t flagsBefore = mgr->flags.flags;
@@ -379,8 +403,14 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
                     seq->offset = static_cast<float>(_domeSeekSec - _domeAnimTime);
             layer.manualSeeded = true;
         }
-        if (!storm) storm = mgr->GetSequenceByName(RE::BSFixedString("Storm"));
-        if (!storm) storm = mgr->GetSequenceAt(0);
+        if (_domeAnimLogIndex < kDomeAnimLogCount && !storm)
+        {
+            storm = mgr->GetSequenceByName(RE::BSFixedString("Storm"));
+            if (!storm) storm = mgr->GetSequenceAt(0);
+        }
+        if (!hole4) hole4 = layer.hole4;
+        if (!vortex2) vortex2 = layer.vortex2;
+        if (!vortex3) vortex3 = layer.vortex3;
     }
     if (storm)
     {
@@ -392,21 +422,6 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         }
     }
 
-    const auto findNode = [this](const char* a_name) -> RE::NiAVObject* {
-        for (auto& layer : _stormDomeRefs)
-        {
-            auto ptr = layer.handle.get();
-            auto* ref = ptr.get();
-            if (!ref) continue;
-            auto* obj3d = ref->Get3D();
-            if (!obj3d) continue;
-            if (auto* node = obj3d->GetObjectByName(RE::BSFixedString(a_name))) return node;
-        }
-        return nullptr;
-    };
-    RE::NiAVObject* hole4 = findNode("Hole4");
-    RE::NiAVObject* vortex2 = findNode("Vortex2");
-    RE::NiAVObject* vortex3 = findNode("Vortex3");
     if (!_domeSpinLogged)
     {
         _domeSpinLogged = true;
@@ -426,17 +441,16 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         if (!obj3d) continue;
         if (!moved)
         {
-            obj3d->UpdateDownwardPass(data, 0);
+            if (layer.hasManager && layer.root == obj3d) obj3d->UpdateDownwardPass(data, 0);
             continue;
         }
-        auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
+        auto* mgr = layer.hasManager ? RE::NiControllerManager::GetNiControllerManager(obj3d) : nullptr;
         const bool wasActive = mgr && (mgr->flags.flags & kDomeManagerActiveFlag) != 0;
         if (mgr) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags & ~kDomeManagerActiveFlag);
         ref->Update3DPosition(true);
         if (mgr && wasActive) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags | kDomeManagerActiveFlag);
     }
 }
-
 void RadiationEngine::UpdateStormDomeFollow()
 {
     if (!_stormDomeUp || _stormDomeRefs.empty()) return;

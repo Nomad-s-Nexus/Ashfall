@@ -328,6 +328,7 @@ def check_source(html_path, source_path):
         'void RadiationEngine::UpdateStormDomeLifecycle()',
         'void RadiationEngine::UpdateStormDomeFollow()',
         'kStormDomeFollowEpsilon',
+        'kDomeDriveIntervalSec',
         'ShouldMoveDomeLayer(',
         'ref->Get3D()',
         'playerWorld == _stormDomeWorld',
