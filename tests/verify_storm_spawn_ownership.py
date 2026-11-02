@@ -259,7 +259,21 @@ begin_storm = storm.split("void RadiationEngine::BeginStorm(int typeIndex)", 1)[
 assert "_stormRollInTicks  = 0;" in begin_storm
 assert "_fleeTick          = 0;" in begin_storm
 assert "const bool debugForced = _forcedStormType >= 0;" in begin_storm
+_main_src = (SRC / "main.cpp").read_text(encoding="utf-8")
+assert "logger->set_level(spdlog::level::info);" in _main_src, "default log level must be info"
+assert "set_level(spdlog::level::debug)" not in _main_src
+for _line in ("dome anim driver", "dome anim t=", "dome spin"):
+    _hit = [l for l in dome.splitlines() if _line in l]
+    assert _hit, _line
+assert "Log()->info(\"[StormFX] dome anim driver" in dome
+assert "Log()->info(\"[StormFX] dome anim t=" in dome
+assert "Log()->info(\"[StormFX] dome spin" in dome
+assert "BlendForSequence(_domeSeekSec + _domeAnimTime" in dome
+assert "Hooks::GetSkyCloudStats(passes, scaled);" in dome
+assert "sky cloud hook stats at spawn+" in dome
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
+assert "_stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(" in begin_storm
+assert "DomeSeekSecondsForStorm(" in dome and "_stormDomeLeadShiftSec" in dome
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
     "if (!_nextEmissionGlobal) return;", 1
@@ -291,6 +305,21 @@ assert "kStormDomeFollowEpsilon" in dome_follow
 assert "ref->Update3DPosition(true);" in dome_follow or "ref->Update3DPosition(true);" in dome_drive
 assert "kStormDomeFollowDistanceThreshold" not in dome_follow
 assert "DriveDomeAnimation(moved);" in dome_follow
+assert "kDomeDriveIntervalSec" in dome_drive and "_domeDriveLastSec" in dome_drive
+assert "layer.hasManager" in dome_drive and "ResolveDomeLayerNodes(layer, obj3d)" in dome_drive
+assert "layer.root != obj3d" in dome_drive
+assert "const bool recreated = layer.root && layer.root != obj3d;" in dome_drive
+recreate_block = dome_drive.split("if (recreated)", 1)[1].split("const std::uint16_t flagsBefore", 1)[0]
+assert "seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);" in recreate_block
+assert "layer.manualSeeded = false;" in recreate_block and "_domeShapeMaskDirty = true;" in recreate_block
+assert "seq->offset = RadCorrectnessPolicy::DomeSequenceOffset(static_cast<float>(_domeSeekSec));" in dome_drive
+assert "_domeSeekSec - _domeAnimTime" not in dome
+assert dome_drive.count("GetObjectByName") == 0, "node lookups must be cached per layer"
+resolve_body = dome.split("void RadiationEngine::ResolveDomeLayerNodes", 1)[1].split("void RadiationEngine::ResetDomeShapeMask", 1)[0]
+assert resolve_body.count("GetObjectByName") == 3
+internal_src = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
+assert "kStormDomeFollowEpsilon = 64.0f;" in internal_src
+assert "kDomeDriveIntervalSec = 1.0 / 30.0;" in internal_src
 
 warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
     "case StormPhase::Active:", 1

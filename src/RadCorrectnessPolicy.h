@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RadDomeVisibilityTable.h"
 #include "RadIniParse.h"
 
 #include <atomic>
@@ -51,6 +52,78 @@ namespace RadCorrectnessPolicy
         const double wrapped = elapsedSec - period * static_cast<double>(static_cast<long long>(elapsedSec / period));
         if (!(wrapped > 0.0) || !(wrapped < period)) return 0.0f;
         return static_cast<float>(wrapped);
+    }
+
+    // Invariant: a shortened debug lead shifts the dome sequence by (natural - actual) seconds.
+    constexpr double DomeLeadShiftSeconds(double naturalLeadSec, double actualLeadSec)
+    {
+        if (!(naturalLeadSec > 0.0) || !(actualLeadSec >= 0.0)) return 0.0;
+        return naturalLeadSec > actualLeadSec ? naturalLeadSec - actualLeadSec : 0.0;
+    }
+
+    constexpr float DomeSeekSecondsForStorm(double elapsedSec, float timelineSec, double leadShiftSec)
+    {
+        if (!(elapsedSec > 0.0)) elapsedSec = 0.0;
+        if (!(leadShiftSec > 0.0)) leadShiftSec = 0.0;
+        return DomeSeekSeconds(elapsedSec + leadShiftSec, timelineSec);
+    }
+
+    constexpr float SmoothStep01(float edge0, float edge1, float x)
+    {
+        if (!(edge1 > edge0)) return x >= edge1 ? 1.0f : 0.0f;
+        const float t = x <= edge0 ? 0.0f : (x >= edge1 ? 1.0f : (x - edge0) / (edge1 - edge0));
+        return t * t * (3.0f - 2.0f * t);
+    }
+
+    constexpr float kDomeBlendRiseStartSec = 20.0f;
+    constexpr float kDomeBlendRiseEndSec = 70.0f;
+    constexpr float kDomeBlendFallSec = 30.0f;
+
+    // Invariant: vanilla clouds fade out only as the dome cloud layers fade in on the baked sequence clock.
+    constexpr float BlendForSequence(double seqTimeSec, float timelineSec)
+    {
+        if (!(seqTimeSec > 0.0) || !(timelineSec > kDomeBlendRiseEndSec + kDomeBlendFallSec)) return 0.0f;
+        const float t = DomeSeekSeconds(seqTimeSec, timelineSec);
+        const float rise = SmoothStep01(kDomeBlendRiseStartSec, kDomeBlendRiseEndSec, t);
+        const float fall = 1.0f - SmoothStep01(timelineSec - kDomeBlendFallSec, timelineSec, t);
+        return rise < fall ? rise : fall;
+    }
+
+    // Invariant: sequence time is animTime + offset, so the offset that lands on the seek is the seek itself.
+    constexpr float DomeSequenceOffset(float seekSec)
+    {
+        return (seekSec >= 0.0f && seekSec < 1.0e9f) ? seekSec : 0.0f;
+    }
+
+    constexpr std::uint64_t kAllDomeShapesVisible = (std::uint64_t{ 1 } << RadDomeVisibility::kShapeCount) - 1;
+
+    // Invariant: a non-finite, negative or absurd sequence time yields the all-visible mask, never a cull.
+    constexpr std::uint64_t VisibleShapeMask(double seqTimeSec)
+    {
+        if (!(seqTimeSec >= 0.0) || seqTimeSec > 1.0e12) return kAllDomeShapesVisible;
+        const double period = static_cast<double>(RadDomeVisibility::kCycleSec);
+        const double t = seqTimeSec - period * static_cast<double>(static_cast<long long>(seqTimeSec / period));
+        std::uint64_t mask = 0;
+        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
+        {
+            for (int w = RadDomeVisibility::kWindowBegin[i]; w < RadDomeVisibility::kWindowBegin[i + 1]; ++w)
+            {
+                const auto& win = RadDomeVisibility::kWindows[w];
+                if (t >= static_cast<double>(win.start) && t <= static_cast<double>(win.end))
+                {
+                    mask |= std::uint64_t{ 1 } << i;
+                    break;
+                }
+            }
+        }
+        return mask;
+    }
+
+    constexpr int DomeShapeIndex(std::string_view name)
+    {
+        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
+            if (name == RadDomeVisibility::kShapeNames[i]) return i;
+        return -1;
     }
 
     constexpr double WrapAngleRad(double a)

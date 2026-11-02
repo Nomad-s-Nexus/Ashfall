@@ -35,7 +35,7 @@ The ownership policy therefore keeps the current dome references alive across sa
 
 Reference: `src/Hooks_DomeFollow.cpp:Hooks::SetDomeFollowActive` and `src/Hooks_DomeFollow.cpp:Hooks::QueueDomeFollow`.
 
-The follow path is inactive outside a live dome, then bounded to approximately 30 Hz with a 16-unit movement threshold and skips refs without loaded 3D. It only updates existing references; spawn, deletion, reparenting, shelter visibility, and worldspace ownership remain on the 4 Hz lifecycle path.
+The follow path is inactive outside a live dome, then bounded to approximately 30 Hz and skips refs without loaded 3D. The reposition threshold is `src/RadEngine_Internal.h:kStormDomeFollowEpsilon` (64 world units, raised from 0.01 because the dome is about 14000 units wide and the parallax is invisible). It only updates existing references; spawn, deletion, reparenting, shelter visibility, and worldspace ownership remain on the 4 Hz lifecycle path.
 
 ### Storm dome sky hook notes
 
@@ -48,6 +48,38 @@ Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendR
 - `kStormDomeBlendRampSec` is the vanilla cloud fade-out and fade-in time around the dome. `kStormDomeTimelineSec` is the length of the baked `Storm` sequence in `CloudArena01_4.nif`.
 - `FODomeBlackHole.dds` is unused now that the dome is the baked NIF.
 - Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `BeginStorm`, kept in `_stormDomeBeginSec`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
+### Dome blend and logging
+
+Reference: `src/RadCorrectnessPolicy.h:BlendForSequence`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`, and `src/main.cpp`.
+
+The vanilla cloud blend target is `BlendForSequence(_domeSeekSec + _domeAnimTime, 360)` once the animation has started and 0 before or when the dome is down. The published blend moves toward the target at most `dt / kStormDomeBlendRampSec` per update, so a cleared dome still fades out over about 20 s. `UpdateDomeAnimation` logs `sky cloud hook stats at spawn+30s` once per spawn with the pass and scaled counters of `Hooks::GetSkyCloudStats`; a scaled count of 0 means the sky hook does not match. The plugin log level is info by default (`src/main.cpp`), which drops the per-second roof-fan debug line while `dome anim driver`, `dome anim t=`, `dome spin` and `Papyrus bridge registered` stay. Unverified in game: the sky hook match and the offsets copied from the volumetric cloud hook.
+
+### Debug storm dome phase
+
+Reference: `src/RadCorrectnessPolicy.h:DomeLeadShiftSeconds`, `src/RadCorrectnessPolicy.h:DomeSeekSecondsForStorm`, `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
+
+The baked `Storm` sequence is nearly invisible for its first 40 s (every shape alpha is 0 at the start and the vortex shapes first exceed 0.05 at 132 to 151 s). A natural storm hides this because the 180 s dome lead plus the 20 s warning brings the warning to about sequence second 200. A debug forced storm uses a 10 s lead, so the dome used to start at sequence 0. `BeginStorm` now stores `_stormDomeLeadShiftSec = naturalLead - actualLead` (0 for natural storms) and the dome seek is `DomeSeekSecondsForStorm(elapsed, 360, shift)`, so a 10 s debug lead starts the dome near sequence 170 s. Natural storms use a zero shift and are unchanged.
+
+### Dome animation clock, mesh and follow
+
+Reference: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::DriveDomeAnimation`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ResolveDomeLayerNodes`, and `src/RadEngine_Internal.h:kDomeDriveIntervalSec`.
+
+- The drive runs at about 30 Hz (`kDomeDriveIntervalSec`) off the real elapsed dome clock `_domeAnimTime`, so animation speed is unchanged and the spin angle (`SpinAngleRad` of the same clock) stays continuous. A frame that moved the dome still runs, so the follow update is never skipped.
+- Only layers that own a controller manager are driven. Three of the four layer meshes are 234-byte stubs without one, so they skip the manager update and `UpdateDownwardPass`.
+- `Hole4`, `Vortex2` and `Vortex3` are resolved once per layer by `ResolveDomeLayerNodes` and cached on the layer entry. The cache is re-resolved when a node is null or the layer 3D root pointer changed. The layer vector is cleared by `ClearStormDome` and `ResetStormDomeForLoad`, which drops the cached pointers with it.
+- Unverified in game: the 30 Hz cadence does not show as stepped spin or cloud motion.
+
+### Dome shape visibility windows
+
+Reference: `src/RadCorrectnessPolicy.h:VisibleShapeMask`, `src/RadDomeVisibilityTable.h`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeShapeMask`, and `tools/bake_dome_visibility.py`.
+
+Every one of the 36 shapes in `CloudArena01_4.nif` is invisible by its static alpha, so all visibility comes from 36 alpha float controllers on the 360 s `Storm` sequence. The baker reads those keys, takes the stretches where alpha exceeds 0.01, pads each by 2 s, merges them and wraps them over the cycle into `RadDomeVisibilityTable.h` (135 windows). `VisibleShapeMask(seqTime)` returns a 64-bit mask of shapes that should be drawn. `ApplyDomeShapeMask` runs from `DriveDomeAnimation` after the dome clock is running, and only when the mask changes (or a layer root was re-resolved) it looks the shapes up by name and calls `SetAppCulled(!visible)`. No shape pointer is kept. Spawn, clear and load reset the mask to all visible. A non-finite or negative sequence time returns all visible, and nothing is culled before the animation clock starts.
+
+- Hook: `NiAVObject::SetAppCulled` is virtual slot 0x2D in the commonlib header and `GetAppCulled` reads flag bit 0. The shape is culled by the renderer; the controller manager updates its targets by controller, not by scene traversal.
+- Unverified in game: that a culled shape keeps animating its alpha controller (if it does not, the shape would stay hidden past its window start; the 2 s pad covers a short stall only).
+- Seed and recreation: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::DriveDomeAnimation` seeds each sequence offset with `RadCorrectnessPolicy.h:DomeSequenceOffset(_domeSeekSec)`. The manager resolves the offset sentinel to minus the time of its first update and sequence time is `data.time + offset`, so the seek itself is the offset that lands on `_domeSeekSec + _domeAnimTime`; the older `seek - animTime` left a permanent lag when a layer was first driven after the clock had started. When a layer root pointer changes after it was resolved (cell reload rebuilt the 3D), the new manager has inactive sequences and no offset, so the same drive reactivates sequences in state 0, clears `manualSeeded` so the seed runs after the manager update, and marks the shape mask dirty. Unverified in game: the recreation path (needs a cell reload during a storm).
+- Contract: `tests/verify_dome_visibility.py` compares the table names with the 36 BSTriShape names in the shipped NIF and requires the committed header to equal a fresh bake (`tools/bake_dome_visibility.py --check`).
+
 ## Regression coverage
 
 `tests/verify_hud_fallback.py` guards compositor ordering, position/resize behavior, V11 non-blocking dispatch, truthful engine activation, retained HUD-wait retries, optional PrismaHUD recovery, and atomic cross-thread callback publication. `tests/correctness_policy_tests.cpp` covers the policy-level lifecycle and load-generation invariants plus same-world dome streaming versus real worldspace ownership changes.
