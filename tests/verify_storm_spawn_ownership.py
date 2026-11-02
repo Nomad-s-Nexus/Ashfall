@@ -268,6 +268,9 @@ for _line in ("dome anim driver", "dome anim t=", "dome spin"):
 assert "Log()->info(\"[StormFX] dome anim driver" in dome
 assert "Log()->info(\"[StormFX] dome anim t=" in dome
 assert "Log()->info(\"[StormFX] dome spin" in dome
+assert "BlendForSequence(_domeSeekSec + _domeAnimTime" in dome
+assert "Hooks::GetSkyCloudStats(passes, scaled);" in dome
+assert "sky cloud hook stats at spawn+" in dome
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
 assert "_stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(" in begin_storm
 assert "DomeSeekSecondsForStorm(" in dome and "_stormDomeLeadShiftSec" in dome

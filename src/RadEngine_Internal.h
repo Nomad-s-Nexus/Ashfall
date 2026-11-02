@@ -516,6 +516,7 @@ namespace RadInternal
     constexpr int kDomeAnimLogCount = static_cast<int>(std::size(kDomeAnimLogSeconds));
     constexpr float kStormDomeBlendRampSec = 20.0f;
     constexpr float kStormDomeTimelineSec = 360.0f;
+    constexpr double kStormDomeStatsLogSec = 30.0;
     // -----------------------------------------------------------------------
     // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
     //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)

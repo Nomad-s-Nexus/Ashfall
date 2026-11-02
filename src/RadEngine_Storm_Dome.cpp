@@ -89,6 +89,8 @@ void RadiationEngine::SpawnStormDome()
     _domeAnimLogIndex = 0;
     _domeAnimDriverLogged = false;
     _domeSpinLogged = false;
+    _stormDomeSpawnSec = _playSeconds;
+    _stormDomeStatsLogged = false;
 
     bool lit = false, flare = false;
     if (placed > 0 && !interiorCell)
@@ -165,8 +167,19 @@ void RadiationEngine::UpdateDomeAnimation()
     const float dt = static_cast<float>(std::clamp(_playSeconds - _stormDomeBlendSec, 0.0, 1.0));
     _stormDomeBlendSec = _playSeconds;
     const float step = dt / kStormDomeBlendRampSec;
-    _stormDomeBlend = std::clamp(_stormDomeBlend + (_stormDomeUp ? step : -step), 0.0f, 1.0f);
+    const float target = (_stormDomeUp && _stormDomeAnimStarted)
+        ? RadCorrectnessPolicy::BlendForSequence(_domeSeekSec + _domeAnimTime, kStormDomeTimelineSec)
+        : 0.0f;
+    _stormDomeBlend = std::clamp(std::clamp(target, _stormDomeBlend - step, _stormDomeBlend + step), 0.0f, 1.0f);
     Hooks::SetStormDomeBlend(_stormDomeBlend);
+    if (_stormDomeUp && !_stormDomeStatsLogged && _playSeconds - _stormDomeSpawnSec >= kStormDomeStatsLogSec)
+    {
+        _stormDomeStatsLogged = true;
+        std::uint32_t passes = 0, scaled = 0;
+        Hooks::GetSkyCloudStats(passes, scaled);
+        Log()->info("[StormFX] sky cloud hook stats at spawn+{:.0f}s: passes={} scaled={} blend={:.2f} seq={:.1f}s.",
+            kStormDomeStatsLogSec, passes, scaled, _stormDomeBlend, _domeSeekSec + _domeAnimTime);
+    }
 
     if (!_stormDomeUp || _stormDomeRefs.empty() || _stormDomeAnimStarted) return;
     int animated = 0, pending = 0;

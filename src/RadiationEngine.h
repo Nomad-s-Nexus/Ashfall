@@ -499,6 +499,8 @@ private:
     void DriveDomeAnimation(bool moved);
     float  _stormDomeBlend = 0.0f;
     double _stormDomeBlendSec = 0.0;
+    double _stormDomeSpawnSec = 0.0;
+    bool _stormDomeStatsLogged = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads

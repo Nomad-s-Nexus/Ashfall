@@ -67,6 +67,27 @@ namespace RadCorrectnessPolicy
         return DomeSeekSeconds(elapsedSec + leadShiftSec, timelineSec);
     }
 
+    constexpr float SmoothStep01(float edge0, float edge1, float x)
+    {
+        if (!(edge1 > edge0)) return x >= edge1 ? 1.0f : 0.0f;
+        const float t = x <= edge0 ? 0.0f : (x >= edge1 ? 1.0f : (x - edge0) / (edge1 - edge0));
+        return t * t * (3.0f - 2.0f * t);
+    }
+
+    constexpr float kDomeBlendRiseStartSec = 20.0f;
+    constexpr float kDomeBlendRiseEndSec = 70.0f;
+    constexpr float kDomeBlendFallSec = 30.0f;
+
+    // Invariant: vanilla clouds fade out only as the dome cloud layers fade in on the baked sequence clock.
+    constexpr float BlendForSequence(double seqTimeSec, float timelineSec)
+    {
+        if (!(seqTimeSec > 0.0) || !(timelineSec > kDomeBlendRiseEndSec + kDomeBlendFallSec)) return 0.0f;
+        const float t = DomeSeekSeconds(seqTimeSec, timelineSec);
+        const float rise = SmoothStep01(kDomeBlendRiseStartSec, kDomeBlendRiseEndSec, t);
+        const float fall = 1.0f - SmoothStep01(timelineSec - kDomeBlendFallSec, timelineSec, t);
+        return rise < fall ? rise : fall;
+    }
+
     constexpr double WrapAngleRad(double a)
     {
         constexpr double kTau = 6.283185307179586;
