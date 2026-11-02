@@ -2,6 +2,7 @@
 #include "RadHud.h"
 #include "RadiationEngine.h"
 #include "ClimateRuntime.h"
+#include "RadNeedsTuning.h"
 
 // RE headers BEFORE PrismaUI_F4_API.h: the API header pulls in Windows.h, whose macros clobber
 // engine struct layouts (e.g. TESFile) if the RE headers are parsed afterwards.
@@ -242,6 +243,7 @@ void RadHud::CreateView()
             if (!a || !a->IsValid(v)) return;
             a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
             a->Show(v);
+            RadHud::GetSingleton().PushTheme(v);
             // Flag LAST: a Push seeing _domReady=true must find the listener already registered.
             if (auto* flag = g_domReadyFlag.load(std::memory_order_acquire))
                 flag->store(true, std::memory_order_release);
@@ -264,9 +266,10 @@ void RadHud::CreateView()
             if (!a || !a->IsValid(v)) return;
             auto* hudApi = g_hudApiForCb.load(std::memory_order_acquire);
             a->Show(v);
+            RadHud::GetSingleton().PushTheme(v);
             if (hudApi)
             {
-                hudApi->RegisterWidget(v, kToxicDesc);
+                hudApi->RegisterWidget(v, CompanionPlaced(kToxicDesc));
                 if (auto* flag = g_toxicWidgetRegisteredFlag.load(std::memory_order_acquire))
                     flag->store(true, std::memory_order_release);
             }
@@ -280,7 +283,7 @@ void RadHud::CreateView()
     else if (_hudApi && api->IsValid(_toxicView))
     {
         // Existing toxic view on reload: re-register so PrismaHUD re-applies the saved layout.
-        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_toxicView, kToxicDesc);
+        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_toxicView, CompanionPlaced(kToxicDesc));
         _toxicWidgetRegistered.store(true);
     }
 
@@ -288,6 +291,7 @@ void RadHud::CreateView()
     if (_filterView == 0 || !api->IsValid(_filterView))
     {
         _airPayload.clear();
+        _keysPayload.clear();
         _filterDomReady = false;
         g_filterDomReadyFlag.store(&_filterDomReady, std::memory_order_release);
 
@@ -296,8 +300,9 @@ void RadHud::CreateView()
             if (!a || !a->IsValid(v)) return;
             auto* hudApi = g_hudApiForCb.load(std::memory_order_acquire);
             a->Show(v);
+            RadHud::GetSingleton().PushTheme(v);
             if (hudApi)
-                hudApi->RegisterWidget(v, kFilterDesc);
+                hudApi->RegisterWidget(v, CompanionPlaced(kFilterDesc));
             if (auto* flag = g_filterDomReadyFlag.load(std::memory_order_acquire))
                 flag->store(true, std::memory_order_release);
         });
@@ -307,7 +312,7 @@ void RadHud::CreateView()
     }
     else if (_hudApi)
     {
-        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_filterView, kFilterDesc);
+        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_filterView, CompanionPlaced(kFilterDesc));
     }
 
     EnsureClimateView();
@@ -335,11 +340,12 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
     if (!IsPlayerInWorld()) return;
     if (_toxicView == 0 || !_toxicDomReady || !api->IsValid(_toxicView)) return;
 
+    const bool companion = IsCompanionMode();
     auto* player = RE::PlayerCharacter::GetSingleton();
     auto* values = RE::ActorValue::GetSingleton();
     float health = 0.0f, healthMax = 0.0f, rads = 0.0f, ap = 0.0f, apMax = 0.0f;
-    const bool fallback = !_toxicWidgetRegistered.load();
-    if (player && values)
+    const bool fallback = !companion && !_toxicWidgetRegistered.load();
+    if (!companion && player && values)
     {
         if (values->health)
         {
@@ -404,7 +410,10 @@ void RadHud::PushFilter(float charge, float condition, int spares, bool masked)
     if (_view != 0 && _domReady && api->IsValid(_view))
         api->InteropCall(_view, "updateFilter", json);
     if (_filterView != 0 && _filterDomReady && api->IsValid(_filterView))
+    {
         api->InteropCall(_filterView, "updateFilter", json);
+        PushFilterKeys(_filterView);
+    }
 }
 
 void RadHud::PushAir(const std::string& payload)
@@ -429,6 +438,14 @@ void RadHud::PushGhoulSettings(bool enabled, float chance)
     std::snprintf(json, sizeof(json), "{\"enabled\":%s,\"chance\":%.0f}",
         enabled ? "true" : "false", chance * 100.0f);
     api->InteropCall(_view, "setGhoulSettings", json);
+}
+
+void RadHud::PushNeedsTuning(const std::string& json)
+{
+    if (!_api || _view == 0 || !_domReady) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view)) return;
+    api->InteropCall(_view, "setNeedsTuning", json.c_str());
 }
 
 bool RadHud::ShowSpecialInfo(const std::vector<std::string>& lines)
@@ -669,6 +686,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugNextFocusRetryMs = 0;
             api->InteropCall(_view, "SetDebugMenu", "1");
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
+            PushNeedsTuning(RadNeedsTuning::Json());
         }
         else
         {

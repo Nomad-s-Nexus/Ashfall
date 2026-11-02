@@ -4,6 +4,18 @@
 
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
+## Unreleased: Papyrus natives moved into a global RadNatives script (build-verified only)
+
+**`GetReliefFlags` and `TuningOverride` are now global natives on a new `RadNatives` script.** Bethesda's PapyrusCompiler refused the member natives declared in `RadSurvivalQuest` and `RadSurvivalDiseases` because those scripts are not flagged native. `RadNatives` is `native hidden` and the plugin binds both functions on it, once each, as global (static) natives; both quests call `RadNatives.TuningOverride` and the relief path calls `RadNatives.GetReliefFlags`. Behaviour is unchanged, including a missing DLL keeping the script defaults. The Papyrus bytecode is rebuilt and restamped. Not verified in game: the static binding.
+
+## Unreleased: sneak-to-fill toggle and AUTO mask chip (build-verified only)
+
+**New `WaterRequireSneak` toggle** in the debug-menu SETTINGS tab (WATER BOTTLES). Off fills a bottle on a plain
+activation, so water can be collected without sneaking; it overrides `[Water] RequireModifier` live and an empty value
+keeps the INI. **New AUTO chip** in the breathing-protection widget shows whether the auto-equip mask is OFF, ON or HELD
+for combat, so a mask that stays off is explained on screen. Contracts: `tests/status_hud_tests.js`,
+`tests/needs_tuning_policy_tests.cpp`, `tests/verify_needs_tuning.py`. Not yet compiled or tested in game.
+
 ## 2026-10-30: food/drink relief is no longer trivial
 
 **A normal meal or drink now visibly moves hunger/thirst.** `PortionFor` gives every item a 0.8 floor (was 0.5) and a
@@ -15,6 +27,124 @@ changes the stage on that use. A confirmed food use shows "Hunger eased"; a drin
 exception: hydration 0.25 keeps a beer around 0.06 thirst by design. Chems still never feed the pools, no `HC_*` form is touched, and the disease
 script remains the only second owner. Values measured from the winning records with FO4IDE; relief numbers are
 computed, **not verified in game**.
+
+## 2026-10-29: roofless-interior rain (Concord Museum of Freedom, build-verified only)
+
+**Rain can now reach the player inside one approved roofless interior.** `climate_weather.json` gained a
+`rooflessInteriorCells` list with exactly one entry, `Fallout4.esm:0x017DF7` (ConcordMuseum01), resolved through
+`TESDataHandler::LookupForm` with the weather overrides. A listed interior is treated like an exterior for
+precipitation only when the existing five-ray roof probe finds open sky; a roofed result gives zero, every unlisted
+or unresolved interior keeps the old dry rule, and the interior keeps its indoor thermal shelter. `wetness` uses the
+list too, so the exposed part can actually wet the player (`[Climate] Roofless interior roof cover changed` logs
+`rainCover=0%` for open sky and `rainCover=100%` for a covered spot). Policy covered by `tests/climate_policy_tests.cpp`
+(listed+open, listed+roofed, unlisted interior, exterior, unresolved entry) and a new
+`tests/verify_climate_roofless.py`; this branch's build and release workflows
+(`.github/workflows/rad-overhaul-build.yml` / `-release.yml` in the modpack repo) run it. Not played in game: whether the museum's play space is
+genuinely open to the sky still needs the in-game check in `docs/IN_GAME_TEST_CHECKLIST.md`.
+
+## 2026-10-28: review-round fixes (consumption arrays, relief INI bridge, overlay alpha, hysteresis, hotkeys)
+
+**Consumption reliability.** The candidate arrays are now initialised in `OnInit` and re-initialised by the prune
+guard, so the first meal on a new game or a mid-save install credits relief instead of writing to None arrays. The
+removal handler does the cheap form/ammo/consumable checks before the player and difficulty lookups, because every
+shot fires ammo removal events. A world drop is documented as rejected only through the equip pairing; the code no
+longer implies `akItemReference` proves it. **Generic relief INI bridge.** `[Relief] ExtraFoodKeywords`,
+`ExtraThirstKeywords`, `ExtraFoodItems` and `ExtraThirstItems` add other mods' food/drink without code changes
+(`src/RadReliefConfig.cpp`, native Papyrus functions); the shipped defaults cover the two vanilla drinks that only
+carry `HC_SustenanceType_QuenchesThirst` (RefreshingBeverage 0x058AB8, MS17DeezerLemonade 0x0E9284), and spoiled food is
+deliberately not credited. **Visor overlay.** The visor and its fog no longer rely on CSS `mask-image`: the HUD clear
+zones are baked into the PNG alpha (top-left messages, centre readouts, bottom-centre XP) and the HUD test decodes the
+PNGs and checks real alpha. **Auto-don.** A 3 s stable-exposure requirement stops doorway flapping, a null parent cell
+is skipped instead of read as exterior, and an auto-donned mask saved before a load is still removed after it.
+**Hotkeys.** INI values accept decimal or 0x-hex, invalid values are logged and disabled, mouse buttons/Shift/Esc/F8 are
+rejected, a duplicate disables both keys, and the keys only fire while the game window is foreground with no blocking
+menu open. **Interior rain.** A roofless-interior whitelist is proposed in the code-notes with the FO4IDE-verified
+`ConcordMuseum01` cell; it is not implemented until the lead approves the table. Nothing here was played in game.
+
+## 2026-10-28: gas-mask overlay, auto-don and hotkey fixes
+
+**Power-armor overlay.** The Prisma visor overlay is now hidden while a power-armor helmet is worn
+(any ArmorTypePower piece that fills the helmet slot, frame or full suit), because the PA HUD replaces
+it; the debug `mask:on` override still forces it and the real worn state still drives foley, filter and
+choking. **HUD-safe visor art.** `radhud.css` masks `#maskOverlay` and `#visorFog` with a centre-clear
+radial gradient, so the vanilla message area, XP bar and loot/prompt readouts stay readable; the
+assumption is stated in the code-notes and `tests/status_hud_tests.js` asserts the rule. **Auto-don.**
+The mod no longer dons a mask just because the sky switched to rad weather: interiors, shelter, a
+powered shelter and a sealed suit no longer count as exposure, the mask is donned only when exposure
+starts and removed only if we equipped it, so manual unequip while exposed is respected. **Hotkeys.**
+`ReplaceKey`/`RepairKey` are validated (F8 and duplicates rejected with a log line) and re-read when
+the debug menu opens, so an INI edit applies without a restart; there is still no in-game rebinding
+screen. The keys consume only our own filter/repair items, which is why another mask mod's mask and
+filters do nothing on those keys - documented in the code-notes, not changed.
+
+## 2026-10-28: tester follow-up audit (penalties, interior rain, not-ours items)
+
+**Penalties.** Verified with FO4IDE that the hunger/thirst/sleep penalty spells modify only CarryWeight,
+ActionPoints and HealRateMult; the tester's SPECIAL drops are the radiation stage perks (END/STR in the
+plugin log), and leaving vanilla Survival clears our penalty spells through `ClearAllPenalties`. Vanilla
+`HC_*` spells left on a save moved off Survival are vanilla state we do not touch. **Interior rain.**
+Interior precipitation is zero by design and the tester log shows no rainy interior ticks; a whitelist of
+roofless interiors is a documented follow-up, not changed without FO4IDE-verified cell data. **Not ours.**
+Bullet weight and the power-armor harness/vest carry weight come from Fallen World's
+`FWHardcore_Weapons/CarryWeight/Difficulty` plugins: our source never touches ammo weight, and our
+CarryWeight writes are additive actor-value modifiers that cannot cancel another effect's bonus.
+
+
+## 2026-10-28: hunger/thirst relief confirmed by the engine's item-removal event
+
+**Food and drink now relieve the Rad survival pools.** The quest script used to arm a candidate on
+`Actor.OnItemEquipped` with `GetItemCount` and confirm on a later tick by watching the count fall.
+That is timing-dependent: if the engine consumes the aid item before the Papyrus event is delivered,
+the armed count is already the post-consumption count and relief never fires - which matches the
+tester's "eating and drinking never change hunger/thirst". Relief now runs on `ObjectReference.OnItemRemoved`
+(registered remotely with `AddInventoryEventFilter(None)`), only when the destination container is
+None and an `OnItemEquipped` for the same form arrived within 2 s, so exactly one credit is given per
+confirmed consumption whichever event arrives first, and a drop or a failed equip cannot credit
+anything. `Debug.Trace` now writes `consume-arm equip`, `consume-confirm remove` and `consume-apply`
+so the next Papyrus.0.log proves the path. The keyword classifier was also cached (no more five
+`GetFormFromFile` calls per event). Coverage against the tester's `FWHardcore_Food.esp`: 113 of 123
+ALCH records carry a covered keyword; two drinks that carry only the vanilla
+`HC_SustenanceType_QuenchesThirst` keyword are still not credited because the script must not read
+`HC_*` forms (owner decision). Not played in game.
+
+## 2026-10-28: empty bottles fill at water sources (build-verified only)
+
+**Empty bottles at water sources.** Sneak-activating a drinking water source while holding an empty
+bottle now consumes one bottle and adds one water item, through a native `TESActivateEvent` sink that
+runs independently of the vanilla `HC_*` Survival path - no `HC_*` record is read or written, and the
+activated source's `spellOnDrink` is never consulted. Built-in tables cover the 26 vanilla empty-bottle
+items and the ten vanilla/DLC drinking activators, plus the `AnimFurnWaterPump` keyword for mod-added
+pumps. **Output rule: Dirty Water everywhere except inside the maintained Vault 81 cells (`Vault81`,
+`Vault81Entry`), which give Purified Water.** The decision uses only the player's current parent cell
+- the activated source's type and `spellOnDrink` are never consulted. Everything outside those two
+cells is therefore dirty: the other vaults (75, 95, 111, 114, 118, 88, the Vault-Tec Workshop and
+DLC03 vaults), the Vault-Tec lab (`Vault81Secret`), the Vault 81 holding cell and the Vault 81
+exterior. Settlement pumps and sinks, DLC and vault fountains and the irradiated
+`Vault_WaterFountain01_Rads` follow the same cell-only rule - the source type never decides by itself.
+The clean check keys on the parent cell, never on the location, because `Vault81Ext` shares
+`Vault81Location`; anything unresolved or exterior reads as dirty, and the code never fails open to
+clean. Every fill shows a HUD message, so a consumed bottle is never silent, and a bottle the engine
+refuses to remove produces no water.
+`[Water] RequireModifier=1` (default) requires sneaking: a normal activation just drinks and never
+consumes a bottle. `[Water] Enabled=1` controls the feature and the default
+`SkipWhenVanillaSurvival=1` leaves filling to vanilla in Survival difficulty, so a bottle is never
+filled twice; on Very Hard the vanilla perk does not fill, so this hook is the only filler there. The
+hook builds and its policy unit test runs, but it has not been played in game yet, and whether the
+activate event fires once or twice when entering/exiting pump furniture is unverified.
+Follow-ups on the same feature: the same-target debounce is stamped only after a confirmed fill, so a
+refused removal does not arm it; the clean-water wording now states that only `Vault81` and
+`Vault81Entry` are maintained cells (the lab, holding cell and exterior are dirty); and the sneak gate
+is called out as deliberately different from vanilla Survival, which fills a bottle on a plain
+activation without sneaking.
+
+## 2026-10-28: bounded RadStormFX shake burst
+
+**RadStormFX shake burst.** `_StartShake` looped `While (_shaking)` and only `_StopShake` cleared the
+flag, so after `BurstSteps` iterations the magnitude went negative and the rumble timer never started.
+The loop is now bounded by `I < BurstSteps`, which lets the existing `If (_shaking) StartTimer(...)`
+run. `DebugNotify` now defaults to false so the on-screen `[StormFX]` spam stops. This repairs the
+script only: the Papyrus shake has never run on any save (`SetStage` fails - see `docs/ISSUES_FIXED.md`),
+and the native `NativeShakeCamera` path is what actually shakes the camera.
 
 ## 2026-07-19: black storm dome FIXED (confirmed in-game); storm siren logging + debug lead
 

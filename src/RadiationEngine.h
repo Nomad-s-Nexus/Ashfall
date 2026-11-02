@@ -125,12 +125,16 @@ public:
     void DebugLockWeather();
     void KeepPlayerAlive();
     void DebugFixSpecial();                           // FULL reset: clear temp modifiers on all 7 SPECIALs (button)
-    void DispelNegativeSpecials();                    // auto-heal any SPECIAL driven below 1 (corruption / foreign mods)
+    void WantedTissuePenalties(float (&a_out)[4]) const;
+    void RepairLeakedCarryWeight();
+    void DispelNegativeSpecials();
     // Called from the PrismaUI JS listener (Ultralight thread). It ONLY enqueues the command;
     // the actual engine work runs on the main thread in Update() via DispatchDebugCommand,
     // because engine calls (weather/VM/spawns) crash if made off the main thread.
     void HandleDebugCommand(const char* action);
     [[nodiscard]] bool StormGhoulsEnabled() const noexcept { return _stormGhoulsEnabled; }
+    [[nodiscard]] int FilterReplaceKey() const noexcept { return _filterReplaceKey; }
+    [[nodiscard]] int ConditionRepairKey() const noexcept { return _conditionRepairKey; }
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();
@@ -286,6 +290,10 @@ private:
     bool            _stormsEnabled     = true;      // [Storm] Enabled (0 = no managed storms at all)
     float           _stormMinRealMin   = 35.0f;     // [Storm] MinMinutes
     float           _stormMaxRealMin   = 90.0f;     // [Storm] MaxMinutes
+    float           _stormGapAppliedMin = 0.0f;
+    float           _stormGapAppliedMax = 0.0f;
+    std::uint16_t   _stormBedApplied   = 0xFFFF;
+    std::uint16_t   _ambientBedApplied = 0xFFFF;
     double          _vanillaRadstormGapSec = 60.0 * 60.0;  // [Storm] VanillaRadstormGapMinutes
     int             _domeLeadTicks     = 3 * 60 * 4; // [Storm] DomeLeadMinutes — silent dome-only lead before the alarm (default 3 min)
     // Debug-only lead override, consumed by the next BeginStorm. -1 = use _domeLeadTicks. A forced
@@ -326,6 +334,7 @@ private:
     void BeginStorm(int typeIndex);    // start the dome-only APPROACH lead for a storm type
     void EnterWarningPhase();          // APPROACH lead elapsed -> alarm + alert + dust roll-in + Warning
     void EnterStormPhase(StormPhase phase, int durationTicks);
+    void EffectiveStormGap(float& a_min, float& a_max) const;
     void ScheduleNextStorm();          // pick the next storm's game-time
     float GameDays() const;            // current GameDaysPassed (0 if unavailable)
     int  RollStormType() const;        // weighted random index into kStormTypes
@@ -336,6 +345,8 @@ private:
     // torso, both arms, both legs — any single missing piece is OK; missing 2+ is "not a full suit").
     // A full suit fully blocks rad gain AND storm HP damage.
     bool IsPlayerInPowerArmor() const;
+    bool PlayerInFirstPersonView() const;
+    bool PlayerWearsPowerArmorHelmet() const;
     bool IsActorInPowerArmor(RE::Actor* actor) const;   // PA scan: requires a FULL suit — helmet + 6 distinct ArmorTypePower pieces
     RE::BGSKeyword* _armorTypePowerKeyword = nullptr;   // Fallout4.esm 0x4D8A1 — marks PA armor pieces
     // Gas-mask detection requires the FARO_GasMask keyword and the MOUTH biped slot. The generic
@@ -364,6 +375,9 @@ private:
     void EquipNearbyNpcMasks(bool equip);                              // mask/unmask high-process NPCs
     RE::BGSListForm* _radWeatherList = nullptr;                    // ESL 0x802 — weathers that count as "rad"
     int  _wasInRadWeather   = -1;       // -1 = just loaded (sync silently), 0 = no, 1 = yes
+    int  _wasRadExposed     = -1;
+    int  _radExposedCandidate = -1;
+    int  _radExposedStreak    = 0;
     std::uint32_t _lastRadWeatherFormID = 0;
     bool _autoMaskEquipped  = false;    // we auto-donned the PLAYER's mask (so we may auto-remove it)
     int  _npcMaskScanTick   = 0;        // throttle countdown for the mid-storm NPC re-scan
@@ -382,7 +396,10 @@ private:
     int   _filterLowWarned   = 0;       // 0 none / 1 low(<=20) / 2 depleted — reset on refill
     int   _filterSparesCache = 0;       // cached count of the filter item (HUD "xN filters" text only)
     int   _filterCountTick   = 0;       // throttle countdown for refreshing _filterSparesCache
+    bool  _filterEnabled     = true;
     void  LoadFilterIni();              // read the [Filter] + [Condition] INI sections
+    void  ApplyTuning();
+    void  ReloadHotkeysFromIni();
     void  LoadMaskConfig();             // read the [Masks] INI section (extra keywords / listed armors)
     void  ReplaceFilter(bool silent);   // consume one filter item -> charge 100
     int   FilterItemCount() const;      // count of the filter item in the player's inventory
@@ -409,7 +426,7 @@ private:
     bool  _chokeSounds       = true;    // [Choking] Sounds
     int   _chokeSoundTick    = 0;       // countdown to the next choking one-shot
     bool  _chokeNotified     = false;   // one notify per exposure episode
-    int   _chokeTicks        = 0;       // consecutive choking ticks (grace: no VO/notify for ~2s
+    int   _chokeTicks        = 0;
                                         // so the rad-weather auto-equip can mask up without a gasp)
     int   _chokeCalmTicks    = 0;       // consecutive safe ticks (hysteresis: cover-edge flicker
                                         // must stay safe ~10s before the notify/VO re-arm)
@@ -429,7 +446,7 @@ private:
     void ApplyStormExposure();         // per-tick rads + HP damage from the active storm
     void UpdateAmbientAudio();         // per-tick: storm bed (by current weather) + general exterior bed
     void EnsureBed(RE::BSSoundHandle& handle, const char*& curPath,
-                   const char* wantPath, std::uint16_t atten);  // (re)loop/switch/stop a looping bed
+                   const char* wantPath, std::uint16_t atten, std::uint16_t& applied);
     void UpdateStormFXVisibility();    // show/hide the storm dome + IMAD by player shelter state (no fog indoors)
     void ApplyStormPeakToNPCs();       // storm peak: heal exterior ghoul NPCs, protect all others
     bool IsGhoulActor(RE::Actor* a) const;  // true if the actor's race carries ActorTypeGhoul
@@ -609,6 +626,7 @@ private:
     float _appliedHealPen  = 0.0f;   // current healRateMult penalty (failing regeneration)
     float _appliedSpeedPen = 0.0f;   // current speedMult penalty (sluggish, high tissue only)
     float _appliedApPen    = 0.0f;   // current actionPoints penalty (fatigue, high tissue only)
+    bool  _penaltiesFromSave = false;
     int   _symptomTick     = 0;      // throttle to the next cough / nausea / vomiting fit
     int   _symptomWarned   = 0;      // 0 none / 1 nausea / 2 vomiting — one notify per escalation
 };

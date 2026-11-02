@@ -3,6 +3,7 @@
 #include "RadLifecycleDispatch.h"
 #include "Hooks.h"
 #include "RadMaskOwnership.h"
+#include "RadNeedsTuning.h"
 
 using namespace RadInternal;
 
@@ -202,6 +203,12 @@ RE::TESObjectARMO* RadiationEngine::GetWornMask() const
 
 
 bool RadiationEngine::IsWearingGasMask() const { return GetWornMask() != nullptr; }
+
+
+bool RadiationEngine::PlayerWearsPowerArmorHelmet() const
+{
+    return WearsPowerArmorHelmet(RE::PlayerCharacter::GetSingleton(), _armorTypePowerKeyword);
+}
 
 
 // First owned recognized gas mask in an actor's inventory, worn or not — used to auto-don a mask in
@@ -475,12 +482,45 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 
 // ----------------------------------------------------------------------------- gas-mask filter
 // Read the [Filter] section of the mod INI (same file the HUD uses). All tuneable without a rebuild.
+// Constraint: the keybinds are re-read here so an INI edit applies when the debug menu is next opened.
+void RadiationEngine::ReloadHotkeysFromIni()
+{
+    constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+    char replaceText[32]{};
+    char repairText[32]{};
+    ::GetPrivateProfileStringA("Filter", "ReplaceKey", "", replaceText, sizeof(replaceText), kIni);
+    ::GetPrivateProfileStringA("Condition", "RepairKey", "", repairText, sizeof(repairText), kIni);
+
+    // Constraint: an empty value means disabled; a non-empty value must be decimal or 0x-hex.
+    int replace = 0;
+    int repair = 0;
+    const bool replaceParsed = replaceText[0] == '\0' || RadCorrectnessPolicy::ParseHotkey(replaceText, replace);
+    const bool repairParsed = repairText[0] == '\0' || RadCorrectnessPolicy::ParseHotkey(repairText, repair);
+    if (!replaceParsed)
+        Log()->warn("[Input] ReplaceKey \"{}\" is not a decimal or 0x-hex key code; replace hotkey disabled.", replaceText);
+    if (!repairParsed)
+        Log()->warn("[Input] RepairKey \"{}\" is not a decimal or 0x-hex key code; repair hotkey disabled.", repairText);
+
+    const auto validated = RadCorrectnessPolicy::ValidateHotkeyPair(
+        replaceParsed ? replace : 0, repairParsed ? repair : 0);
+    if (validated.replaceRejected)
+        Log()->warn("[Input] ReplaceKey 0x{:X} rejected (mouse button, Shift/Esc, F8, or an invalid code); replace hotkey disabled.", replace);
+    if (validated.repairRejected)
+        Log()->warn("[Input] RepairKey 0x{:X} rejected (mouse button, Shift/Esc, F8, or an invalid code); repair hotkey disabled.", repair);
+    if (validated.duplicateRejected)
+        Log()->warn("[Input] ReplaceKey and RepairKey are both 0x{:X}; both mask hotkeys disabled so load order cannot decide.", replace);
+    if (validated.replace != _filterReplaceKey || validated.repair != _conditionRepairKey)
+        Log()->info("[Input] mask hotkeys reloaded: replace=0x{:X}, repair=0x{:X}.", validated.replace, validated.repair);
+    _filterReplaceKey = validated.replace;
+    _conditionRepairKey = validated.repair;
+}
+
+
 void RadiationEngine::LoadFilterIni()
 {
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
     _filterDurationSec = ::GetPrivateProfileIntA("Filter", "DurationSeconds", 300, kIni);
     if (_filterDurationSec < 1) _filterDurationSec = 1;
-    _filterReplaceKey  = ::GetPrivateProfileIntA("Filter", "ReplaceKey", 0, kIni);   // VK code; 0 = off
     _filterAutoReplace = ::GetPrivateProfileIntA("Filter", "AutoReplace", 0, kIni) != 0;
     {
         char b[16];
@@ -489,7 +529,6 @@ void RadiationEngine::LoadFilterIni()
     }
     // [Condition] — mask durability.
     _conditionEnabled    = ::GetPrivateProfileIntA("Condition", "Enabled", 1, kIni) != 0;
-    _conditionRepairKey  = ::GetPrivateProfileIntA("Condition", "RepairKey", 0, kIni);
     _conditionAutoRepair = ::GetPrivateProfileIntA("Condition", "AutoRepair", 0, kIni) != 0;
     {
         char b[16];
@@ -542,7 +581,9 @@ void RadiationEngine::LoadFilterIni()
         _domeLeadTicks = static_cast<int>(leadMin * 60.0f * 4.0f);
     }
 
+    ReloadHotkeysFromIni();
     LoadMaskConfig();
+    ApplyTuning();
 
     Log()->info(
         "[Filter] duration={}s, replaceKey=0x{:X}, autoReplace={}, choke={:.1f}/s | "
@@ -555,6 +596,60 @@ void RadiationEngine::LoadFilterIni()
         _chokingEnabled, _chokeHealthPerSec, _chokeFailedFactor, _chokeSounds,
         _ambientEnabled, _ambientAtten, _stormBedAtten,
         _stormsEnabled, _stormMinRealMin, _stormMaxRealMin, _vanillaRadstormGapSec / 60.0);
+}
+
+
+void RadiationEngine::ApplyTuning()
+{
+    using RadNeedsTuningPolicy::Key;
+    const auto value = [](Key a_key, float a_current) { return RadNeedsTuning::Value(a_key, a_current); };
+    const auto flag = [](Key a_key, bool a_current) { return RadNeedsTuning::On(a_key, a_current); };
+
+    _filterEnabled = flag(Key::kFilterEnabled, true);
+    _filterDurationSec = std::max(1, static_cast<int>(value(Key::kFilterDuration, static_cast<float>(_filterDurationSec))));
+    _filterChokeRads = value(Key::kFilterChokeRads, _filterChokeRads);
+    _filterAutoReplace = flag(Key::kFilterAutoReplace, _filterAutoReplace);
+    _conditionEnabled = flag(Key::kConditionEnabled, _conditionEnabled);
+    _conditionHitDamage = value(Key::kConditionDamage, _conditionHitDamage);
+    _conditionAutoRepair = flag(Key::kConditionAutoRepair, _conditionAutoRepair);
+    _chokingEnabled = flag(Key::kChokingEnabled, _chokingEnabled);
+    _chokeHealthPerSec = value(Key::kChokeHealthPerSec, _chokeHealthPerSec);
+    _chokeFailedFactor = value(Key::kChokeFailedFactor, _chokeFailedFactor);
+    _chokeSounds = flag(Key::kChokeSounds, _chokeSounds);
+    _ambientEnabled = flag(Key::kAmbientEnabled, _ambientEnabled);
+    if (const float volume = value(Key::kAmbientVolume, -1.0f); volume >= 0.0f)
+        _ambientAtten = static_cast<std::uint16_t>((100 - std::clamp(static_cast<int>(volume), 0, 100)) * 30);
+    if (const float volume = value(Key::kStormVolume, -1.0f); volume >= 0.0f)
+        _stormBedAtten = static_cast<std::uint16_t>((100 - std::clamp(static_cast<int>(volume), 0, 100)) * 30);
+    _stormsEnabled = flag(Key::kStormsEnabled, _stormsEnabled);
+
+    float gapMin = 0.0f, gapMax = 0.0f;
+    EffectiveStormGap(gapMin, gapMax);
+    if (_stormGapAppliedMin > 0.0f && (gapMin != _stormGapAppliedMin || gapMax != _stormGapAppliedMax))
+        _stormScheduled = false;   // Constraint: a moved gap slider redraws the pending storm; the first apply keeps a loaded schedule.
+    _stormGapAppliedMin = gapMin;
+    _stormGapAppliedMax = gapMax;
+
+    using RadNeedsTuning::SetLive;
+    const auto live = [](bool a_on) { return a_on ? 1.0f : 0.0f; };
+    const auto percent = [](std::uint16_t a_atten) { return 100.0f - static_cast<float>(a_atten) / 30.0f; };
+    SetLive(Key::kFilterEnabled, live(_filterEnabled));
+    SetLive(Key::kFilterDuration, static_cast<float>(_filterDurationSec));
+    SetLive(Key::kFilterChokeRads, _filterChokeRads);
+    SetLive(Key::kFilterAutoReplace, live(_filterAutoReplace));
+    SetLive(Key::kConditionEnabled, live(_conditionEnabled));
+    SetLive(Key::kConditionDamage, _conditionHitDamage);
+    SetLive(Key::kConditionAutoRepair, live(_conditionAutoRepair));
+    SetLive(Key::kChokingEnabled, live(_chokingEnabled));
+    SetLive(Key::kChokeHealthPerSec, _chokeHealthPerSec);
+    SetLive(Key::kChokeFailedFactor, _chokeFailedFactor);
+    SetLive(Key::kChokeSounds, live(_chokeSounds));
+    SetLive(Key::kAmbientEnabled, live(_ambientEnabled));
+    SetLive(Key::kAmbientVolume, percent(_ambientAtten));
+    SetLive(Key::kStormVolume, percent(_stormBedAtten));
+    SetLive(Key::kStormsEnabled, live(_stormsEnabled));
+    SetLive(Key::kStormMinMinutes, gapMin);
+    SetLive(Key::kStormMaxMinutes, gapMax);
 }
 
 
@@ -609,12 +704,20 @@ int RadiationEngine::FilterItemCount() const
 // Consume one filter from the player's inventory and refill the charge to 100%.
 void RadiationEngine::ReplaceFilter(bool silent)
 {
-    if (!_filterItem) return;
+    if (!_filterItem || !_filterEnabled) return;
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
+    if (!GetWornMask())
+    {
+        Log()->info("[Filter] replace refused: no recognised gas mask worn.");
+        if (!silent) Notify("[Mask] No recognised gas mask equipped.", true);
+        return;
+    }
+
     if (FilterItemCount() <= 0)
     {
+        Log()->info("[Filter] replace refused: no spare filters in the inventory.");
         if (!silent) Notify("[Mask] No spare filters.", true);
         return;
     }
@@ -679,8 +782,16 @@ void RadiationEngine::RepairMask(bool silent)
     auto* player = RE::PlayerCharacter::GetSingleton();
     if (!player) return;
 
+    if (!GetWornMask())
+    {
+        Log()->info("[Condition] repair refused: no recognised gas mask worn.");
+        if (!silent) Notify("[Mask] No recognised gas mask equipped.", true);
+        return;
+    }
+
     if (RepairKitCount() <= 0)
     {
+        Log()->info("[Condition] repair refused: no repair kits in the inventory.");
         if (!silent) Notify("[Mask] No repair kits.", true);
         return;
     }

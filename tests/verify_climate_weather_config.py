@@ -24,6 +24,9 @@ for token in (
     "raw < 0.0 || raw > 100.0",
     "static_cast<float>(raw / 100.0)",
     "weather flags remain authoritative",
+    "rooflessInteriorCells",
+    "ParseCellEntry",
+    "IsInterior()",
 ):
     assert token in loader, f"weather config contract missing: {token}"
 
@@ -31,6 +34,8 @@ for token in (
     "std::optional<Profile> Override",
     "std::unordered_map<std::uint32_t, Profile> _overrides",
     "std::optional<float> precipitation01",
+    "IsRooflessInterior",
+    "std::unordered_set<std::uint32_t>          _rooflessInteriorCells",
 ):
     assert token in header, f"weather config header contract missing: {token}"
 
@@ -43,12 +48,13 @@ for token in (
 for token in (
     "_weatherConfig.Load(\"Data/F4SE/Plugins/FalloutAnomaly/climate_weather.json\")",
     "_weatherConfig.Override(weather->GetFormID())",
-    "environment.precipitation01 = *weatherOverride->precipitation01;",
+    "float exteriorPrecipitation01 = RadClimateEnvironmentPolicy::PrecipitationIntensity01(exteriorWeatherClass);",
+    "RadClimatePolicy::PrecipitationFor(",
     "environment.ambientC += weatherOverride->temperatureOffsetC;",
 ):
     assert token in runtime, f"weather runtime application missing: {token}"
 
-for token in ("json root", "json::", "file >> root", "nlohmann::json"):
+for token in ("json root", "json::", "file >> root", "nlohmann::json", "rooflessInteriorCells"):
     assert token not in runtime, f"weather JSON parsing must remain outside the 4 Hz runtime: {token}"
 
 for token in (

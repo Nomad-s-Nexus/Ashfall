@@ -1,8 +1,11 @@
 #pragma once
 
+#include "RadIniParse.h"
+
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <string_view>
 
 namespace RadCorrectnessPolicy
 {
@@ -112,6 +115,123 @@ namespace RadCorrectnessPolicy
     constexpr bool IsRadShieldedMask(bool fillsMouth, bool radResistant)
     {
         return fillsMouth && radResistant;
+    }
+
+    // Constraint: the power-armor HUD replaces the visor overlay, so a worn PA helmet hides it; a debug override wins.
+    // Constraint: the visor is the wearer's own view, so any non-first-person camera hides it.
+    constexpr bool MaskOverlayVisible(int a_debugOverride, bool a_wornMask, bool a_powerArmorHelmet, bool a_firstPerson)
+    {
+        if (a_debugOverride == 1)
+            return true;
+        if (a_debugOverride == 0)
+            return false;
+        return a_wornMask && !a_powerArmorHelmet && a_firstPerson;
+    }
+
+    // Constraint: an interior, a sheltered spot, a powered shelter and a sealed suit are not rad-weather exposure.
+    constexpr bool RadWeatherExposed(
+        bool a_inRadWeather,
+        bool a_interior,
+        bool a_sheltered,
+        bool a_poweredShelter,
+        bool a_powerArmor)
+    {
+        return a_inRadWeather && !a_interior && !a_sheltered && !a_poweredShelter && !a_powerArmor;
+    }
+
+    // Constraint: the auto-don needs 3 s of stable exposure at the 4 Hz update rate.
+    inline constexpr int kAutoMaskStableTicks = 12;
+
+    // Constraint: the choke warning waits one tick past the auto-don so a masked player never hears a spurious gasp.
+    inline constexpr int kChokeGraceTicks = kAutoMaskStableTicks + 1;
+
+    // Constraint: the auto-don needs a stable exposure reading, so a doorway or roof edge cannot flap the mask.
+    struct AutoMaskStep
+    {
+        bool equip;
+        bool remove;
+        int  applied;
+        int  candidate;
+        int  streak;
+    };
+
+    constexpr AutoMaskStep StepAutoMask(
+        int  a_applied,
+        int  a_candidate,
+        int  a_streak,
+        bool a_exposedNow,
+        int  a_requiredStableTicks)
+    {
+        const int sample = a_exposedNow ? 1 : 0;
+        if (a_applied < 0)
+            return { false, false, sample, sample, 0 };
+        int candidate = a_candidate;
+        int streak = a_streak;
+        if (candidate == sample)
+            ++streak;
+        else
+        {
+            candidate = sample;
+            streak = 1;
+        }
+        if (streak < a_requiredStableTicks || candidate == a_applied)
+            return { false, false, a_applied, candidate, streak };
+        return { candidate == 1, candidate == 0, candidate, candidate, 0 };
+    }
+
+    // Constraint: an INI hotkey accepts decimal or 0x-hex with an optional trailing "; comment"; 0 disables it, a leading '+', negatives and junk are rejected.
+    inline bool ParseHotkey(std::string_view a_text, int& a_out)
+    {
+        a_text = a_text.substr(0, a_text.find(';'));
+        std::uint32_t value = 0;
+        if (!RadIniParse::ParseNumber(a_text, 0xFFF, value))
+            return false;
+        a_out = static_cast<int>(value);
+        return true;
+    }
+
+    // Constraint: F8 is the debug menu key, mouse buttons and Shift/Esc are never mask keys, 0 disables one.
+    constexpr bool IsUsableHotkey(int a_key)
+    {
+        if (a_key == 0)
+            return true;
+        if (a_key < 1 || a_key > 0xFF)
+            return false;
+        if (a_key <= 6)
+            return false;
+        return a_key != 0x10 && a_key != 0x1B && a_key != 0x77 && a_key != 0xA0 && a_key != 0xA1;
+    }
+
+    struct HotkeyPair
+    {
+        int  replace;
+        int  repair;
+        bool replaceRejected;
+        bool repairRejected;
+        bool duplicateRejected;
+    };
+
+    // Constraint: a rejected key disables only its action, but a duplicate disables both so load order never decides.
+    constexpr HotkeyPair ValidateHotkeyPair(int a_replace, int a_repair)
+    {
+        HotkeyPair result{ a_replace, a_repair, false, false, false };
+        if (!IsUsableHotkey(a_replace))
+        {
+            result.replace = 0;
+            result.replaceRejected = true;
+        }
+        if (!IsUsableHotkey(a_repair))
+        {
+            result.repair = 0;
+            result.repairRejected = true;
+        }
+        if (result.replace != 0 && result.replace == result.repair)
+        {
+            result.replace = 0;
+            result.repair = 0;
+            result.duplicateRejected = true;
+        }
+        return result;
     }
 
     enum class CureSignal

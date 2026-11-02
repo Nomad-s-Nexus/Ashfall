@@ -15,6 +15,8 @@ class ClimateShelterRuntime
 public:
     void Reset() noexcept;
     [[nodiscard]] RadClimateShelterPolicy::Factors Sample(RE::PlayerCharacter* player);
+    // Constraint: a listed roofless interior keeps indoor thermal shelter but samples rain cover from the roof raycast.
+    [[nodiscard]] RadClimateShelterPolicy::Factors SampleRooflessInterior(RE::PlayerCharacter* player, RE::TESObjectCELL* cell);
     [[nodiscard]] bool LastRoofed() const noexcept { return _lastRoofed; }
 
 private:
@@ -27,4 +29,5 @@ private:
     float _lastZ{ 0.0f };
     bool _lastRoofed{ false };
     bool _roofStateKnown{ false };
+    bool _lastProbeRoofless{ false };
 };

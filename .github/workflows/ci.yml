@@ -69,9 +69,12 @@ jobs:
             'verify_rad_shelter_cache.py',
             'verify_rad_stack_integration.py',
             'verify_survival.py',
+            'verify_survival_consumption.py',
+            'verify_climate_roofless.py',
             'verify_survival_diseases.py',
             'verify_survival_menu.py',
             'verify_needs_globals.py',
+            'verify_needs_tuning.py',
             'verify_av_ownership.py',
             'verify_papyrus_pex.py'
           )
@@ -133,6 +136,7 @@ jobs:
             'climate_weather_policy_tests',
             'climate_wetness_policy_tests',
             'needs_policy_tests',
+            'needs_tuning_policy_tests',
             'needs_trace_policy_tests',
             'serialization_policy_tests'
           )

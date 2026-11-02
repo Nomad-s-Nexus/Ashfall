@@ -4,6 +4,30 @@
   "sourceRoot": "deploy/Scripts/Source/User",
   "scripts": [
     {
+      "script": "RadMaskViewFX",
+      "source": "deploy/Scripts/Source/User/RadMaskViewFX.psc",
+      "sourceSha256": "b412ecce6847fcfb18f64187705ee113b78f1ce983e5b4f1cc3d0392eb176678",
+      "pex": "deploy/Scripts/RadMaskViewFX.pex",
+      "pexSha256": "490e2f5f74eae009e4eb0a74732fd205c1c5b8e7ad98983fcdfe3364a7cff030",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadMaskViewFX.psc"
+    },
+    {
+      "script": "RadNatives",
+      "source": "deploy/Scripts/Source/User/RadNatives.psc",
+      "sourceSha256": "2449331b4449afabd2792c53ba5577fadf5ffec188d4433f7791d4c08b755ed8",
+      "pex": "deploy/Scripts/RadNatives.pex",
+      "pexSha256": "86b85e9451173ebedc6f2facd029cca5653539c482772a41531556b96fe874c8",
+      "recordedSource": "E:\\pr42-compile\\src\\RadNatives.psc"
+    },
+    {
+      "script": "RadOutbreakEffect",
+      "source": "deploy/Scripts/Source/User/RadOutbreakEffect.psc",
+      "sourceSha256": "11fadd720ac1ceb55dd799e21a68353fcf2017e7a13d4e1d9eb27120ee7cd149",
+      "pex": "deploy/Scripts/RadOutbreakEffect.pex",
+      "pexSha256": "580e243ddb0248c8648a7bf206925d1fc4bdc98820a520f998a5ad9e3bdc39db",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadOutbreakEffect.psc"
+    },
+    {
       "script": "RadShowcase",
       "source": "deploy/Scripts/Source/User/RadShowcase.psc",
       "sourceSha256": "55d9738ec3328c9f590b9119131ca22b0810d632db66a0abaae002074a17b30a",
@@ -14,26 +38,26 @@
     {
       "script": "RadStormFX",
       "source": "deploy/Scripts/Source/User/RadStormFX.psc",
-      "sourceSha256": "599971c5017244aa6438244d3ba9788fd9dadac9612e490378d04cf21dc62f69",
+      "sourceSha256": "f3d8c57327e768c8643703e82443caa02f032921c0238bacb58309e46fb3e7a4",
       "pex": "deploy/Scripts/RadStormFX.pex",
-      "pexSha256": "87f8fb88f53987c67f49bc971ab6d4acb8d3bf39f1838d8c1ddf380fd2f50a18",
-      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadStormFX.psc"
+      "pexSha256": "49c52db41e0cdde51d9ce982868980c690a74104f4641f97b575f5f75531d5d8",
+      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\Rad-Overhaul-Fallout-4\\.claude\\worktrees\\mod-script-errors-water-bottles-9548d1\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadStormFX.psc"
     },
     {
       "script": "RadSurvivalDiseases",
       "source": "deploy/Scripts/Source/User/RadSurvivalDiseases.psc",
-      "sourceSha256": "a9ee505de830c1cdc6733020f1b31b5d3966905a35146b37e3c9624593663af1",
+      "sourceSha256": "f18ffb8cb30a304d7aec87091763d499217d0ea4b2347dbc14bde216c5b1fa6e",
       "pex": "deploy/Scripts/RadSurvivalDiseases.pex",
-      "pexSha256": "9402581ebbec306197f85928969802d4eddce09ce691e1ca3fc42198d0709c78",
-      "recordedSource": "E:\\Projects\\Forgejo\\LargePluginMods\\git\\rad-survival-vanilla\\Rad-Overhaul-Fallout-4\\deploy\\Scripts\\Source\\User\\RadSurvivalDiseases.psc"
+      "pexSha256": "68dbb464fb97380c2eafdb9a976b783f9dbe5241def5a6373cdb7b085a879219",
+      "recordedSource": "E:\\pr42-compile\\src\\RadSurvivalDiseases.psc"
     },
     {
       "script": "RadSurvivalQuest",
       "source": "deploy/Scripts/Source/User/RadSurvivalQuest.psc",
-      "sourceSha256": "5f41a96d808c49568abb4bdcb4ac56cf3ddf8ec393d14db3a5cd80066b43b8b2",
+      "sourceSha256": "913c87e21712e033779a616025a709ceed38821dc566708a6bfb5bd5f675b321",
       "pex": "deploy/Scripts/RadSurvivalQuest.pex",
-      "pexSha256": "e4c5b1a363cfcc1f854e083c13775fa911343138caa58a65f78951908a40ecf3",
-      "recordedSource": "E:\\pr77-compile\\src\\RadSurvivalQuest.psc"
+      "pexSha256": "5820c399aa75a48a28d071c6dc0716d9bf2e65727a2a8009310f764b6192ecde",
+      "recordedSource": "E:\\pr42-compile\\src\\RadSurvivalQuest.psc"
     }
   ]
 }

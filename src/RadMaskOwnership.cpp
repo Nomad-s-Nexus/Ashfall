@@ -8,6 +8,7 @@
 #include <RE/T/TESForm.h>
 
 #include <algorithm>
+#include <chrono>
 #include <mutex>
 #include <unordered_map>
 
@@ -17,6 +18,37 @@ namespace
     std::unordered_map<std::uint32_t, RadMaskOwnership::Entry> g_ownedMasks;
     bool g_sinkRegistered = false;
 
+    // Constraint: an unequip only forfeits ownership if no re-equip of the same mask follows within this window.
+    constexpr std::uint64_t kUnequipGraceMs = 2500;
+    std::unordered_map<std::uint32_t, std::uint64_t> g_pendingUnequip;
+
+    std::uint64_t NowMs()
+    {
+        return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+    }
+
+    // Constraint: caller holds g_mutex.
+    void PurgeIfForfeitedLocked(std::uint32_t actorFormID)
+    {
+        const auto pending = g_pendingUnequip.find(actorFormID);
+        if (pending == g_pendingUnequip.end() || NowMs() - pending->second < kUnequipGraceMs)
+            return;
+        g_pendingUnequip.erase(pending);
+        g_ownedMasks.erase(actorFormID);
+    }
+
+    void PurgeAllForfeitedLocked()
+    {
+        const auto now = NowMs();
+        std::erase_if(g_pendingUnequip, [now](const auto& pending) {
+            if (now - pending.second < kUnequipGraceMs)
+                return false;
+            g_ownedMasks.erase(pending.first);
+            return true;
+        });
+    }
+
     class EquipSink final : public RE::BSTEventSink<RE::ActorEquipManagerEvent::Event>
     {
     public:
@@ -24,16 +56,22 @@ namespace
             const RE::ActorEquipManagerEvent::Event& event,
             RE::BSTEventSource<RE::ActorEquipManagerEvent::Event>*) override
         {
-            if (event.changeType != RE::ActorEquipManagerEvent::Type::kUnequip ||
-                !event.actorAffected || !event.itemAffected || !event.itemAffected->object)
+            const bool unequip = event.changeType == RE::ActorEquipManagerEvent::Type::kUnequip;
+            const bool equip = event.changeType == RE::ActorEquipManagerEvent::Type::kEquip;
+            if ((!unequip && !equip) || !event.actorAffected || !event.itemAffected || !event.itemAffected->object)
                 return RE::BSEventNotifyControl::kContinue;
 
             const auto actorID = event.actorAffected->GetFormID();
             const auto maskID = event.itemAffected->object->GetFormID();
             std::scoped_lock lock(g_mutex);
+            PurgeIfForfeitedLocked(actorID);
             const auto it = g_ownedMasks.find(actorID);
-            if (it != g_ownedMasks.end() && it->second.maskFormID == maskID && !it->second.IsTemporary())
-                g_ownedMasks.erase(it);
+            if (it == g_ownedMasks.end() || it->second.maskFormID != maskID || it->second.IsTemporary())
+                return RE::BSEventNotifyControl::kContinue;
+            if (unequip)
+                g_pendingUnequip[actorID] = NowMs();
+            else
+                g_pendingUnequip.erase(actorID);
             return RE::BSEventNotifyControl::kContinue;
         }
     };
@@ -55,6 +93,7 @@ bool RadMaskOwnership::Claim(std::uint32_t actorFormID, std::uint32_t maskFormID
 {
     if (actorFormID == 0 || maskFormID == 0 || !Activate()) return false;
     std::scoped_lock lock(g_mutex);
+    g_pendingUnequip.erase(actorFormID);
     const auto it = g_ownedMasks.find(actorFormID);
     if (it != g_ownedMasks.end())
     {
@@ -88,6 +127,7 @@ bool RadMaskOwnership::ClaimTemporary(
 bool RadMaskOwnership::Owns(std::uint32_t actorFormID, std::uint32_t maskFormID)
 {
     std::scoped_lock lock(g_mutex);
+    PurgeIfForfeitedLocked(actorFormID);
     const auto it = g_ownedMasks.find(actorFormID);
     return it != g_ownedMasks.end() && it->second.maskFormID == maskFormID;
 }
@@ -95,6 +135,7 @@ bool RadMaskOwnership::Owns(std::uint32_t actorFormID, std::uint32_t maskFormID)
 std::optional<RadMaskOwnership::Entry> RadMaskOwnership::Lookup(std::uint32_t actorFormID)
 {
     std::scoped_lock lock(g_mutex);
+    PurgeIfForfeitedLocked(actorFormID);
     const auto it = g_ownedMasks.find(actorFormID);
     if (it == g_ownedMasks.end()) return std::nullopt;
     return it->second;
@@ -103,12 +144,14 @@ std::optional<RadMaskOwnership::Entry> RadMaskOwnership::Lookup(std::uint32_t ac
 void RadMaskOwnership::Release(std::uint32_t actorFormID)
 {
     std::scoped_lock lock(g_mutex);
+    g_pendingUnequip.erase(actorFormID);
     g_ownedMasks.erase(actorFormID);
 }
 
 std::vector<RadMaskOwnership::Entry> RadMaskOwnership::Snapshot()
 {
     std::scoped_lock lock(g_mutex);
+    PurgeAllForfeitedLocked();
     std::vector<Entry> logical;
     logical.reserve(g_ownedMasks.size());
     for (const auto& [actorFormID, entry] : g_ownedMasks)
@@ -195,6 +238,7 @@ bool RadMaskOwnership::Restore(const std::vector<Entry>& entries)
         restored.emplace(entry.actorFormID, entry);
     std::scoped_lock lock(g_mutex);
     g_ownedMasks = std::move(restored);
+    g_pendingUnequip.clear();
     return true;
 }
 
@@ -202,4 +246,5 @@ void RadMaskOwnership::Clear()
 {
     std::scoped_lock lock(g_mutex);
     g_ownedMasks.clear();
+    g_pendingUnequip.clear();
 }

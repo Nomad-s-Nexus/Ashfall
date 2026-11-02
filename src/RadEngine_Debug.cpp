@@ -1,4 +1,5 @@
 #include "RadEngine_Internal.h"
+#include "RadNeedsTuning.h"
 
 #include <RE/B/BSScriptUtil.h>
 #include <RE/G/GameScript.h>
@@ -253,6 +254,16 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
         char m[96];
         std::snprintf(m, sizeof(m), "[DEBUG] Storm ghoul spawn chance = %.0f%%.", percent);
         Notify(m, false);
+    }
+    else if (a.rfind("tune:", 0) == 0)
+    {
+        const auto command = std::string_view(a).substr(std::strlen("tune:"));
+        RadNeedsTuning::Handle(command);
+        if (command == "reset")
+            LoadFilterIni();
+        else
+            ApplyTuning();
+        RadHud::GetSingleton().PushNeedsTuning(RadNeedsTuning::Json());
     }
     else if (a == "god:on")               { _debugGod = true;  Notify("[DEBUG] God mode ON.",  false); }
     else if (a == "god:off")              { _debugGod = false; Notify("[DEBUG] God mode OFF.", false); }

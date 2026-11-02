@@ -1,4 +1,7 @@
 {
   "version": 1,
-  "weatherOverrides": []
+  "weatherOverrides": [],
+  "rooflessInteriorCells": [
+    "Fallout4.esm:0x017DF7"
+  ]
 }

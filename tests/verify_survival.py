@@ -129,12 +129,11 @@ check("Utility.GetCurrentGameTime" in code, "progression must use game time")
 check("GetDifficulty()" in code and "kVanillaSurvivalDifficulty" in code,
       "the vanilla-survival double-apply gate is missing")
 
-check("PendingForm" in code and "PendingCount" in code,
-      "consumption must be armed with a live form and an inventory count")
-check("GetItemCount(" in code, "consumption confirmation must read the player inventory count")
-check("ExpirePending(" in code, "an armed consumption candidate must expire")
+check("PairEquip(" in code and "PairRemove(" in code,
+      "consumption must pair the equip event with the engine's item-removal event; "
+      "the full contract is tests/verify_survival_consumption.py")
 check("Game.GetForm(" not in code,
-      "the pending form must stay a live reference, not be re-resolved by id")
+      "consumption must stay on live form references, not be re-resolved by id")
 
 for name in PROPERTY_NAMES:
     check(f"GlobalVariable Property {name} Auto" in code,
@@ -582,7 +581,7 @@ check("RiskPerRainHour" in weather_exposure, "rain must add the tuned hourly amo
 check(weather_exposure.count("AddRisk(") == 2,
       "both sky sources must go through the shared exposure rule, not their own pond")
 check("afHours" in weather_exposure, "sky exposure must scale with the elapsed interval")
-for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
+for guard in ("abActive", "DiseasesOn()", "DiseaseId > 0"):
     check(guard in weather_exposure, f"sky exposure must be gated by {guard}")
 rad_weather = function_body(disease_code, "bool Function IsRadWeather(Form akWeather)")
 check("RadWeatherForms" in rad_weather, "the rad weather set must be cached, not resolved per tick")
@@ -596,7 +595,7 @@ check("RadWeatherForms = resolved" in resolved_weather,
 check("resolved.Length == 0" in resolved_weather,
       "an empty resolve must not be cached, or a missing plugin is never retried")
 add_risk = function_body(disease_code, "Function AddRisk(float afAmount, bool abActive)")
-for guard in ("abActive", "DiseasesEnabled", "IsImmune(", "DiseaseId > 0"):
+for guard in ("abActive", "DiseasesOn()", "IsImmune(", "DiseaseId > 0"):
     check(guard in add_risk, f"exposure must be gated by {guard}")
 check("StartDisease(" in add_risk, "a pool filled by exposure must start an illness")
 check("MirrorRisk()" in add_risk, "exposure must refresh the risk mirror")
@@ -625,7 +624,7 @@ check("MirrorDisease()" in cure_body and "MirrorRisk()" in cure_body,
       "a cure must refresh both HUD mirrors")
 
 reconcile_body = function_body(disease_code, "Function Reconcile(bool abActive)")
-check("abActive" in reconcile_body and "DiseasesEnabled" in reconcile_body,
+check("abActive" in reconcile_body and "DiseasesOn()" in reconcile_body,
       "the disease ability must follow the layer gate and the enable switch")
 apply_body = function_body(disease_code, "Function ApplySpell(Spell akWanted)")
 check("AddSpell(" in apply_body and "RemoveSpell(" in apply_body,
@@ -672,10 +671,8 @@ check("Diseases.ConsumeItem(" in relief_body,
       "a confirmed consumption must reach the disease script")
 check("Diseases != None" in relief_body or "Diseases == None" in relief_body,
       "relief must survive a quest whose disease script is not bound")
-equip_body = function_body(
-    code, "Event Actor.OnItemEquipped(Actor akSender, Form akBaseObject, ObjectReference akReference)")
-check("IsCureItem(" in equip_body,
-      "the cure item must be armed for the count-drop confirmation like food")
+check("IsCureItem(" in function_body(code, "bool Function IsConsumable(Form akItem)"),
+      "the cure item must be classified as consumable by the shared rule")
 consume_body = function_body(disease_code, "Function ConsumeItem(Form akItem, int aiCount, bool abActive)")
 check("IsCureItem(" in consume_body, "a consumed item must be tested for the cure first")
 check("CureDisease()" in consume_body,
@@ -684,7 +681,7 @@ check("NotifyDisease(" in consume_body,
       "a cure taken while healthy must say so instead of vanishing silently")
 check("ExposureConsume(" in consume_body, "a consumed item must charge the taint exposure")
 taint_body = function_body(disease_code, "Function ExposureConsume(Form akItem, int aiCount, bool abActive)")
-for guard in ("abActive", "DiseasesEnabled", "DiseaseId > 0"):
+for guard in ("abActive", "DiseasesOn()", "DiseaseId > 0"):
     check(guard in taint_body, f"taint consumption must be gated by {guard}")
 check("AddRisk(" in taint_body, "taint must charge the pool through the shared exposure rule")
 check("CategoryRisk(" in taint_body, "the per-category amount must come from the tuning")

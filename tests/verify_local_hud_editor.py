@@ -19,7 +19,7 @@ main_html = (views / "radhud.html").read_text(encoding="utf-8")
 assert 'BindGameThreadUIEvent' not in rad_hud
 assert 'RegisterJSListener(v, "radDebug", OnRadDebugCommand)' in rad_hud
 assert '_toxicWidgetRegistered.store(_hudApi != nullptr);' in rad_hud
-assert 'const bool fallback = !_toxicWidgetRegistered.load();' in rad_hud
+assert 'const bool fallback = !companion && !_toxicWidgetRegistered.load();' in rad_hud
 assert rad_hud.count('SyncLocalHudLayout();') >= 2
 assert 'HUD layout editor requires PrismaHUD_F4' not in rad_hud
 assert 'void RadHud::OpenHudLayoutEditor()' not in rad_hud
@@ -48,6 +48,8 @@ for widget in ('HUDPlayerHealthMeter', 'HUDActionPointMeter'):
     assert suppress in suppress_callback
     assert create_callback.find(restore) < create_callback.find('hud.CreateView();')
 assert 'if (!api11 || !RadHud::GetSingleton().ViewsReady()) return;' in suppress_callback
+assert 'if (RadHud::GetSingleton().IsCompanionMode()) return;' in suppress_callback
+assert 'if (api11 && !hud.IsCompanionMode())' in create_callback
 retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)[1]
 assert 'if (!_threadApi) return false;' in retry_worker
 assert 'if (_viewCreateRetry.exchange(true)) return true;' in retry_worker

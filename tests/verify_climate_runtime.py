@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,7 +44,10 @@ for token in (
     "environment.precipitationShelter01 = shelter.precipitation01;",
     "environment.heat01 = _heat.Sample(player);",
     "environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;",
-    "const auto shelter = _shelter.Sample(player);",
+    "auto shelter = rooflessInterior",
+    "environment.rooflessInterior = rooflessInterior;",
+    "? _shelter.SampleRooflessInterior(player, cell)",
+    ": _shelter.Sample(player);",
     "ClimateRuntime::Reset()",
     "_shelter.Reset();",
     "_heat.Reset();",
@@ -58,6 +62,18 @@ for token in (
     "return 8;",
 ):
     assert token in runtime, f"climate runtime input contract missing: {token}"
+
+# Constraint: one sampler per tick, chosen by the roofless flag; never sample both.
+sampler_ternary = re.compile(
+    r"auto shelter = rooflessInterior\s+\? _shelter\.SampleRooflessInterior\(player, cell\)\s+"
+    r": _shelter\.Sample\(player\);")
+assert sampler_ternary.search(runtime) is not None, (
+    "Update must choose one shelter sampler with the roofless ternary")
+assert runtime.count("auto shelter") == 1, "Update must declare the shelter sample exactly once"
+assert runtime.count("_shelter.Sample(player)") == 1, "Update must call the normal shelter sampler exactly once"
+assert runtime.count("SampleRooflessInterior(player, cell)") == 1, (
+    "Update must call the roofless sampler exactly once")
+
 
 for token in (
     "ModActorValue",

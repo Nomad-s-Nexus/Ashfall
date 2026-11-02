@@ -5,8 +5,7 @@ html, body {
   -webkit-user-select: none; user-select: none;
 }
 
-/* First-person gas-mask screen overlay. Fullscreen, behind the bars/banners (z-index 1), never
-   captures input (the view is only focused for the debug menu). Hidden until C++ setMask shows it. */
+/* Constraint: the visor art carries baked HUD clear zones in its PNG alpha (tools/bake_visor_clear_zones.py). */
 #maskOverlay {
   position: fixed; inset: 0; width: 100%; height: 100%;
   object-fit: cover; object-position: center;
@@ -15,14 +14,11 @@ html, body {
 }
 #maskOverlay.on { opacity: 1; }
 
-/* Low-filter visor fog: condensation from rebreathing through a dying filter. Edge-heavy radial
-   haze + a mild overall film; opacity 0..~0.85 set by updateFilter in radhud.js. */
+/* Constraint: the condensation fog uses the same baked clear zones so it cannot hide HUD readouts. */
 #visorFog {
   position: fixed; inset: 0; pointer-events: none; z-index: 2;
   opacity: 0; transition: opacity 1.2s ease;
-  background:
-    radial-gradient(ellipse at 50% 55%, rgba(255,255,255,0) 30%, rgba(210,220,220,.45) 75%, rgba(200,210,210,.78) 100%),
-    linear-gradient(rgba(190,200,200,.18), rgba(190,200,200,.18));
+  background: url("visor_fog.png") center / cover no-repeat;
 }
 
 /* Gas-mask filter widget: mask icon + charge bar + spare count. Shown only while masked. */
@@ -244,6 +240,10 @@ html, body {
 #debugPanel .ghoul-range label { width: 48px; flex: none; color: #b6ffb6; font-size: 10px; letter-spacing: 1px; }
 #debugPanel .ghoul-range input[type=range] { flex: 1; accent-color: #5cbe60; cursor: pointer; }
 #debugPanel .ghoul-range output { width: 42px; flex: none; text-align: right; color: #efffdc; font-weight: bold; }
+#debugPanel .tune-range label { width: 112px; }
+#debugPanel .tune-toggle input[type=checkbox] { accent-color: #5cbe60; cursor: pointer; width: 18px; height: 18px; margin-right: auto; }
+#debugPanel .tune-range output { width: 64px; font-weight: normal; }
+#debugPanel .tune-range output.tuned { color: #ffd98a; font-weight: bold; }
 #debugPanel .ghoul-state { padding: 7px 9px; margin: 8px 0; border: 1px solid #4fba61; background: rgba(10, 45, 18, .9); color: #efffdc; font-size: 11px; font-weight: bold; letter-spacing: 1px; text-align: center; }
 #debugPanel .ghoul-state.off { border-color: #d78658; background: rgba(65, 25, 15, .9); color: #ffd8c2; }
 
@@ -302,3 +302,16 @@ html, body {
 .diagnostics dd{text-align:right;margin:0;color:#d0e5c5;font-variant-numeric:tabular-nums}
 .diagnostics p{font-size:12px;line-height:1.6;margin:12px 0 0;color:#a9c39c}
 @media(max-width:650px){.diagnostic-grid{grid-template-columns:1fr}}
+
+body.theme-phosphor #emissionBanner{font-family:"Saira Condensed","Bahnschrift","Arial Narrow",sans-serif;font-size:22px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;text-shadow:none;padding:6px 16px;background:rgba(8,15,11,.46);border:1px solid rgba(205,255,214,.16);color:#dcf5df}
+body.theme-phosphor #emissionBanner.ash-b{color:#8fa996;border-color:rgba(143,169,150,.5)}
+body.theme-phosphor #emissionBanner.fire-b{color:#ff7052;border-color:rgba(255,112,82,.6);text-shadow:0 0 8px rgba(255,112,82,.4)}
+body.theme-phosphor #emissionBanner.sulfur-b{color:#f2c46a;border-color:rgba(242,196,106,.6)}
+body.theme-phosphor #emissionBanner.acid-b{color:#93e8a4;border-color:rgba(147,232,164,.6)}
+body.theme-phosphor #emissionBanner.dust-b{color:#f2c46a;border-color:rgba(242,196,106,.4)}
+body.theme-phosphor #emissionSub{font-family:"IBM Plex Mono",Consolas,"Courier New",monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;text-shadow:none;color:#8fa996}
+body.theme-phosphor #emissionSub.ash-s{color:#8fa996}
+body.theme-phosphor #emissionSub.fire-s{color:#ff7052}
+body.theme-phosphor #emissionSub.sulfur-s{color:#f2c46a}
+body.theme-phosphor #emissionSub.acid-s{color:#93e8a4}
+body.theme-phosphor #emissionSub.dust-s{color:#f2c46a}

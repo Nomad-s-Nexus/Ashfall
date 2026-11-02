@@ -1,7 +1,19 @@
 #include "pch.h"
 #include "RadHud.h"
+#include "RadNeedsTuning.h"
+#include <RE/D/DifficultyLevel.h>
+#include <RE/P/PlayerCharacter.h>
 #include "PrismaUI_F4_API.h"
 #include "PrismaHUD_F4_API.h"
+
+namespace
+{
+    bool SurvivalLayerActive()
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        return !player || player->GetDifficultyLevel() != RE::DifficultyLevel::kTrueSurvival;
+    }
+}
 
 void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
 {
@@ -16,6 +28,7 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         StartPrismaViewRetry();
         if (!PlayerInWorld()) return;
         _needsView = api->CreateView("Interface/FalloutAnomaly/hud_needs.html", [](PrismaView view) {
+            RadHud::GetSingleton().PushTheme(view);
             RadHud::GetSingleton()._needsReadyView.store(view);
         });
         if (_needsView && api->IsValid(_needsView))
@@ -25,11 +38,20 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         }
     }
     if (!_needsView || !api->IsValid(_needsView) || _needsReadyView.load() != _needsView) return;
+    if (IsCompanionMode() && !SurvivalLayerActive())
+    {
+        if (!_needsPayload.empty())
+        {
+            api->Hide(_needsView);
+            _needsPayload.clear();
+        }
+        return;
+    }
     if (_hudApi && !_needsWidgetRegistered)
     {
         auto* hud = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
-        hud->RegisterWidget(_needsView, { "rad_needs", "Needs", 22.0f / 1920.0f,
-            812.0f / 1080.0f, 176.0f / 1920.0f, 58.0f / 1080.0f });
+        hud->RegisterWidget(_needsView, CompanionPlaced({ "rad_needs", "Needs", 22.0f / 1920.0f,
+            812.0f / 1080.0f, 176.0f / 1920.0f, 58.0f / 1080.0f }));
         hud->ApplyLayout(_needsView);
         _needsWidgetRegistered = true;
     }
@@ -42,7 +64,8 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         { "thirst", percent(snapshot.pools.thirst01) },
         { "sleepDebt", percent(snapshot.pools.sleepDebt01) },
         { "risk", percent(snapshot.risk01) },
-        { "disease", snapshot.diseasePacked }
+        { "disease", snapshot.diseasePacked },
+        { "always", RadNeedsTuning::On(RadNeedsTuningPolicy::kAlwaysShowNeeds, false) }
     }.dump();
     if (payload == _needsPayload) return;
     _needsPayload = payload;

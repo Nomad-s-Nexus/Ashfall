@@ -162,9 +162,9 @@ The climate branch was merged onto the storm/runtime hardening branch. Where the
 
 ## Survival core: vanilla Papyrus quest + Rad-owned records (2026-10-26)
 
-Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc`, `deploy/Scripts/RadSurvivalQuest.pex`, `deploy/RadSurvival.esp`, `tests/verify_survival.py`.
+Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc`, `deploy/Scripts/RadSurvivalQuest.pex`, `deploy/RadSurvival.esp`, `tests/verify_survival.py`, `tests/verify_survival_consumption.py`.
 
-**Decision.** Hunger, thirst and sleep debt are a vanilla Papyrus quest script. No script extender and no C++ for this layer.
+**Decision.** Hunger, thirst and sleep debt are a vanilla Papyrus quest script. No script extender is used and there is no native needs clock, but **the F4SE plugin (RadiationOverhaul) must be loaded**: the quest calls the global native `RadNatives.GetReliefFlags` relief bridge for the `[Relief]` INI extras, and without the DLL loaded those extras stay off and each ingestible equip logs one unbound-native error (the vanilla-keyword pools still work).
 
 **Why Papyrus, not native.** The native needs runtime could not prove two signals: exactly-once food/drink consumption, and real sleep versus wait with an interrupted flag. PR #70 shipped with "no sleep recovery hook until sleep is proven" for that reason. The shipped Creation Kit base sources expose both to Papyrus, and vanilla Survival itself consumes them: `HC_ManagerScript.psc:50,1167` registers and handles `Actor.OnItemEquipped` for food and drink; `:2618-2671` handles wait and sleep with `abInterrupted`; `:15` gates on `Game.GetDifficulty() == 6`. Rebuilding that natively would be an inference from `SleepWaitMenu`, bed furniture and calendar delta, not proof.
 
@@ -172,9 +172,11 @@ Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc`, `deploy/Scripts/Ra
 
 **Why not Garden of Eden.** `DrinkPotion` is an action that deliberately does not equip, and `OnEquipUnequip` duplicates vanilla `OnItemEquipped`. It adds a dependency without a new signal.
 
-**Event wiring.** `OnInit` arms `RegisterForPlayerSleep()`/`RegisterForPlayerWait()` (unregister first, so a surviving instance cannot double-deliver), registers the remote `OnItemEquipped`, anchors the clock and starts the game-time timer. `OnPlayerLoadGame` re-anchors, clears the pending candidate and the sleep/wait trackers, re-registers only the remote item event, and restarts the timer.
+**Event wiring.** `OnInit` arms `RegisterForPlayerSleep()`/`RegisterForPlayerWait()` (unregister first, so a surviving instance cannot double-deliver), registers the remote `OnItemEquipped` and `OnItemRemoved` events with an inventory filter, anchors the clock and starts the game-time timer. `OnPlayerLoadGame` re-anchors, clears the consumption candidates and the sleep/wait trackers, re-registers the remote events, and restarts the timer.
 
-**Consumption.** `OnItemEquipped` arms a candidate with the live form and the player's inventory count. A later tick re-reads `GetItemCount`; relief is granted exactly once, only when the count dropped, then the candidate clears. A candidate older than two seconds is resolved the same way, so a missed event cannot double-apply relief and an equip that never consumed cannot grant it. The shipped base sources declare no `OnItemAdded`/`OnItemRemoved` event on `ObjectReference`/`Actor`, so a quest cannot register for them remotely; the tick check is the confirmation mechanism, not a fallback.
+**Consumption (2026-10-28 rewrite).** The previous design armed a candidate on `Actor.OnItemEquipped` with `GetItemCount` and confirmed on a later tick by watching that count fall. That is timing-dependent: if the engine consumes an aid item before the equip event is delivered to Papyrus, the armed count is already the post-consumption count and the drop is never observed. The tester report ("food/drink never relieves hunger/thirst") is consistent with that, and the previous note's claim that the shipped base sources declare no `OnItemAdded`/`OnItemRemoved` was wrong - `ObjectReference.psc:1047` declares `Event OnItemRemoved(Form, int, ObjectReference, ObjectReference)`. The rewrite applies relief on the engine's own removal instead: `OnItemRemoved` is registered remotely and relief runs only when `akDestContainer == None` (not a transfer into a container) and an `OnItemEquipped` for the same form arrived within `PairWindowSeconds` (2.0 s real). Whichever of the two arrives second credits exactly one use, so the equip/removal ordering cannot lose it, a failed equip cannot credit it, and a drop followed by eating the same item cannot credit the dropped stack size. The `None` destination does not prove a consumption - a world drop also reports a null destination - only the equip pairing separates a drop from a use, which stays an in-game check. The filter is `AddInventoryEventFilter(None)` on this script, because `ScriptObject.psc:39` states that objects without a filter receive no inventory events; vanilla uses the same quest-script pattern for remote inventory events (`MQ206Script.psc:590` registers `OnItemAdded` the same way). Pairing state is saved script state but is cleared in `OnPlayerLoadGame`, and the 2 s window is the only timing state left. `Debug.Trace` markers `consume-arm equip`, `consume-confirm remove` and `consume-apply` are emitted on every step, so a Papyrus.0.log proves the path next time. `tests/verify_survival_consumption.py` pins the handler signatures, the filter and remote registration, the pairing helpers, the absence of the count-drop path, the load-time candidate clear and the trace markers; `tests/verify_survival.py` keeps only the one-line pairing and no-`GetForm` cross-checks to stay inside the 750-line source limit.
+
+**Food/drink classification coverage.** `IsFoodOrDrink` classifies by the four vanilla ObjectType keywords - `ObjectTypeFood` 0x00055ECC, `ObjectTypeNukaCola` 0x00249F30, `ObjectTypeDrink` 0x000F4AEC, `ObjectTypeWater` 0x000F4AED - and `ObjectTypeAlcohol` 0x0010C416 scales hydration; all five EditorIDs were verified with FO4IDE. The keywords are cached after the first look-up, so per-event classification no longer calls `GetFormFromFile`. Against the tester's `FWHardcore_Food.esp` (read with `tests/plugin_reader.py`): 113 of its 123 ALCH records carry at least one of the four keywords (109 ObjectTypeFood, 4 ObjectTypeWater, 1 ObjectTypeDrink); one record carries only ObjectTypeChem, a chem and correctly not food. Remaining gaps: `RefreshingBeverage` (0x00058AB8) and `MS17DeezerLemonade` (0x000E9284) carry only vanilla `HC_SustenanceType_QuenchesThirst` (0x000884), so vanilla Survival would quench thirst and this script does not; `MoldyFood01` (0x001A6397) plus the seven `*Witherd` crop records (0x01000800-0x01000813) carry only `HC_DiseaseRisk_FoodHigh` (0x00089A), which vanilla also uses for disease risk and not for hunger relief, so no hunger credit is expected there. Reading the `HC_SustenanceType_*` keywords would close the two drinks, but the script constraint forbids reading any `HC_*` form; that gap stays a decision for the owner.
 
 **Sleep and wait.** The start time is recorded on start; on stop the script computes game hours from `Utility.GetCurrentGameTime()`, applies recovery only for real sleep (`abInterrupted` halves it), accrues that interval once, then restarts the timer. Waiting accrues and never recovers sleep debt.
 
@@ -220,6 +222,14 @@ The quest VMAD carries one script, `RadSurvivalQuest`, with object properties `R
 **HUD.** Every pool change is mirrored into the matching `GLOB` through `GlobalVariable.SetValue` in `RadSurvivalQuest.psc:MirrorToGlobal`, and `src/NeedsRuntime.cpp:Update` reads them back: `RadSurvival_Hunger`, `_Thirst` and `_Sleep` for the three pool chips, `RadSurvival_Risk` and `RadSurvival_Disease` for the disease row. The native side therefore holds no needs state of its own - no clock, no hourly rates, no co-save record - and the globals are the single contract between the two halves.
 
 **Tuning.** `RadSurvivalQuest.psc` owns the rates outright (hunger 0.05, thirst 0.10, sleep debt 0.025 per game hour). The former `needs.json` fed the native clock and was deleted with it; `tests/verify_survival.py` pins the three constants and `tests/verify_needs_globals.py:check` fails if the native reader stops looking up the globals.
+
+**Settings table (live tuning).** `src/RadNeedsTuningPolicy.h:kSpecs` is the single table behind every slider and toggle in the SETTINGS tab; the `Key` enum order is the table order. The first `kPapyrusKeys` (16) entries are read by Papyrus through `RadNeedsTuning.cpp:PapyrusTuningOverride`, registered once as the global native `RadNatives.TuningOverride` (no self parameter, `std::monostate` in the self slot), which both `RadSurvivalQuest` and `RadSurvivalDiseases` call; the native returns `value + 1.0` for an override and `0.0` for unset, so an unbound native (plugin not loaded) decodes to unset and the script defaults apply. `RadSurvivalDiseases.psc:DiseasesOn` is the only disease gate (the script property AND the tuned toggle); the per-source risks are read through `Tuned()` at each use. Keys from `kFilterEnabled` on are C++ only: `RadEngine_Mask.cpp:ApplyTuning` overlays them on the engine members after `LoadFilterIni`, and the `tune:` branch of `RadEngine_Debug.cpp` calls it after every change (`LoadFilterIni` on reset, which re-reads the INI defaults). Persistence is the `[Tuning]` INI section; an empty key means unset.
+
+**Climate scaling.** `ClimatePolicy.h:Tuning` carries `coolingScale`, `wetnessGainScale` and `wetnessDryScale` (all 1 by default, which reproduces the previous maths exactly). `ClimateRuntime.cpp` builds it each tick from `TemperatureEnabled`/`ColdIntensity`, `WetnessEnabled`/`WetnessSoakRate` and `WetnessDryRate`; a disabled feature sets its scale to 0 rather than skipping the step, so the HUD state stays consistent.
+
+**Always-show needs.** `RadHudNeeds.cpp:PushNeeds` adds `"always"` from `kAlwaysShowNeeds`; `hud_needs.html:renderNeeds` then shows all three chips at stage 0. The flag is part of the deduped payload, so toggling it re-pushes.
+
+**Settlers.** There is no settler disease or needs mechanic in this mod (the needs and disease systems act on the player only), so a "can affect settlers" toggle has nothing to gate; it needs a new settler-side mechanic first. Ammo weight is not tuned here by request.
 
 ## Diseases: prerequisite findings before implementation (2026-10-26)
 
@@ -309,7 +319,7 @@ Reference: `RadSurvivalDiseases.psc:ConsumeItem`, `RadSurvivalDiseases.psc:Expos
 
 **Why three lists and not one.** A `FormList` carries no per-entry data, so a single list cannot say *which* category an item belongs to, and the items are vanilla, so the category cannot be a keyword on them without overriding food records. One list per category is the only shape where the record says both "these are tainted" and "this is how tainted". The keywords carry the same three categories for a different purpose: an item that is not in any list opts into one by carrying the keyword, which is the extension point an add-on or a later Rad-authored ingestible uses, and it keeps the category vocabulary a record rather than a string in the script.
 
-**Consumption is the existing count-drop path, not a new event.** `OnItemEquipped` cannot tell a use from an equip, which is why the layer already arms a pending item there and confirms it on the next tick by watching `GetItemCount` fall (`ConfirmConsumption`). The cure item is armed by the same gate - `IsFoodOrDrink` or `Diseases.IsCureItem` - and `ApplyRelief`, the one function a confirmed drop reaches, now forwards it to `RadSurvivalDiseases.psc:ConsumeItem`. That function tests the cure first and calls `CureDisease`, so the item clears exactly the state a long rest clears: the same immunity window, the same spell removal, the same HUD mirrors, no second cure path to keep in step. Anything else that was consumed goes to `ExposureConsume`, which resolves the category and charges `RiskPerTaintedFood` (0.10), `RiskPerTaintedWater` (0.15) or `RiskPerContaminated` (0.05) per item through `AddRisk`.
+**Consumption is confirmed by the removal event, not by a count drop (2026-10-28 rewrite).** `OnItemEquipped` cannot tell a use from an equip, so the quest pairs it with the engine's own `ObjectReference.OnItemRemoved` event (`RadSurvivalQuest.psc:PairEquip`, `:PairRemove`, `:PruneConsumptionCandidates`): a removal counts only when `akDestContainer == None`, the item is a consumable by the cached keyword rule or the INI bridge, and an equip for the same form arrived inside `PairWindowSeconds` (2 s). Whichever event arrives second credits exactly one use (`ApplyRelief(akItem, 1)`), so the equip/removal order cannot lose it, a container transfer cannot credit it, a failed equip cannot credit it, and a drop followed by eating the same item cannot credit the dropped stack size. The old count-drop design armed `GetItemCount` in the equip event and confirmed a later drop, which is timing-dependent and was replaced. The candidate arrays are initialised in `OnInit` via `ClearConsumptionCandidates()` before `ArmPlayerEvents`, and `PruneConsumptionCandidates` re-initialises them when the ready flag is false or either array is None (e.g. a mid-save install), because uninitialised dynamic arrays are None and every pair would silently no-op. The `[Relief]` bridge is one native, `GetReliefFlags` (bit 1 = food, bit 2 = thirst), called only for `Potion` items, so a not-loaded DLL costs one unbound-native error per ingestible equip instead of two per equip event; the INI lists are resolved once per session on the game thread, with malformed and missing entries logged by raw text (a truncated 4 KB list warns as well), so a `[Relief]` edit needs a game restart to take effect. `ApplyRelief` still forwards a confirmed item to `RadSurvivalDiseases.psc:ConsumeItem`, so the cure/taint routing is unchanged: the cure item clears the same state a long rest clears, and anything else charges `RiskPerTaintedFood`/`RiskPerTaintedWater`/`RiskPerContaminated` through `AddRisk`. Proven from the shipped sources: `Actor.OnItemEquipped` fires for ingestibles (vanilla `HC_ManagerScript.psc:1167` relies on it). NOT proven from the Papyrus sources: that a consumed item's removal delivers `akDestContainer == None`; that remains an in-game check (`docs/IN_GAME_TEST_CHECKLIST.md`). A world drop is rejected in practice only through the equip pairing, not through `akItemReference`, so the source comment does not claim otherwise.
 
 **Why the item is resolved by form id.** Writing the `FULL` name and the `KWDA` list was retried against this build and the refusals are now recorded, not assumed. `list_records_summary` for `ALCH` exposes `EDID`, the typed `ALCH\*` columns and the raw `Authoring\*` columns, and no name column at all - so the documented `EYES\Full` route has no `ALCH` counterpart here; `set_field` refuses `ALCH\Full`, `ALCH\FULL`, `ALCH\Name`, `FULL` and `Authoring\FULL` with `FieldWriteUnsupported: Native Radicle editing supports EDID plus typed EYES and LVSP fields only`, and `create_record` silently ignores `name`/`fullName` for `ALCH`. The keyword list is a form-link list: `ALCH\Keywords[0]` is recognised and refused with `FormLinkListIndexOutOfRange` because the list holds no elements, `ALCH\Keywords` on the whole list is refused as unsupported, and no tool appends a keyword - so `KWDA` can be edited on a record that already has keywords but never grown from none. The shipped ingestible therefore has no display name and carries no keyword and still passes `--check`; `IsCureItem` resolves it with `Game.GetFormFromFile(2092, "RadSurvival.esp")` and accepts `KeywordCureItem` from an item the Creation Kit authors later. In game it appears as an unnamed Aid entry, and the notification path is the feedback: `CureDisease` announces the recovery, and a cure consumed while healthy now answers "nothing to cure" instead of doing nothing at all. This is an upstream FO4IDE gap, filed with the `HEDR` `numRecords` quirk and the recorded-source-path limitation above.
 
@@ -693,8 +703,7 @@ same text, relocated so the source carries only constraints.
 
 ### `RadEngine_Session.cpp`
 
-- Same for the tissue-wasting penalties: the engine drops kTemporary modifiers on load, so a stale
-- non-zero tracker would match `desired` and silently skip re-applying the penalty.
+- Superseded for the tissue-wasting penalties (carry/heal/speed/AP) by the "Carry-weight leak" section at the end of this file: they are now persisted and restored, and `RadiationEngine::RepairLeakedCarryWeight` drops them again if the game shows no matching carry modifier. END/STR trackers are still zeroed on load.
 
 ### `RadEngine_Session.cpp`
 
@@ -752,6 +761,249 @@ same text, relocated so the source carries only constraints.
 ### `RadEngine_Session.cpp`
 
 - Same per-game-hour rate as live rest, gated on current rads.
+
+### RadStormFX Papyrus shake burst
+
+Reference: `deploy/Scripts/Source/User/RadStormFX.psc:_StartShake` and `RadStormFX.psc:DebugNotify`.
+
+- The burst loop was `While (_shaking)` and only `_StopShake` (stage 20) cleared the flag, so `t = (BurstSteps - I) / BurstSteps` went negative after `BurstSteps` iterations and `ShakeCamera`/`ShakeController` were fed negative magnitudes while the rumble timer never started. The loop is now bounded by `I < BurstSteps`, which is what lets the existing `If (_shaking) StartTimer(RumbleInterval, _kRumbleTimer)` run. `DebugNotify` now defaults to false so the on-screen `[StormFX]` notifications are opt-in.
+- This repairs the script's own logic only. The Papyrus shake has never run on any save: `SetStage` returned false on all 35 logged attempts (`docs/ISSUES_FIXED.md`), and the native `NativeShakeCamera` path does the shake that actually plays. Do not read this as a live-bug fix.
+
+### Water bottles at water sources
+
+Reference: `src/RadWaterFillPolicy.h:RadWaterFillPolicy::Decide`, `src/RadWaterFillPolicy.h:RadWaterFillPolicy::IsWaterSource`, `src/RadWaterFillPolicy.h:RadWaterFillPolicy::IsMaintainedVaultCell`, `src/RadWaterFillPolicy.h:RadWaterFillPolicy::FilledWaterFor`, `src/WaterBottleFill.cpp:WaterBottleFill::ActivateOnGameThread`, `src/WaterBottleFill.cpp:ActivateSink::ProcessEvent`, `src/WaterBottleFill.cpp:ResolveForms`, `src/WaterBottleFill.cpp:FillOneBottle`.
+
+- Vanilla Survival fills a bottle from the `Activate` entry point of `HC_FillWaterBottlePerk` (Fallout4.esm 0x249F55), whose Papyrus fragment calls `HC_Manager.FillWaterBottle`. This plugin reproduces the decoded part of that interaction natively through a `RE::TESActivateEvent` sink and does not read or write any `HC_*` form. Two of the five perk conditions are undecoded, so this is not an exact vanilla match.
+- A water source is a base object in `RadWaterFillPolicy::kWaterSources` - the ten vanilla/DLC activators whose VMAD carries `drinkFromFountainScript`, the same script vanilla casts the activated ref to - or any ACTI/FURN carrying the `AnimFurnWaterPump` keyword, which also covers mod-added pumps.
+- The empty-bottle list is the 26 items of vanilla `HC_FillableWaterBottlesList` (0x00249F56) captured into `kEmptyBottles`; the form list record itself is never referenced.
+- Output rule: Dirty Water (0x000366BF) everywhere, Purified Water (0x000366C0) only when the player's current parent cell is one of the maintained Vault 81 interiors in `kMaintainedVaultCells`. Only `Vault81` (0x02A728) and `Vault81Entry` (0x0A9B62) give clean water; everything else is dirty. The check keys on the parent cell's form ID, never on the location, because `Vault81Ext` (0x00E4D0, Commonwealth grid -10/-6) shares `Vault81Location` (0x02BE8D, parent 0x002CF0) with the interior - a location check would hand out clean water in the wasteland outside the vault. `Vault81Ext`, `Vault81HoldingCell` (0x1126B0, location `Vault81HoldingLocation` 0x225F8A) and `Vault81Secret` (0x05226E, FULL "Secret Vault 81") are not maintained cells and stay dirty. An unresolved cell form, a null parent cell or an exterior parent cell all read as "not Vault 81" -> dirty; the code never fails open to clean.
+- The activated source's `spellOnDrink` is never consulted. Vanilla's clean/dirty rule compared it against the `CleanDrinkingFountainSpells` property array on `HC_WaterBottleScript`; the parent cell is the only input now.
+- `[Water] RequireModifier=1` (default) requires the player to be sneaking. `ActivateSink::ProcessEvent` reads `Actor::IsSneaking()` and `Decide` returns `kNoModifier` before any item removal, so a normal activation only drinks and never consumes a bottle. This deliberately differs from vanilla Survival: `HC_FillWaterBottlePerk` fills a bottle on a plain activation with no sneak. `RequireModifier=0` restores fill-on-every-activation (not recommended: it takes a listed bottle even when the player only wanted to drink).
+- Every fill shows a vanilla HUD message ("Filled a bottle with dirty water." / "Filled a bottle with purified water.") through `RE::SendHUDMessage::ShowHUDMessage`, so a consumed bottle is never silent.
+- `Decide` guard order, cheapest first: `kDisabled` (cached INI) -> `kNotWaterSource` (base-form compare) -> `kVanillaSurvival` (difficulty 6, yields to the untouched perk) -> `kNoModifier` (sneak state) -> `kNoEmptyBottle` (inventory count) -> `kFill`. The 26-form inventory count only runs for an activation that already matched a listed source; the item is removed only when `Decide` returns `kFill`.
+- `FillOneBottle` re-checks the bottle count after `RemoveItem` and skips the water add when the engine refused the removal, so a refused bottle cannot hand out free water.
+- Exactly one bottle is consumed per activation with a 400 ms same-target debounce, which is only a guard against a duplicated activate event. The debounce is stamped in `WaterBottleFill.cpp:FillOneBottle` only after the bottle removal and water add both succeed, so a refused removal does not arm it. That is a deliberate simplification of vanilla: the pump furniture fills repeatedly while the player is held in it, and the native path does not.
+- The INI is read once per load (`WaterBottleFill.cpp:LoadConfig`) and the form-resolution summary is logged once (`WaterBottleFill.cpp:ResolveForms`), so activation retries do not hit the disk or repeat the log. `[Water] Enabled=0` turns the feature off before the sink is registered. If a critical form stays unresolved the sink is never registered (single warning); a missing Purified Water or maintained-cell form degrades the output to dirty water only.
+- Build-verified only - the hook has not been played in game. On this install play is Very Hard, where the vanilla perk does not fill, so the native path is the only bottle filler; every check below assumes Very Hard. Untested in game: whether `TESActivateEvent` fires once or twice when entering/exiting pump furniture (the debounce is the only guard), whether sneak state reads correctly when activating a pump furniture, whether a quest-flagged empty bottle (e.g. `DN050BabyBottle`) is ever refused by `RemoveItem` (the count re-check then suppresses the water add, but that refusal path itself is unexercised), and whether sneak-activating a drinking fountain also runs the vanilla drink (`spellOnDrink`) in the same press. The last one cannot be cancelled from a `TESActivateEvent` sink: the sink is a post-activation observer and `BSEventNotifyControl` only stops later sinks, not the activation itself, so a sneak-activation may legitimately both apply the drink's rads and fill a bottle. That is an open in-game test item, not a fix. The reporters' Papyrus script errors were also not reproduced locally.
+
+
+## Gas-mask overlay, auto-don gate and mask hotkeys (2026-10-28)
+
+Reference: `src/RadiationEngine.cpp:RadiationEngine::Update`, `src/RadEngine_Mask.cpp:RadiationEngine::PlayerWearsPowerArmorHelmet`, `src/RadEngine_Mask.cpp:RadiationEngine::ReplaceFilter`, `src/RadEngine_Mask.cpp:RadiationEngine::RepairMask`, `src/RadEngine_Mask.cpp:RadiationEngine::ReloadHotkeysFromIni`, `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::MaskOverlayVisible`, `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::RadWeatherExposed`, `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::IsUsableHotkey`, `tests/correctness_policy_tests.cpp`.
+
+- Overlay: `RadiationEngine::Update` now asks `RadCorrectnessPolicy::MaskOverlayVisible(_maskOverride, realMasked, PlayerWearsPowerArmorHelmet())` before `RadHud::PushMask`. A worn power-armor helmet (`PlayerWearsPowerArmorHelmet`, any ArmorTypePower piece that fills the helmet slot 30, frame or full suit) hides the visor overlay because the PA HUD replaces it; the `mask:on` debug override still forces it, and `realMasked` remains the real worn state for foley/filter/choking.
+- CSS: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css` masks `#maskOverlay` and `#visorFog` with a centre-clear radial gradient so the Scaleform HUD reads through them. Assumption (not guessed coordinates): the vanilla HUD owns the top-left notification area, the bottom-centre XP bar and the centre/lower-centre loot and interaction-prompt readouts, so the middle 55% of the visor is fully transparent and only the edge art is drawn. `tests/status_hud_tests.js` asserts both rules keep a transparent centre. Not verified on a running screen.
+- Auto-don: the player's mask is no longer donned on the weather transition alone. `RadiationEngine::Update` computes exposure as rad weather AND not interior AND not sheltered AND not a powered Pulowski shelter AND not a full power-armor suit (`RadWeatherExposed`), then acts only on the exposure transition (`ShouldAutoEquipMask` / `ShouldAutoRemoveMask`). Entering cover removes only the mask we auto-equipped, a manual unequip while exposed is respected, and leaving cover into rad weather re-dons. `_wasRadExposed` starts at -1 after a load so the first tick syncs silently; NPC masking still rides the weather transition.
+- Hotkeys: the two binds stay in the INI (`[Filter] ReplaceKey`, `[Condition] RepairKey`). `RadCorrectnessPolicy::IsUsableHotkey` rejects F8 (the debug menu key) and a duplicate of the other bind, and `ReloadHotkeysFromIni` re-reads and revalidates them when the Shift+F8 debug menu is opened, so an INI edit applies without a restart. There is no in-game rebinding screen yet - the Prisma settings view is not a small change, so that stays a follow-up.
+- Foreign masks: recognition already accepts INI `[Masks] ExtraKeywords`/`ExtraMasks` plus the mouth-slot-plus-rad-resist inference, and the shipped INI lists Gasmask Overhaul's PPM-88 keyword and armor; the tester log confirms `[Masks] 1 extra keyword(s), 1 listed armor(s), inferFromRadResist=true (min 10 rad resist)`. The hotkeys are not broken by that: they consume only OUR `Gas Mask Filter` / `Gas Mask Repair Kit` records, and another mask mod's filters or repair items are never read, so with Gasmask Overhaul's own mask and filters a press can only report "No spare filters" (or now "No recognised gas mask equipped" when nothing recognised is worn). Gasmask Overhaul's own hotkeys are its own system and stay untouched. `src/RadEngine_Mask.cpp:RadiationEngine::ReplaceFilter` and `:RadiationEngine::RepairMask` now log the refusal reason (no recognised mask worn, or no filter/kit in the inventory), so the next F4SE log shows exactly why a press did nothing.
+
+## Penalty audit: hunger/thirst/sleep vs radiation stages (2026-10-28)
+
+Reference: `tools/rad_penalty_spells.json`, `deploy/RadSurvival.esp`, `src/RadiationEngine.cpp:RadiationEngine::ApplyDebuffs`, `deploy/Scripts/Source/User/RadSurvivalQuest.psc:ApplyStagePenalty`.
+
+- Verified with FO4IDE: the nine penalty magic effects target exactly three actor values - hunger -> AVIF `CarryWeight` 0x0002DC, thirst -> AVIF `ActionPoints` 0x0002D5, sleep -> AVIF `HealRateMult` 0x000358 (stage-1 forms 0x000804 / 0x000807 / 0x00080A inspected: one effect each, magnitudes -10 / -5 / -0.15). `RadSurvival.esp` contains only ALCH, FLST, GLOB, KYWD, MGEF, PERK, QUST and SPEL records, and its six PERKs are Fever/Wasting (DamageResist/SpeedMult), so nothing in the plugin or the disease layer changes a SPECIAL stat.
+- The tester's SPECIAL drops are our radiation stage perks, not hunger/thirst: `FalloutAnomaly.log` prints "Applied Penalties: END -1 / STR -0 / STR -1" whenever `RadiationEngine::ApplyDebuffs` swaps the radiation stage perk, and `[SPECIAL] penalty 0 -> 1` comes from the same stage swap. Fallen World's `FWHardcore_Difficulty.esp` may add its own penalties; that is not ours and was not inspected further.
+- Leaving vanilla Survival: `RadSurvivalQuest.UpdatePenaltyStages` calls `ClearAllPenalties()` whenever `IsActive()` is false, and `verify_survival.py` pins that the reconcile runs after the active/suspended branch, so our spells neither linger nor double up. Vanilla `HC_*` hunger/thirst spells left on a save moved off Survival are vanilla's own state; this plugin reads and writes no `HC_*` form and cannot clear them.
+
+## Tester items that are not ours (2026-10-28)
+
+Reference: `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini` [Masks]/[Water] sections, `src/RadEngine_Debug.cpp` (the only kAMMO reference), `src/RadEngine_Tissue.cpp:ApplyTissueEffects` (the only other CarryWeight writer), `f4se.log` load order.
+
+- Bullets having no weight "for Ashfall": no Ashfall plugin is in the tester load order (`f4se.log`) and no source file changes ammo weight - the only `kAMMO` reference is a debug form-type print in `src/RadEngine_Debug.cpp`. `FWHardcore_Weapons.esp` / `FWHardcore_CarryWeight.esp` own that change.
+- Power-armor carry weight ignoring harness/vest gear: `FWHardcore_Difficulty.esp` authors the `EnchBackpack_250/1000/2500` enchantments. Our only CarryWeight writes are additive `kTemporary` actor-value modifiers (the hunger penalty spells and the radiation tissue penalty in `src/RadEngine_Tissue.cpp`), which cannot cancel another effect's bonus, and `RadiationEngine::IsPlayerInPowerArmor` only gates rad/storm protection - no power-armor path touches carry weight.
+
+## Interior rain is by design (2026-10-28)
+
+Reference: `src/ClimateRuntime.cpp:ClimateRuntime::Update`, `src/ClimatePolicy.h`, `tests/climate_policy_tests.cpp`.
+
+- `ClimateRuntime::Update` sets `environment.precipitation01 = 0` for every interior cell and `ClimatePolicy` then treats indoors as fully rain-sheltered, so rain never wets the player in an interior, including visually roofless ones such as the Museum of Freedom. The tester log agrees with the design: 1208 interior `[Climate]` lines and zero of them with `rainy=true`, so the interior rule is working as written rather than a broken wetness computation. A data-driven whitelist of roofless interiors (a `climate_weather.json` cell list plus a precipitation factor) is implemented for the one approved cell; see the "Roofless-interior rain whitelist: implemented" section below.
+
+
+## Needs state is per-save; nothing persists across characters (2026-10-28)
+
+Reference: `deploy/RadSurvival.esp`, `src/RadEngine_Serialization.cpp:RadiationEngine::LoadState`, `src/NeedsSerializationPolicy.h`, `deploy/Scripts/Source/User/RadSurvivalQuest.psc:OnInit`.
+
+- Verified with FO4IDE: the `RadSurvival_Hunger` / `_Thirst` / `_Sleep` GLOBs (local forms 0x000801-0x000803) all store FLTV 0, so a fresh character starts at zero. `HungerDebt`/`ThirstDebt`/`SleepDebt` are ordinary quest-script variables saved with the quest instance, and a new game instantiates a new quest, so nothing carries between characters.
+- The native plugin writes no needs payload: `RadiationEngine::LoadState` recognises the legacy `NEED` co-save record and drops it with an info log, and `NeedsSerializationPolicy` keeps only the recognition constant - there is no writer left. `Actor.OnPlayerLoadGame` logs the restored anchors ("post-load anchor H/T/S="), which is the in-game check to run next time.
+- So "the needs persist and never lower" is the missing relief from the consumption item, not stale saved state: the pools only ever rose because no food/drink relief was ever credited.
+
+## Gas mask in power armor: what we found (2026-10-28)
+
+Reference: `src/RadEngine_Mask.cpp:RadiationEngine::SetActorMaskEquipped`, `src/RadEngine_Mask.cpp:CaptureDisplacedGear`, `src/Hooks_Input.cpp:RadInputHandler`, `src/RadiationEngine.cpp:RadiationEngine::Update`.
+
+- The plugin's only equip/unequip path for masks is `SetActorMaskEquipped`, which claims ownership in `RadMaskOwnership` before `EquipObject`/`UnequipObject` and releases it on failure. `CaptureDisplacedGear` is used only for the temporary masks handed to NPCs by `EquipNearbyNpcMasks`, so it never moves the player's own gear.
+- The player mask fills the MOUTH biped slot while power-armor helmets fill slot 30 (`kHairTop`), so the two do not share a slot. The cases that looked wrong are now gated: the overlay is hidden by a PA helmet, the auto-don skips interiors/shelter/PA, and `Hooks_Input.cpp` only handles Shift+F8 - it contains no mask equip hook at all. Nothing in our code swaps a mask when entering or leaving power armor; Gasmask Overhaul's own scripts and hotkeys are separate and untouched.
+
+
+## Review round 2: consumption arrays, relief INI bridge, overlay alpha, exposure hysteresis, hotkeys (2026-10-28)
+
+Reference: `deploy/Scripts/Source/User/RadSurvivalQuest.psc:OnInit`, `:OnItemRemoved`, `:PairEquip`, `:PairRemove`,
+`:ResolveKeywords`, `src/RadReliefConfig.cpp`, `src/RadReliefPolicy.h`, `src/RadCorrectnessPolicy.h:ParseHotkey`,
+`:ValidateHotkeyPair`, `:StepAutoMask`, `src/RadiationEngine.cpp:RadiationEngine::PollInput`,
+`src/RadEngine_Mask.cpp:RadiationEngine::ReloadHotkeysFromIni`, `src/RadEngine_Session.cpp:RadiationEngine::ResetSession`,
+`tools/bake_visor_clear_zones.py`, `tests/status_hud_tests.js`, `tests/verify_survival_consumption.py`.
+
+- Candidate arrays: declared without initialisers, so `OnInit` calls `ClearConsumptionCandidates()` before
+  `ArmPlayerEvents`; `PruneConsumptionCandidates` calls it again when `ConsumptionArraysReady` is false, so a mid-save
+  install cannot leave relief dead until a reload. The same guard covers `PairEquip`/`PairRemove`, which call prune
+  first.
+- Drop vs use: the removal handler rejects `akDestContainer != None`, ammo (every shot fires ammo removal events) and
+  non-consumables before `Game.GetPlayer()`/`IsActive()`; only the equip pairing separates a drop from a use, because
+  `akItemReference` is not a reliable drop indicator and is not claimed to be one.
+- Relief INI bridge: `[Relief] ExtraFoodKeywords`, `ExtraThirstKeywords`, `ExtraFoodItems`, `ExtraThirstItems` are read
+  by `RadReliefConfig` (plugin + local id, `RadReliefPolicy::ParseList`), resolved through `TESDataHandler::LookupForm`
+  once on the game thread, and exposed to Papyrus as one global native, `RadNatives.GetReliefFlags` (bit 1 = food, bit 2 = thirst)
+  (`RadReliefConfig::InstallPapyrusBridge`, registered from `F4SEPlugin_Load`). `RadSurvivalQuest.psc` calls it only
+  for `Potion` items from `IsConsumable` and `ApplyRelief`; no `HC_*` form is read. The shipped `ExtraThirstItems` entry carries
+  `Fallout4.esm:0x058AB8` (RefreshingBeverage) and `Fallout4.esm:0x0E9284` (MS17DeezerLemonade), both vanilla ALCH
+  drinks that only carry `HC_SustenanceType_QuenchesThirst` 0x000884 (verified with FO4IDE) and would otherwise get no
+  thirst relief. Spoiled food (`MoldyFood01` 0x001A6397, the seven `*Witherd` records 0x01000800-0x01000813) is
+  deliberately not listed: vanilla gives those disease risk only, never hunger relief.
+- Overlay: `#maskOverlay` and `#visorFog` no longer use `mask-image` (Ultralight support unproven). The HUD clear zones
+  are baked into the PNG alpha by `tools/bake_visor_clear_zones.py` (overlay and `visor_fog.png`, referenced from
+  `radhud.css`). Review round 3: the bake now reads the pristine `art-src/visor/gasmask_overlay_pristine.png` (from
+  `4e4f81b`) and writes the deployed overlay, so it is idempotent; it feathers only the translucent glass and tint
+  (alpha below `FRAME_ALPHA`) over the top-left notification area, the centre loot/prompt readout and the lower-centre
+  glass, and leaves every opaque frame pixel untouched, so the visor frame is no longer cut open. RGB is zeroed where
+  alpha is 0, which shrank the PNG from 2.7 MB to 1.5 MB. Trade-off: the XP bar at the very bottom sits behind the
+  opaque bottom-centre frame bump; the 3D camera visor effect removes that overlap. `tests/status_hud_tests.js`
+  decodes both PNGs and asserts clear glass points plus opaque frame points.
+- Ownership: `RadMaskOwnership.cpp:EquipSink::ProcessEvent` no longer erases ownership on the unequip event itself. It
+  stamps `g_pendingUnequip`, a re-equip of the same mask clears it, and `Owns`/`Lookup`/`Snapshot` forfeit the entry
+  only after `kUnequipGraceMs` (2.5 s). This is what keeps an auto-donned mask ours when Gasmask Overhaul unequips and
+  re-equips it around its draw animation; a manual removal still forfeits ownership after the window.
+- Choke grace: `RadCorrectnessPolicy.h:kChokeGraceTicks` is `kAutoMaskStableTicks + 1`, used by
+  `RadiationEngine.cpp:RadiationEngine::Update` for the first choke warning, because the old 8-tick grace expired
+  before the 12-tick auto-don and produced a gasp on every storm entry. `tests/correctness_policy_tests.cpp` has a
+  `static_assert` tying the two.
+- Auto-don: `RadCorrectnessPolicy::StepAutoMask` requires `kAutoMaskStableTicks` (12 ticks = 3 s at the 4 Hz update) of
+  a stable exposure sample before donning or removing, which stops doorway/roof-edge flapping; a null parent cell
+  (load/fast travel) skips the step entirely instead of reading as exterior; `RadEngine_Session.cpp` sets
+  `_wasRadExposed = 1` when the ownership table says we auto-donned the player's mask, so it is still ours to remove
+  after a load.
+- Hotkeys: the INI values are read as strings and parsed by `RadCorrectnessPolicy::ParseHotkey` (decimal or 0x-hex;
+  negatives and junk are logged and disable that action). `ValidateHotkeyPair` rejects mouse buttons 1-6, Shift, Esc
+  and F8, and disables BOTH keys when they duplicate, so INI order cannot decide. `PollInput` only acts while our game
+  window is the foreground window (`GetForegroundWindow` process id) and no blocking menu is on the UI stack
+  (`RE::UI::menuStack`, `IMenu::OnStack`, `kPausesGame`/`kUsesCursor`/`kModal`/`kFreezeFramePause`) - proven from
+  `RE/U/UI.h:UI::GetMenuOpen`, `RE/I/IMenu.h:IMenu::OnStack` and `UI_MENU_FLAGS`. An in-game rebinding screen is still a
+  follow-up; INI edits apply when the debug menu is next opened. Review round 3: `RadiationEngine.cpp:PollInput` keeps
+  the `_filterReplaceWasDown`/`_conditionRepairWasDown` trackers on the real key state while gated, so a key held across
+  un-gating is not a phantom press; it returns early when both keys are 0; Shift+F8 also needs
+  `GameWindowForeground()`; `BlockingMenuOpen` takes `BSAutoReadLock{ UI::GetMenuMapRWLock() }` like
+  `ClimateRuntime.cpp`. `ParseHotkey` ignores a trailing `; comment`, and `IsUsableHotkey` rejects LSHIFT 0xA0 and
+  RSHIFT 0xA1.
+
+## Roofless-interior rain whitelist: implemented for ConcordMuseum01 (2026-10-29)
+
+Reference: `deploy/F4SE/Plugins/FalloutAnomaly/climate_weather.json`, `src/ClimateWeatherConfig.cpp:ClimateWeatherConfig::Load`, `src/ClimateWeatherConfig.h:ClimateWeatherConfig::IsRooflessInterior`, `src/ClimateShelterRuntime.cpp:ClimateShelterRuntime::SampleRooflessInterior`, `src/ClimatePolicy.h:RadClimatePolicy::PrecipitationFor`, `src/ClimateRuntime.cpp:ClimateRuntime::Update`, `tests/climate_policy_tests.cpp`, `tests/verify_climate_roofless.py`.
+
+- The tester's example is `ConcordMuseum01` (CELL 0x017DF7, EditorID `ConcordMuseum01`, `CELL\Flags` 0x1181 -> interior
+  bit set, no `GridX`/`GridY`, location 0x01D807, exterior LOD worldspace 0x00003C Commonwealth; verified with FO4IDE).
+  Whether its playable space is genuinely open to the sky is a *visual* property that no record exposes, so it is not
+  proven here.
+
+| Candidate | Form ID | Evidence | Status |
+|---|---|---|---|
+| ConcordMuseum01 (Museum of Freedom) | Fallout4.esm 0x017DF7 | interior cell, no grid, location 0x01D807 | reported by tester; rooflessness needs in-game confirmation |
+| MuseumOfWitchcraft01 | Fallout4.esm 0x15A1E3 | interior cell (EditorID), roof status unknown | not proposed until someone confirms a sky opening |
+
+- Implemented with the approved narrow table: `climate_weather.json` carries `rooflessInteriorCells` with exactly
+  `Fallout4.esm:0x017DF7`; `ClimateWeatherConfig::Load` resolves it through `TESDataHandler::LookupForm` once with the
+  weather overrides, rejects non-`CELL` and non-interior entries, and logs resolved/rejected counts.
+  `ClimateShelterRuntime::SampleRooflessInterior` runs the existing five-ray roof probe for a listed interior
+  (`RadClimateShelterPolicy::FromRooflessInterior` keeps indoor thermal shelter but takes rain cover from the raycast).
+  `ClimateRuntime::Update` then computes `RadClimatePolicy::PrecipitationFor(interior, listedRoofless, roofed,
+  exterior01)`: an exterior keeps its precipitation, a listed interior open to the sky uses the exterior value, a listed
+  interior with a roof gives 0, and every unlisted or unresolved interior keeps the old zero rule.
+  `RadClimatePolicy::NextWetness` treats a listed roofless interior as rain-exposed, so wetness can actually rise in the
+  open part, while a roofed result stays dry. `tests/climate_policy_tests.cpp` pins all five outcomes plus the wetness
+  rule, and `tests/verify_climate_roofless.py` pins the JSON shape (one entry), the loader/plumbing and the absence of a
+  hard-coded cell id in C++. Not played in game: whether the ConcordMuseum01 play space actually has open sky above the
+  player is a visual property no record exposes, so that stays on `docs/IN_GAME_TEST_CHECKLIST.md`.
+
+## Phosphor theme for the status HUD (2026-10-29)
+
+Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_status.css` (the `body.theme-phosphor` block), `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_needs.html:setTheme`, `hud_needs.html:renderNeeds`, `hud_needs.html:ring`, `hud_toxic.html:setTheme`, `hud_toxic.html:renderToxic`, `hud_toxic.html:ring`, `hud_filter.html:setTheme`, `hud_filter.html:renderFilter`, `hud_filter.html:setKeys`, `hud_filter.html:ring`, `hud_climate.html:setTheme`, `radhud.js:setTheme`, `radhud.css` (the `body.theme-phosphor #emissionBanner` rules), and `tests/status_hud_tests.js`.
+
+- The theme is selected by `setTheme('phosphor'|'classic')`, which toggles `theme-phosphor` on `<body>`. Classic is the default, so an unset theme renders the existing design. Every Phosphor rule in `hud_status.css` sits under that class. The only classic-side changes are hiding the new ring and caption elements and adding `position:relative` to `.status`.
+- `hud_needs.html:renderNeeds` shows fullness as the ring fill (1 minus debt). The payload and `updateNeeds` are unchanged. Colour tiers come from fullness: below 0.25 is rad, 0.25 to 0.5 amber, above 0.5 pip. Caption words switch at fullness 0.66, 0.5 and 0.25. Chip visibility stays on the debt stage boundaries (34/67/90) in both themes.
+- `hud_toxic.html:renderToxic` hides the health, AP and rads fallback chips under Phosphor. The tissue ring is tissue/1000 and the scarring arc is permanentTissue/1000 on a second outer circle. The amber (150) and rad (600) thresholds match classic.
+- `hud_filter.html:renderFilter` draws rings for filter and mask. The 25 and 60 thresholds match classic.
+- `hud_filter.html:setKeys` accepts a JSON string or an object. `replace` fills the filter hint (`[F6]`) and `repair` fills the mask hint (`[F7]`). An empty key hides its hint. This applies in both themes, and the hints stay hidden until native code supplies keys.
+- `hud_climate.html:setTheme` and `radhud.js:setTheme` only toggle the class. Climate chips and the storm banner are styled by CSS. The visor overlay and fog rules are not touched.
+- Each of the three ring-drawing views carries its own one-line `ring` helper. The views load only inline scripts, so a shared file would need a new loader path.
+- Verified by the node harness only. No browser or in-game render was run, so the ring geometry and the Ultralight rendering are unconfirmed.
+
+## Phosphor companion mode: detection, theme push, duplicate-vitals drop (2026-10-29)
+
+Reference: `src/RadHudCompanion.cpp:RadHud::IsCompanionMode`, `src/RadHudCompanion.cpp:ResolveCompanionMode`, `src/RadHudCompanion.cpp:RadHud::PushTheme`, `src/RadHudCompanion.cpp:RadHud::PushFilterKeys`, `src/RadHudCompanion.cpp:VkLabel`, `src/RadHud.cpp:RadHud::PushToxic`, `src/RadHud.cpp:RadHud::PushFilter`, `src/RadHud.cpp:RadHud::CreateView`, `src/RadHudLifecycle.cpp:SuppressVanillaMetersOnPrismaThread`, `src/RadHudLifecycle.cpp:CreateRadHudViewOnPrismaThread`, `src/RadHudNeeds.cpp:RadHud::PushNeeds`, `src/RadHudNeeds.cpp:SurvivalLayerActive`, `src/RadHudClimate.cpp:RadHud::EnsureClimateView`, `src/RadiationEngine.h:RadiationEngine::FilterReplaceKey`, `src/RadiationEngine.h:RadiationEngine::ConditionRepairKey`, `deploy/F4SE/Plugins/FalloutAnomalyRadiation.ini:[Hud] Mode`, `tests/verify_hud_fallback.py:check_source`, `tests/verify_local_hud_editor.py`.
+
+- Mode source is `[Hud] Mode=auto|phosphor|classic` (default auto). `RadHudCompanion.cpp:ResolveCompanionMode` reads it with `GetPrivateProfileStringA` on the same INI path the other readers use. `phosphor` and `classic` force the mode; `auto` is companion when `GetModuleHandleW(L"PhosphorHUD.dll")` is non-null or `Data/F4SE/Plugins/PhosphorHUD.dll` or `PhosphorHUD.ini` exists. Detection is by file or module name only, so OG and AE builds behave the same. An unknown value logs a warning and resolves as auto.
+- `RadHud::IsCompanionMode` resolves once and caches in `_companionMode` (-1 unresolved). It is deliberately not gated on `PlayerInWorld()`: the first caller is `RequestAPI`'s view-creation path, which runs at game time after F4SE has loaded every plugin DLL, so the module check is already final. A world gate would cache classic from the pre-world `SuppressVanillaMetersOnPrismaThread` call and leave the vanilla meters suppressed after PhosphorHUD is in charge.
+- `RadHud::PushToxic` in companion mode sends `fallback:false` and skips the health/AP/rads reads. The payload keeps its shape with zeros, so the debug menu's `updateVitalsInfo` copy of the same payload shows zero health/AP/rads while companion mode is on.
+- `SuppressVanillaMetersOnPrismaThread` and `CreateRadHudViewOnPrismaThread` make no `SuppressHUDWidget` calls for `HUDPlayerHealthMeter` or `HUDActionPointMeter` in companion mode. Phosphor's `bHideVanillaMeters` owns that. Classic mode is unchanged.
+- Theme: each view's DOM-ready callback (`RadHud::CreateView` for radhud, hud_toxic and hud_filter; `RadHud::PushNeeds` for hud_needs; `RadHud::EnsureClimateView` for hud_climate) calls `RadHud::PushTheme`, which sends `setTheme("phosphor"|"classic")`. The mode is cached, so no later mode change needs a second push. A view reload re-runs its callback and re-sends the theme.
+- Keys: `RadHud::PushFilter` calls `RadHud::PushFilterKeys` on the filter view. The payload is `{"replace","repair"}` built from `RadiationEngine::FilterReplaceKey` and `ConditionRepairKey` through `VkLabel` (F1..F12 from 0x70..0x7B, letters and digits as themselves, other codes as `#<hex>`, 0 as empty). It is change-detected against `_keysPayload`, so an INI reload through `ReloadHotkeysFromIni` reaches the view on the next tick. `CreateView` clears `_keysPayload` when it recreates the filter view.
+- Needs chips: in companion mode they still show, because Phosphor cannot read the GLOB-based needs outside Survival. `RadHudNeeds.cpp:SurvivalLayerActive` is the layer gate. It is false on difficulty 6 (`kTrueSurvival`, the same value `WaterBottleFill.cpp` uses for vanilla Survival), so `PushNeeds` hides the chips once and stops pushing while stale globals would otherwise show. Limits: `RadSurvivalQuest.psc:IsActive` also checks the `Enabled` and `SkipWhenVanillaSurvival` properties, which are `Auto Const` ESP values that C++ cannot read cheaply, so only the difficulty half is mirrored. The debug menu's SURVIVAL tab (`RadHud::PushSurvival`) still receives the stale snapshot on difficulty 6; it was left alone because the brief scoped the fix to the chips.
+- `RadHudCompanion.cpp` is a separate module because `RadHud.cpp` was at the 750-line cap. Build sources come from `xmake.lua` `add_files("src/**.cpp")`.
+
+
+## Visor overlay is first-person only; companion layout and rings (2026-10-29)
+
+- `src/RadCorrectnessPolicy.h:MaskOverlayVisible` takes a fourth argument, `a_firstPerson`. The flat PNG visor (`gasmask_overlay.png`, `visor_fog.png`) is the wearer's own view, so it is hidden in third person. The debug override still wins. `src/RadEngine_Shelter.cpp:RadiationEngine::PlayerInFirstPersonView` reads `RE::PlayerCamera::QCameraEquals` for `kFirstPerson` and `kIronSights` and returns true when the camera singleton is missing, so a load screen cannot flash the visor off. `src/RadiationEngine.cpp` passes it at the single `MaskOverlayVisible` call. The helper sits in `RadEngine_Shelter.cpp` because `RadEngine_Mask.cpp` is at the 750-line cap.
+- `src/RadHudCompanion.cpp:CompanionWidgetDefault` is the one table of companion-mode default positions (1920x1080 pixels, stored as fractions): needs (290,962), filter (478,962), climate (400,892), tissue (652,892). They sit right of Phosphor's HP/AP/RAD rings (x 56..272) and below its XP/location text (x < 390, y 820..915), and stay under x 664 so the compass row (x >= 660, y > 970) is clear. `CompanionPlaced` feeds the same table to every PrismaHUD `RegisterWidget` call, and `src/RadHudLayout.cpp:EnsureLoaded` applies it to `g_layout` before `hud_layout.json` is read, so a saved layout still wins. Classic mode is untouched: both functions return the descriptor or default unchanged.
+- `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_climate.html`: each of the four chips (warm, wet, air, wind) now has a Phosphor-style `svg.ring` (r=20 on a 48 box, same markup as `hud_needs.html`). `ringTo` sets the dash offset: warmth/100, wetness/100, (ambient+10)/40 for temperature, wind/20. The `data-ring` attribute marks chips that get the panel-less 44px ring look in `hud_status.css` (`body.theme-phosphor .status[data-ring]`); it is an attribute because the scripts overwrite `className` on every render. In classic mode the ring is `display:none`, as before.
+
+
+## Carry-weight leak: persisting the applied tissue penalties (2026-10-29)
+
+Tester report: carry weight keeps dropping, now -92, while the radiation stage has not advanced.
+
+- **Cause (`src/RadEngine_Session.cpp:RadiationEngine::OnPostLoad`, before this change):** it zeroed `_appliedCarryPen/_appliedHealPen/_appliedSpeedPen/_appliedApPen` on every load. `src/RadEngine_Tissue.cpp:ApplyTrackedAV` applies only the delta between the wanted penalty and that counter, so after a reload it applied the full penalty again on top of a `kTemporary` modifier the game had already saved. Each reload stacked another penalty.
+  - **Unverified, and contradicted by an older note:** whether the game persists `kTemporary` modifiers in saves. The older `RadEngine_Session.cpp` note said the engine drops them on load, which is the reason the counters used to be zeroed. The -92 symptom fits stacking, which needs them to persist, but that is circumstantial. The guard below makes the fix safe under either premise.
+- **Persist (`src/RadEngine_Serialization.cpp:RadiationEngine::SaveState`, `RadiationEngine::LoadState`):** a new `PENA` v1 record holds the four counters (16 bytes). Load validates with `src/SerializationPolicy.h:IsValidPenaltyState` (finite, 0..`kMaxPersistedPenalty`) and restores only when `PenaltyCandidatesAgree` (non-empty and all candidates identical), the same duplicate-record rule as the filter and storm-clock records. A save with no `PENA` record, for example one made before this change, starts at 0 and then goes through the old-save inference below.
+- **Ordering (`src/RadEngine_Session.cpp:RadiationEngine::RevertState`, `OnPostLoad`):** `RevertState` now zeroes the four counters. F4SE runs `RevertState`, then `LoadState`, then kPostLoadGame (`OnPostLoad`), so `OnPostLoad` must not zero them or the restore is lost.
+- **Guard (`src/RadEngine_Tissue.cpp:RadiationEngine::RepairLeakedCarryWeight`, `src/SerializationPolicy.h:RestoredCarryPenaltyHeld`):** if a restored carry penalty is above 0 but `permanent - total` is under half of it, the game did not keep the modifier, so all four restored counters are zeroed and the next tick re-applies from tissue. Without this, a game that drops modifiers would get a bonus when tissue heals. Heal/speed/AP are judged by the carry check since the four share one lifecycle. Limit: a large carry bonus from gear or chems can hide a real penalty and trigger a false drop, which stacks one extra penalty on that load if modifiers do persist.
+- **Old saves (`src/RadEngine_Tissue.cpp:RadiationEngine::RepairLeakedCarryWeight`, `WantedTissuePenalties`, `RadiationEngine::_penaltiesFromSave`):** a save with no usable `PENA` record leaves `_penaltiesFromSave` false. The load then infers the four counters from the current tissue damage, but only when the wanted carry penalty is at least 0.5 and the FULL wanted penalty is visible (`permanent - total >= wanted`). This stops the first load of an old save stacking one more penalty if modifiers persist. Limit: another negative temporary carry modifier (hunger/thirst/sleep up to 45/25/10) can satisfy the test when the game dropped ours, which gives a small bonus when tissue later heals. The full-penalty threshold is stricter than the half-penalty one used for restored counters because here the evidence is the only thing deciding. `ApplyTissueEffects` uses the same `WantedTissuePenalties` so the two cannot drift apart.
+- **Repair (`src/RadEngine_Tissue.cpp:RadiationEngine::RepairLeakedCarryWeight`, `src/SerializationPolicy.h:CarryLeakRepairDelta`):** one-time fix for saves that already leaked. If the total carry weight is below 0 and the permanent base is above 0, it raises the total to the permanent base via a `kTemporary` mod and posts a HUD note. It runs from `OnPostLoad` after `DispelNegativeSpecials` and zeroes `_appliedCarryPen`, because the raise wipes the whole tissue modifier and the next tick must re-derive it. `src/RadEngine_Session.cpp:OnNewGame` also zeroes the four counters so a new game does not depend on the revert callback.
+  - **Limits:** it only fires on a negative total. A leak that still leaves a positive total is not detected. Raising to the permanent base can overshoot by up to the active hunger/thirst/sleep modifiers (45/25/10) once those expire.
+- **Test:** `tests/serialization_policy_tests.cpp` covers the validity bounds, candidate agreement, the guard and the repair delta (-92 against base 250 gives 342). The save/load wiring and the repair call are not covered by the standalone tests; they need an in-game check for `[Load] Tissue penalties restored` and `[RepairCarry]` in f4se.log.
+
+## Moved comments for src/RadNeedsTuning.cpp, src/WaterBottleFill.cpp and src/RadiationEngine.cpp (2026-10-29)
+
+
+- The build script for the first-person gas-mask view assets is kept outside this repository, so it is not in the tree. The shipped result is `deploy/Meshes/RadiationOverhaul/Overlay/RadMaskView.nif` with its `RadMaskM50*` materials and textures; the M50 model and textures are the repository owner's own Blender work, so no third-party licence applies (see `NOTICE.md`; the view is driven by `deploy/Scripts/Source/User/RadMaskViewFX.psc:RadMaskViewFX`).
+- `src/RadiationEngine.cpp:RadiationEngine::Update` (auto-don block): `AutoEquipMask` off, or `AutoEquipInCombat` off while `IsInCombat()`, blocks the automatic mask-up. A blocked `step.equip` resets `_wasRadExposed = 0` because `StepAutoMask` reports `equip` once per transition; re-arming lets it fire after combat ends or the toggle returns, so a mask is never donned mid-fight where a hit would wear it down. Auto-removal is unaffected (it only fires for a mask the mod put on).
+- `src/RadEngine_Audio.cpp:RadiationEngine::EnsureBed`: the `applied` reference tracks the attenuation last set on the playing bed, so a volume slider retunes the loop immediately instead of at the next loop restart. `0xFFFF` means no bed is playing.
+- `src/RadEngine_Storm.cpp:RadiationEngine::EffectiveStormGap`: applies the Min/Max storm sliders on read over the INI values and keeps Max at or above Min. The INI-loaded `_stormMinRealMin/_stormMaxRealMin` are never written back, so lowering Min again restores the INI Max.
+- `src/RadEngine_Mask.cpp:RadiationEngine::ApplyTuning`: when the effective storm gap differs from the one last applied it clears `_stormScheduled`, so the next storm is redrawn from the new gap; the first call keeps a schedule loaded from the save.
+- `src/RadEngine_Mask.cpp:RadiationEngine::ApplyTuning` and `src/RadNeedsTuning.cpp:SetLive`: `ApplyTuning` publishes the value in force for every C++-side key, and `Json` shows override, else live value, else the table reference. A hand-edited INI value (for example `[Filter] DurationSeconds=600`) therefore shows as 600 instead of the table default.
+- `src/WaterBottleFill.cpp:WaterBottleFill::ActivateOnGameThread`: the sneak requirement reads `RadNeedsTuning::On(kWaterRequireSneak, g_config.requireModifier)` on every activation, so the panel toggle (`WaterRequireSneak`) overrides `[Water] RequireModifier` live and an unset toggle falls back to the INI. With sneak off a plain activation both fills a bottle and runs the vanilla drink; whether the drink's rads also apply is the open question already in the checklist. `LoadConfig` publishes the INI value through `SetLive` so the panel shows the real value.
+- `src/RadiationEngine.cpp:RadiationEngine::Update` (air payload): `autoMask` is 0 when `AutoEquipMask` is off, 2 when it is armed but `AutoEquipInCombat` is off and the player is in combat, else 1. `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_filter.html:renderFilter` shows it as the AUTO chip (OFF warns, HELD, ON) and hides the chip when the field is absent, so an older engine build still renders.
+
+## NPC outbreak milestone 1
+
+- `deploy/Scripts/Source/User/RadOutbreakEffect.psc:RadOutbreakEffect` is an ActiveMagicEffect on an ability spell
+  (`deploy/RadOutbreak.esp` 000801 -> MGEF 000800, Script archetype). State (stage, start time) lives on the effect, so it is
+  saved with the actor and cleared by Dispel.
+- `RadOutbreakEffect::EnsureInBed` finds beds with the vanilla `IsSleepFurniture` keyword (021B18) and calls `Bed.Activate(Patient)`
+  instead of authoring an AI package. Unproven in game: a workshop package may override it. The `Probe` trace lines are the evidence.
+- `RadOutbreakEffect::OnEffectStart` skips the player, the dead and essential actors only. Quest-marked exclusion, companion
+  "ill but never dead" handling and stage-3 death are not built yet.
+- Sound properties are None-safe until the ElevenLabs clips are exported into the repo.
+
+### Empty bottle returned after drinking filled water
+
+- `deploy/Scripts/Source/User/RadSurvivalQuest.psc:RadSurvivalQuest::ReturnEmptyBottle` runs from `RadSurvivalQuest::ApplyRelief`, so it fires only on a confirmed consume (equip and removal pair) and only while `IsActive()` is true (so not under vanilla Survival, which `src/WaterBottleFill.cpp:ActivateSink::ProcessEvent` also yields to).
+- It matches the two items `WaterBottleFill.cpp:FillOneBottle` hands out, WaterDirty (0x366BF) and WaterPurified (0x366C0), and gives back one `BottleEmpty01` (0xDF221) per drink. The original bottle type is not recorded on the water item, so the returned bottle is always that one.
+- Any WaterDirty or WaterPurified drunk returns a bottle, including looted, bought or purifier-made water, because the filled item carries no origin tag. Pairing is by form within `PairWindowSeconds`, so a drop and a drink of the same water inside that window can credit one bottle.
+
+### M50 first-person mask view deployed, PNG visor disabled
+
+- `deploy/Meshes/RadiationOverhaul/Overlay/RadMaskView.nif` is now build g23 of the M50 interior, 23 shapes, 278788 tris. It references five new `RadMaskM50*.bgsm` under `deploy/materials/RadiationOverhaul/Mask` and their `RadMaskM50*` textures; the glass and refraction `.BGEM` files and the vanilla cubemaps are unchanged. The old `RadMask*.bgsm` and `RadMask_*.dds` remain in `deploy/` but the NIF no longer uses them.
+- `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:setMask` is gated by `MASK_PNG_ENABLED = false`, so `gasmask_overlay.png` never shows while the 3D view is the visor. Flip it to true to restore the PNG. `tests/status_hud_tests.js` pins the flag.
+- Not run in game: NIF load, material paths and draw cost of 278k tris are unverified.
 
 ## Needs relief tuning: one food/drink must visibly move the pools (2026-10-30)
 
@@ -812,11 +1064,9 @@ vanilla Survival is active.
 
 **Measured versus assumed.** Gold values are measured winners from this load order (FO4IDE). The relief numbers are
 computed from the shipped formula, not observed in game. **Not verified in game:** that Papyrus delivers exactly one
-confirmed use per item (the pending count path can miss a use if the engine consumes before the tick - the pairing
-rewrite lives on the separate needs/disease branch), the notification placement, and the actual HUD stage change. The
-checklist section below is the in-game check. The confirmation path on this branch is still the count-drop design;
-the pairing rewrite lives on the separate needs/disease branch, so a drop inside the pending window can still be
-mistaken for a use here.
+confirmed use per item (the equip/removal pairing rewrite (`RadSurvivalQuest.psc:PairEquip`, `:PairRemove`) is in this branch and
+replaced the old count-drop path), the notification placement, and the actual HUD stage change. The
+checklist section below is the in-game check.
 
 ## Dome animation clock, mesh and follow (unreleased)
 
@@ -858,3 +1108,23 @@ The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed l
 **Cancelling the tour.** Shift+F8 only cancels the remaining tour steps. A running storm, forced weather or mask state stays in place and must be cleared with the normal clear and release buttons. The exception is a needs or disease scene caught mid-play: stopping, starting another scene, or reopening the menu then sends that scene's revert command and `time:resume` before anything else, so the clock never stays frozen.
 
 **Showcase needs and disease scenes.** The Peckish, Starving, Exhausted, Fever stage 2 and Wasting stage 3 scenes run `time:freeze`, a `needs:<hunger>:<thirst>:<sleep>:<disease>:<stage>` command, a revert after 10 seconds, and `time:resume`. The `needs:` command calls the `RadShowcase.Apply` Papyrus entry point. The revert does not restore the player's real values: it sets the touched pools and the disease to 0. These scenes therefore overwrite the real needs and disease state of the loaded save and are destructive on a save you want to keep. Use them only on a disposable save, and resume time before saving. Clear needs sets every pool and the disease to 0 and resumes the clock. The `needs:` dispatch is fire and forget: `DebugApplyNeeds` passes no callback, because the Papyrus side logs its own result.
+## Relief, water fill and mask view notes
+
+Reference: `src/RadiationEngine.h`, `src/RadEngine_Audio.cpp`. These replace trailing comments that were removed from the declarations.
+
+- `RadiationEngine.h:RepairLeakedCarryWeight` raises a leaked negative carry weight back to the permanent base; `:DispelNegativeSpecials` auto-heals any SPECIAL driven below 1 (corruption or foreign mods).
+- `RadiationEngine.h:_stormGapAppliedMin` is the effective storm gap last applied (0 = none yet), so a slider move reschedules. `:EffectiveStormGap` is the INI gap with the live sliders applied, Max never below Min.
+- `RadiationEngine.h:_stormBedApplied` and `:_ambientBedApplied` hold the attenuation last set on the playing storm and general beds (0xFFFF = none). `RadEngine_Audio.cpp` retunes the playing bed when `applied != atten`, so a volume slider move does not wait for the loop restart; the looping-bed helper (re)loops, switches or stops the bed.
+- `RadiationEngine.h:PlayerInFirstPersonView` is true in first person or iron sights, and true when the camera is unavailable. `:PlayerWearsPowerArmorHelmet` is true for any ArmorTypePower piece filling the helmet slot, frame or full suit.
+- `RadiationEngine.h:_wasRadExposed` is the auto-don exposure state (-1 = sync silently, 0 = covered, 1 = exposed); `:_radExposedCandidate` is the sample being timed for hysteresis and `:_radExposedStreak` counts consecutive ticks it has held.
+- `RadiationEngine.h:_filterEnabled` mirrors `[Tuning] FilterEnabled`; false means the filter never drains or fails. `:ApplyTuning` overlays the live `[Tuning]` overrides on the INI-loaded members; `:ReloadHotkeysFromIni` re-reads and revalidates the two keybinds without a restart while the debug menu is open.
+- `RadiationEngine.h:_chokeTicks` counts consecutive choking ticks (grace: no VO or notification for `kChokeGraceTicks`).
+- `RadiationEngine.h:_penaltiesFromSave` is true when `LoadState` restored the four penalty counters.
+## Papyrus natives live in a global script (RadNatives)
+
+Reference: `deploy/Scripts/Source/User/RadNatives.psc`, `src/RadNeedsTuning.cpp:RegisterPapyrusFunctions`, `src/RadReliefConfig.cpp:RegisterPapyrusFunctions`, `tests/verify_needs_tuning.py`.
+
+- Bethesda's PapyrusCompiler rejects a native function declared in a non-native script ("cannot be defined as native because the script is not flagged as native"), and the quest scripts declared `GetReliefFlags` and `TuningOverride` that way. Both now live in `RadNatives`, declared `native hidden`, as `global native` functions. No other script declares a native.
+- The plugin binds them with `BindNativeMethod("RadNatives", ...)` and `std::monostate` in the self slot, the CommonLib marker for a global function. `TuningOverride` is registered once and shared by `RadSurvivalQuest` and `RadSurvivalDiseases`; `GetReliefFlags` is registered by the relief bridge.
+- Behaviour is unchanged. `TuningOverride` still returns override + 1.0, or 0.0 when unset, and an unbound native also reads 0.0, so a missing DLL keeps the script defaults. `GetReliefFlags` still returns 0 for unlisted items.
+- The static-native binding is build-verified only. In game, the Papyrus log must show no unbound or missing native for `RadNatives`, and the plugin log must show `[Tuning] Papyrus bridge registered` and `[Relief] Papyrus bridge registered`. The Tuning line (`src/RadNeedsTuning.cpp:RegisterPapyrusFunctions`) carries the `RadNatives` identification, the Relief line (`src/RadReliefConfig.cpp:RegisterPapyrusFunctions`) keeps its original text; both lines only prove the registration function ran, because the log is printed without checking the bind result.

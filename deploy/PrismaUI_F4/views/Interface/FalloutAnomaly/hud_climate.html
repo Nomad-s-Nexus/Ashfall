@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Climate status</title><link rel="stylesheet" href="hud_status.css"></head>
-<body><div id="root"><div class="status" id="warm" role="img" aria-label="WARM"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5a4 4 0 1 0 4 0v-8.5a2 2 0 0 0 -4 0v8.5"/><path d="M10 9l4 0"/></svg><span class="label">WARM</span><b id="warmValue">--</b></div><div class="status" id="wet" role="img" aria-label="WET"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546"/></svg><span class="label">WET</span><b id="wetValue">--</b></div><div class="status" id="air" role="img" aria-label="TEMP"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5a2.828 2.828 0 0 1 0 4l-8 8h-4v-4l8 -8a2.828 2.828 0 0 1 4 0"/><path d="M16 7l-1.5 -1.5"/><path d="M13 10l-1.5 -1.5"/><path d="M10 13l-1.5 -1.5"/><path d="M7 17l-3 3"/></svg><span class="label">TEMP</span><b id="airValue">--</b></div><div class="status" id="wind" role="img" aria-label="WIND"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h8.5a2.5 2.5 0 1 0 -2.34 -3.24"/><path d="M3 12h15.5a2.5 2.5 0 1 1 -2.34 3.24"/><path d="M4 16h5.5a2.5 2.5 0 1 1 -2.34 3.24"/></svg><span class="label">WIND</span><b id="windValue">--</b></div></div><script>
+<body><div id="root"><div class="status" data-ring id="warm" role="img" aria-label="WARM"><svg class="ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="track" cx="24" cy="24" r="20"/><circle class="fill" id="warmRing" cx="24" cy="24" r="20" stroke-dasharray="125.66 125.66" transform="rotate(-90 24 24)"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5a4 4 0 1 0 4 0v-8.5a2 2 0 0 0 -4 0v8.5"/><path d="M10 9l4 0"/></svg><span class="label">WARM</span><b id="warmValue">--</b></div><div class="status" data-ring id="wet" role="img" aria-label="WET"><svg class="ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="track" cx="24" cy="24" r="20"/><circle class="fill" id="wetRing" cx="24" cy="24" r="20" stroke-dasharray="125.66 125.66" transform="rotate(-90 24 24)"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546"/></svg><span class="label">WET</span><b id="wetValue">--</b></div><div class="status" data-ring id="air" role="img" aria-label="TEMP"><svg class="ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="track" cx="24" cy="24" r="20"/><circle class="fill" id="airRing" cx="24" cy="24" r="20" stroke-dasharray="125.66 125.66" transform="rotate(-90 24 24)"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5a2.828 2.828 0 0 1 0 4l-8 8h-4v-4l8 -8a2.828 2.828 0 0 1 4 0"/><path d="M16 7l-1.5 -1.5"/><path d="M13 10l-1.5 -1.5"/><path d="M10 13l-1.5 -1.5"/><path d="M7 17l-3 3"/></svg><span class="label">TEMP</span><b id="airValue">--</b></div><div class="status" data-ring id="wind" role="img" aria-label="WIND"><svg class="ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="track" cx="24" cy="24" r="20"/><circle class="fill" id="windRing" cx="24" cy="24" r="20" stroke-dasharray="125.66 125.66" transform="rotate(-90 24 24)"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h8.5a2.5 2.5 0 1 0 -2.34 -3.24"/><path d="M3 12h15.5a2.5 2.5 0 1 1 -2.34 3.24"/><path d="M4 16h5.5a2.5 2.5 0 1 1 -2.34 3.24"/></svg><span class="label">WIND</span><b id="windValue">--</b></div></div><script>
 
 var root=document.getElementById('root'),_preview=false,_hasData=false,_fahrenheit=false,_lastData=null;
 var names=['NORMAL','CHILLED','MILD','MODERATE','SEVERE','CRITICAL'];
 function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
-function status(id,value,description,severity){
+function ringTo(id,f){document.getElementById(id+'Ring').setAttribute('stroke-dashoffset',(125.66*(1-Math.max(0,Math.min(1,f)))).toFixed(2));}
+function status(id,value,description,severity,frac){
+ ringTo(id,frac);
  var e=document.getElementById(id);document.getElementById(id+'Value').textContent=value;
  e.className='status '+(severity||'');e.setAttribute('aria-label',description);e.title=description;
 }
@@ -13,16 +15,17 @@ function renderClimate(d){
  var s=Math.max(0,Math.min(5,Math.round(+d.stage||0))),core=+d.core||0,ambient=+d.ambient||0;
  var warmth=pct(d.warmth==null?(core-28)/9*100:d.warmth),wet=pct(d.wetness),wind=+d.wind||0;
  var trend=(+d.warming||0)-(+d.cooling||0);if((core>=37&&trend>0)||(core<=28&&trend<0))trend=0;var body=names[s]+(trend>.001?' / WARMING':trend<-.001?' / COOLING':' / STEADY');
- status('warm',warmth+'%'+(trend>.001?' \u2191':trend<-.001?' \u2193':''),body+(+d.heat>0?' / NEAR HEAT':''),s>=4?'danger':s>=1?'warn':'dim');
- status('wet',wet+'%',wet?'Wet clothing increases cooling':'Dry',wet>=75?'danger':wet>=50?'warn':'dim');
- status('air',ambient<=0?'FREEZING':ambient<10?'COLD':ambient<20?'COOL':'MILD','Ambient '+(_fahrenheit?(ambient*9/5+32).toFixed(1)+' F':ambient.toFixed(1)+' C')+' / '+body,ambient<=0?'danger':ambient<10?'warn':'dim');
- status('wind',wind<2?'CALM':wind<8?'BREEZE':wind<14?'WINDY':'STRONG','Wind increases cooling; shelter reduces exposure',wind>=14?'danger':wind>=8?'warn':'dim');
+ status('warm',warmth+'%'+(trend>.001?' \u2191':trend<-.001?' \u2193':''),body+(+d.heat>0?' / NEAR HEAT':''),s>=4?'danger':s>=1?'warn':'dim',warmth/100);
+ status('wet',wet+'%',wet?'Wet clothing increases cooling':'Dry',wet>=75?'danger':wet>=50?'warn':'dim',wet/100);
+ status('air',ambient<=0?'FREEZING':ambient<10?'COLD':ambient<20?'COOL':'MILD','Ambient '+(_fahrenheit?(ambient*9/5+32).toFixed(1)+' F':ambient.toFixed(1)+' C')+' / '+body,ambient<=0?'danger':ambient<10?'warn':'dim',(ambient+10)/40);
+ status('wind',wind<2?'CALM':wind<8?'BREEZE':wind<14?'WINDY':'STRONG','Wind increases cooling; shelter reduces exposure',wind>=14?'danger':wind>=8?'warn':'dim',wind/20);
  var show=_preview||s>=1||wet>=50||ambient<=0||wind>=14;
  root.className=show?('visible s'+s):'';
  window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));
 }
 window.updateClimate=function(json){try{var d=typeof json==='string'?JSON.parse(json):json;if(!d||typeof d!=='object')return;_lastData=d;_hasData=true;if(!_preview)renderClimate(d);}catch(e){}};
 window.setClimateUnit=function(json){_fahrenheit=json==='F'||json==='"F"';if(_lastData)renderClimate(_lastData);};
+window.setTheme=function(name){document.body.classList.toggle('theme-phosphor',String(name).replace(/"/g,'')==='phosphor');};
 window.setEditorPreview=function(json){_preview=json==='1'||json===1||json===true;if(_preview)renderClimate({core:35.8,warmth:87,ambient:-4,wetness:62,heat:30,wind:12,stage:1});else if(_lastData)renderClimate(_lastData);else root.className='';};
 
 var WIDGET_ID='rad_climate';

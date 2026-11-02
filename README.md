@@ -31,8 +31,12 @@ Author: NomadsReach
   automatically becomes the layout owner and its shared editor takes over.
 - **Needs (vanilla Papyrus quest).** Hunger, thirst and sleep debt advance on a game-time timer,
   persist with the quest in the save, and are relieved by real food/drink use and real sleep.
-  Consumption is confirmed by an inventory count change, so dropping, storing, selling and crafting
-  cannot feed the player. The quest script owns the rates and mirrors every change into
+  Consumption is confirmed by the engine's item-removal event paired with the equip, not by a count
+  change, so dropping, storing, selling and crafting cannot feed the player. **This layer now needs
+  the F4SE plugin (RadiationOverhaul) loaded**: the quest calls its native relief bridge for the
+  `[Relief]` INI extras, and without the DLL loaded those extras stay off and each ingestible equip
+  logs one unbound-native error (the vanilla-keyword pools still work). The quest script owns the
+  rates and mirrors every change into
   `RadSurvival_Hunger`/`_Thirst`/`_Sleep` plus `RadSurvival_Risk`/`_Disease`; the native HUD reads
   those five `GLOB` records through `TESGlobal`, so there is no native clock and no needs co-save
   record. `HC_Manager` and every `HC_*` form are untouched, and the layer suspends itself while
