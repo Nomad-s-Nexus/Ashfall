@@ -76,6 +76,7 @@ jobs:
             'verify_needs_globals.py',
             'verify_needs_tuning.py',
             'verify_av_ownership.py',
+            'verify_dome_visibility.py',
             'verify_papyrus_pex.py'
           )
           $failed = @()

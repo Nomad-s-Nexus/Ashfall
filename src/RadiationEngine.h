@@ -17,6 +17,7 @@
 class RadiationConfig;
 namespace F4SE { class SerializationInterface; }
 namespace RE {
+    class NiAVObject;
     class Actor;
     class ActorValueInfo;
     class PlayerCharacter;
@@ -255,6 +256,7 @@ private:
     double          _playSeconds      = 0.0;        // accumulated real seconds of active play
     double          _nextStormPlaySec = 0.0;        // _playSeconds value at which the next storm fires
     double          _stormDomeBeginSec = 0.0;
+    double          _stormDomeLeadShiftSec = 0.0;
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
@@ -482,6 +484,11 @@ private:
         float zOffset;
         bool animStarted = false;
         bool manualSeeded = false;
+        RE::NiAVObject* root = nullptr;
+        bool hasManager = false;
+        RE::NiAVObject* hole4 = nullptr;
+        RE::NiAVObject* vortex2 = nullptr;
+        RE::NiAVObject* vortex3 = nullptr;
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
@@ -496,8 +503,16 @@ private:
     double _domeSeekSec = 0.0;
     void AdvanceDomeClock();
     void DriveDomeAnimation(bool moved);
+    void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
+    void ApplyDomeShapeMask(double a_seqTimeSec);
+    void ResetDomeShapeMask();
+    std::uint64_t _domeShapeMask = RadCorrectnessPolicy::kAllDomeShapesVisible;
+    bool _domeShapeMaskDirty = false;
+    double _domeDriveLastSec = -1.0e9;
     float  _stormDomeBlend = 0.0f;
     double _stormDomeBlendSec = 0.0;
+    double _stormDomeSpawnSec = 0.0;
+    bool _stormDomeStatsLogged = false;
     bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
                                                     // NiController animation (KORs' STATIC records do), so
                                                     // UpdateDomeAnimation force-activates it once 3D loads

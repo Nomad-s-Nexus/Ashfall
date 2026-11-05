@@ -77,6 +77,7 @@ jobs:
           python tests/verify_survival_menu.py
           python tests/verify_needs_globals.py
           python tests/verify_av_ownership.py
+          python tests/verify_dome_visibility.py
           python tests/verify_papyrus_pex.py
 
       - name: Configure (MSVC)
