@@ -31,13 +31,13 @@ namespace
         std::ranges::transform(mode, mode.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         const auto logger = spdlog::get("FalloutAnomaly");
 
-        if (mode == "phosphor" || mode == "classic")
+        if (mode == "phosphor")
         {
             if (logger) logger->info("[HUD] Resolved HUD mode: {} (forced by [Hud] Mode).", mode);
-            return mode == "phosphor";
+            return true;
         }
         if (mode != "auto" && logger)
-            logger->warn("[HUD] [Hud] Mode=\"{}\" is not auto|phosphor|classic; using auto.", mode);
+            logger->warn("[HUD] [Hud] Mode=\"{}\" is not auto|phosphor; using auto.", mode);
 
         const bool loaded = ::GetModuleHandleW(L"PhosphorHUD.dll") != nullptr;
         std::error_code ec;
@@ -46,7 +46,7 @@ namespace
         const bool companion = loaded || onDisk;
         if (logger)
             logger->info("[HUD] Resolved HUD mode: {} (auto: PhosphorHUD.dll loaded={}, PhosphorHUD files on disk={}).",
-                companion ? "phosphor" : "classic", loaded, onDisk);
+                companion ? "phosphor-companion" : "own-vitals", loaded, onDisk);
         return companion;
     }
 }
@@ -90,7 +90,7 @@ void RadHud::PushTheme(uint64_t view)
     if (!_api || view == 0) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     if (!api->IsValid(view)) return;
-    api->InteropCall(view, "setTheme", IsCompanionMode() ? "\"phosphor\"" : "\"classic\"");
+    api->InteropCall(view, "setTheme", "\"phosphor\"");
 }
 
 void RadHud::PushFilterKeys(uint64_t view)

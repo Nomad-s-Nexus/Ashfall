@@ -956,6 +956,8 @@ Reference: `deploy/F4SE/Plugins/FalloutAnomaly/climate_weather.json`, `src/Clima
 
 ## Phosphor theme for the status HUD (2026-10-29)
 
+Superseded: the classic look and `setTheme('classic')` no longer exist. All status widgets are Phosphor cores; see `docs/code-notes/Ashfall.md` section "Phosphor HUD core rings" (`hud_core.js:PhosCore.build`, `src/RadHudCompanion.cpp:RadHud::PushTheme`). The bullets below describe the earlier ring design and are kept as history.
+
 Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_status.css` (the `body.theme-phosphor` block), `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_needs.html:setTheme`, `hud_needs.html:renderNeeds`, `hud_needs.html:ring`, `hud_toxic.html:setTheme`, `hud_toxic.html:renderToxic`, `hud_toxic.html:ring`, `hud_filter.html:setTheme`, `hud_filter.html:renderFilter`, `hud_filter.html:setKeys`, `hud_filter.html:ring`, `hud_climate.html:setTheme`, `radhud.js:setTheme`, `radhud.css` (the `body.theme-phosphor #emissionBanner` rules), and `tests/status_hud_tests.js`.
 
 - The theme is selected by `setTheme('phosphor'|'classic')`, which toggles `theme-phosphor` on `<body>`. Classic is the default, so an unset theme renders the existing design. Every Phosphor rule in `hud_status.css` sits under that class. The only classic-side changes are hiding the new ring and caption elements and adding `position:relative` to `.status`.

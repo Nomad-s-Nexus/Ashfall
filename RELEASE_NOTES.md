@@ -80,8 +80,8 @@ Everything below shipped in v1.2.0 and is still in this archive.
   the flat PNG visor is off. The M50 model and textures are the repository owner's own Blender
   work.
 - **Phosphor HUD companion mode.** With PhosphorHUD present (`[Hud] Mode=auto`, or force
-  `phosphor` or `classic`) the status HUD uses a Phosphor-style theme with rings, drops the
-  duplicate vitals and uses companion default positions. Status icons are larger and brighter,
+  `phosphor`) the status HUD drops the duplicate vitals and uses companion default positions.
+  Every status widget uses the Phosphor HUD core look; there is no classic look. Status icons are larger and brighter,
   and the debug panel has a SURVIVAL pane.
 - **Roofless-interior rain.** Rain can reach the player inside the Concord Museum of Freedom,
   the one approved roofless interior, when the roof probe finds open sky.
