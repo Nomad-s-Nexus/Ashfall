@@ -95,12 +95,37 @@ namespace RadCorrectnessPolicy
         return (seekSec >= 0.0f && seekSec < 1.0e9f) ? seekSec : 0.0f;
     }
 
+    constexpr int DomeShapeIndex(std::string_view name)
+    {
+        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
+            if (name == RadDomeVisibility::kShapeNames[i]) return i;
+        return -1;
+    }
+
     constexpr std::uint64_t kAllDomeShapesVisible = (std::uint64_t{ 1 } << RadDomeVisibility::kShapeCount) - 1;
 
-    // Invariant: a non-finite, negative or absurd sequence time yields the all-visible mask, never a cull.
+    constexpr std::string_view kDomeHiddenShapes[] = {
+        "CoreBack", "CoreFront", "PortalA", "PortalB", "DiskOuter", "DiskInner", "DiskHalo", "PhotonRing",
+    };
+
+    // Constraint: the vortex funnel and portal ring shapes are never drawn; see docs/code-notes/Ashfall.md.
+    constexpr std::uint64_t DomeHiddenShapeMask()
+    {
+        std::uint64_t mask = 0;
+        for (const auto name : kDomeHiddenShapes)
+        {
+            const int i = DomeShapeIndex(name);
+            if (i >= 0) mask |= std::uint64_t{ 1 } << i;
+        }
+        return mask;
+    }
+
+    constexpr std::uint64_t kDomeShownShapes = kAllDomeShapesVisible & ~DomeHiddenShapeMask();
+
+    // Invariant: a non-finite, negative or absurd sequence time yields every non-hidden shape, never a wider cull.
     constexpr std::uint64_t VisibleShapeMask(double seqTimeSec)
     {
-        if (!(seqTimeSec >= 0.0) || seqTimeSec > 1.0e12) return kAllDomeShapesVisible;
+        if (!(seqTimeSec >= 0.0) || seqTimeSec > 1.0e12) return kDomeShownShapes;
         const double period = static_cast<double>(RadDomeVisibility::kCycleSec);
         const double t = seqTimeSec - period * static_cast<double>(static_cast<long long>(seqTimeSec / period));
         std::uint64_t mask = 0;
@@ -116,14 +141,7 @@ namespace RadCorrectnessPolicy
                 }
             }
         }
-        return mask;
-    }
-
-    constexpr int DomeShapeIndex(std::string_view name)
-    {
-        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
-            if (name == RadDomeVisibility::kShapeNames[i]) return i;
-        return -1;
+        return mask & kDomeShownShapes;
     }
 
     constexpr double WrapAngleRad(double a)
