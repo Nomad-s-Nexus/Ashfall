@@ -269,13 +269,14 @@ int main()
     settled = Observe(settled, Level::kRoofed);
     Require(settled.value == Level::kRoofed);
 
-    Require(ShouldReprobeTimed(Level::kOpen, 1.6f));
-    Require(!ShouldReprobeTimed(Level::kOpen, 1.4f));
-    Require(!ShouldReprobeTimed(Level::kEnclosed, 2.9f));
-    Require(ShouldReprobeTimed(Level::kEnclosed, 3.1f));
-    Require(ShouldReprobeTimed(Level::kRoofed, 1.6f));
-    Require(ShouldReprobeTimed(Level::kOpen, -1.0f));
-    Require(ShouldReprobeTimed(Level::kOpen, std::numeric_limits<float>::quiet_NaN()));
+    Require(ShouldReprobeTimed(Settled{ Level::kOpen }, 1.6f));
+    Require(!ShouldReprobeTimed(Settled{ Level::kOpen }, 1.4f));
+    Require(!ShouldReprobeTimed(Settled{ Level::kEnclosed }, 2.9f));
+    Require(ShouldReprobeTimed(Settled{ Level::kEnclosed }, 3.1f));
+    Require(ShouldReprobeTimed(Settled{ Level::kEnclosed, Level::kOpen, true, true }, 1.6f));
+    Require(ShouldReprobeTimed(Settled{ Level::kRoofed }, 1.6f));
+    Require(ShouldReprobeTimed(Settled{ Level::kOpen }, -1.0f));
+    Require(ShouldReprobeTimed(Settled{ Level::kOpen }, std::numeric_limits<float>::quiet_NaN()));
     Require(ShouldProbe(false, 10, 10, 0.0f, 0.0f, 0.0f));
     Require(ShouldProbe(true, 11, 10, 0.0f, 0.0f, 0.0f));
     Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));

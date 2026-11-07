@@ -78,7 +78,7 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharact
         _settled = {};
     const auto now = std::chrono::steady_clock::now();
     const float elapsedSeconds = std::chrono::duration<float>(now - _lastProbeTime).count();
-    const bool timed = _roofStateKnown && RadClimateShelterPolicy::ShouldReprobeTimed(_settled.value, elapsedSeconds);
+    const bool timed = _roofStateKnown && RadClimateShelterPolicy::ShouldReprobeTimed(_settled, elapsedSeconds);
     if (!timed && !RadClimateShelterPolicy::ShouldProbe(
             _roofStateKnown, cellID, _lastCellID, deltaX, deltaY, deltaZ))
         return _cached;
@@ -134,17 +134,14 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::SampleRooflessInterior(
         _settled = {};
     const auto now = std::chrono::steady_clock::now();
     const float elapsedSeconds = std::chrono::duration<float>(now - _lastProbeTime).count();
-    const bool timed = _roofStateKnown && RadClimateShelterPolicy::ShouldReprobeTimed(_settled.value, elapsedSeconds);
+    const bool timed = _roofStateKnown && RadClimateShelterPolicy::ShouldReprobeTimed(_settled, elapsedSeconds);
     if (!timed && !RadClimateShelterPolicy::ShouldProbe(
             _roofStateKnown, cellID, _lastCellID, deltaX, deltaY, deltaZ))
         return _cached;
 
     const bool roofed = ProbeRoof(player, cell);
     if (auto logger = spdlog::get("FalloutAnomaly"))
-    {
         logger->debug("[Climate] Roofless interior probe: cell=0x{:08X}, roofed={}.", cellID, roofed);
-        logger->flush();
-    }
     _settled = RadClimateShelterPolicy::Observe(
         _settled,
         roofed ? RadClimateShelterPolicy::Level::kRoofed : RadClimateShelterPolicy::Level::kOpen);

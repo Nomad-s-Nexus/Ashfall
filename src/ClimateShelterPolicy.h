@@ -104,11 +104,12 @@ namespace RadClimateShelterPolicy
         return { settled.value, observed, true, true };
     }
 
-    [[nodiscard]] inline bool ShouldReprobeTimed(Level settled, float elapsedSeconds) noexcept
+    [[nodiscard]] inline bool ShouldReprobeTimed(Settled settled, float elapsedSeconds) noexcept
     {
         if (!std::isfinite(elapsedSeconds) || elapsedSeconds < 0.0f)
             return true;
-        const float limit = settled == Level::kEnclosed ? kReprobeSecondsEnclosed : kReprobeSecondsOpen;
+        const bool longWait = settled.value == Level::kEnclosed && !settled.pending;
+        const float limit = longWait ? kReprobeSecondsEnclosed : kReprobeSecondsOpen;
         return elapsedSeconds >= limit;
     }
 

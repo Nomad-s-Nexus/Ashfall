@@ -13,6 +13,7 @@ shelter_runtime = (SRC / "ClimateShelterRuntime.cpp").read_text(encoding="utf-8"
 shelter_header = (SRC / "ClimateShelterRuntime.h").read_text(encoding="utf-8")
 heat_runtime = (SRC / "ClimateHeatRuntime.cpp").read_text(encoding="utf-8")
 heat_header = (SRC / "ClimateHeatRuntime.h").read_text(encoding="utf-8")
+internal_header = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
 
 for token in (
     "RE::PlayerCharacter::GetSingleton()",
@@ -117,6 +118,11 @@ for token in (
     "std::chrono::steady_clock::now()",
 ):
     assert token in shelter_runtime, f"climate shelter runtime contract missing: {token}"
+
+for token in (
+    "pick.allowFailedPicks = false;",
+):
+    assert token in internal_header, f"shelter ray helper contract missing: {token}"
 
 for token in (
     "RE::TES::GetSingleton()",
