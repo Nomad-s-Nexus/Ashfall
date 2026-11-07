@@ -109,6 +109,39 @@ def main() -> int:
     create_body = hud_cpp.split("void RadHud::CreateView()", 1)[1].split("\nvoid RadHud::", 1)[0]
     require("kPanel" not in create_body, "view creation must not declare kPanel")
 
+    rad_h = text(ROOT / "src" / "RadiationEngine.h")
+    mask_cpp = text(ROOT / "src" / "RadEngine_Mask.cpp")
+    debug_cpp = text(ROOT / "src" / "RadEngine_Debug.cpp")
+    hooks_cpp = text(ROOT / "src" / "Hooks.cpp")
+    require("std::atomic<int> _filterReplaceKey" in rad_h, "ReplaceKey must be an atomic read by the input producer")
+    require("std::atomic<int> _conditionRepairKey" in rad_h, "RepairKey must be an atomic read by the input producer")
+    require("std::atomic<std::uint32_t> _polledInputBits" in rad_h, "PollInput bits must be an atomic")
+    require("std::uint32_t ReadInputBits() const noexcept;" in rad_h, "RadiationEngine must expose ReadInputBits()")
+    require("_polledInputBits.store(ReadInputBits());" in rad_cpp, "PollInput must store the key bits")
+    poll_body = rad_cpp.split("void RadiationEngine::PollInput()", 1)[1]
+    require(poll_body.find("_polledInputBits.store(") < poll_body.find("GetAsyncKeyState(kDebugMenuKey)"),
+            "PollInput must store the key bits before any early return")
+    require("_filterReplaceKey.load(), _conditionRepairKey.load()" in rad_cpp,
+            "ReadInputBits must load the atomic mask keys")
+    require("engine.ReadInputBits() != engine.PolledInputBits() || RadHud::GetSingleton().DebugWorkPending()" in hooks_cpp,
+            "producer must queue the poll only on a key-bit change or pending debug work")
+    producer = hooks_cpp.split("void PlayerCharacter_Update_Hook(", 1)[1]
+    require(producer.find("engine.ReadInputBits()") < producer.find("QueueInputPoll();"),
+            "producer must test the key-bit edge before queueing the poll")
+    require("std::remove_if(_pendingDebugCmds.begin(), _pendingDebugCmds.end()" in debug_cpp or
+            "std::remove_if(_pendingDebugCmds.begin(), _pendingDebugCmds.end(), [&](const std::string& queued)" in debug_cpp,
+            "hudlayout commands must be coalesced per widget in RadEngine_Debug.cpp")
+    require("queued.rfind(kHudLayoutPrefix, 0) == 0 && HudLayoutWidgetKey(queued) == widget" in debug_cpp,
+            "coalescing must match hudlayout entries by widget key")
+    require("constexpr std::size_t kMaxPendingDebugCmds = 32;" in debug_cpp,
+            "pending debug command queue must stay bounded")
+    require("GetFileAttributesExA(kIni, GetFileExInfoStandard, &attrs)" in mask_cpp,
+            "ReloadHotkeysFromIni must stat the INI write time")
+    require("if (stamp == _hotkeyIniWriteTime)" in mask_cpp and "_hotkeyIniWriteTime = stamp;" in mask_cpp,
+            "ReloadHotkeysFromIni must skip when the write time is unchanged")
+    require("_filterReplaceKey.load()" in mask_cpp and "_conditionRepairKey.load()" in mask_cpp,
+            "hotkey log line must load the atomic keys")
+
     print("verify_debug_menu_close: OK")
     return 0
 

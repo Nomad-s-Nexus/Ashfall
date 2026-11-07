@@ -470,8 +470,12 @@ namespace Hooks
 
             if (RadLifecycleDispatch::ReadyPlayerUpdateGeneration() == 0) return;
 
-            // Preserve per-frame key responsiveness without touching engine state on this worker.
-            QueueInputPoll();
+            // Constraint: input is queued only on a key-bit change, pending debug work, or a stored-bit mismatch; no engine state is touched here.
+            {
+                auto& engine = RadiationEngine::GetSingleton();
+                if (engine.ReadInputBits() != engine.PolledInputBits() || RadHud::GetSingleton().DebugWorkPending())
+                    QueueInputPoll();
+            }
 
             QueueDomeFollow();
 

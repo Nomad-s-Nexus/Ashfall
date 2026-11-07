@@ -486,6 +486,19 @@ void RadiationEngine::EquipNearbyNpcMasks(bool equip)
 void RadiationEngine::ReloadHotkeysFromIni()
 {
     constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+    // Constraint: an unchanged INI write time skips the re-read; a failed stat always reloads.
+    WIN32_FILE_ATTRIBUTE_DATA attrs{};
+    if (::GetFileAttributesExA(kIni, GetFileExInfoStandard, &attrs))
+    {
+        const auto stamp = (static_cast<std::uint64_t>(attrs.ftLastWriteTime.dwHighDateTime) << 32) | attrs.ftLastWriteTime.dwLowDateTime;
+        if (stamp == _hotkeyIniWriteTime)
+            return;
+        _hotkeyIniWriteTime = stamp;
+    }
+    else
+    {
+        _hotkeyIniWriteTime = 0;
+    }
     char replaceText[32]{};
     char repairText[32]{};
     ::GetPrivateProfileStringA("Filter", "ReplaceKey", "", replaceText, sizeof(replaceText), kIni);
@@ -593,8 +606,8 @@ void RadiationEngine::LoadFilterIni()
         "[Choking] enabled={}, hp/s={:.1f}, failedMaskFactor={:.2f}, sounds={} | "
         "[Ambient] enabled={}, atten={} stormAtten={} | "
         "[Storm] enabled={}, gap={:.0f}-{:.0f} real min, vanillaRadstormGap={:.0f} min",
-        _filterDurationSec, _filterReplaceKey, _filterAutoReplace, _filterChokeRads,
-        _conditionEnabled, _conditionHitDamage, _conditionRepairKey, _conditionAutoRepair,
+        _filterDurationSec, _filterReplaceKey.load(), _filterAutoReplace, _filterChokeRads,
+        _conditionEnabled, _conditionHitDamage, _conditionRepairKey.load(), _conditionAutoRepair,
         _chokingEnabled, _chokeHealthPerSec, _chokeFailedFactor, _chokeSounds,
         _ambientEnabled, _ambientAtten, _stormBedAtten,
         _stormsEnabled, _stormMinRealMin, _stormMaxRealMin, _vanillaRadstormGapSec / 60.0);

@@ -626,9 +626,23 @@ void RadiationEngine::Update()
 }
 
 
+std::uint32_t RadiationEngine::ReadInputBits() const noexcept
+{
+    const int keys[4] = { kDebugMenuKey, VK_LSHIFT, _filterReplaceKey.load(), _conditionRepairKey.load() };
+    std::uint32_t bits = 0;
+    for (std::size_t i = 0; i < 4; ++i)
+    {
+        if (keys[i] != 0 && (GetAsyncKeyState(keys[i]) & 0x8000) != 0)
+            bits |= 1u << i;
+    }
+    return bits;
+}
+
+
 void RadiationEngine::PollInput()
 {
-    // Runs EVERY frame (from the hook, before the 4Hz throttle) so quick taps are never missed.
+    // Constraint: the producer queues this poll only on a key-bit change, pending debug work, or a stored-bit mismatch.
+    _polledInputBits.store(ReadInputBits());
     // DEBUG menu: Left Shift + F8, edge-detected from the reliable key-DOWN bit (0x8000).
     const bool dbgKeyDown = (GetAsyncKeyState(kDebugMenuKey) & 0x8000) != 0;
     const bool lshift     = (GetAsyncKeyState(VK_LSHIFT)     & 0x8000) != 0;
