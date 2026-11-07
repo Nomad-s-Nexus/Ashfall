@@ -62,6 +62,7 @@ var origSetDebugMenu = window.SetDebugMenu;
 window.SetDebugMenu = function(on) {
   var show = ((""+on)==="1" || on===true);
   if (origSetDebugMenu) origSetDebugMenu(on);
+  if (window.setEcgActive) window.setEcgActive(show);
   if (show && !robcoBootPlayed && !window.suppressBootAnimation) {
     robcoBootPlayed = true;
     window.playRobcoBoot();
@@ -130,6 +131,9 @@ if (window.pipAudio) {
   var animFrame = null;
   var waveX = 0;
   var lastTime = 0;
+  var lastDraw = 0;
+  var dotOffAt = 0;
+  var FRAME_MS = 28;
   var pulsePhase = 0;
   var trailHistory = [];
   var MAX_TRAIL = 230;
@@ -140,25 +144,35 @@ if (window.pipAudio) {
     for (var i = 0; i < MAX_TRAIL; i++) {
       trailHistory.push(canvas.height / 2);
     }
-    startLoop();
+  }
+  function stopLoop() {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    animFrame = null;
   }
   function startLoop() {
-    if (animFrame) cancelAnimationFrame(animFrame);
+    if (animFrame || !ctx) return;
+    lastTime = 0;
+    lastDraw = 0;
     function render(time) {
       animFrame = requestAnimationFrame(render);
       if (!canvas || !ctx) return;
-      var dt = (time - lastTime) / 1000;
+      if (time - lastDraw < FRAME_MS) return;
+      var dt = lastTime ? (time - lastTime) / 1000 : 0.016;
       lastTime = time;
+      lastDraw = time;
       if (isNaN(dt) || dt > 0.1) dt = 0.016;
       var freq = heartRate / 60;
       pulsePhase += dt * freq * (Math.PI * 2);
       if (pulsePhase > Math.PI * 2) {
         pulsePhase -= Math.PI * 2;
         var dot = document.getElementById("ecgPulseDot");
-        if (dot) {
-          dot.style.opacity = "1";
-          setTimeout(function() { if (dot) dot.style.opacity = "0.3"; }, 90);
-        }
+        if (dot) dot.style.opacity = "1";
+        dotOffAt = time + 90;
+      }
+      if (dotOffAt && time >= dotOffAt) {
+        dotOffAt = 0;
+        var dotOff = document.getElementById("ecgPulseDot");
+        if (dotOff) dotOff.style.opacity = "0.3";
       }
       var h = canvas.height;
       var mid = h / 2;
@@ -198,21 +212,15 @@ if (window.pipAudio) {
       }
       ctx.stroke();
       var strokeColor = "rgb(62, 207, 74)";
-      var glowColor = "rgba(62, 207, 74, 0.6)";
       if (currentHealthPct <= 25 || currentRads >= 750) {
         strokeColor = "rgb(255, 60, 60)";
-        glowColor = "rgba(255, 60, 60, 0.7)";
       } else if (currentHealthPct <= 50 || currentRads >= 400) {
         strokeColor = "rgb(255, 150, 40)";
-        glowColor = "rgba(255, 150, 40, 0.7)";
       } else if (currentHealthPct <= 75 || currentRads >= 200) {
         strokeColor = "rgb(240, 200, 50)";
-        glowColor = "rgba(240, 200, 50, 0.6)";
       }
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 1.8;
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 6;
       ctx.beginPath();
       var step = canvas.width / (MAX_TRAIL - 1);
       for (var idx = 0; idx < trailHistory.length; idx++) {
@@ -222,7 +230,6 @@ if (window.pipAudio) {
         else ctx.lineTo(tx, ty);
       }
       ctx.stroke();
-      ctx.shadowBlur = 0;
       var headX = (trailHistory.length - 1) * step;
       var headY = trailHistory[trailHistory.length - 1];
       ctx.fillStyle = "#ffffff";
@@ -232,6 +239,9 @@ if (window.pipAudio) {
     }
     animFrame = requestAnimationFrame(render);
   }
+  window.setEcgActive = function(on) {
+    if (on) startLoop(); else stopLoop();
+  };
   window.updateEcgVitals = function(hp, hpMax, rads) {
     currentRads = Number(rads) || 0;
     var maxH = Number(hpMax) || 220;
