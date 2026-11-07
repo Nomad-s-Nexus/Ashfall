@@ -44,7 +44,7 @@ Expected relief amounts (computed from `PortionFor` with the 0.8 floor and 1.5 c
   AUTO-EQUIP MASK on and EQUIP IN COMBAT off, enter rad weather during combat: chip reads HELD, mask goes on after combat.
 
 ## 3. Power-armor overlay
-- **Wear a power-armor helmet and a gas mask.** Expected: no visor view (PNG overlay is off, see section 12; the 3D view is the visor); foley/filter values still update.
+- **Wear a power-armor helmet and a gas mask.** Expected: no visor view (the power-armor helmet hides the PNG visor, see section 12); foley/filter values still update.
   Proof: no overlay on screen; FalloutAnomaly.log `[ChokeDiag] realMasked=true` while `maskOn` is false is not logged,
   so record a screenshot state instead.
 - **Leave the PA helmet on, debug `mask:on`.** Expected: the PNG mask overlay shows (override wins).
