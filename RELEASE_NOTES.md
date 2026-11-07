@@ -1,21 +1,42 @@
-# Rad Overhaul v1.2.1
+# Rad Overhaul v1.2.2
 
-Fix release of Rad Overhaul (Fallout Anomaly Radiation) for Fallout 4, on top of v1.2.0. The
+Release of Rad Overhaul (Fallout Anomaly Radiation) for Fallout 4, on top of v1.2.1. The
 attached archive is a ready-to-install mod: the complete `deploy/` tree plus a freshly built
 `FalloutAnomalyRadiation.dll`.
 
 **Nothing in this release was tested in game by the owner before publishing, and the frame rate
 was not measured.** It is validated by contract tests and a green build only. See Known limits.
 
-## What is new in v1.2.1
+## What is new in v1.2.2
+
+1. **The floating glass tube is gone from storms.** During Ash Fallout and other storms the
+   baked dome drew a glassy tube with a glowing ring hanging about 4000 units away in the sky.
+   The plugin now never draws those eight shapes (the vortex core and the portal group). The
+   cloud decks, lightning and the sky fade are unchanged. Whether the remaining cloud layers
+   read as ash was not checked in game.
+2. **Every status icon is a Phosphor HUD style core.** Hunger, thirst, fatigue, warmth,
+   wetness, temperature, wind, breath, filter, mask, auto mask and tissue now draw as a dark
+   disc with a segmented ring and the icon inside, matching the Phosphor HUD design. When
+   PhosphorHUD is not installed the mod draws its own health, AP and rads in the same style.
+   The core drawing code and styling follow Phosphor HUD (MIT licence, credited in
+   `THIRD_PARTY_NOTICES.md`).
+3. **There is no classic HUD look any more.** `[Hud] Mode` accepts only `auto` or `phosphor` and
+   only decides whether the mod drops its own vitals when PhosphorHUD is installed. An old
+   `Mode=classic` line logs a warning and is treated as `auto`.
+4. **Visible HUD changes.** The needs cores show a word (SATED, THIRSTY, EXHAUSTED) with the
+   percentage in the tooltip, and the permanent-scar arc around the tissue core is gone (the
+   scar number is in its tooltip).
+
+## Included from v1.2.1
 
 All six changes concern the baked storm dome (`CloudArena01_4.nif`) added in v1.2.0.
 
-1. **Forced storms now show the vortex.** The baked dome sequence is nearly empty for its first
-   40 s, and a debug forced storm (Shift+F8, SHOWCASE, a storm button) only has a 10 s silent
-   lead, so the dome used to start at sequence second 0 and show almost nothing. A forced
-   storm now starts the dome at the phase a natural storm would have reached: about 170 s for a
-   10 s lead, so the vortex, portal, disks and core are visible. Natural storms are unchanged.
+1. **Forced storms start the dome at the natural phase.** The baked dome sequence is nearly
+   empty for its first 40 s, and a debug forced storm (Shift+F8, SHOWCASE, a storm button) only
+   has a 10 s silent lead, so the dome used to start at sequence second 0 and show almost
+   nothing. A forced storm now starts the dome at the phase a natural storm would have reached:
+   about 170 s for a 10 s lead. Natural storms are unchanged. (v1.2.2 stops drawing the vortex
+   core and portal group; see above.)
 2. **The vanilla cloud fade follows the dome.** The vanilla cloud layers used to fade on a 20 s
    wall-clock ramp. They now follow the dome's own sequence clock: zero until the animation
    runs, a smoothstep up over sequence 20 to 70 s, full through the middle, and down over the
@@ -37,11 +58,9 @@ All six changes concern the baked storm dome (`CloudArena01_4.nif`) added in v1.
    a storm, gets its sequences reactivated and reseeded and logs
    `[StormFX] dome layer 3D recreated; sequences reactivated and reseeded.`
 
-When the vortex layers are drawn: they are visible from about storm timeline 132 s to 314 s of
-the 360 s sequence. In a natural storm (3 min silent lead, then 20 s warning, 120 s active
-phase and 30 s aftermath, as for Ash Fallout; other storm types have other phase lengths) the
-vortex layers therefore appear about 47 s before the siren and stay through almost all of the
-active phase. A forced debug storm now starts at that phase.
+Baked timing of the vortex layers: they would appear from about storm timeline 132 s to 314 s
+of the 360 s sequence. v1.2.2 never draws them; the timing is kept here only as a record of the
+baked mesh.
 
 ## Included from v1.2.0
 
@@ -80,8 +99,8 @@ Everything below shipped in v1.2.0 and is still in this archive.
   the flat PNG visor is off. The M50 model and textures are the repository owner's own Blender
   work.
 - **Phosphor HUD companion mode.** With PhosphorHUD present (`[Hud] Mode=auto`, or force
-  `phosphor` or `classic`) the status HUD uses a Phosphor-style theme with rings, drops the
-  duplicate vitals and uses companion default positions. Status icons are larger and brighter,
+  `phosphor`) the status HUD drops the duplicate vitals and uses companion default positions.
+  Every status widget uses the Phosphor HUD core look; there is no classic look. Status icons are larger and brighter,
   and the debug panel has a SURVIVAL pane.
 - **Roofless-interior rain.** Rain can reach the player inside the Concord Museum of Freedom,
   the one approved roofless interior, when the roof probe finds open sky.
@@ -128,7 +147,7 @@ Everything below shipped in v1.2.0 and is still in this archive.
 
 ## Install
 
-Install the attached `RadiationOverhaul-rad-overhaul-v1.2.1.zip` with Mod Organizer 2 or
+Install the attached `RadiationOverhaul-rad-overhaul-v1.2.2.zip` with Mod Organizer 2 or
 Vortex and enable the included ESPs, or extract it into the Fallout 4 `Data` folder. The
 archive places `F4SE/`, `Meshes/`, `textures/`, `materials/`, `Sound/`, `Scripts/`,
 `PrismaUI_F4/` and the ESPs at its root.
@@ -141,6 +160,9 @@ Overhaul**: leave it disabled unless that mod is installed and enabled in the sa
 
 - **Not tested in game by the owner before publishing.** Treat every item above as unverified
   in game.
+- **The new HUD cores were not seen in the game.** How the ring paths render in PrismaUI, and
+  whether the needs and filter widgets overlap at the PhosphorHUD companion default positions,
+  are unchecked. The HUD page test script was not run locally; GitHub CI is the only run.
 - **Frame rate was not measured.** The per-frame cost cuts are reasoned from the mesh and the
   per-frame code only.
 - Whether lowering the sky property's alpha visibly removes the vanilla cloud layers is
