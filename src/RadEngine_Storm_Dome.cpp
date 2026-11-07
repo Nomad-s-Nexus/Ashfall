@@ -15,6 +15,7 @@
 #include <RE/T/TESWorldSpace.h>
 #include <RE/B/BSGeometry.h>
 #include <RE/B/BSShaderProperty.h>
+#include <RE/N/NiRTTI.h>
 
 using namespace RadInternal;
 
@@ -22,10 +23,16 @@ namespace
 {
     constexpr int kDomeDeckCount = static_cast<int>(sizeof(RadCorrectnessPolicy::kDomeDeckShapes) / sizeof(RadCorrectnessPolicy::kDomeDeckShapes[0]));
     static_assert(kDomeDeckCount <= 8, "StormDomeLayer::decks holds 8 shapes");
-}
 
-namespace
-{
+    // Constraint: properties[1] is cast to BSShaderProperty only after its runtime type is confirmed.
+    RE::BSShaderProperty* ShaderPropertyOf(RE::BSGeometry* a_geom)
+    {
+        auto* prop = a_geom ? a_geom->properties[1].get() : nullptr;
+        if (!prop || !prop->GetRTTI()) return nullptr;
+        static REL::Relocation<const RE::NiRTTI*> shaderRtti{ RE::BSShaderProperty::Ni_RTTI };
+        return prop->GetRTTI()->IsKindOf(shaderRtti.get()) ? static_cast<RE::BSShaderProperty*>(prop) : nullptr;
+    }
+
     bool IsValidDomeOwner(RE::PlayerCharacter* player, RE::TESObjectCELL*& cell, RE::TESWorldSpace*& world)
     {
         cell = player ? player->GetParentCell() : nullptr;
@@ -449,7 +456,7 @@ void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTi
     {
         auto& deck = a_layer.decks[i];
         // Constraint: the shader property is read from the live geometry on every apply, never cached.
-        auto* prop = deck.geom ? static_cast<RE::BSShaderProperty*>(deck.geom->properties[1].get()) : nullptr;
+        auto* prop = ShaderPropertyOf(deck.geom.get());
         if (!prop) continue;
         ++shaded;
         const float keyed = prop->alpha;
@@ -474,7 +481,7 @@ void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTi
     {
         auto* node = a_layer.root->GetObjectByName(RE::BSFixedString(name));
         auto* geometry = node ? node->IsGeometry() : nullptr;
-        auto* prop = geometry ? static_cast<RE::BSShaderProperty*>(geometry->properties[1].get()) : nullptr;
+        auto* prop = ShaderPropertyOf(geometry);
         if (!prop)
         {
             Log()->info("[StormFX] dome depth flags {}: no shader property.", name);
