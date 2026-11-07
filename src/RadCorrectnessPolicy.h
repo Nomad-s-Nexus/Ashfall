@@ -571,4 +571,29 @@ namespace RadCorrectnessPolicy
             return { state, DebugViewRefreshAction::kNone };
         }
     }
+
+    // Constraint: the 4 Hz engine tick is a 250 ms wall-clock throttle, so tick counts map to the settle clock at this nominal period.
+    inline constexpr std::uint64_t kEngineTickMs = 250;
+    // Constraint: after PostLoad/NewGame, no Prisma view is created, finalized, ordered or registered for 3 s (12 ticks).
+    inline constexpr std::uint64_t kLoadSettleMs = 3000;
+    // Constraint: the companion layout bridge waits at most 10 s (40 ticks) after load for PhosphorHUD's views.
+    inline constexpr std::uint64_t kCompanionBridgeMaxTicks = 40;
+
+    // Constraint: the settle window is closed while now is before loadMs + settleMs, and a clock behind the load is never settled.
+    constexpr bool LoadSettleElapsed(std::uint64_t nowMs, std::uint64_t loadMs, std::uint64_t settleMs)
+    {
+        return nowMs >= loadMs && nowMs - loadMs >= settleMs;
+    }
+
+    // Constraint: outside companion mode the layout bridge never waits; in companion mode it waits for PhosphorHUD views or the tick cap.
+    constexpr bool CompanionBridgeReady(bool companion, bool phosphorViewsSeen, std::uint64_t ticksSinceLoad)
+    {
+        return !companion || phosphorViewsSeen || ticksSinceLoad >= kCompanionBridgeMaxTicks;
+    }
+
+    // Constraint: a deferred DOM-ready handle is applied only while it still names the live view; 0 means nothing is pending.
+    constexpr bool IsLiveDomReady(std::uint64_t pendingView, std::uint64_t liveView)
+    {
+        return pendingView != 0 && pendingView == liveView;
+    }
 }

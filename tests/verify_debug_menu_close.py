@@ -132,9 +132,9 @@ def main() -> int:
     require(html.count("RadShowcase.startTour()") == 1, "the showcase tour must start only from its button")
 
     # Constraint: native pushes the closed state on DOM-ready and a fresh view starts with native open state false.
-    require('a->InteropCall(v, "SetDebugMenu", "0");' in hud_cpp, "DOM-ready must push the closed debug state")
+    require('api->InteropCall(view, "SetDebugMenu", "0");' in hud_cpp, "DOM-ready must push the closed debug state")
     require(create_body.count("_debugOpen = false;") >= 1, "CreateView must reset native open state for a new view")
-    require(hud_cpp.index('a->InteropCall(v, "SetDebugMenu", "0");') < hud_cpp.index("flag->store(true"),
+    require(hud_cpp.index('api->InteropCall(view, "SetDebugMenu", "0");') < hud_cpp.index("_domReady.store(true, std::memory_order_release);"),
             "DOM-ready closed-state push must happen before the DOM-ready flag is published")
 
     rad_h = text(ROOT / "src" / "RadiationEngine.h")

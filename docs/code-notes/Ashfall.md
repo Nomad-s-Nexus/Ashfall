@@ -226,6 +226,18 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Deferred while the built-in HUD editor is open or a pause or message menu is up: `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` checks `src/RadHudLayout.cpp:RadHud::LocalHudEditorPreviewOn` and `RE::UI::GetMenuOpen` before it destroys view 5. The armed refresh stays pending and runs when they close. The editor lives in view 5, so a destroy during the editor would leave `g_layout.preview` true.
 - Not verified in game: whether destroy and re-create clears the stale frame, and how long the blink lasts.
 
+## Load settle, deferred DOM-ready and the PhosphorHUD companion gate
+
+- Why: a save load froze once with PhosphorHUD 0.9.25 enabled; it did not freeze with PhosphorHUD off (Nomad, 2026-11-07). PhosphorHUD destroys and re-creates its own view several times per load and calls Prisma from F4SE task threads. This change keeps our views out of that window. It does not fix PhosphorHUD.
+- Settle clock: `src/RadHudLifecycle.cpp:RadHud::BeginLoadSettle` is called from `src/main.cpp` on PostLoad and NewGame. `src/RadHudLifecycle.cpp:RadHud::TickLoadSettle` advances it once per `src/RadiationEngine.cpp:RadiationEngine::Update` tick. `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::kLoadSettleMs` is 3 s (12 ticks).
+- Gated by the settle: `src/RadHud.cpp:RadHud::CreateView`, `src/RadHudClimate.cpp:RadHud::EnsureClimateView`, the needs view in `src/RadHudNeeds.cpp`, and the retry worker `src/RadHudLifecycle.cpp:CreateRadHudViewOnPrismaThread`.
+- DOM-ready: callbacks run on the Prisma window thread and only store the view handle through `src/RadHudLifecycle.cpp:RadHud::NoteDomReady`. `src/RadHudLifecycle.cpp:RadHud::PumpDomReady` runs on the game thread after the settle tick and does the listener, Show, interop, theme, widget registration and layout work in the `Finalize*DomReady` functions.
+- Stale callbacks: `RadHud::_domLive` holds each slot's live view. A late callback from a destroyed view is dropped by `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::IsLiveDomReady`.
+- Companion gate: `src/RadHudLifecycle.cpp:RadHud::BridgeReady` waits, in companion mode only, until `src/RadHudLifecycle.cpp:RadHud::ScanPhosphorViews` sees a PhosphorHUD view through EnumerateViews, or 40 ticks (10 s) pass (`RadCorrectnessPolicy::CompanionBridgeReady`). Outside companion mode it never waits.
+- Tests: `tests/correctness_policy_tests.cpp:main` (predicates), `tests/verify_load_settle.py:main` (wiring contract).
+- Widget, refresh and create guards: `src/RadHud.cpp:RadHud::ReapplyWidgetRegistrations` re-registers the toxicity and filter views only after their DOM-ready finalize, `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` waits on `src/RadHudLifecycle.cpp:RadHud::BridgeReady` before it destroys view 5 and keeps the refresh armed, and `src/RadHud.cpp:RadHud::CreateView` clears `_viewsReady` only after the settle check.
+- Not verified in game.
+
 ## Enclosed shelter: no wind chill, 8 C ambient floor (not built here, not verified in game)
 
 - Roof: `src/ClimateShelterRuntime.cpp:ClimateShelterRuntime::ProbeRoof` casts one straight-up ray and four angled rays from head height. `src/ClimateShelterPolicy.h:RoofCover` is true when the straight-up ray hits and at least 3 of the 5 rays hit in total. This is the radiation roof-fan rule (`src/RadEngine_Shelter.cpp:RadiationEngine::ComputeEnclosedByStructure`, minimum `src/RadEngine_Internal.h:kRoofFanMinHits`). The climate-only rule that accepted 2 hits with the straight-up ray is removed.

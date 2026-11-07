@@ -631,5 +631,32 @@ int main()
     Require(DebugViewRefreshArm(DebugViewRefreshState{ RefreshPhase::kDestroyed, 0 }, true, 1).phase == RefreshPhase::kDestroyed);
     Require(DebugViewRefreshArm(refreshIdle, true, 0xFFFFFFFFull).dueMs == 0xFFFFFFFFull + 100);
 
+    // Constraint: the load settle window is closed for exactly 3 s after load and reopens on the 12th 4 Hz tick.
+    Require(!LoadSettleElapsed(0, 0, kLoadSettleMs));
+    Require(!LoadSettleElapsed(2999, 0, kLoadSettleMs));
+    Require(LoadSettleElapsed(3000, 0, kLoadSettleMs));
+    Require(!LoadSettleElapsed(4999, 2000, kLoadSettleMs));
+    Require(LoadSettleElapsed(5000, 2000, kLoadSettleMs));
+    Require(!LoadSettleElapsed(1000, 2000, kLoadSettleMs));
+    Require(LoadSettleElapsed(0, 0, 0));
+    Require(!LoadSettleElapsed(11 * kEngineTickMs, 0, kLoadSettleMs));
+    Require(LoadSettleElapsed(12 * kEngineTickMs, 0, kLoadSettleMs));
+    Require(kLoadSettleMs / kEngineTickMs == 12);
+
+    // Constraint: outside companion mode the bridge is always ready; in companion mode it waits for Phosphor views or the 10 s cap.
+    Require(CompanionBridgeReady(false, false, 0));
+    Require(!CompanionBridgeReady(true, false, 0));
+    Require(!CompanionBridgeReady(true, false, kCompanionBridgeMaxTicks - 1));
+    Require(CompanionBridgeReady(true, false, kCompanionBridgeMaxTicks));
+    Require(CompanionBridgeReady(true, true, 0));
+    Require(kCompanionBridgeMaxTicks * kEngineTickMs == 10000);
+
+    // Constraint: a deferred DOM-ready handle applies only to the live view it names; zero is never applied.
+    Require(!IsLiveDomReady(0, 0));
+    Require(!IsLiveDomReady(0, 5));
+    Require(!IsLiveDomReady(5, 0));
+    Require(IsLiveDomReady(5, 5));
+    Require(!IsLiveDomReady(5, 6));
+
     return 0;
 }

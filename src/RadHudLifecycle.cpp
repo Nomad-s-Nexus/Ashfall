@@ -2,6 +2,7 @@
 #include "PrismaUI_F4_API.h"
 
 #include <chrono>
+#include <string_view>
 #include <thread>
 
 namespace
@@ -19,6 +20,8 @@ namespace
     {
         auto& hud = RadHud::GetSingleton();
         auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
+        // Constraint: no view is created or suppressed inside the load settle window; the retry loop re-dispatches later.
+        if (!hud.LoadSettled()) return;
         // Constraint: when all views exist, only re-apply meter suppression (no un-suppress or CreateView).
         if (hud.ViewsExist())
         {
@@ -86,4 +89,87 @@ bool RadHud::StartPrismaViewRetry()
         retrying->store(false);
     }).detach();
     return true;
+}
+
+namespace
+{
+    void NotePhosphorView(PrismaView, const char* htmlPath, void* userdata)
+    {
+        if (htmlPath && std::string_view(htmlPath).find("PhosphorHUD") != std::string_view::npos)
+            *static_cast<bool*>(userdata) = true;
+    }
+}
+
+void RadHud::BeginLoadSettle() noexcept
+{
+    // Constraint: a new load restarts the settle clock and forgets any previously seen PhosphorHUD views.
+    _ticksSinceLoad.store(0);
+    _phosphorViewsSeen.store(false);
+}
+
+bool RadHud::LoadSettled() const noexcept
+{
+    return RadCorrectnessPolicy::LoadSettleElapsed(
+        _ticksSinceLoad.load() * RadCorrectnessPolicy::kEngineTickMs, 0, RadCorrectnessPolicy::kLoadSettleMs);
+}
+
+void RadHud::TickLoadSettle()
+{
+    // Constraint: the settle clock advances only on the game-thread 4 Hz engine tick, never on wall time.
+    _ticksSinceLoad.fetch_add(1);
+    // Constraint: the PhosphorHUD probe enumerates views only after the settle and only until the tick cap.
+    if (!_phosphorViewsSeen.load() && LoadSettled() && IsCompanionMode() &&
+        _ticksSinceLoad.load() <= RadCorrectnessPolicy::kCompanionBridgeMaxTicks)
+    {
+        if (ScanPhosphorViews())
+            _phosphorViewsSeen.store(true);
+    }
+}
+
+bool RadHud::BridgeReady()
+{
+    return LoadSettled() && RadCorrectnessPolicy::CompanionBridgeReady(
+        IsCompanionMode(), _phosphorViewsSeen.load(), _ticksSinceLoad.load());
+}
+
+bool RadHud::PrismaWindowOpen()
+{
+    return BridgeReady();
+}
+
+void RadHud::NoteDomReady(int slot, uint64_t view) noexcept
+{
+    // Constraint: this runs on the Prisma window thread, so it stores the handle only and calls no Prisma API.
+    if (slot < 0 || slot >= kDomSlotCount) return;
+    // Constraint: a callback for a view that is no longer the slot's live view is dropped, so it cannot overwrite the live handle.
+    const auto live = _domLive[slot].load(std::memory_order_acquire);
+    if (live != 0 && live != view) return;
+    _domPending[slot].store(view, std::memory_order_release);
+}
+
+bool RadHud::ScanPhosphorViews()
+{
+    if (!_enumApi)
+        _enumApi = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI4>();
+    if (!_enumApi) return false;
+    bool found = false;
+    static_cast<PRISMA_UI_API::IVPrismaUI4*>(_enumApi)->EnumerateViews(NotePhosphorView, &found);
+    return found;
+}
+
+void RadHud::PumpDomReady()
+{
+    if (!_api || !PrismaWindowOpen()) return;
+    // Constraint: a pending handle is consumed here on the game thread, and a stale handle is dropped.
+    const auto pendingMain = _domPending[kDomSlotMain].exchange(0, std::memory_order_acq_rel);
+    if (RadCorrectnessPolicy::IsLiveDomReady(pendingMain, _view)) FinalizeMainDomReady(pendingMain);
+    const auto pendingToxic = _domPending[kDomSlotToxic].exchange(0, std::memory_order_acq_rel);
+    if (RadCorrectnessPolicy::IsLiveDomReady(pendingToxic, _toxicView)) FinalizeToxicDomReady(pendingToxic);
+    const auto pendingFilter = _domPending[kDomSlotFilter].exchange(0, std::memory_order_acq_rel);
+    if (RadCorrectnessPolicy::IsLiveDomReady(pendingFilter, _filterView)) FinalizeFilterDomReady(pendingFilter);
+    const auto pendingClimate = _domPending[kDomSlotClimate].exchange(0, std::memory_order_acq_rel);
+    if (RadCorrectnessPolicy::IsLiveDomReady(pendingClimate, _climateView)) FinalizeClimateDomReady(pendingClimate);
+    const auto pendingNeeds = _domPending[kDomSlotNeeds].exchange(0, std::memory_order_acq_rel);
+    if (RadCorrectnessPolicy::IsLiveDomReady(pendingNeeds, _needsView)) FinalizeNeedsDomReady(pendingNeeds);
+    if (_widgetReapplyPending.exchange(false)) ReapplyWidgetRegistrations();
 }

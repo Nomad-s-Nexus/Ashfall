@@ -44,6 +44,24 @@ public:
     void ResetClimateForSession() noexcept;
     void PushTheme(uint64_t view);
 
+    // Constraint: the load settle clock is the game-thread engine tick, counted from PostLoad/NewGame.
+    void BeginLoadSettle() noexcept;
+    void TickLoadSettle();
+    [[nodiscard]] bool LoadSettled() const noexcept;
+    // Constraint: the companion layout bridge is ready only after the settle and, in companion mode, PhosphorHUD's views or the cap.
+    [[nodiscard]] bool BridgeReady();
+    [[nodiscard]] bool PrismaWindowOpen();
+    // Constraint: DOM-ready callbacks run on the Prisma window thread and only publish the view handle here.
+    static constexpr int kDomSlotMain = 0;
+    static constexpr int kDomSlotToxic = 1;
+    static constexpr int kDomSlotFilter = 2;
+    static constexpr int kDomSlotClimate = 3;
+    static constexpr int kDomSlotNeeds = 4;
+    static constexpr int kDomSlotCount = 5;
+    static void NoteDomReady(int slot, uint64_t view) noexcept;
+    // Constraint: deferred DOM-ready work and widget re-registration run only on the game thread, behind PrismaWindowOpen().
+    void PumpDomReady();
+
     bool IsCompanionMode();
     bool ShowSpecialInfo(const std::vector<std::string>& lines);
     void PushStorm(int phase, int theme, float intensity, bool sheltered, bool lethal);
@@ -84,6 +102,22 @@ private:
 
     void EnsureClimateView();
     void PushFilterKeys(uint64_t view);
+    void FinalizeMainDomReady(uint64_t view);
+    void FinalizeToxicDomReady(uint64_t view);
+    void FinalizeFilterDomReady(uint64_t view);
+    void FinalizeClimateDomReady(uint64_t view);
+    void FinalizeNeedsDomReady(uint64_t view);
+    void ReapplyWidgetRegistrations();
+    bool ScanPhosphorViews();
+
+    // Constraint: a DOM-ready callback is accepted only for its slot's live view (0 while the slot is being created), so a late callback from a destroyed view cannot overwrite the live pending handle.
+    static inline std::atomic<uint64_t> _domPending[kDomSlotCount]{};
+    static inline std::atomic<uint64_t> _domLive[kDomSlotCount]{};
+    std::atomic<uint64_t> _ticksSinceLoad{ 0 };
+    std::atomic<bool> _phosphorViewsSeen{ false };
+    // Constraint: the PhosphorHUD probe uses IVPrismaUI4::EnumerateViews, held as an untyped pointer in this header.
+    void* _enumApi = nullptr;
+    std::atomic<bool> _widgetReapplyPending{ false };
 
     void* _api = nullptr;       // PRISMA_UI_API::IVPrismaUI2*
     void* _threadApi = nullptr; // PRISMA_UI_API::IVPrismaUI11*

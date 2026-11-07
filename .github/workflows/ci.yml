@@ -56,6 +56,7 @@ jobs:
             'verify_hud_fallback.py deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_toxic.html src/RadHud.cpp',
             'verify_local_hud_editor.py',
             'verify_debug_menu_close.py',
+            'verify_load_settle.py',
             'verify_ghoul_contract.py',
             'verify_storm_spawn_ownership.py',
             'verify_serialization_policy.py',

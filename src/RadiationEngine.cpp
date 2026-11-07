@@ -144,6 +144,9 @@ bool RadiationEngine::Initialize()
 void RadiationEngine::Update()
 {
     auto logger = Log();
+    // Constraint: the load settle clock advances on this 4 Hz tick, and deferred DOM-ready work runs here on the game thread.
+    RadHud::GetSingleton().TickLoadSettle();
+    RadHud::GetSingleton().PumpDomReady();
     // Constraint: runs before the player checks so a stalled close cannot leave the view focused.
     // Constraint: the page is re-synced to the native debug state before the stale-focus check runs.
     RadHud::GetSingleton().SyncDebugPanelState();
