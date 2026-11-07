@@ -2,6 +2,9 @@
 #include "Hooks.h"
 #include "RadiationEngine.h"
 #include "RadLifecycleDispatch.h"
+#include "RadCorrectnessPolicy.h"
+
+#include <RE/P/PlayerCharacter.h>
 
 #include <atomic>
 #include <chrono>
@@ -44,6 +47,25 @@ namespace Hooks
             return true;
         }();
 
+        // Constraint: kFollowSkipEpsilon must equal kStormDomeFollowEpsilon (RadEngine_Internal.h); IMAD ticks keep DriveDomeAnimation running.
+        static constexpr float kFollowSkipEpsilon = 64.0f;
+        static std::mutex followMutex;
+        static bool followPosValid = false;
+        static RE::NiPoint3 lastFollowPos{};
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        const RE::NiPoint3 playerPos = player ? player->GetPosition() : RE::NiPoint3{};
+        const bool movedBeyondEpsilon = [&] {
+            std::lock_guard<std::mutex> lock(followMutex);
+            if (!followPosValid) return true;
+            const float dx = playerPos.x - lastFollowPos.x;
+            const float dy = playerPos.y - lastFollowPos.y;
+            const float dz = playerPos.z - lastFollowPos.z;
+            return RadCorrectnessPolicy::ShouldMoveDomeLayer((dx * dx) + (dy * dy) + (dz * dz),
+                kFollowSkipEpsilon * kFollowSkipEpsilon);
+        }();
+        if (!runImadFade && !movedBeyondEpsilon)
+            return;
+
         bool expected = false;
         if (!s_domeFollowTaskQueued.compare_exchange_strong(expected, true))
             return;
@@ -75,7 +97,13 @@ namespace Hooks
             throw;
         }
         if (!queued)
+        {
             s_domeFollowTaskQueued.store(false);
+            return;
+        }
+        std::lock_guard<std::mutex> lock(followMutex);
+        followPosValid = true;
+        lastFollowPos = playerPos;
     }
 
 }
