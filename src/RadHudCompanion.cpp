@@ -97,11 +97,15 @@ void RadHud::PushTheme(uint64_t view)
 void RadHud::PushFilterKeys(uint64_t view)
 {
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    // Constraint: compare raw key codes first so the label JSON is built only when a binding changes.
+    const int replaceVk = RadiationEngine::GetSingleton().FilterReplaceKey();
+    const int repairVk = RadiationEngine::GetSingleton().ConditionRepairKey();
+    if (replaceVk == _keysReplaceSent && repairVk == _keysRepairSent) return;
+    _keysReplaceSent = replaceVk;
+    _keysRepairSent = repairVk;
     const auto keys = json{
-        { "replace", VkLabel(RadiationEngine::GetSingleton().FilterReplaceKey()) },
-        { "repair", VkLabel(RadiationEngine::GetSingleton().ConditionRepairKey()) }
+        { "replace", VkLabel(replaceVk) },
+        { "repair", VkLabel(repairVk) }
     }.dump();
-    if (keys == _keysPayload) return;
-    _keysPayload = keys;
     api->InteropCall(view, "setKeys", keys.c_str());
 }

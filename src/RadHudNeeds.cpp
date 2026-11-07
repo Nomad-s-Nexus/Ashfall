@@ -59,17 +59,16 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
     const auto percent = [](float value) {
         return static_cast<int>(std::lround(RadNeedsPolicy::Clamp01(value) * 100.0f));
     };
-    const auto payload = json{
-        { "hunger", percent(snapshot.pools.hunger01) },
-        { "thirst", percent(snapshot.pools.thirst01) },
-        { "sleepDebt", percent(snapshot.pools.sleepDebt01) },
-        { "risk", percent(snapshot.risk01) },
-        { "disease", snapshot.diseasePacked },
-        { "always", RadNeedsTuning::On(RadNeedsTuningPolicy::kAlwaysShowNeeds, false) }
-    }.dump();
-    if (payload == _needsPayload) return;
+    // Constraint: integers only, formatted without building a JSON tree; unchanged payloads are not resent.
+    char payload[192];
+    std::snprintf(payload, sizeof(payload),
+        R"({"hunger":%d,"thirst":%d,"sleepDebt":%d,"risk":%d,"disease":%d,"always":%s})",
+        percent(snapshot.pools.hunger01), percent(snapshot.pools.thirst01),
+        percent(snapshot.pools.sleepDebt01), percent(snapshot.risk01), snapshot.diseasePacked,
+        RadNeedsTuning::On(RadNeedsTuningPolicy::kAlwaysShowNeeds, false) ? "true" : "false");
+    if (_needsPayload == payload) return;
     _needsPayload = payload;
-    api->InteropCall(_needsView, "updateNeeds", payload.c_str());
+    api->InteropCall(_needsView, "updateNeeds", payload);
     api->Show(_needsView);
 }
 void RadHud::PushSurvival(const RadNeedsPolicy::NeedsSnapshot& snapshot)

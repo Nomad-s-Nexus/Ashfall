@@ -54,8 +54,9 @@ retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)
 assert 'if (!_threadApi) return false;' in retry_worker
 assert 'if (_viewCreateRetry.exchange(true)) return true;' in retry_worker
 assert retry_worker.rstrip().endswith('return true;\n}')
-ready = retry_worker.find('RadHud::GetSingleton().ViewsReady()')
-suppress_dispatch = retry_worker.find('DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11)')
+retry_thread = retry_worker.split('auto* retrying', 1)[1]
+ready = retry_thread.find('RadHud::GetSingleton().ViewsReady()')
+suppress_dispatch = retry_thread.find('DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11)')
 assert ready != -1 and suppress_dispatch != -1 and ready < suppress_dispatch
 
 push_toxic = rad_hud.split('void RadHud::PushToxic', 1)[1].split('void RadHud::PushMask', 1)[0]

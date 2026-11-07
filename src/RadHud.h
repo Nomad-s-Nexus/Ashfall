@@ -100,7 +100,11 @@ private:
     std::string _airPayload;
     std::string _toxicPayload;
     std::string _armorPayload;
-    std::string _keysPayload;
+    std::string _filterMainPayload;   // last updateFilter sent to _view
+    std::string _filterBarPayload;    // last updateFilter sent to _filterView
+    std::string _stormPayload;        // last stormPhase sent to _view
+    int _keysReplaceSent = -2;        // last VK sent in setKeys (-2 = never sent)
+    int _keysRepairSent = -2;
     std::atomic<int> _companionMode{ -1 };
     uint64_t _needsView = 0;
     std::atomic<uint64_t> _needsReadyView{ 0 };

@@ -220,6 +220,16 @@ void RadHud::CreateView()
     // Force a mask-overlay re-sync on the next tick: a freshly (re)created view starts with the
     // overlay hidden, so the cached state must not suppress the first push after a load.
     _maskPushed = -1;
+    // Constraint: a (re)created view holds no payload yet, so every last-sent cache is forgotten here.
+    _toxicPayload.clear();
+    _armorPayload.clear();
+    _survivalPayload.clear();
+    _climatePayload.clear();
+    _filterMainPayload.clear();
+    _filterBarPayload.clear();
+    _stormPayload.clear();
+    _keysReplaceSent = -2;
+    _keysRepairSent = -2;
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
@@ -308,7 +318,6 @@ void RadHud::CreateView()
     if (_filterView == 0 || !api->IsValid(_filterView))
     {
         _airPayload.clear();
-        _keysPayload.clear();
         _filterDomReady = false;
         g_filterDomReadyFlag.store(&_filterDomReady, std::memory_order_release);
 
@@ -390,13 +399,12 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         "\"health\":%.1f,\"healthMax\":%.1f,\"rads\":%.1f,\"radsMax\":1000.0,"
         "\"ap\":%.1f,\"apMax\":%.1f}",
         tissue, permanentTissue, fallback ? "true" : "false", health, healthMax, rads, ap, apMax);
+    // Constraint: send only on change; the same payload feeds the debug menu's vitals view.
+    if (_toxicPayload == json) return;
+    _toxicPayload = json;
     api->InteropCall(_toxicView, "updateToxic", json);
-    if (_toxicPayload != json)
-    {
-        _toxicPayload = json;
-        if (_debugOpen && _view && _domReady && api->IsValid(_view))
-            api->InteropCall(_view, "updateVitalsInfo", json);
-    }
+    if (_debugOpen && _view && _domReady && api->IsValid(_view))
+        api->InteropCall(_view, "updateVitalsInfo", json);
 }
 
 void RadHud::PushMask(bool on)
@@ -428,11 +436,19 @@ void RadHud::PushFilter(float charge, float condition, int spares, bool masked)
     // Fullscreen visor fog lives in radhud.html (_view); the positionable FILTER/MASK bar widget is
     // the standalone hud_filter.html (_filterView). Both consume the same updateFilter payload; drive
     // each independently so one not being DOM-ready doesn't starve the other.
-    if (_view != 0 && _domReady && api->IsValid(_view))
+    // Constraint: each view tracks its own last-sent payload so a late DOM-ready view still gets data.
+    if (_view != 0 && _domReady && api->IsValid(_view) && _filterMainPayload != json)
+    {
+        _filterMainPayload = json;
         api->InteropCall(_view, "updateFilter", json);
+    }
     if (_filterView != 0 && _filterDomReady && api->IsValid(_filterView))
     {
-        api->InteropCall(_filterView, "updateFilter", json);
+        if (_filterBarPayload != json)
+        {
+            _filterBarPayload = json;
+            api->InteropCall(_filterView, "updateFilter", json);
+        }
         PushFilterKeys(_filterView);
     }
 }
@@ -494,6 +510,8 @@ void RadHud::PushStorm(int phase, int theme, float intensity, bool sheltered, bo
     std::snprintf(json, sizeof(json),
         "{\"phase\":%d,\"theme\":%d,\"intensity\":%.3f,\"sheltered\":%s,\"lethal\":%s}",
         phase, theme, intensity, sheltered ? "true" : "false", lethal ? "true" : "false");
+    if (_stormPayload == json) return;
+    _stormPayload = json;
     api->InteropCall(_view, "stormPhase", json);
 }
 
