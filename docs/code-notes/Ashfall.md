@@ -163,3 +163,18 @@ Fix: the first rejection stamps _debugFocusFailedSinceMs and retries every 150 m
 View role: the debug view declares kPanel only after a successful open and returns to kWidget on close and on focus failure. The always-on overlay is never kPanel, because IsAnyPanelVisible() would otherwise be true for other plugins.
 
 Not verified in game: whether FocusOverlay accepts where Focus does not, and whether the 2 s cap is long enough for a slow view.
+
+## Pip-Boy stack UI and perf fixes (this session)
+
+- ECG loop runs only while the debug panel is open, capped at about 30 fps (38d71ec): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud_interactive.js:window.setEcgActive`.
+- Geiger click timer stops when the debug panel closes, restarts on FX toggle-on, and is a no-op without AudioContext (432d8b4, eb47770): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud_interactive.js:window.SetDebugMenu`.
+- Dial scrubbers start from the live percentage in `data-pct`, and `updateEcgVitals` merges partial vitals instead of zeroing them (c5c639d): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud_interactive.js:window.initDialScrubbers`.
+- Dial hover uses an inset/outline box-shadow and no longer translates or scales the box (c5c639d): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:.overview-dial`.
+- RobCo boot plays only from the replay control, and key auto-repeat is ignored (c38f425): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud_interactive.js:window.playRobcoBoot`.
+- Unreferenced telemetry and ops helpers are removed, with the dead wetness dial call (9334ed4): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud_interactive.js:window.triggerScenario`.
+- Clipboard copy falls back to execCommand and never throws (0cddf5a): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:copyText`.
+- Widgets report visibility only on change, and hud_filter skips re-rendering unchanged data (7a2e4a2): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_filter.html:renderFilter`.
+- Debug overlay uses explicit inset edges, and its backdrop is a `#debugBackdrop` sibling instead of a 100vmax box-shadow (0790a4c): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:#debugBackdrop`.
+- The overview wetness readout targets the `ov-val-wetness` element (1fdb12c): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_diagnostics.js:ov-val-wetness`.
+- Dome follow returns early unless an IMAD fade tick is due or the player moved more than 64 units (c2a1fca): `src/Hooks_DomeFollow.cpp:QueueDomeFollow`.
+- Armor piece names pass through `SanitizeUiText`, because 4-byte UTF-8 characters hang the Ultralight shaper (see CHANGELOG): `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::SanitizeUiText`, `src/RadHud.cpp:RadHud::PushArmor`.
