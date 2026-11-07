@@ -421,6 +421,9 @@ private:
     int   _conditionLowWarned  = 0;       // 0 none / 1 damaged(<=25) / 2 broken — reset on repair
     void  RepairMask(bool silent);       // consume one repair kit -> condition 100
     int   RepairKitCount() const;        // count of the repair kit in the player's inventory
+    // Constraint: god mode clamps plugin health drains only when [Survival] RespectGodMode=1.
+    float GodModeHealthDrain(RE::PlayerCharacter* player, RE::ActorValueInfo* healthAv, float kDamage) const;
+    bool  _respectGodMode    = true;    // [Survival] RespectGodMode
     // CHOKING system (GMW-style): breathing contaminated air without working protection damages
     // HEALTH, not just rads. Applies while exposed (not sheltered/PA/powered-shelter) in rad
     // weather: full rate with no mask worn, a reduced rate when masked but the filter is dead or

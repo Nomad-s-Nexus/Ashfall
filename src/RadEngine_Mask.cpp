@@ -536,6 +536,8 @@ void RadiationEngine::LoadFilterIni()
         _conditionHitDamage = std::max(0.0f, static_cast<float>(std::atof(b)));   // negative would REPAIR on hit
     }
     // [Choking] — health damage when breathing rad weather without working protection.
+    // Constraint: [Survival] RespectGodMode=1 keeps plugin health drains from killing a god-mode player.
+    _respectGodMode = ::GetPrivateProfileIntA("Survival", "RespectGodMode", 1, kIni) != 0;
     _chokingEnabled = ::GetPrivateProfileIntA("Choking", "Enabled", 1, kIni) != 0;
     _chokeSounds    = ::GetPrivateProfileIntA("Choking", "Sounds", 1, kIni) != 0;
     {

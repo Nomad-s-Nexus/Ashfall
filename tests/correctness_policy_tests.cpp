@@ -573,5 +573,18 @@ int main()
     Require(Decide(true, true, false, false, 1) == Decision::kNoModifier);
     Require(Decide(true, true, false, true, 0) == Decision::kNoEmptyBottle);
 
+    // Constraint: god mode + RespectGodMode clamps a health drain so health never reaches 0.
+    using RadCorrectnessPolicy::GodModeClampedDrain;
+    Require(Near(GodModeClampedDrain(50.0f, -10.0f, true, true), -10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, -10.0f, true, true), -4.0f));
+    Require(Near(GodModeClampedDrain(5.0f, -4.0f, true, true), -4.0f));
+    Require(Near(GodModeClampedDrain(1.0f, -3.0f, true, true), 0.0f));
+    Require(Near(GodModeClampedDrain(0.5f, -3.0f, true, true), 0.0f));
+    Require(Near(GodModeClampedDrain(50.0f, -10.0f, false, true), -10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, -10.0f, true, false), -10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, 10.0f, true, true), 10.0f));
+    Require(Near(GodModeClampedDrain(1.0f, 10.0f, true, true), 10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, 0.0f, true, true), 0.0f));
+
     return 0;
 }

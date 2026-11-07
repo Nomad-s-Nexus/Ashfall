@@ -490,7 +490,7 @@ void RadiationEngine::Update()
 
             const float rate = airHealthLoss;
                 player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *actorValue->health,
-                                      -rate * 0.25f);
+                                      GodModeHealthDrain(player, actorValue->health, -rate * 0.25f));
 
                 if (_chokeTicks >= RadCorrectnessPolicy::kChokeGraceTicks)
                 {

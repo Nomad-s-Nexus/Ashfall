@@ -450,4 +450,17 @@ namespace RadCorrectnessPolicy
         hudWaiting.store(false, std::memory_order_release);
         return nextGeneration;
     }
+
+    // Constraint: god mode with [Survival] RespectGodMode keeps a plugin health drain from taking health to 0; heals (kDamage >= 0) pass through.
+    constexpr float kGodModeFloorHealth = 1.0f;
+    constexpr float GodModeClampedDrain(float currentHealth, float kDamage, bool godMode, bool respectGodMode)
+    {
+        if (!godMode || !respectGodMode || !(kDamage < 0.0f))
+            return kDamage;
+        const float room = currentHealth - kGodModeFloorHealth;
+        if (!(room > 0.0f))
+            return 0.0f;
+        const float take = (-kDamage < room) ? -kDamage : room;
+        return -take;
+    }
 }

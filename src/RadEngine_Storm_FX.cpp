@@ -134,7 +134,21 @@ void RadiationEngine::ApplyStormExposure()
     if (av->rads && st.radsPerTick > 0.0f)
         player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *av->rads, st.radsPerTick * radsMul);
     if (av->health && st.healthPerTick > 0.0f)
-        player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *av->health, -st.healthPerTick * hpMul);
+        player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, *av->health,
+                              GodModeHealthDrain(player, av->health, -st.healthPerTick * hpMul));
+}
+// Constraint: IsGodMode is gated to OG (TODO-verify: NG/AE entry), elsewhere no clamp.
+static bool IsPlayerGodMode(RE::PlayerCharacter* player)
+{
+    if (!player || !REX::FModule::IsRuntimeOG()) return false;
+    static REL::Relocation<bool (*)(RE::PlayerCharacter*)> isGodMode{ RE::ID::PlayerCharacter::IsGodMode };
+    return isGodMode(player);
+}
+float RadiationEngine::GodModeHealthDrain(RE::PlayerCharacter* player, RE::ActorValueInfo* healthAv, float kDamage) const
+{
+    const bool godMode = player && healthAv && _respectGodMode && IsPlayerGodMode(player);
+    if (!godMode) return kDamage;
+    return RadCorrectnessPolicy::GodModeClampedDrain(player->GetActorValue(*healthAv), kDamage, godMode, _respectGodMode);
 }
 bool RadiationEngine::IsGhoulActor(RE::Actor* a) const
 {
