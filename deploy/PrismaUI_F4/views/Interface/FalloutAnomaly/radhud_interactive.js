@@ -255,9 +255,11 @@ if (window.pipAudio) {
     if (on) startLoop(); else stopLoop();
   };
   window.updateEcgVitals = function(hp, hpMax, rads) {
-    currentRads = Number(rads) || 0;
-    var maxH = Number(hpMax) || 220;
-    currentHealthPct = Math.round(((Number(hp) || 0) / maxH) * 100);
+    if (rads !== null && rads !== undefined) currentRads = Number(rads) || 0;
+    if (hp !== null && hp !== undefined) {
+      var maxH = Number(hpMax) || 220;
+      currentHealthPct = Math.round(((Number(hp) || 0) / maxH) * 100);
+    }
     if (currentHealthPct <= 0) {
       heartRate = 0;
     } else {
@@ -294,8 +296,8 @@ window.initDialScrubbers = function() {
       isDown = true;
       startX = e.clientX;
       dial.classList.add("dial-scrubbing");
-      var currentText = (dial.querySelector(".dial-val") || {}).textContent || "50";
-      startVal = parseFloat(currentText.replace(/[^0-9.]/g, '')) || 50;
+      startVal = parseFloat(dial.getAttribute("data-pct"));
+      if (!isFinite(startVal)) startVal = 50;
       function onMove(me) {
         if (!isDown) return;
         var dx = me.clientX - startX;

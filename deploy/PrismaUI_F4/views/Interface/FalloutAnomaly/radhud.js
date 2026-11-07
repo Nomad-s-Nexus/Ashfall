@@ -768,6 +768,7 @@ window.updatePipDial = function(type, pct, valText, subText) {
     var dialBox = barEl.closest ? barEl.closest(".overview-dial") : null;
     if (dialBox) {
       dialBox.classList.remove("dial-state-yellow", "dial-state-orange", "dial-state-red");
+      dialBox.setAttribute("data-pct", safePct);
     }
     var state = null;
     var isHazard = (type === "rads" || type === "tissue" || type === "hunger" || type === "thirst" || type === "fatigue" || type === "exposure");
