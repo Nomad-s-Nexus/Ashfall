@@ -312,6 +312,33 @@ function checkTuneModified() {
     badge.style.display = hasTuned ? "inline-block" : "none";
   });
 }
+function copyText(text, onDone) {
+  function fallback() {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok && onDone) onDone();
+    } catch (e) {}
+  }
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    fallback();
+    return;
+  }
+  try {
+    navigator.clipboard.writeText(text).then(function() {
+      if (onDone) onDone();
+    }, fallback);
+  } catch (e) {
+    fallback();
+  }
+}
 window.copyIniDiff = function(ev) {
   var lines = ["[Tuning]"];
   var modifiedCount = 0;
@@ -342,16 +369,14 @@ window.copyIniDiff = function(ev) {
     });
   }
   var text = lines.join("\n");
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(function() {
-      var btn = ev ? ev.target : null;
-      if (btn) {
-        var orig = btn.textContent;
-        btn.textContent = "[COPIED INI DIFF!]";
-        setTimeout(function() { btn.textContent = orig; }, 1800);
-      }
-    });
-  }
+  copyText(text, function() {
+    var btn = ev ? ev.target : null;
+    if (btn) {
+      var orig = btn.textContent;
+      btn.textContent = "[COPIED INI DIFF!]";
+      setTimeout(function() { btn.textContent = orig; }, 1800);
+    }
+  });
   if (window.pipAudio) window.pipAudio.click();
 };
 
