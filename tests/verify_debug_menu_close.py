@@ -119,8 +119,10 @@ def main() -> int:
     require("std::uint32_t ReadInputBits() const noexcept;" in rad_h, "RadiationEngine must expose ReadInputBits()")
     require("_polledInputBits.store(ReadInputBits());" in rad_cpp, "PollInput must store the key bits")
     poll_body = rad_cpp.split("void RadiationEngine::PollInput()", 1)[1]
-    require(poll_body.find("_polledInputBits.store(") < poll_body.find("GetAsyncKeyState(kDebugMenuKey)"),
+    require(poll_body.find("_polledInputBits.store(") < poll_body.find("const bool dbgKeyDown"),
             "PollInput must store the key bits before any early return")
+    require("GetAsyncKeyState(" not in poll_body.split("_polledInputBits.store(", 1)[1],
+            "PollInput must derive every key edge from the single stored bit read")
     require("_filterReplaceKey.load(), _conditionRepairKey.load()" in rad_cpp,
             "ReadInputBits must load the atomic mask keys")
     require("engine.ReadInputBits() != engine.PolledInputBits() || RadHud::GetSingleton().DebugWorkPending()" in hooks_cpp,
