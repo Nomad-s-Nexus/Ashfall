@@ -26,6 +26,33 @@ namespace
 {
     constexpr const char* kHudLayoutPrefix = "hudlayout:";
 
+    // Constraint: a coalesced hudlayout replacement keeps save:true from any entry it replaces, so a live-preview update cannot drop a pending save.
+    bool HudLayoutRequestsSave(const std::string& command)
+    {
+        try
+        {
+            return json::parse(command.substr(std::strlen(kHudLayoutPrefix))).value("save", false);
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    std::string WithHudLayoutSave(const std::string& command)
+    {
+        try
+        {
+            auto body = json::parse(command.substr(std::strlen(kHudLayoutPrefix)));
+            body["save"] = true;
+            return kHudLayoutPrefix + body.dump();
+        }
+        catch (...)
+        {
+            return command;
+        }
+    }
+
     // Constraint: hudlayout commands are coalesced per widget, so only the newest drag state per widget is replayed.
     std::string HudLayoutWidgetKey(const std::string& command)
     {
@@ -165,11 +192,18 @@ void RadiationEngine::HandleDebugCommand(const char* action)
         const auto widget = HudLayoutWidgetKey(command);
         if (!widget.empty())
         {
+            bool replacedSave = false;
             _pendingDebugCmds.erase(
                 std::remove_if(_pendingDebugCmds.begin(), _pendingDebugCmds.end(), [&](const std::string& queued) {
-                    return queued.rfind(kHudLayoutPrefix, 0) == 0 && HudLayoutWidgetKey(queued) == widget;
+                    if (queued.rfind(kHudLayoutPrefix, 0) == 0 && HudLayoutWidgetKey(queued) == widget)
+                    {
+                        replacedSave = replacedSave || HudLayoutRequestsSave(queued);
+                        return true;
+                    }
+                    return false;
                 }),
                 _pendingDebugCmds.end());
+            if (replacedSave) command = WithHudLayoutSave(command);
         }
     }
     if (_pendingDebugCmds.size() >= kMaxPendingDebugCmds)

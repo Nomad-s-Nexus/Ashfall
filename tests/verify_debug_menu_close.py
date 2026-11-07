@@ -133,6 +133,10 @@ def main() -> int:
             "hudlayout commands must be coalesced per widget in RadEngine_Debug.cpp")
     require("queued.rfind(kHudLayoutPrefix, 0) == 0 && HudLayoutWidgetKey(queued) == widget" in debug_cpp,
             "coalescing must match hudlayout entries by widget key")
+    require("if (replacedSave) command = WithHudLayoutSave(command);" in debug_cpp,
+            "a coalesced hudlayout replacement must keep a save that it replaces")
+    require('body["save"] = true;' in debug_cpp,
+            "WithHudLayoutSave must set save:true on the replacement command")
     require("constexpr std::size_t kMaxPendingDebugCmds = 32;" in debug_cpp,
             "pending debug command queue must stay bounded")
     require("GetFileAttributesExA(kIni, GetFileExInfoStandard, &attrs)" in mask_cpp,
