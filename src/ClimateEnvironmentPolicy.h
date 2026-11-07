@@ -16,6 +16,9 @@ namespace RadClimateEnvironmentPolicy
     inline constexpr float kSnowPenaltyC = 10.0f;
     inline constexpr float kSnowWetnessIntensity = 0.35f;
     inline constexpr float kMaximumWindProxyMps = 20.0f;
+    inline constexpr float kEnclosedAmbientFloorC = 8.0f;
+    inline constexpr float kMinimumEnclosedFloorC = -10.0f;
+    inline constexpr float kMaximumEnclosedFloorC = 20.0f;
     inline constexpr std::array<float, 12> kSeasonalOffsetC{
         -7.0f, -6.0f, -3.0f, 0.0f, 3.0f, 5.0f,
          6.0f,  5.0f,  2.0f, 0.0f, -3.0f, -6.0f
@@ -94,5 +97,22 @@ namespace RadClimateEnvironmentPolicy
     {
         const auto raw = static_cast<std::uint8_t>(weatherWindByte);
         return kMaximumWindProxyMps * static_cast<float>(raw) / 255.0f;
+    }
+
+    [[nodiscard]] inline float SanitizeEnclosedFloorC(float value) noexcept
+    {
+        if (!std::isfinite(value))
+            return kEnclosedAmbientFloorC;
+        return std::clamp(value, kMinimumEnclosedFloorC, kMaximumEnclosedFloorC);
+    }
+
+    // Constraint: partial shelter blends toward the floor; an unsheltered or open-sided spot keeps the raw outdoor air.
+    [[nodiscard]] inline float ShelteredAmbientC(float ambientC, float enclosed01, float floorC = kEnclosedAmbientFloorC) noexcept
+    {
+        if (!std::isfinite(ambientC))
+            return ambientC;
+        const float blend = std::isfinite(enclosed01) ? std::clamp(enclosed01, 0.0f, 1.0f) : 0.0f;
+        const float floored = std::max(ambientC, SanitizeEnclosedFloorC(floorC));
+        return ambientC + (floored - ambientC) * blend;
     }
 }
