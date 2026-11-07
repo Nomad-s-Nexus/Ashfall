@@ -47,7 +47,7 @@ Reference: `src/Hooks_SkyClouds.cpp`, `src/RadEngine_Internal.h:kStormDomeBlendR
 - The dome blend (`_stormDomeBlend`, 0 to 1) is the vanilla cloud fade, published through `Hooks::SetStormDomeBlend`. It is a static atomic inside this plugin; there is no cross-plugin export.
 - `kStormDomeBlendRampSec` is the vanilla cloud fade-out and fade-in time around the dome. `kStormDomeTimelineSec` is the length of the baked `Storm` sequence in `CloudArena01_4.nif`.
 - `FODomeBlackHole.dds` is unused now that the dome is the baked NIF.
-- Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `BeginStorm`, kept in `_stormDomeBeginSec`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
+- Animation clock: the engine never ticks the dome's controller manager itself. Driving it from storm time (`_playSeconds` at `RadiationEngine::BeginStorm`) and the re-audit that proves `lastScaled` advances need the follow-up PR #48 (`fix/storm-dome-animation-follow`). Until it lands, the baked sequence clock is not driven.
 ### Dome blend and logging
 
 Reference: `src/RadCorrectnessPolicy.h:BlendForSequence`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`, and `src/main.cpp`.

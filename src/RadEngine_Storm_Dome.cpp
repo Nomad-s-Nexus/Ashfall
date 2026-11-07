@@ -381,6 +381,7 @@ static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_se
 void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root)
 {
     a_layer.root = a_root;
+    a_layer.resolved = true;
     _domeShapeMaskDirty = true;
     a_layer.hasManager = RE::NiControllerManager::GetNiControllerManager(a_root) != nullptr;
     a_layer.hole4 = nullptr;
@@ -396,9 +397,9 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
     {
         auto* node = a_root->GetObjectByName(RE::BSFixedString(kVortexNodeNames[i]));
         auto& state = a_layer.vortex[i];
-        if (node != state.node)
+        if (node != state.node.get())
         {
-            state.node = node;
+            state.node = RE::NiPointer<RE::NiAVObject>(node);
             state.writtenScale = -1.0f;
             state.baseTranslate = node ? node->local.translate : RE::NiPoint3{};
         }
@@ -406,12 +407,12 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
     for (int i = 0; i < kDomeDeckCount; ++i)
     {
         auto* node = a_root->GetObjectByName(RE::BSFixedString(RadCorrectnessPolicy::kDomeDeckShapes[i].data()));
+        auto* geometry = node ? node->IsGeometry() : nullptr;
         auto& deck = a_layer.decks[i];
-        if (node == deck.node) continue;
-        deck.node = node;
+        if (geometry == deck.geom.get()) continue;
+        deck.geom = RE::NiPointer<RE::BSGeometry>(geometry);
         deck.writtenAlpha = -1.0f;
         deck.floorAlpha = RadCorrectnessPolicy::DomeDeckFloorFor(RadCorrectnessPolicy::kDomeDeckShapes[i]);
-        deck.prop = node ? static_cast<RE::BSShaderProperty*>(static_cast<RE::BSGeometry*>(node)->properties[1].get()) : nullptr;
     }
 }
 
@@ -439,26 +440,41 @@ void RadiationEngine::ResetDomeShapeMask()
 void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTimeSec)
 {
     const float weight = RadCorrectnessPolicy::DomeDeckFloorWeight(a_seqTimeSec);
-    for (auto& deck : a_layer.decks)
+    const bool logFirst = !_domeDeckLogged && a_layer.root;
+    int shaded = 0;
+    int sampleIndex = -1;
+    float sampleBefore = 0.0f;
+    float sampleAfter = 0.0f;
+    for (int i = 0; i < kDomeDeckCount; ++i)
     {
-        if (!deck.prop) continue;
-        const float keyed = deck.prop->alpha;
+        auto& deck = a_layer.decks[i];
+        // Constraint: the shader property is read from the live geometry on every apply, never cached.
+        auto* prop = deck.geom ? static_cast<RE::BSShaderProperty*>(deck.geom->properties[1].get()) : nullptr;
+        if (!prop) continue;
+        ++shaded;
+        const float keyed = prop->alpha;
         if (keyed != deck.writtenAlpha) deck.keyedAlpha = keyed;
         deck.writtenAlpha = RadCorrectnessPolicy::DomeFloorAlpha(deck.keyedAlpha, deck.floorAlpha, weight);
-        deck.prop->alpha = deck.writtenAlpha;
+        if (logFirst && sampleIndex < 0)
+        {
+            sampleIndex = i;
+            sampleBefore = keyed;
+            sampleAfter = deck.writtenAlpha;
+        }
+        prop->alpha = deck.writtenAlpha;
     }
-    if (_domeDeckLogged || !a_layer.root) return;
+    if (!logFirst) return;
     _domeDeckLogged = true;
-    int shaded = 0;
-    for (const auto& deck : a_layer.decks)
-        if (deck.prop) ++shaded;
-    Log()->info("[StormFX] dome deck floor: {} of {} deck shapes have a shader property; weight {:.2f} at seq {:.1f}.",
+    Log()->info("[StormFX] dome deck floor: {} of {} deck shapes shaded; weight {:.2f} at seq {:.1f}.",
         shaded, kDomeDeckCount, weight, a_seqTimeSec);
+    if (sampleIndex >= 0)
+        Log()->info("[StormFX] dome deck floor sample {}: alpha {:.3f} -> {:.3f}.",
+            RadCorrectnessPolicy::kDomeDeckShapes[sampleIndex], sampleBefore, sampleAfter);
     for (const char* name : { "PortalA", "DiskOuter", "PlainHigh", "OuterHigh" })
     {
         auto* node = a_layer.root->GetObjectByName(RE::BSFixedString(name));
-        auto* geom = node ? static_cast<RE::BSGeometry*>(node) : nullptr;
-        auto* prop = geom ? static_cast<RE::BSShaderProperty*>(geom->properties[1].get()) : nullptr;
+        auto* geometry = node ? node->IsGeometry() : nullptr;
+        auto* prop = geometry ? static_cast<RE::BSShaderProperty*>(geometry->properties[1].get()) : nullptr;
         if (!prop)
         {
             Log()->info("[StormFX] dome depth flags {}: no shader property.", name);
@@ -522,7 +538,7 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         auto* obj3d = ref->Get3D();
         if (!obj3d) continue;
         const bool recreated = layer.root && layer.root != obj3d;
-        if (layer.root != obj3d || (layer.hasManager && (!layer.hole4 || !layer.vortex2 || !layer.vortex3)))
+        if (layer.root != obj3d || !layer.resolved)
             ResolveDomeLayerNodes(layer, obj3d);
         if (!layer.hasManager) continue;
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);

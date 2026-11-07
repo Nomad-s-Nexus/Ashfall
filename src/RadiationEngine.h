@@ -11,6 +11,8 @@
 #include <RE/B/BSSoundHandle.h>
 #include <RE/I/ImageSpaceModifierInstanceForm.h>
 #include <RE/N/NiPoint3.h>
+#include <RE/N/NiPointer.h>
+#include <RE/B/BSGeometry.h>
 
 #include "RadCorrectnessPolicy.h"
 
@@ -487,12 +489,13 @@ private:
         bool manualSeeded = false;
         RE::NiAVObject* root = nullptr;
         bool hasManager = false;
+        bool resolved = false;
         RE::NiAVObject* hole4 = nullptr;
         RE::NiAVObject* vortex2 = nullptr;
         RE::NiAVObject* vortex3 = nullptr;
         struct VortexNode
         {
-            RE::NiAVObject* node = nullptr;
+            RE::NiPointer<RE::NiAVObject> node;
             RE::NiPoint3 baseTranslate{};
             float baseScale = 1.0f;
             float writtenScale = -1.0f;
@@ -500,8 +503,7 @@ private:
         VortexNode vortex[5];
         struct DomeDeck
         {
-            RE::NiAVObject* node = nullptr;
-            RE::BSShaderProperty* prop = nullptr;
+            RE::NiPointer<RE::BSGeometry> geom;
             float floorAlpha = 0.0f;
             float keyedAlpha = 0.0f;
             float writtenAlpha = -1.0f;
