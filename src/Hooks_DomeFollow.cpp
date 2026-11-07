@@ -3,6 +3,7 @@
 #include "RadiationEngine.h"
 #include "RadLifecycleDispatch.h"
 #include "RadCorrectnessPolicy.h"
+#include "RadEngine_Internal.h"
 
 #include <RE/P/PlayerCharacter.h>
 
@@ -47,8 +48,7 @@ namespace Hooks
             return true;
         }();
 
-        // Constraint: kFollowSkipEpsilon must equal kStormDomeFollowEpsilon (RadEngine_Internal.h); IMAD ticks keep DriveDomeAnimation running.
-        static constexpr float kFollowSkipEpsilon = 64.0f;
+        // Constraint: the follow skip threshold is RadInternal::kStormDomeFollowEpsilon; IMAD ticks keep DriveDomeAnimation running.
         static std::mutex followMutex;
         static bool followPosValid = false;
         static RE::NiPoint3 lastFollowPos{};
@@ -61,7 +61,7 @@ namespace Hooks
             const float dy = playerPos.y - lastFollowPos.y;
             const float dz = playerPos.z - lastFollowPos.z;
             return RadCorrectnessPolicy::ShouldMoveDomeLayer((dx * dx) + (dy * dy) + (dz * dz),
-                kFollowSkipEpsilon * kFollowSkipEpsilon);
+                RadInternal::kStormDomeFollowEpsilon * RadInternal::kStormDomeFollowEpsilon);
         }();
         if (!runImadFade && !movedBeyondEpsilon)
             return;
@@ -81,6 +81,15 @@ namespace Hooks
                         RadiationEngine::GetSingleton().UpdateStormDomeFollow();
                         if (runImadFade)
                             RadiationEngine::GetSingleton().UpdateStormIMADFade();
+                        auto* followedPlayer = RE::PlayerCharacter::GetSingleton();
+                        std::lock_guard<std::mutex> lock(followMutex);
+                        followPosValid = true;
+                        lastFollowPos = followedPlayer ? followedPlayer->GetPosition() : RE::NiPoint3{};
+                    }
+                    else
+                    {
+                        std::lock_guard<std::mutex> lock(followMutex);
+                        followPosValid = false;
                     }
                 }
                 catch (...)
@@ -101,9 +110,6 @@ namespace Hooks
             s_domeFollowTaskQueued.store(false);
             return;
         }
-        std::lock_guard<std::mutex> lock(followMutex);
-        followPosValid = true;
-        lastFollowPos = playerPos;
     }
 
 }
