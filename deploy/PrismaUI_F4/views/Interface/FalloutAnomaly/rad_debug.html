@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="radhud.css">
+</head>
+<body class="theme-phosphor">
+  <div id="debugPanel">
+    <!-- RobCo Terminal Boot Sequence Overlay -->
+    <div id="robcoBootOverlay" class="robco-boot-overlay boot-hidden">
+      <div class="robco-boot-box">
+        <div class="robco-boot-brand">
+          <pre class="robco-ascii">
+  ___   ___  ___   ___  ___  
+ | _ \ / _ \| _ ) / __|/ _ \ 
+ |   /| (_) | _ \| (__| (_) |
+ |_|_\ \___/|___/ \___|\___/ 
+     I N D U S T R I E S</pre>
+          <div class="robco-brand-sub">UNIFIED OPERATING SYSTEM &bull; RAD-OS v1.2.4</div>
+          <div class="robco-brand-copy">COPYRIGHT 2075-2077 ROBCO INDUSTRIES</div>
+        </div>
+
+        <div class="robco-boot-lines" id="robcoBootLines"></div>
+
+        <div class="robco-boot-footer">
+          <div class="robco-boot-prompt">
+            <span class="robco-prompt-sym">&gt;</span> <span id="robcoBootPromptText">CHECKING HARDWARE...</span><span class="robco-cursor">_</span>
+          </div>
+          <div class="robco-boot-skip">[ CLICK OR PRESS ANY KEY TO SKIP ]</div>
+        </div>
+      </div>
+    </div>
+    <header class="pip-header">
+      <div class="pip-header-meta">
+        <span class="pip-meta-id" style="cursor:pointer;" onclick="playRobcoBoot()" title="Click to replay RobCo Boot Animation">ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM</span>
+        <div class="pip-header-tools">
+          <div class="pip-theme-pickers">
+            <button class="theme-btn theme-green active" data-theme="green" onclick="setPipColor('green')">GRN</button>
+            <button class="theme-btn theme-amber" data-theme="amber" onclick="setPipColor('amber')">AMB</button>
+            <button class="theme-btn theme-cyan" data-theme="cyan" onclick="setPipColor('cyan')">CYN</button>
+            <button class="theme-btn theme-white" data-theme="white" onclick="setPipColor('white')">WHT</button>
+          </div>
+          <button class="pip-audio-toggle" id="pipGeigerToggle" onclick="toggleGeigerAudio()">GEIGER: OFF</button>
+          <button class="pip-audio-toggle" id="pipAudioToggle" onclick="togglePipAudio()">FX: ON</button>
+          <span class="pip-meta-sub">RAD-OS v1.2.4</span>
+        </div>
+      </div>
+      <div class="pip-header-bar">
+        <div class="pip-header-title">
+          <span class="pip-title-accent">//</span> RADIATION OVERHAUL <span class="pip-title-sub">DIAGNOSTICS &amp; DEBUG CONSOLE</span>
+        </div>
+        <div class="pip-header-status">
+          <span class="pip-pulse-dot"></span> SENSORS ONLINE
+        </div>
+      </div>
+      <nav class="dbg-tabs" role="tablist">
+        <button class="dbg-tab on" id="tabbtn-overview" onclick="showTab('overview')"><span class="tab-idx">00</span> OVERVIEW</button>
+        <button class="dbg-tab" id="tabbtn-rad" onclick="showTab('rad')"><span class="tab-idx">01</span> RAD MOD</button>
+        <button class="dbg-tab" id="tabbtn-wthr" onclick="showTab('wthr')"><span class="tab-idx">02</span> WEATHER</button>
+        <button class="dbg-tab" id="tabbtn-ghouls" onclick="showTab('ghouls')"><span class="tab-idx">03</span> GHOULS</button>
+        <button class="dbg-tab" id="tabbtn-armor" onclick="showTab('armor')"><span class="tab-idx">04</span> ARMOR</button>
+        <button class="dbg-tab" id="tabbtn-survival" onclick="showTab('survival')"><span class="tab-idx">05</span> SETTINGS</button>
+        <button class="dbg-tab" id="tabbtn-showcase" onclick="showTab('showcase')"><span class="tab-idx">06</span> SHOWCASE</button>
+        <button class="dbg-tab" id="tabbtn-hud" onclick="showTab('hud')"><span class="tab-idx">07</span> HUD LAYOUT</button>
+      </nav>
+    </header>
+
+    <div class="dbg-viewport">
+      <!-- ===================== TAB: OVERVIEW ===================== -->
+      <div class="dbg-pane on" id="tab-overview">
+        <!-- Top Circular Dials: 6 Primary Bio/Environmental Systems -->
+        <div class="overview-dials-deck">
+          <div class="overview-dial" data-type="health">
+            <div class="dial-svg-box">
+              <svg viewBox="0 0 72 72">
+                <circle class="dial-disc" cx="36" cy="36" r="30" />
+                <circle class="dial-track" cx="36" cy="36" r="30" />
+                <circle class="dial-bar bar-green" id="dial-bar-health" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="dial-center">
+                <span class="dial-val" id="dial-val-health">--</span>
+              </div>
+            </div>
+            <div class="dial-label">HEALTH</div>
+            <div class="dial-sub" id="dial-sub-health">-- / --</div>
+          </div>
+
+          <div class="overview-dial" data-type="ap">
+            <div class="dial-svg-box">
+              <svg viewBox="0 0 72 72">
+                <circle class="dial-disc" cx="36" cy="36" r="30" />
+                <circle class="dial-track" cx="36" cy="36" r="30" />
+                <circle class="dial-bar bar-cyan" id="dial-bar-ap" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="dial-center">
+                <span class="dial-val" id="dial-val-ap">--</span>
+              </div>
+            </div>
+            <div class="dial-label">ACTION PTS</div>
+            <div class="dial-sub" id="dial-sub-ap">-- / --</div>
+          </div>
+
+          <div class="overview-dial" data-type="rads">
+            <div class="dial-svg-box">
+              <svg viewBox="0 0 72 72">
+                <circle class="dial-disc" cx="36" cy="36" r="30" />
+                <circle class="dial-track" cx="36" cy="36" r="30" />
+                <circle class="dial-bar bar-amber" id="dial-bar-rads" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="dial-center">
+                <span class="dial-val" id="dial-val-rads">--</span>
+              </div>
+            </div>
+            <div class="dial-label">RADIATION</div>
+            <div class="dial-sub" id="dial-sub-rads">-- DOSE</div>
+          </div>
+
+          <div class="overview-dial" data-type="tissue">
+            <div class="dial-svg-box">
+              <svg viewBox="0 0 72 72">
+                <circle class="dial-disc" cx="36" cy="36" r="30" />
+                <circle class="dial-track" cx="36" cy="36" r="30" />
+                <circle class="dial-bar bar-red" id="dial-bar-tissue" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="dial-center">
+                <span class="dial-val" id="dial-val-tissue">--</span>
+              </div>
+            </div>
+            <div class="dial-label">TISSUE SCAR</div>
+            <div class="dial-sub" id="dial-sub-tissue">-- TISSUE</div>
+          </div>
+
+          <div class="overview-dial" data-type="warmth">
+            <div class="dial-svg-box">
+              <svg viewBox="0 0 72 72">
+                <circle class="dial-disc" cx="36" cy="36" r="30" />
+                <circle class="dial-track" cx="36" cy="36" r="30" />
+                <circle class="dial-bar bar-green" id="dial-bar-warmth" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="dial-center">
+                <span class="dial-val" id="dial-val-warmth">--</span>
+              </div>
+            </div>
+            <div class="dial-label">BODY WARMTH</div>
+            <div class="dial-sub" id="dial-sub-warmth">-- °C</div>
+          </div>
+
+          <div class="overview-dial" data-type="filter">
+            <div class="dial-svg-box">
+              <svg viewBox="0 0 72 72">
+                <circle class="dial-disc" cx="36" cy="36" r="30" />
+                <circle class="dial-track" cx="36" cy="36" r="30" />
+                <circle class="dial-bar bar-green" id="dial-bar-filter" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="dial-center">
+                <span class="dial-val" id="dial-val-filter">--</span>
+              </div>
+            </div>
+            <div class="dial-label">FILTER CHARGE</div>
+            <div class="dial-sub" id="dial-sub-filter">-- SPARES</div>
+          </div>
+        </div>
+
+        <!-- Middle Tactical Deck -->
+        <div class="overview-deck">
+          <!-- Left: Metabolic Dials -->
+          <div class="pip-card">
+            <div class="dbg-sec">METABOLIC &amp; SURVIVAL POOLS</div>
+            <div class="overview-metabolic-grid">
+              <div class="overview-dial dial-compact">
+                <div class="dial-svg-box">
+                  <svg viewBox="0 0 64 64"><circle class="dial-disc" cx="32" cy="32" r="26"/><circle class="dial-track" cx="32" cy="32" r="26"/><circle class="dial-bar bar-amber" id="dial-bar-hunger" cx="32" cy="32" r="26"/></svg>
+                  <div class="dial-center"><span class="dial-val" id="dial-val-hunger">--</span></div>
+                </div>
+                <div class="dial-label">HUNGER</div>
+                <div class="dial-sub" id="dial-sub-hunger">STAGE 0</div>
+              </div>
+
+              <div class="overview-dial dial-compact">
+                <div class="dial-svg-box">
+                  <svg viewBox="0 0 64 64"><circle class="dial-disc" cx="32" cy="32" r="26"/><circle class="dial-track" cx="32" cy="32" r="26"/><circle class="dial-bar bar-cyan" id="dial-bar-thirst" cx="32" cy="32" r="26"/></svg>
+                  <div class="dial-center"><span class="dial-val" id="dial-val-thirst">--</span></div>
+                </div>
+                <div class="dial-label">THIRST</div>
+                <div class="dial-sub" id="dial-sub-thirst">STAGE 0</div>
+              </div>
+
+              <div class="overview-dial dial-compact">
+                <div class="dial-svg-box">
+                  <svg viewBox="0 0 64 64"><circle class="dial-disc" cx="32" cy="32" r="26"/><circle class="dial-track" cx="32" cy="32" r="26"/><circle class="dial-bar bar-amber" id="dial-bar-fatigue" cx="32" cy="32" r="26"/></svg>
+                  <div class="dial-center"><span class="dial-val" id="dial-val-fatigue">--</span></div>
+                </div>
+                <div class="dial-label">FATIGUE</div>
+                <div class="dial-sub" id="dial-sub-fatigue">STAGE 0</div>
+              </div>
+
+              <div class="overview-dial dial-compact">
+                <div class="dial-svg-box">
+                  <svg viewBox="0 0 64 64"><circle class="dial-disc" cx="32" cy="32" r="26"/><circle class="dial-track" cx="32" cy="32" r="26"/><circle class="dial-bar bar-red" id="dial-bar-exposure" cx="32" cy="32" r="26"/></svg>
+                  <div class="dial-center"><span class="dial-val" id="dial-val-exposure">--</span></div>
+                </div>
+                <div class="dial-label">EXPOSURE</div>
+                <div class="dial-sub" id="dial-sub-exposure">NO ILLNESS</div>
+              </div>
+            </div>
+            <div class="overview-mask-row">
+              <div class="ov-mask-lead">
+                <span>MASK INTEGRITY</span>
+                <strong id="dial-val-maskcond">--%</strong>
+              </div>
+              <div class="ov-stat-meter"><div class="ov-stat-fill" id="dial-meter-maskcond" style="width: 94%"></div></div>
+            </div>
+          </div>
+
+          <!-- Center: Wireframe Figure & Gear Status -->
+          <div class="pip-card overview-schematic-card">
+            <div class="dbg-sec">TACTICAL SUIT &amp; BIOMETRICS</div>
+            <div class="overview-center-box">
+              <div class="overview-wireframe" id="overviewFigure"></div>
+              <div class="overview-callouts">
+                <div class="ov-callout" id="ov-call-head">
+                  <span class="ov-tag">HEAD</span>
+                  <strong id="ov-val-head">FILTER WORKING</strong>
+                </div>
+                <div class="ov-callout" id="ov-call-torso">
+                  <span class="ov-tag">TORSO</span>
+                  <strong id="ov-val-torso">ARMOR INSULATION --</strong>
+                </div>
+                <div class="ov-callout" id="ov-call-state">
+                  <span class="ov-tag">BREATHING</span>
+                  <strong id="ov-val-state" class="pip-tag-good">FILTERED</strong>
+                </div>
+                <div class="ov-callout" id="ov-call-ghouls">
+                  <span class="ov-tag">HUNTER PACKS</span>
+                  <strong id="ov-val-ghouls">ACTIVE (40%)</strong>
+                </div>
+                <div class="ov-callout" id="ov-call-temp">
+                  <span class="ov-tag">CORE TEMP</span>
+                  <strong id="ov-val-temp">36.8 °C (WARMING)</strong>
+                </div>
+                <div class="ov-callout" id="ov-call-wetness">
+                  <span class="ov-tag">WETNESS</span>
+                  <strong id="ov-val-wetness">15% (DRY)</strong>
+                </div>
+              </div>
+            </div>
+            <!-- Biometric ECG Oscilloscope -->
+            <div class="ov-ecg-monitor">
+              <div class="ov-ecg-head">
+                <span class="ov-ecg-label"><span class="pip-pulse-dot" id="ecgPulseDot"></span> BIOMETRIC PULSE OSCILLOSCOPE</span>
+                <span class="ov-ecg-meta" id="ecgBpmText">72 BPM &bull; NOMINAL RHYTHM</span>
+              </div>
+              <canvas id="ecgCanvas" width="460" height="44" class="ov-ecg-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Right: Atmospheric Sensors & Quick Actions -->
+          <div class="pip-card">
+            <div class="dbg-sec">ENVIRONMENTAL THREAT SENSORS</div>
+            <div class="ov-sensor-list">
+              <div class="ov-sensor-row">
+                <span>ATMOSPHERE</span>
+                <strong id="ov-air-class" class="pip-tag-warn">CONTAMINATED WEATHER</strong>
+              </div>
+              <div class="ov-sensor-row">
+                <span>AMBIENT TEMP</span>
+                <strong id="ov-ambient-temp">-- °C</strong>
+              </div>
+              <div class="ov-sensor-row">
+                <span>WIND VELOCITY</span>
+                <strong id="ov-wind-speed">-- m/s</strong>
+              </div>
+              <div class="ov-sensor-row">
+                <span>THERMAL SHELTER</span>
+                <strong id="ov-shelter">--% COVER</strong>
+              </div>
+              <div class="ov-sensor-row">
+                <span>ACTIVE STORM</span>
+                <strong id="ov-storm-status">NONE DETECTED</strong>
+              </div>
+            </div>
+            <div class="dbg-sec" style="margin-top: 8px;">QUICK TACTICAL ACTIONS</div>
+            <div class="dbg-row" style="margin-bottom: 6px;">
+              <button class="pip-btn-good" onclick="cmd('heal')">FULL HEAL</button>
+              <button onclick="cmd('mask:auto')">AUTO MASK</button>
+            </div>
+            <div class="dbg-row" style="margin-bottom: 8px;">
+              <button onclick="cmd('weather:clear')">CLEAR WTHR</button>
+              <button class="warn" onclick="cmd('endstorm')">END STORM</button>
+            </div>
+            <div class="dbg-sec">SIMULATION STRESS PRESETS</div>
+            <div class="dbg-row" style="margin-bottom: 6px;">
+              <button class="warn" onclick="triggerScenario('rad_burst')" title="Heavy rad burst (850 rads, fast ECG, Geiger audio, high tissue scar)">RAD BURST</button>
+              <button class="warn" onclick="triggerScenario('freeze')" title="Hypothermia stress (29°C core, chilled, shivering ECG)">FREEZE</button>
+            </div>
+            <div class="dbg-row" style="margin-bottom: 0;">
+              <button class="warn" onclick="triggerScenario('mask_breach')" title="Mask breach (0% condition, 0% filter, choking active)">BREACH</button>
+              <button class="pip-btn-good" onclick="triggerScenario('nominal')" title="Restore optimal health, 0 rads, full filters">NOMINAL</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <!-- Telemetry data store for headless assertions and script bridge -->
+      <div id="telemetryDataStore" style="display:none;" aria-hidden="true">
+        <dl id="climateReadout"><dt>Climate</dt><dd>Awaiting data</dd></dl>
+        <p id="climateEffect"></p>
+        <dl id="airReadout"><dt>Air</dt><dd>Awaiting data</dd></dl>
+        <p id="airEffect"></p>
+        <dl id="vitalsReadout"><dt>Vitals</dt><dd>Awaiting data</dd></dl>
+      </div>
+
+      <!-- ===================== TAB: RAD MOD ===================== -->
+      <div class="dbg-pane" id="tab-rad">
+        <!-- Deck Navigation Toolbar -->
+        <div class="rad-deck-toolbar">
+          <div class="rad-deck-meta">
+            <span class="rad-deck-title">// TACTICAL OPERATIONS DECK</span>
+            <span class="rad-deck-sub">UNIFORM COMMAND INTERFACE</span>
+          </div>
+          <div class="rad-deck-pills">
+            <button class="rad-deck-pill active" data-deck="all" onclick="showRadDeck('all')">[ ALL 3 DECKS ]</button>
+            <button class="rad-deck-pill" data-deck="rads" onclick="showRadDeck('rads')">RADIATION &amp; MEDICAL</button>
+            <button class="rad-deck-pill" data-deck="mask" onclick="showRadDeck('mask')">GAS MASK &amp; INTEGRITY</button>
+            <button class="rad-deck-pill" data-deck="storm" onclick="showRadDeck('storm')">STORMS &amp; EMISSIONS</button>
+          </div>
+        </div>
+
+        <!-- 3 Balanced Uniform Decks -->
+        <div class="rad-uniform-decks" id="radUniformDecks">
+          <!-- Deck 1: Radiation & Medical -->
+          <div class="pip-card rad-deck-card" id="deck-rads">
+            <div class="dbg-sec">
+              <span>01 // RADIATION &amp; MEDICAL</span>
+              <span class="dbg-sec-count">10 ACTIONS</span>
+            </div>
+            
+            <div class="dbg-subhead">RADIATION DOSAGE</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('rads:200')">+200 RADS</button>
+              <button onclick="cmd('rads:600')">+600 RADS</button>
+            </div>
+
+            <div class="dbg-subhead">TISSUE CONTAMINATION</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('tissue:150')">+150 TISSUE</button>
+              <button onclick="cmd('perm:40')">+40 PERM SCAR</button>
+            </div>
+
+            <div class="dbg-subhead">MEDICAL SUPPLIES</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('give:radaway')">RADAWAY</button>
+              <button onclick="cmd('give:chelation')">CHELATION</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('give:radx')">RAD-X</button>
+              <button class="pip-btn-good" onclick="cmd('heal')">FULL HEAL</button>
+            </div>
+
+            <div class="dbg-subhead">PURGE &amp; RECOVERY</div>
+            <div class="pip-grid-2">
+              <button class="warn" onclick="cmd('clear')">CLEAR ALL RADS</button>
+              <button class="warn" onclick="cmd('fixstats')">FIX ALL STATS</button>
+            </div>
+          </div>
+
+          <!-- Deck 2: Gas Mask & Filtration -->
+          <div class="pip-card rad-deck-card" id="deck-mask">
+            <div class="dbg-sec">
+              <span>02 // GAS MASK &amp; INTEGRITY</span>
+              <span class="dbg-sec-count">12 ACTIONS</span>
+            </div>
+
+            <div class="dbg-subhead">MASK STATE</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('mask:on')">MASK ON</button>
+              <button onclick="cmd('mask:off')">MASK OFF</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('mask:auto')">AUTO MASK</button>
+              <button onclick="cmd('cond:repair')">REPAIR MASK</button>
+            </div>
+
+            <div class="dbg-subhead">CANISTER &amp; REPAIR SUPPLIES</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('give:filter')">+5 CANISTERS</button>
+              <button onclick="cmd('give:repairkit')">+5 REPAIR KITS</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('filter:replace')">REPLACE FILTER</button>
+              <button onclick="cmd('shelter')">SHELTER DEBUG</button>
+            </div>
+
+            <div class="dbg-subhead">INTEGRITY &amp; CHARGE OVERRIDE</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('filter:full')">FILTER: 100%</button>
+              <button class="warn" onclick="cmd('filter:dead')">FILTER: DEAD 0%</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('cond:full')">MASK: 100%</button>
+              <button class="warn" onclick="cmd('cond:broken')">MASK: BROKEN 0%</button>
+            </div>
+          </div>
+
+          <!-- Deck 3: Storms & Atmospheric Emissions -->
+          <div class="pip-card rad-deck-card" id="deck-storm">
+            <div class="dbg-sec">
+              <span>03 // STORMS &amp; EMISSIONS</span>
+              <span class="dbg-sec-count">12 ACTIONS</span>
+            </div>
+
+            <div class="dbg-subhead">TRIGGER GAMEPLAY STORM</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('storm:0')">ASH STORM</button>
+              <button onclick="cmd('storm:1')">RAD FIRESTORM</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('storm:2')">TOXIC SULFUR</button>
+              <button onclick="cmd('storm:3')">ACID RAIN</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('storm:4')">DUST STORM</button>
+              <button class="warn" onclick="cmd('endstorm')">END STORM</button>
+            </div>
+
+            <div class="dbg-subhead">VISUAL ATMOSPHERE</div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('weather:0')">VISUAL ASH</button>
+              <button onclick="cmd('weather:1')">VISUAL FIRE</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('weather:2')">VISUAL SULFUR</button>
+              <button onclick="cmd('weather:3')">VISUAL ACID</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="cmd('weather:4')">VISUAL DUST</button>
+              <button class="warn" onclick="cmd('weather:clear')">CLEAR WEATHER</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB: WEATHER ===================== -->
+      <div class="dbg-pane" id="tab-wthr">
+        <div class="wthr-deck">
+          <div class="pip-card">
+            <div class="dbg-sec">COMMONWEALTH (Fallout4.esm)</div>
+            <div class="dbg-subhead">CLEAR &amp; FAIR ATMOSPHERE</div>
+            <div class="wthr-grid">
+              <button onclick="cmd('forceweather:Fallout4.esm|02B52A')">Clear</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1D670E')">Clearest Skies</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|12A18E')">Sanctuary Clear</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|00116D')">Diamond City</button>
+            </div>
+            <div class="dbg-subhead">OVERCAST &amp; FOG WEATHER</div>
+            <div class="wthr-grid">
+              <button onclick="cmd('forceweather:Fallout4.esm|1C8556')">Overcast</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|0F1033')">GS Overcast</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1209AF')">Neutral Overcast</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1C3473')">Foggy</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1BD481')">GS Foggy</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1CC186')">Misty</button>
+            </div>
+            <div class="dbg-subhead">PRECIPITATION &amp; WASTELAND</div>
+            <div class="wthr-grid" style="margin-bottom: 0;">
+              <button onclick="cmd('forceweather:Fallout4.esm|1CA7E4')">Rain</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1CD096')">Misty Rainy</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1F61A1')">Dusty</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1EB2FF')">Polluted</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1E5E60')">Dark Skies</button>
+              <button onclick="cmd('forceweather:Fallout4.esm|1C3D5E')">GS Radstorm</button>
+            </div>
+          </div>
+
+          <div class="pip-card">
+            <div class="dbg-sec">TRUE STORMS (TrueStormsFO4.esm)</div>
+            <div class="wthr-grid wthr-grid-single">
+              <button onclick="cmd('forceweather:TrueStormsFO4.esm|000859')">Radstorm Heavy</button>
+              <button onclick="cmd('forceweather:TrueStormsFO4.esm|00085A')">Radstorm Light</button>
+              <button onclick="cmd('forceweather:TrueStormsFO4.esm|000862')">Rain Light</button>
+              <button onclick="cmd('forceweather:TrueStormsFO4.esm|000864')">Misty Rainy Light</button>
+              <button onclick="cmd('forceweather:TrueStormsFO4.esm|000865')">Foggy Light</button>
+            </div>
+
+            <div class="dbg-sec" style="margin-top: 18px;">RAD MOD (RadiationOverhaul.esp)</div>
+            <div class="wthr-grid wthr-grid-single">
+              <button onclick="cmd('forceweather:RadiationOverhaul.esp|000840')">Ash Fallout</button>
+              <button onclick="cmd('forceweather:RadiationOverhaul.esp|000841')">Rad Firestorm</button>
+              <button onclick="cmd('forceweather:RadiationOverhaul.esp|000842')">Toxic Sulfur</button>
+              <button onclick="cmd('forceweather:RadiationOverhaul.esp|000843')">Acid Rain</button>
+              <button onclick="cmd('forceweather:RadiationOverhaul.esp|000844')">Dust Storm</button>
+            </div>
+
+            <div class="dbg-sec" style="margin-top: 18px;">RELEASE</div>
+            <div class="dbg-row">
+              <button class="warn" onclick="cmd('weather:clear')" style="width: 100%;">Release Forced Weather</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB: GHOULS ===================== -->
+      <div class="dbg-pane" id="tab-ghouls">
+        <div class="ghouls-deck">
+          <div class="pip-card">
+            <div class="dbg-sec">
+              <span>STORM GHOUL HUNTER PACKS</span>
+              <span class="dbg-sec-count">SYSTEM STATUS</span>
+            </div>
+            <div class="dbg-help">Controls future storm spawn rolls. Disabling clears any active pack. Settings reset on game restart.</div>
+            <div class="ghoul-state-box" id="ghoulState">HUNTER PACKS: SYNCING...</div>
+            <div class="dbg-subhead">HUNTER PACK CONTROL</div>
+            <div class="pip-grid-2">
+              <button class="warn" onclick="setGhoulEnabled(false)">DISABLE + CLEAR</button>
+              <button class="pip-btn-good" onclick="setGhoulEnabled(true)">ENABLE PACKS</button>
+            </div>
+          </div>
+
+          <div class="pip-card">
+            <div class="dbg-sec">
+              <span>SPAWN CHANCE CONFIGURATION</span>
+              <span class="dbg-sec-count">PRESETS</span>
+            </div>
+            <div class="ghoul-range">
+              <label for="ghoulChance">CHANCE</label>
+              <input id="ghoulChance" type="range" min="0" max="100" step="5" value="40"
+                     oninput="setGhoulChanceLabel(this.value)"
+                     onchange="setGhoulChance(this.value)">
+              <output id="ghoulChanceValue">40%</output>
+            </div>
+            <div class="dbg-subhead">PRESET SPAWN PROBABILITIES</div>
+            <div class="pip-grid-2">
+              <button onclick="setGhoulChance(0)">0% NO SPAWN</button>
+              <button onclick="setGhoulChance(25)">25% LIGHT</button>
+            </div>
+            <div class="pip-grid-2">
+              <button onclick="setGhoulChance(50)">50% MODERATE</button>
+              <button onclick="setGhoulChance(100)">100% TEST</button>
+            </div>
+            <div class="dbg-subhead">PACK RECOVERY ACTIONS</div>
+            <div class="pip-grid-2">
+              <button class="warn" onclick="cmd('ghouls:clear')">CLEAR CURRENT PACK</button>
+              <button onclick="resetGhoulSettings()">RESET 40%</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB: ARMOR ===================== -->
+      <div class="dbg-pane" id="tab-armor">
+        <!-- Sleek Compact Summary Strip (No bloated essay cards!) -->
+        <div class="armor-summary-bar" id="armorSummary" aria-label="Armor status">
+          <div class="armor-sum-item">
+            <span class="armor-sum-lbl">DRY INSULATION</span>
+            <div class="armor-sum-val-wrap">
+              <strong id="armorInsulation" class="armor-sum-val">--</strong>
+              <div class="armor-mini-meter"><i id="armorInsulationMeter"></i></div>
+            </div>
+            <span class="armor-sum-sub">EQUIPMENT BASE</span>
+          </div>
+
+          <div class="armor-sum-sep"></div>
+
+          <div class="armor-sum-item">
+            <span class="armor-sum-lbl">ACTIVE CLIMATE</span>
+            <div class="armor-sum-val-wrap">
+              <strong id="armorEffective" class="armor-sum-val">--</strong>
+              <div class="armor-mini-meter"><i id="armorEffectiveMeter"></i></div>
+            </div>
+            <span class="armor-sum-sub" id="armorEffectiveDelta">NET PROTECTION</span>
+          </div>
+
+          <div class="armor-sum-sep"></div>
+
+          <div class="armor-sum-item">
+            <span class="armor-sum-lbl">POWER SUIT</span>
+            <div class="armor-sum-val-wrap">
+              <strong id="armorPower" class="armor-sum-val armor-val-power">--</strong>
+            </div>
+            <span id="armorPowerDetail" class="armor-sum-sub">NO COMPLETE SUIT</span>
+          </div>
+
+          <div class="armor-sum-sep"></div>
+
+          <!-- Drawer Toggle Button for In-Depth Mechanics (Hidden by default!) -->
+          <div class="armor-sum-item armor-sum-action">
+            <button class="pip-btn-tool" id="btnToggleArmorMech" onclick="toggleArmorMechanics()">[?] MECHANICS GUIDE</button>
+          </div>
+        </div>
+
+        <!-- Optional Collapsible Mechanics Guide Drawer (Hidden by default to eliminate clutter!) -->
+        <div class="armor-mechanics-drawer" id="armorMechanicsDrawer" style="display: none;">
+          <div class="armor-mech-card">
+            <div class="armor-mech-head">// HOW INSULATION WORKS</div>
+            <p>Insulation acts as a barrier against ambient cold. Higher effective insulation reduces core temperature drop rate during snow, cold, or storms.</p>
+          </div>
+          <div class="armor-mech-card">
+            <div class="armor-mech-head">// LAYER STACKING RULES</div>
+            <p>Apparel covering the same limb is not purely additive. The engine takes the primary protective garment per slot plus secondary under-layer contributions.</p>
+          </div>
+          <div class="armor-mech-card">
+            <div class="armor-mech-head">// WETNESS &amp; OVERRIDES</div>
+            <p>Wetness penalizes thermal protection by up to 50%. Items with [OVERRIDE] use custom ratings from INI tuning; [DEFAULT] uses baseline 45%.</p>
+          </div>
+        </div>
+
+        <!-- Main 2-Column Split: Clean Equipped List (Left) + Interactive Schematic (Right) -->
+        <div class="armor-workspace">
+          <!-- Left: Clean Equipped Apparel List -->
+          <section class="armor-equipment-card pip-card" aria-labelledby="armorEquipmentTitle">
+            <div class="dbg-sec">
+              <span id="armorEquipmentTitle">EQUIPPED APPAREL &amp; LAYERS</span>
+              <span id="armorThermalCount" class="dbg-sec-count">-- RECORDS</span>
+            </div>
+            
+            <div class="armor-records-scroll" tabindex="0" role="region" aria-label="Equipped armor records">
+              <table class="armor-records" aria-label="Thermal equipment">
+                <colgroup>
+                  <col class="armor-name-col">
+                  <col style="width: 14%;">
+                  <col style="width: 14%;">
+                  <col class="armor-coverage-col">
+                  <col style="width: 18%;">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">ITEM NAME</th>
+                    <th scope="col">WARMTH</th>
+                    <th scope="col">INSUL.</th>
+                    <th scope="col">SLOTS</th>
+                    <th scope="col">SOURCE</th>
+                  </tr>
+                </thead>
+                <tbody id="armorList">
+                  <tr><td colspan="5" class="armor-empty">WAITING FOR ARMOR DATA...</td></tr>
+                </tbody>
+              </table>
+
+              <!-- Collapsible Non-Thermal Items -->
+              <details class="armor-nonthermal-details" id="armorNonThermalDetails" style="display: none;">
+                <summary class="armor-nonthermal-summary">
+                  <span>NON-THERMAL ITEMS (<span id="armorNonThermalCount">0</span>)</span>
+                  <span class="armor-chevron">&#9654;</span>
+                </summary>
+                <table class="armor-records">
+                  <colgroup>
+                    <col class="armor-name-col">
+                    <col style="width: 14%;">
+                    <col style="width: 14%;">
+                    <col class="armor-coverage-col">
+                    <col style="width: 18%;">
+                  </colgroup>
+                  <tbody id="armorNonThermalList">
+                    <tr><td colspan="5" class="armor-empty">NONE EQUIPPED</td></tr>
+                  </tbody>
+                </table>
+              </details>
+            </div>
+          </section>
+
+          <!-- Right: Interactive Body Region Protection Map -->
+          <section class="armor-map-card pip-card" aria-labelledby="armorMapTitle">
+            <div class="dbg-sec">
+              <span id="armorMapTitle">BODY REGION PROTECTION MAP</span>
+              <span class="dbg-sec-count">INTERACTIVE MAP</span>
+            </div>
+
+            <div class="armor-schematic">
+              <div class="armor-figure" id="armorFigure" role="img" aria-label="Front-facing Vault suit reference schematic"></div>
+              
+              <!-- Left Limb Callouts -->
+              <section class="armor-region-card" id="armorRegion-torso" onclick="focusLimb('torso')">
+                <div class="armor-reg-top">
+                  <span class="armor-reg-name">TORSO</span>
+                  <strong class="armor-reg-stat" id="regStat-torso">--</strong>
+                </div>
+                <div class="armor-reg-item" id="regItem-torso">AWAITING DATA</div>
+                <ul style="display:none;"></ul>
+              </section>
+
+              <section class="armor-region-card" id="armorRegion-rightArm" onclick="focusLimb('rightArm')">
+                <div class="armor-reg-top">
+                  <span class="armor-reg-name">R ARM</span>
+                  <strong class="armor-reg-stat" id="regStat-rightArm">--</strong>
+                </div>
+                <div class="armor-reg-item" id="regItem-rightArm">AWAITING DATA</div>
+                <ul style="display:none;"></ul>
+              </section>
+
+              <section class="armor-region-card" id="armorRegion-rightLeg" onclick="focusLimb('rightLeg')">
+                <div class="armor-reg-top">
+                  <span class="armor-reg-name">R LEG</span>
+                  <strong class="armor-reg-stat" id="regStat-rightLeg">--</strong>
+                </div>
+                <div class="armor-reg-item" id="regItem-rightLeg">AWAITING DATA</div>
+                <ul style="display:none;"></ul>
+              </section>
+
+              <!-- Right Limb Callouts -->
+              <section class="armor-region-card" id="armorRegion-head" onclick="focusLimb('head')">
+                <div class="armor-reg-top">
+                  <span class="armor-reg-name">HEAD</span>
+                  <strong class="armor-reg-stat" id="regStat-head">--</strong>
+                </div>
+                <div class="armor-reg-item" id="regItem-head">AWAITING DATA</div>
+                <ul style="display:none;"></ul>
+              </section>
+
+              <section class="armor-region-card" id="armorRegion-leftArm" onclick="focusLimb('leftArm')">
+                <div class="armor-reg-top">
+                  <span class="armor-reg-name">L ARM</span>
+                  <strong class="armor-reg-stat" id="regStat-leftArm">--</strong>
+                </div>
+                <div class="armor-reg-item" id="regItem-leftArm">AWAITING DATA</div>
+                <ul style="display:none;"></ul>
+              </section>
+
+              <section class="armor-region-card" id="armorRegion-leftLeg" onclick="focusLimb('leftLeg')">
+                <div class="armor-reg-top">
+                  <span class="armor-reg-name">L LEG</span>
+                  <strong class="armor-reg-stat" id="regStat-leftLeg">--</strong>
+                </div>
+                <div class="armor-reg-item" id="regItem-leftLeg">AWAITING DATA</div>
+                <ul style="display:none;"></ul>
+              </section>
+            </div>
+
+            <div class="armor-schematic-footer">
+              <span>CLICK LIMB OR APPAREL ROW TO HIGHLIGHT PROTECTION</span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ===================== TAB: SETTINGS ===================== -->
+      <div class="dbg-pane" id="tab-survival">
+        <section class="diagnostics" aria-label="Survival status">
+          <div class="pip-sec-head">
+            <h2>SURVIVAL STATUS</h2>
+            <span class="pip-sec-tag">METABOLIC &amp; PATHOLOGICAL</span>
+          </div>
+          <div class="diagnostic-grid">
+            <section class="diag-card"><h3>POOLS</h3><dl id="survivalPools"><dt>Hunger</dt><dd>Awaiting data</dd></dl></section>
+            <section class="diag-card"><h3>DISEASE</h3><dl id="survivalDisease"><dt>Exposure</dt><dd>Awaiting data</dd></dl></section>
+          </div>
+          <p class="diag-footnote">Default rates: hunger +5%/h, thirst +10%/h, fatigue +2.5%/h, and 34/67/90% are stage 1/2/3. Rest recovers fatigue 12%/h; food relieves 20% of an item's portion, drink 25%, alcohol hydrates at 25%. Exposure fills from ambient time, wounds, swimming, tainted food and rad weather.</p>
+        </section>
+
+        <div class="pip-card" style="margin-top: 16px;">
+          <div class="dbg-sec">
+            <span>SETTINGS (LIVE INI TUNING)</span>
+            <div class="tune-toolbar-actions">
+              <button class="pip-btn-tool" onclick="toggleAllTuneAccordions(true)">[EXPAND ALL]</button>
+              <button class="pip-btn-tool" onclick="toggleAllTuneAccordions(false)">[COLLAPSE ALL]</button>
+              <button class="pip-btn-good" onclick="copyIniDiff(event)">[COPY INI DIFF]</button>
+              <button class="warn" onclick="cmd('tune:reset')">[RESET TO DEFAULTS]</button>
+            </div>
+          </div>
+          <div class="dbg-help">Every slider and toggle applies immediately and is saved to the INI. Click category accordions to expand/collapse. Gold values indicate modified settings.</div>
+          <div id="tuneRows"></div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB: SHOWCASE ===================== -->
+      <div class="dbg-pane" id="tab-showcase">
+        <div class="showcase-deck">
+          <div class="pip-card">
+            <div class="dbg-sec">SHOWCASE SCENES</div>
+            <div class="dbg-help">One click plays a scripted scene using the debug commands. The tour runs every scene in order with this menu open; closing the menu (CLOSE, ESC or Shift+F8) ends it.</div>
+            <div id="showcaseScenes"></div>
+          </div>
+
+          <div class="pip-card">
+            <div class="dbg-sec">CAMERA &amp; TIME CONTROLS</div>
+            <div class="dbg-row">
+              <button onclick="cmd('god:on')">God ON</button>
+              <button onclick="cmd('god:off')">God OFF</button>
+              <button onclick="cmd('time:freeze')">Freeze time</button>
+              <button onclick="cmd('time:resume')">Resume time</button>
+            </div>
+            <div class="dbg-row">
+              <button onclick="cmd('time:hour:6')">Dawn</button>
+              <button onclick="cmd('time:hour:12')">Noon</button>
+              <button onclick="cmd('time:hour:19')">Dusk</button>
+              <button onclick="cmd('time:hour:0')">Midnight</button>
+            </div>
+            <div class="dbg-row">
+              <button onclick="cmd('weather:lock')">Lock weather</button>
+              <button class="warn" onclick="cmd('weather:clear')">Release weather</button>
+            </div>
+
+            <div class="dbg-sec" style="margin-top: 18px;">AUTOMATED TOUR</div>
+            <div class="dbg-row">
+              <button class="pip-btn-good" onclick="RadShowcase.startTour()">PLAY FULL TOUR</button>
+              <button class="warn" onclick="RadShowcase.stop()">STOP TOUR</button>
+            </div>
+            <div id="showcaseStatus">Idle.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB: HUD LAYOUT ===================== -->
+      <div class="dbg-pane" id="tab-hud">
+        <div class="pip-card" style="max-width: 720px; margin: 20px auto;">
+          <div class="dbg-sec">HUD LAYOUT EDITOR</div>
+          <div class="dbg-help" style="margin: 12px 0;">Rad includes a built-in layout editor for its toxicity, climate, and gas-mask widgets. PrismaHUD is not required.</div>
+          <div class="dbg-row" style="margin: 16px 0;"><button class="pip-btn-good" onclick="cmd('hud:open')" style="width: 100%; padding: 12px;">OPEN HUD LAYOUT EDITOR</button></div>
+          <div class="dbg-help">If PrismaHUD is installed, it automatically becomes the layout owner and this button opens the shared PrismaHUD editor instead.</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="pip-footer">
+      <div class="pip-footer-content">
+        <div class="pip-footer-status">
+          <span class="pip-tag">SYSTEM STATUS: ONLINE</span>
+          <span class="pip-footer-sep">|</span>
+          <span class="pip-hint">SHIFT+F8 TO TOGGLE OVERLAY</span>
+        </div>
+        <div class="pip-footer-actions">
+          <button class="pip-btn-close" onclick="closeDebugMenu()">CLOSE  [SHIFT+F8 / ESC]</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <div id="debugBackdrop" aria-hidden="true"></div>
+
+  <div id="specialPopup" onclick="if(event.target===this)closeSpecialInfo()">
+    <div id="specialPopupInner">
+      <div id="specialPopupTitle">SPECIAL STATS</div>
+      <div id="specialPopupBody"></div>
+      <button id="specialPopupClose" onclick="closeSpecialInfo()">CLOSE</button>
+    </div>
+  </div>
+
+  <script src="rad_debug.js"></script>
+  <script src="radhud_interactive.js"></script>
+  <script src="rad_hud_local_editor.js"></script>
+  <script src="rad_diagnostics.js"></script>
+</body>
+</html>

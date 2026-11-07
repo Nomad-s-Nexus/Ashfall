@@ -1,4 +1,4 @@
-"""Contract test: the Shift+F8 debug menu can always be closed.
+"""Contract test: the Shift+F8 debug menu can always be closed, and its view is torn down on close.
 
 Paths covered:
   * CLOSE button -> closeDebugMenu() -> local hide + radDebug('close')
@@ -6,6 +6,7 @@ Paths covered:
   * native 'close' bypasses the engine queue (OnRadDebugCommand -> RequestDebugClose)
   * PumpDeferredDebug applies the close every frame from PollInput
   * Shift+F8 is accepted while the menu is open even when the game window is not foreground
+  * the debug view is created by a deferred open and destroyed on close, never refreshed
 """
 from pathlib import Path
 import re
@@ -30,21 +31,27 @@ def require(cond: bool, msg: str) -> None:
 
 
 def main() -> int:
-    html = text(VIEW / "radhud.html")
-    js = text(VIEW / "radhud.js")
+    html = text(VIEW / "rad_debug.html")
+    js = text(VIEW / "rad_debug.js")
+    overlay_html = text(VIEW / "radhud.html")
+    overlay_js = text(VIEW / "radhud.js")
     hud_cpp = text(ROOT / "src" / "RadHud.cpp")
     hud_h = text(ROOT / "src" / "RadHud.h")
     rad_cpp = text(ROOT / "src" / "RadiationEngine.cpp")
+    lifecycle_cpp = text(ROOT / "src" / "RadHudLifecycle.cpp")
+    layout_cpp = text(ROOT / "src" / "RadHudLayout.cpp")
 
     require('onclick="closeDebugMenu()"' in html, "CLOSE button must call closeDebugMenu()")
-    require("function closeDebugMenu()" in js, "radhud.js must define closeDebugMenu()")
+    require("function closeDebugMenu()" in js, "rad_debug.js must define closeDebugMenu()")
     m = re.search(r"function closeDebugMenu\(\)\s*\{(.*?)\n\}", js, re.S)
     require(m is not None, "closeDebugMenu body not found")
     body = m.group(1)
     require('window.SetDebugMenu(0)' in body, "closeDebugMenu must hide the panel locally first")
     require('cmd("close")' in body, "closeDebugMenu must send radDebug('close') to native")
+    require("window.RadShowcase.stop()" in body and body.index("window.RadShowcase.stop()") < body.index('cmd("close");'),
+            "closeDebugMenu must stop the showcase before it sends the close command")
 
-    require(re.search(r'e\.key\s*===\s*"Escape"', js) is not None, "radhud.js must handle the Escape key")
+    require(re.search(r'e\.key\s*===\s*"Escape"', js) is not None, "rad_debug.js must handle the Escape key")
     require(re.search(r"debugPanelOpen\(\)\s*\)\s*closeDebugMenu\(\)", js) is not None,
             "Escape must only close when the debug panel is open")
 
@@ -63,20 +70,18 @@ def main() -> int:
             "Shift+F8 edge must use debugToggleAllowed")
     require("bool DebugMenuOpen() const noexcept" in hud_h, "RadHud must expose DebugMenuOpen()")
 
-    require("SetDebugViewOwnsEscape(_view, true);" in hud_cpp, "open must claim Escape for the debug view")
-    require("SetDebugViewOwnsEscape(_view, false);" in hud_cpp, "close must release Escape ownership")
+    require("SetDebugViewOwnsEscape(_debugView, true);" in hud_cpp, "open must claim Escape for the debug view")
+    require("SetDebugViewOwnsEscape(_debugView, false);" in hud_cpp, "close must release Escape ownership")
     require("IVPrismaUI9" in hud_cpp and "SetViewOwnsEscape(view, owns)" in hud_cpp,
             "Escape ownership must use the PrismaUI V9 SetViewOwnsEscape call")
-    require("if (!open && _view != 0 && api->IsValid(_view))" in hud_cpp,
-            "SetDebugMenu(false) must release focus when the DOM is not ready")
 
     req_m = re.search(r"void RadHud::RequestDebugClose\(\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
     require(req_m is not None, "RequestDebugClose body not found")
     require("Hooks::QueueMainThreadTask" in req_m.group(1), "RequestDebugClose must queue a main-thread close task")
     watch = re.search(r"void RadHud::ReleaseStaleDebugFocus\(\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
     require(watch is not None, "ReleaseStaleDebugFocus must be defined")
-    require("!api->HasFocus(_view)" in watch.group(1) and "api->Unfocus(_view);" in watch.group(1)
-            and "SetDebugViewOwnsEscape(_view, false);" in watch.group(1),
+    require("!api->HasFocus(_debugView)" in watch.group(1) and "api->Unfocus(_debugView);" in watch.group(1)
+            and "SetDebugViewOwnsEscape(_debugView, false);" in watch.group(1),
             "watchdog must Unfocus and release Escape only when the closed view still has focus")
     require("RadHud::GetSingleton().ReleaseStaleDebugFocus();" in rad_cpp,
             "RadiationEngine::Update must run the stale-focus watchdog")
@@ -90,35 +95,38 @@ def main() -> int:
             "focus rejection must compare elapsed time against the give-up cap")
     give_up = hud_cpp.split("now - _debugFocusFailedSinceMs >= kDebugFocusGiveUpMs", 1)[1].split("_debugDesiredOpen = true;", 1)[0]
     for token in ("_debugDesiredOpen = false;", "_debugTogglePending = false;", "_debugNextFocusRetryMs = 0;",
-                  "_debugFocusFailedSinceMs = 0;", "RE::SendHUDMessage::ShowHUDMessage(", "return;"):
+                  "_debugFocusFailedSinceMs = 0;", "DestroyDebugView();", "RE::SendHUDMessage::ShowHUDMessage(", "return;"):
         require(token in give_up, f"focus give-up branch must contain {token}")
     require("RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>()" in hud_cpp, "FocusOverlay must come from the V10 interface")
     require("overlay->FocusOverlay(view, false, false)" in hud_cpp, "FocusOverlay fallback must be called")
-    require("if (!focusAccepted) focusAccepted = FocusDebugOverlayFallback(_view);" in hud_cpp,
+    require("if (!focusAccepted) focusAccepted = FocusDebugOverlayFallback(_debugView);" in hud_cpp,
             "FocusOverlay must be tried only after a rejected Focus")
     require("overlay != nullptr &&" in hud_cpp, "FocusOverlay fallback must null-check the interface")
 
-    # Constraint: the view is kPanel only while the menu is open, and never declared kPanel at view creation.
-    require(hud_cpp.count("SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kPanel);") == 1,
+    # Constraint: the debug view is kPanel only while the menu is open, and never declared kPanel at view creation.
+    require(hud_cpp.count("SetDebugViewRole(_debugView, PRISMA_UI_API::ViewRole::kPanel);") == 1,
             "kPanel must be declared exactly once, on successful open")
-    require(hud_cpp.count("SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);") == 2,
+    require(hud_cpp.count("SetDebugViewRole(_debugView, PRISMA_UI_API::ViewRole::kWidget);") == 2,
             "kWidget must be declared on close and on focus failure")
     require("roles->SetViewRole(view, role);" in hud_cpp, "SetViewRole must go through the V10 interface")
     require("if (auto* roles = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>())" in hud_cpp,
             "SetViewRole must null-check the V10 interface")
     create_body = hud_cpp.split("void RadHud::CreateView()", 1)[1].split("\nvoid RadHud::", 1)[0]
     require("kPanel" not in create_body, "view creation must not declare kPanel")
+    require("_debugView" not in create_body and "kDebugViewPath" not in create_body,
+            "overlay view creation must not create or reference the debug view")
 
-    # Constraint: the panel is hidden in the first paint (no 'on' class in markup, display:none in CSS).
     css = text(VIEW / "radhud.css")
     require('<div id="debugPanel">' in html, "#debugPanel must start without the 'on' class")
     require(re.search(r"#debugPanel\s*\{[^}]*display:\s*none;", css, re.S) is not None,
             "#debugPanel must default to display:none")
     require(re.search(r"#debugPanel\.on\s*\{\s*display:\s*flex;", css) is not None,
             "#debugPanel.on must be the only display:flex state")
+    require('id="debugPanel"' not in overlay_html and "SetDebugMenu" not in overlay_js,
+            "the overlay view must not carry the debug panel")
 
     # Constraint: JS never self-opens the panel; the only SetDebugMenu(1) call sits behind the #preview=1 gate.
-    require(js.count("SetDebugMenu(1)") == 1, "radhud.js must call SetDebugMenu(1) exactly once (preview gate)")
+    require(js.count("SetDebugMenu(1)") == 1, "rad_debug.js must call SetDebugMenu(1) exactly once (preview gate)")
     require(js.count('panel.classList.add("on")') == 1, "only SetDebugMenu may add the 'on' class to #debugPanel")
     dom_idx = js.index('window.addEventListener("DOMContentLoaded", function() {')
     dom_body = js[dom_idx:js.index("window.showRadDeck", dom_idx)]
@@ -131,11 +139,23 @@ def main() -> int:
             "the showcase tour must start only from its button")
     require(html.count("RadShowcase.startTour()") == 1, "the showcase tour must start only from its button")
 
-    # Constraint: native pushes the closed state on DOM-ready and a fresh view starts with native open state false.
-    require('api->InteropCall(view, "SetDebugMenu", "0");' in hud_cpp, "DOM-ready must push the closed debug state")
-    require(create_body.count("_debugOpen = false;") >= 1, "CreateView must reset native open state for a new view")
-    require(hud_cpp.index('api->InteropCall(view, "SetDebugMenu", "0");') < hud_cpp.index("_domReady.store(true, std::memory_order_release);"),
-            "DOM-ready closed-state push must happen before the DOM-ready flag is published")
+    # Constraint: DOM-ready registers the listener and pushes the closed state before the debug DOM-ready flag is published.
+    finalize_m = re.search(r"void RadHud::FinalizeDebugDomReady\(uint64_t view\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(finalize_m is not None, "FinalizeDebugDomReady body not found")
+    finalize_order = [
+        'api->RegisterJSListener(view, "radDebug", OnRadDebugCommand);',
+        'api->InteropCall(view, "SetDebugMenu", "0");',
+        "_debugDomReady.store(true, std::memory_order_release);",
+    ]
+    finalize_pos = [finalize_m.group(1).find(token) for token in finalize_order]
+    require(min(finalize_pos) >= 0 and finalize_pos == sorted(finalize_pos),
+            "FinalizeDebugDomReady must register the listener, push the closed state, then publish DOM-ready")
+    require(hud_cpp.count("_debugDomReady.store(true, std::memory_order_release);") == 1,
+            "only FinalizeDebugDomReady may publish the debug DOM-ready flag")
+    require("const auto pendingDebug = _domPending[kDomSlotDebug].exchange(0, std::memory_order_acq_rel);" in lifecycle_cpp,
+            "PumpDomReady must take the debug slot's pending DOM-ready")
+    require("if (RadCorrectnessPolicy::IsLiveDomReady(pendingDebug, _debugView)) FinalizeDebugDomReady(pendingDebug);"
+            in lifecycle_cpp, "the debug DOM-ready must finalize only while its view is still live")
 
     rad_h = text(ROOT / "src" / "RadiationEngine.h")
     mask_cpp = text(ROOT / "src" / "RadEngine_Mask.cpp")
@@ -179,14 +199,14 @@ def main() -> int:
     # Constraint: every native debug-state change reaches the page through PushDebugPanelState, and the 4 Hz tick re-syncs it.
     set_m = re.search(r"void RadHud::SetDebugMenu\(bool open\)\s*\{(.*?)\n\}", hud_cpp, re.S)
     require(set_m is not None, "SetDebugMenu body not found")
-    require('InteropCall(_view, "SetDebugMenu"' not in set_m.group(1),
+    require('InteropCall(_debugView, "SetDebugMenu"' not in set_m.group(1),
             "SetDebugMenu must push the page state only through PushDebugPanelState")
     require(set_m.group(1).count("PushDebugPanelState(") == 3,
             "SetDebugMenu must push on open, close and focus give-up")
-    require("if (open) return;" in set_m.group(1),
-            "SetDebugMenu must drop an open request when the DOM is not ready")
+    require("if (_debugView == 0 || !_debugDomReady.load() || !api->IsValid(_debugView)) return;" in set_m.group(1),
+            "SetDebugMenu must drop an open request when the debug view is not DOM-ready")
     push_m = re.search(r"void RadHud::PushDebugPanelState\(bool open\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
-    require(push_m is not None and 'InteropCall(_view, "SetDebugMenu", open ? "1" : "0");' in push_m.group(1)
+    require(push_m is not None and 'InteropCall(_debugView, "SetDebugMenu", open ? "1" : "0");' in push_m.group(1)
             and "_debugPushedOpen = open ? 1 : 0;" in push_m.group(1),
             "PushDebugPanelState must send the state and record what the page received")
     sync_m = re.search(r"void RadHud::SyncDebugPanelState\(\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
@@ -200,8 +220,64 @@ def main() -> int:
             "the panel sync must run before the stale-focus check")
     require("void SyncDebugPanelState() noexcept;" in hud_h and "void PushDebugPanelState(bool open) noexcept;" in hud_h,
             "RadHud must declare the sync and push helpers")
-    require(create_body.count("_debugPushedOpen = -1;") == 1,
-            "CreateView must reset the delivered debug state for a new view")
+
+    ensure_m = re.search(r"void RadHud::EnsureDebugView\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(ensure_m is not None, "EnsureDebugView body not found")
+    ensure_body = ensure_m.group(1)
+    require("if (!LoadSettled() || !PlayerInWorld()) return;" in ensure_body,
+            "the debug view must be created only after the load settle and with the player in the world")
+    require("_debugView = api->CreateView(kDebugViewPath, [](PrismaView v) { RadHud::NoteDomReady(kDomSlotDebug, v); });"
+            in ensure_body, "EnsureDebugView must create the debug view in its own DOM-ready slot")
+    require("if (!_debugDomReady.load()) api->Hide(_debugView);" in ensure_body,
+            "a new debug view must stay hidden until its DOM-ready")
+    require(ensure_body.count("_debugPushedOpen = -1;") == 1 and "_armorPayload.clear();" in ensure_body
+            and "_survivalPayload.clear();" in ensure_body,
+            "a new debug view must forget the delivered state and the debug-only payloads")
+    require(hud_cpp.count("EnsureDebugView();") == 1, "EnsureDebugView must be called only from the deferred open")
+    require('constexpr const char* kDebugViewPath = "Interface/FalloutAnomaly/rad_debug.html";' in hud_cpp,
+            "the debug view must load rad_debug.html")
+
+    destroy_m = re.search(r"void RadHud::DestroyDebugView\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(destroy_m is not None, "DestroyDebugView body not found")
+    teardown = [
+        "SetLocalHudEditorPreview(false);",
+        "api->Unfocus(_debugView);",
+        "SetDebugViewOwnsEscape(_debugView, false);",
+        "SetDebugViewRole(_debugView, PRISMA_UI_API::ViewRole::kWidget);",
+        "_domLive[kDomSlotDebug].store(0);",
+        "api->Destroy(_debugView);",
+        "_debugView = 0;",
+        "_debugDomReady = false;",
+        "_debugPushedOpen = -1;",
+        "InvalidateLocalHudLayoutViews();",
+    ]
+    teardown_pos = [destroy_m.group(1).find(token) for token in teardown]
+    require(min(teardown_pos) >= 0 and teardown_pos == sorted(teardown_pos),
+            "DestroyDebugView must release focus, Escape and the role before it destroys the view")
+    require(hud_cpp.count("api->Destroy(_debugView);") == 1, "only DestroyDebugView may destroy the debug view")
+    require("api->Destroy(_view)" not in hud_cpp, "closing the debug menu must not destroy the overlay view")
+    require(hud_cpp.count("DestroyDebugView();") == 2,
+            "DestroyDebugView must run on close and on focus give-up, and nowhere else")
+    destroy_body = destroy_m.group(1)
+    resume_at = destroy_body.find("RadiationEngine::GetSingleton().ResumeDebugTime();")
+    require(resume_at >= 0 and resume_at < destroy_body.find("if (_debugView == 0) return;")
+            and resume_at < destroy_body.find("api->Destroy(_debugView);"),
+            "DestroyDebugView must restore frozen debug time before its early return and before the view is destroyed")
+    require(hud_cpp.count("RadiationEngine::GetSingleton().ResumeDebugTime();") == 1,
+            "only DestroyDebugView may restore frozen debug time on close")
+    require("void ResumeDebugTime();" in rad_h, "RadiationEngine must declare ResumeDebugTime()")
+    resume_m = re.search(r"void RadiationEngine::ResumeDebugTime\(\)\s*\{(.*?)\n\}", debug_cpp, re.S)
+    require(resume_m is not None, "ResumeDebugTime body not found")
+    require("Notify(" not in resume_m.group(1) and "_frozenTimeScale = -1.0f;" in resume_m.group(1),
+            "ResumeDebugTime must restore the frozen scale quietly, without a notice")
+    require(debug_cpp.count("ResumeDebugTime();") == 2,
+            "DebugTime resume and DrainDebugCommands must both call ResumeDebugTime")
+
+    block_m = re.search(r"void RadHud::OnBlockingMenuOpened\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(block_m is not None and "SetDebugMenu(false);" in block_m.group(1),
+            "a blocking-menu open must route through SetDebugMenu(false), which destroys the debug view")
+    require("SetDebugMenu(!_debugOpen);" in hud_cpp and hud_cpp.count("SetDebugMenu(false);") >= 3,
+            "Shift+F8 toggle, CLOSE/Esc deferred close and the blocking-menu sink must all reach SetDebugMenu")
 
     # Constraint: load and new game clear pending close requests and re-baseline the Shift+F8 edge from the held key state.
     reset_m = re.search(r"void RadHud::ResetDebugMenuForSession\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
@@ -211,69 +287,19 @@ def main() -> int:
     require("void ResetDebugKeyBaseline() noexcept;" in rad_h, "RadiationEngine must declare ResetDebugKeyBaseline()")
     require("_f8WasDown = (ReadInputBits() & 1u) != 0;" in rad_cpp,
             "ResetDebugKeyBaseline must capture the held Shift+F8 state")
-    require("_debugRefresh = {};" in reset_m.group(1),
-            "ResetDebugMenuForSession must cancel a pending close refresh (no refresh during load)")
+    require("EnsureDebugView" not in reset_m.group(1), "a load or new game must not create the debug view")
 
-    # Constraint: every close of an open menu arms one overlay refresh; the focus give-up path (open=true) never arms.
-    require("const bool wasOpen = _debugOpen;" in set_m.group(1),
-            "SetDebugMenu must capture whether the menu was open before the change")
-    require(set_m.group(1).count("RadCorrectnessPolicy::DebugViewRefreshArm(") == 1
-            and "if (!open)" in set_m.group(1)
-            and "DebugViewRefreshArm(_debugRefresh, wasOpen," in set_m.group(1),
-            "only a close (open=false) of a previously open menu may arm the refresh")
-    block_close = re.search(r"void RadHud::OnBlockingMenuOpened\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
-    require(block_close is not None and "SetDebugMenu(false);" in block_close.group(1),
-            "blocking-menu close must route through SetDebugMenu(false), which arms the refresh")
-    require("SetDebugMenu(!_debugOpen);" in hud_cpp and hud_cpp.count("SetDebugMenu(false);") >= 3,
-            "Shift+F8 toggle, CLOSE/Esc deferred close and the blocking-menu sink must all reach SetDebugMenu")
+    require('api->RegisterJSListener(_debugView, "radHudLayout", OnRadHudLayoutCommand);' in layout_cpp,
+            "the layout editor's listener must be registered on the debug view")
+    require('api->InteropCall(_debugView, "OpenLocalHudEditor", layout.c_str());' in layout_cpp,
+            "the layout editor must open in the debug view")
 
-    # Constraint: the refresh destroys then re-creates only the main overlay view, on the 4 Hz tick, never while the menu is open.
-    pump_m = re.search(r"void RadHud::PumpDebugViewRefresh\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
-    require(pump_m is not None, "PumpDebugViewRefresh body not found")
-    pb = pump_m.group(1)
-    require("_debugOpen || (_debugTogglePending.load() && _debugDesiredOpen)" in pb,
-            "refresh must treat an open request, shown or pending, as a cancel")
-    require("RadCorrectnessPolicy::DebugViewRefreshStep(" in pb and "kDestroy" in pb,
-            "refresh must be driven by the pure DebugViewRefreshStep state machine")
-    require("api->Destroy(_view);" in pb and "_view = 0;" in pb,
-            "refresh must destroy the main overlay view before re-creating it")
-    require(pb.index("api->Destroy(_view);") < pb.index("CreateView();"),
-            "refresh must destroy before it re-creates the view")
-    require("InvalidateLocalHudLayoutViews();" in pb,
-            "refresh must reset the layout listener tracking for the new view")
-    require("SetDebugMenu(" not in pb, "the refresh must not re-enter SetDebugMenu, so it cannot re-arm itself")
-    require("LocalHudEditorPreviewOn()" in pb,
-            "refresh must defer the destroy while the built-in HUD editor preview is open")
-    require("GetMenuOpen<RE::PauseMenu>()" in pb and "GetMenuOpen<RE::MessageBoxMenu>()" in pb,
-            "refresh must defer the destroy while the pause or message menu is open")
-    require(pb.index("LocalHudEditorPreviewOn()") < pb.index("api->Destroy(_view);"),
-            "the editor and menu deferral must be checked before the destroy")
-    require("bool LocalHudEditorPreviewOn() const noexcept;" in hud_h,
-            "RadHud must declare LocalHudEditorPreviewOn()")
-    require("bool RadHud::LocalHudEditorPreviewOn() const noexcept" in text(ROOT / "src" / "RadHudLayout.cpp"),
-            "LocalHudEditorPreviewOn() must be defined in RadHudLayout.cpp, where the layout state lives")
-    require("_domReady.load()" in pb and "api->IsValid(_view)" in pb,
-            "refresh must only recycle a live, DOM-ready view")
-    require(hud_cpp.count("api->Destroy(_view);") == 1, "only the close refresh may destroy the main overlay view")
-    require("Destroy(_toxicView)" not in hud_cpp and "Destroy(_filterView)" not in hud_cpp,
-            "the toxicity and filter widget views must stay untouched by the refresh")
-    require(hud_cpp.count("DebugViewRefreshArm(") == 1, "only SetDebugMenu(false) may arm the refresh")
-    require("RadHud::GetSingleton().PumpDebugViewRefresh();" in rad_cpp,
-            "RadiationEngine::Update must pump the close refresh")
-    require(rad_cpp.index("RadHud::GetSingleton().ReleaseStaleDebugFocus();")
-            < rad_cpp.index("RadHud::GetSingleton().PumpDebugViewRefresh();"),
-            "the close refresh must run after the stale-focus release")
-
-    # Constraint: a re-created view repeats first-creation state: hidden until DOM-ready, caches reset, debug state closed.
-    for token in ("api->Hide(_view);", "_maskPushed = -1;", "_stormPayload.clear();", "_filterMainPayload.clear();",
-                  "_keysReplaceSent = -2;", "_debugPushedOpen = -1;", "_debugOpen = false;"):
-        require(token in create_body, f"CreateView (used by the refresh) must contain {token}")
-    require("SetDebugMenu(" not in create_body and "DebugViewRefreshArm(" not in create_body,
-            "CreateView must not arm or re-enter the debug menu, so re-creation cannot loop")
-    require("DebugViewRefreshStep" in rad_h or "RadCorrectnessPolicy.h" in hud_h,
-            "RadHud must include the refresh policy")
-    require("DebugViewRefreshState _debugRefresh" in hud_h and "void PumpDebugViewRefresh();" in hud_h,
-            "RadHud must declare the refresh state and pump")
+    for path in sorted((ROOT / "src").glob("*")):
+        if path.suffix not in (".cpp", ".h"):
+            continue
+        source = path.read_bytes()
+        for name in ("DebugViewRefresh", "PumpDebugViewRefresh", "_debugRefresh", "LocalHudEditorPreviewOn"):
+            require(name.encode() not in source, f"{name} must not exist in {path.name}: the debug view is destroyed on close, not refreshed")
 
     print("verify_debug_menu_close: OK")
     return 0

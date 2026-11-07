@@ -126,6 +126,7 @@ public:
     void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugTime(const std::string& arg);
+    void ResumeDebugTime();
     void DebugApplyNeeds(const std::string& arg);
     void DebugLockWeather();
     void KeepPlayerAlive();

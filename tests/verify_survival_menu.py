@@ -33,8 +33,8 @@ def text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.is_file() else ""
 
 
-html = text(VIEW / "radhud.html")
-js = text(VIEW / "radhud.js")
+html = text(VIEW / "rad_debug.html")
+js = text(VIEW / "rad_debug.js")
 css = text(VIEW / "radhud.css")
 
 check('id="tabbtn-survival"' in html, "the debug menu must offer a SURVIVAL tab button")

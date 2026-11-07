@@ -85,9 +85,9 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
 void RadHud::PushSurvival(const RadNeedsPolicy::NeedsSnapshot& snapshot)
 {
     // Constraint: the SURVIVAL tab reads the same snapshot the chips do, so the two can never disagree.
-    if (!_api || !_debugOpen || _view == 0 || !_domReady) return;
+    if (!_api || !_debugOpen || _debugView == 0 || !_debugDomReady) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
-    if (!api->IsValid(_view)) return;
+    if (!api->IsValid(_debugView)) return;
     const auto percent = [](float value) {
         return static_cast<int>(std::lround(RadNeedsPolicy::Clamp01(value) * 100.0f));
     };
@@ -100,5 +100,5 @@ void RadHud::PushSurvival(const RadNeedsPolicy::NeedsSnapshot& snapshot)
     }.dump();
     if (payload == _survivalPayload) return;
     _survivalPayload = payload;
-    api->InteropCall(_view, "updateSurvival", payload.c_str());
+    api->InteropCall(_debugView, "updateSurvival", payload.c_str());
 }

@@ -57,7 +57,8 @@ public:
     static constexpr int kDomSlotFilter = 2;
     static constexpr int kDomSlotClimate = 3;
     static constexpr int kDomSlotNeeds = 4;
-    static constexpr int kDomSlotCount = 5;
+    static constexpr int kDomSlotDebug = 5;
+    static constexpr int kDomSlotCount = 6;
     static void NoteDomReady(int slot, uint64_t view) noexcept;
     // Constraint: deferred DOM-ready work and widget re-registration run only on the game thread, behind PrismaWindowOpen().
     void PumpDomReady();
@@ -74,12 +75,9 @@ public:
     void ApplyLocalHudLayout(const std::string& payload);
     void SyncLocalHudLayout();
     void SetLocalHudEditorPreview(bool on);
-    [[nodiscard]] bool LocalHudEditorPreviewOn() const noexcept;
     void InvalidateLocalHudLayoutViews();
     void ResetDebugMenuForSession();
     void PumpDeferredDebug();
-    // Constraint: the close refresh runs only from the 4 Hz tick, on the game thread, and never while the menu is open.
-    void PumpDebugViewRefresh();
     void ReleaseStaleDebugFocus() noexcept;
     // Constraint: the 4 Hz tick re-sends the native debug state to the page only when it differs from the last delivered state.
     void SyncDebugPanelState() noexcept;
@@ -109,6 +107,9 @@ private:
     void FinalizeNeedsDomReady(uint64_t view);
     void ReapplyWidgetRegistrations();
     bool ScanPhosphorViews();
+    void EnsureDebugView();
+    void DestroyDebugView();
+    void FinalizeDebugDomReady(uint64_t view);
 
     // Constraint: a DOM-ready callback is accepted only for its slot's live view (0 while the slot is being created), so a late callback from a destroyed view cannot overwrite the live pending handle.
     static inline std::atomic<uint64_t> _domPending[kDomSlotCount]{};
@@ -158,6 +159,9 @@ private:
     int _maskPushed = -1;
 
     bool _debugOpen = false;
+    // Constraint: the debug view exists only while the menu is open or opening; it is created on open and destroyed on close.
+    uint64_t _debugView = 0;
+    std::atomic<bool> _debugDomReady{ false };
     // Constraint: last SetDebugMenu value delivered to the page (1 open, 0 closed, -1 unknown for a new view); game thread only.
     int _debugPushedOpen = -1;
     void PushDebugPanelState(bool open) noexcept;
@@ -167,6 +171,4 @@ private:
 
     std::uint64_t _debugNextFocusRetryMs = 0;
     std::uint64_t _debugFocusFailedSinceMs = 0;
-    // Constraint: game thread only; armed by a close that followed an open, cleared by ResetDebugMenuForSession.
-    RadCorrectnessPolicy::DebugViewRefreshState _debugRefresh{};
 };

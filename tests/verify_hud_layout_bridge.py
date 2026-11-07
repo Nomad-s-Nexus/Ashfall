@@ -4,8 +4,8 @@ from html.parser import HTMLParser
 
 ROOT = Path(__file__).resolve().parents[1]
 HUD = ROOT / "src" / "RadHudLayout.cpp"
-RADHUD = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.js"
-RADHUD_HTML = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.html"
+RADHUD = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "rad_debug.js"
+RADHUD_HTML = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "rad_debug.html"
 RADHUD_CSS = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "radhud.css"
 EDITOR = ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "rad_hud_local_editor.js"
 
@@ -28,10 +28,10 @@ def main() -> None:
     html = RADHUD_HTML.read_text(encoding="utf-8")
     css = RADHUD_CSS.read_text(encoding="utf-8")
     editor = EDITOR.read_text(encoding="utf-8")
-    assert 'api->RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand);' in native
+    assert 'api->RegisterJSListener(_debugView, "radHudLayout", OnRadHudLayoutCommand);' in native
     assert 'api->InteropCall(_climateView, "setLocalHUDLayout", payload.c_str());' in native
     assert 'api->InteropCall(_climateView, "setEditorPreview", value);' in native
-    assert 'api->InteropCall(_view, "OpenLocalHudEditor", layout.c_str());' in native
+    assert 'api->InteropCall(_debugView, "OpenLocalHudEditor", layout.c_str());' in native
     assert 'if (id == "rad_climate") return &g_layout.climate;' in native
     assert '{ "temperatureUnit", g_layout.fahrenheit ? "F" : "C" }' in native
     assert 'window.radHudLayout(JSON.stringify(command));' in editor
@@ -78,7 +78,7 @@ def main() -> None:
                   "head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"):
         assert f'"{field}"' in armor_native
     assert 'PushArmor' in (ROOT / "src" / "RadHud.h").read_text(encoding="utf-8")
-    assert 'InteropCall(_view, "setArmorInfo"' in (ROOT / "src" / "RadHud.cpp").read_text(encoding="utf-8")
+    assert 'InteropCall(_debugView, "setArmorInfo"' in (ROOT / "src" / "RadHud.cpp").read_text(encoding="utf-8")
     assert 'temperatureUnit' in native
     assert 'setClimateUnit' in (ROOT / "deploy" / "PrismaUI_F4" / "views" / "Interface" / "FalloutAnomaly" / "hud_climate.html").read_text(encoding="utf-8")
     assert 'window.setHudLayoutStatus' in view

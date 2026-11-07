@@ -24,7 +24,7 @@ class Element {
   querySelector(tag) { return this.children.find(child => child.tagName === tag); }
 }
 const elements = {};
-const html = fs.readFileSync(path.join(view, 'radhud.html'), 'utf8');
+const html = fs.readFileSync(path.join(view, 'rad_debug.html'), 'utf8');
 for (const match of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"/g)) elements[match[2]] = new Element(match[1]);
 const regions = ['head', 'torso', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg'];
 for (const region of regions) elements['armorRegion-' + region].appendChild(new Element('ul'));
@@ -34,7 +34,7 @@ const context = vm.createContext({
   setTimeout: forbidden, setInterval: forbidden, requestAnimationFrame: forbidden, radDebug: forbidden
 });
 context.window = context;
-vm.runInContext(fs.readFileSync(path.join(view, 'radhud.js'), 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(view, 'rad_debug.js'), 'utf8'), context);
 const names = id => elements[id].children.map(row => row.children[0].textContent);
 const callout = region => elements['armorRegion-' + region].querySelector('ul');
 const input = {insulation: 43, effectiveInsulation: 30, powerArmor: false, pieces: [

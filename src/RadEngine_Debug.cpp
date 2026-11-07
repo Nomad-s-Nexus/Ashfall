@@ -227,11 +227,7 @@ void RadiationEngine::DrainDebugCommands()
             _maskOverride = -1;
             _debugShelter = false;
             _debugGod = false;
-            if (_frozenTimeScale >= 0.0f)
-            {
-                if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale) cal->timeScale->value = _frozenTimeScale;
-                _frozenTimeScale = -1.0f;
-            }
+            ResumeDebugTime();
             _filterSparesCache = 0;
             _filterCountTick = 0;
             _enclosedCheckTick = 0;
@@ -648,8 +644,7 @@ void RadiationEngine::DebugTime(const std::string& arg)
     }
     else if (arg == "resume")
     {
-        if (_frozenTimeScale >= 0.0f) cal->timeScale->value = _frozenTimeScale;
-        _frozenTimeScale = -1.0f;
+        ResumeDebugTime();
         Notify("[DEBUG] Time resumed.", false);
     }
     else if (arg.rfind("hour:", 0) == 0)
@@ -657,6 +652,14 @@ void RadiationEngine::DebugTime(const std::string& arg)
         cal->gameHour->value = std::clamp(static_cast<float>(std::atof(arg.c_str() + std::strlen("hour:"))), 0.0f, 23.99f);
         Notify("[DEBUG] Game hour set.", false);
     }
+}
+
+
+void RadiationEngine::ResumeDebugTime()
+{
+    if (_frozenTimeScale < 0.0f) return;
+    if (auto* cal = RE::Calendar::GetSingleton(); cal && cal->timeScale) cal->timeScale->value = _frozenTimeScale;
+    _frozenTimeScale = -1.0f;
 }
 
 

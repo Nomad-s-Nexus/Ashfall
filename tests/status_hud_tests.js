@@ -58,7 +58,7 @@ assert.equal(toxic.context.cores.health.num.textContent,'50%');assert.equal(toxi
 toxic.context.updateToxic({fallback:false,tissue:0});assert.equal(toxic.elements.health.hidden,true);assert.ok(!toxic.elements.root.classes.has('visible'));
 for(const page of [climate,filter,toxic,needs]){assert.ok(!/class="bar|id=".*Bar"/.test(page.html));page.context.setLocalHUDLayout({x:.2,y:.3,s:1.2,r:0,hidden:true});assert.equal(page.elements.root.style.display,'none');}
 for(const page of [climate,filter,toxic,needs]){page.timeouts.forEach(fn=>fn());assert.equal(page.elements.root.style.left,'384px');assert.equal(page.elements.root.style.top,'324px');}
-const debug=load('radhud.html');vm.runInContext(fs.readFileSync(path.join(view,'rad_diagnostics.js'),'utf8'),debug.context);
+const debug=load('rad_debug.html');vm.runInContext(fs.readFileSync(path.join(view,'rad_diagnostics.js'),'utf8'),debug.context);
 debug.context.updateClimateInfo({core:37,warmth:100,ambient:4,wind:12,wetness:60,heat:70,insulation:41,cooling:.1,warming:.3});
 assert.match(debug.elements.climateReadout.textContent,/Body warmth100%/);assert.match(debug.elements.climateEffect.textContent,/Normal warmth reached/);
 debug.context.updateClimateInfo({core:36,warmth:89,warming:.3,cooling:.1});assert.match(debug.elements.climateEffect.textContent,/Body is warming/);
