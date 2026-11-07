@@ -50,7 +50,7 @@ for widget in ('HUDPlayerHealthMeter', 'HUDActionPointMeter'):
 assert 'if (!api11 || !RadHud::GetSingleton().ViewsReady()) return;' in suppress_callback
 assert 'if (RadHud::GetSingleton().IsCompanionMode()) return;' in suppress_callback
 assert 'if (api11 && !hud.IsCompanionMode())' in create_callback
-retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)[1]
+retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)[1].split('\n}\n', 1)[0] + '\n}'
 assert 'if (!_threadApi) return false;' in retry_worker
 assert 'if (_viewCreateRetry.exchange(true)) return true;' in retry_worker
 assert 'if (nowMs < _viewRetryNotBeforeMs.load()) return true;' not in retry_worker
