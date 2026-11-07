@@ -225,3 +225,14 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Contract guards: `tests/verify_debug_menu_close.py:main`.
 - Deferred while the built-in HUD editor is open or a pause or message menu is up: `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` checks `src/RadHudLayout.cpp:RadHud::LocalHudEditorPreviewOn` and `RE::UI::GetMenuOpen` before it destroys view 5. The armed refresh stays pending and runs when they close. The editor lives in view 5, so a destroy during the editor would leave `g_layout.preview` true.
 - Not verified in game: whether destroy and re-create clears the stale frame, and how long the blink lasts.
+
+## Enclosed shelter: no wind chill, 8 C ambient floor (build-verified, not verified in game)
+
+- Enclosed means a roof plus at least 5 of 8 walls. src/ClimateShelterPolicy.h:Classify applies the rule with kWallMinimumHits = 5 and kWallRays = 8. Roofed-only spots stay in the roofed level.
+- Wall count: src/ClimateShelterRuntime.cpp:ProbeWallHits casts 8 horizontal rays from 80 units above the player out to 600 units. Each ray runs through src/ClimateShelterRuntime.cpp:WallRayHit. src/ClimateShelterPolicy.h:WallRayCounts drops hits closer than kWallSelfClearance (24), so a ray cannot count geometry at its own origin.
+- Wind: when enclosed, src/ClimatePolicy.h:EffectiveWindShelter01 returns 1, so wind chill is removed and the HUD wind readout is calm. When only roofed, wind is reduced by 75%. Open spots keep the raw wind.
+- Ambient floor: src/ClimateEnvironmentPolicy.h:ShelteredAmbientC raises cold outdoor air to the floor when enclosed. Partial shelter blends toward the floor. The default floor is 8.0 C. INI [Climate] EnclosedAmbientFloorC (range -10 to 20) is sanitized in src/ClimateRuntime.cpp. INI [Climate] EnclosedShelterEnabled=0 turns the enclosed level off and leaves roofed-open shelter.
+- Timing: the shelter sample is refreshed on movement (ShouldProbe) and on a timed schedule (src/ClimateShelterPolicy.h:ShouldReprobeTimed). src/ClimateShelterPolicy.h:Observe requires a second matching probe before the level changes (hysteresis), so one odd sample does not flip the level.
+- src/ClimateRuntime.cpp:Update samples the shelter once per tick and feeds shelter01, windShelter01 and the sheltered ambient into the climate step.
+- Tests: 	ests/climate_policy_tests.cpp, 	ests/climate_wetness_policy_tests.cpp, 	ests/verify_climate_runtime.py.
+- Not verified in game: the HUD readout, the COLD versus FREEZING label, and the wall ray hit rate in real interiors.

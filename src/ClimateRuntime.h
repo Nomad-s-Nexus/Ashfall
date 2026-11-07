@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ClimateEnvironmentPolicy.h"
 #include "ClimateHeatRuntime.h"
 #include "ClimatePolicy.h"
 #include "ClimateProtectionRuntime.h"
@@ -41,6 +42,8 @@ private:
     ClimateShelterRuntime _shelter;
     ClimateHeatRuntime _heat;
     ClimateWeatherConfig _weatherConfig;
+    float _enclosedFloorC{ RadClimateEnvironmentPolicy::kEnclosedAmbientFloorC };
+    bool _climateIniLoaded{ false };
     RadClimatePolicy::HypothermiaStage _lastLoggedStage{ RadClimatePolicy::HypothermiaStage::kNormal };
     float _lastAmbientC{ RadClimatePolicy::kNeutralAmbientC };
     float _lastEffectiveInsulation01{ 0.0f };

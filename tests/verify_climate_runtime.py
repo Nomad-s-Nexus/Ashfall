@@ -46,8 +46,10 @@ for token in (
     "environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;",
     "auto shelter = rooflessInterior",
     "environment.rooflessInterior = rooflessInterior;",
-    "? _shelter.SampleRooflessInterior(player, cell)",
-    ": _shelter.Sample(player);",
+    "? _shelter.SampleRooflessInterior(player, cell, nowDays)",
+    ": _shelter.Sample(player, nowDays);",
+    "environment.windShelter01 = shelter.windShelter01;",
+    "RadClimateEnvironmentPolicy::ShelteredAmbientC(environment.ambientC, shelter.enclosed01, _enclosedFloorC)",
     "ClimateRuntime::Reset()",
     "_shelter.Reset();",
     "_heat.Reset();",
@@ -65,13 +67,13 @@ for token in (
 
 # Constraint: one sampler per tick, chosen by the roofless flag; never sample both.
 sampler_ternary = re.compile(
-    r"auto shelter = rooflessInterior\s+\? _shelter\.SampleRooflessInterior\(player, cell\)\s+"
-    r": _shelter\.Sample\(player\);")
+    r"auto shelter = rooflessInterior\s+\? _shelter\.SampleRooflessInterior\(player, cell, nowDays\)\s+"
+    r": _shelter\.Sample\(player, nowDays\);")
 assert sampler_ternary.search(runtime) is not None, (
     "Update must choose one shelter sampler with the roofless ternary")
 assert runtime.count("auto shelter") == 1, "Update must declare the shelter sample exactly once"
-assert runtime.count("_shelter.Sample(player)") == 1, "Update must call the normal shelter sampler exactly once"
-assert runtime.count("SampleRooflessInterior(player, cell)") == 1, (
+assert runtime.count("_shelter.Sample(player, nowDays)") == 1, "Update must call the normal shelter sampler exactly once"
+assert runtime.count("SampleRooflessInterior(player, cell, nowDays)") == 1, (
     "Update must call the roofless sampler exactly once")
 
 
