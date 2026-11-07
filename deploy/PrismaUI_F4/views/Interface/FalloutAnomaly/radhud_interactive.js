@@ -63,6 +63,7 @@ window.SetDebugMenu = function(on) {
   var show = ((""+on)==="1" || on===true);
   if (origSetDebugMenu) origSetDebugMenu(on);
   if (window.setEcgActive) window.setEcgActive(show);
+  if (window.setGeigerActive) window.setGeigerActive(show);
   if (show && !robcoBootPlayed && !window.suppressBootAnimation) {
     robcoBootPlayed = true;
     window.playRobcoBoot();
@@ -72,9 +73,15 @@ window.SetDebugMenu = function(on) {
 (function() {
   var geigerOn = false;
   var geigerTimer = null;
+  var panelOpen = false;
   var currentRads = 85;
+  function audioReady() {
+    return !!(window.pipAudio && (window.AudioContext || window.webkitAudioContext));
+  }
   function clickLoop() {
-    if (!geigerOn || !window.pipAudio || !window.pipAudio.isEnabled()) return;
+    clearTimeout(geigerTimer);
+    geigerTimer = null;
+    if (!geigerOn || !panelOpen || !audioReady() || !window.pipAudio.isEnabled()) return;
     var r = Math.max(0, Math.min(1000, currentRads));
     var pct = r / 1000;
     var minMs, maxMs;
@@ -106,10 +113,15 @@ window.SetDebugMenu = function(on) {
       btn.classList.toggle("active", geigerOn);
     }
     clearTimeout(geigerTimer);
+    geigerTimer = null;
     if (geigerOn) {
       if (window.pipAudio) window.pipAudio.click();
       clickLoop();
     }
+  };
+  window.setGeigerActive = function(on) {
+    panelOpen = !!on;
+    clickLoop();
   };
   window.updateGeigerRadLevel = function(rads) {
     currentRads = Number(rads) || 0;
