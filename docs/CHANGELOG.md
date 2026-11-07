@@ -1,3 +1,7 @@
+## Unreleased: M50 mask view shelved, PNG visor back (not verified in game)
+
+**The 3D M50 mask view is not shipped for now.** Its mesh, materials, textures, `RadOverhaul_MaskFX.esp` and the `RadMaskViewFX` script moved to `wip/m50-mask/`, which is not packaged. The flat PNG gas-mask visor is the mask view again. Notes: `docs/code-notes/Rad-Overhaul-Fallout-4.md`.
+
 ## Unreleased: Pip-Boy debug panel and PrismaUI stack fixes (not verified in game)
 
 **The debug panel is lighter and closes cleanly.** The ECG animation runs only while the panel is open (about 30 fps). The Geiger click timer stops on close and restarts on FX toggle-on. Dial scrubbers start from the live percentage, and partial vitals no longer zero the ECG. Dial hover no longer moves the box. The RobCo boot plays only from the replay control and ignores key auto-repeat. Widgets send visibility only on change. Unused telemetry helpers are removed. Clipboard copy falls back to `execCommand` and never throws. Notes: `docs/code-notes/Ashfall.md`.
