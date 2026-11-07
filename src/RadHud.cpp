@@ -713,6 +713,23 @@ namespace
         if (auto* escape = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI9>())
             escape->SetViewOwnsEscape(view, owns);
     }
+
+    // Constraint: the debug view is kPanel only while its menu is open; an always-on kPanel makes IsAnyPanelVisible() true for other plugins.
+    constexpr ULONGLONG kDebugFocusRetryMs = 150;
+    constexpr ULONGLONG kDebugFocusGiveUpMs = 2000;
+
+    void SetDebugViewRole(uint64_t view, PRISMA_UI_API::ViewRole role)
+    {
+        if (auto* roles = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>())
+            roles->SetViewRole(view, role);
+    }
+
+    // Constraint: FocusOverlay is tried only after a plain Focus is rejected; a missing V10 interface simply returns false.
+    bool FocusDebugOverlayFallback(uint64_t view)
+    {
+        auto* overlay = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
+        return overlay != nullptr && overlay->FocusOverlay(view, false, false);
+    }
 }
 
 void RadHud::ReleaseStaleDebugFocus() noexcept
@@ -741,19 +758,35 @@ void RadHud::SetDebugMenu(bool open)
             PushArmor(climate.LastInsulation01(), climate.LastEffectiveInsulation01(),
                 climate.LastPowerArmor(), climate.LastArmor());
             api->Show(_view);
-            const bool focusAccepted = api->Focus(_view, false, false);
+            bool focusAccepted = api->Focus(_view, false, false);
+            if (!focusAccepted) focusAccepted = FocusDebugOverlayFallback(_view);
             if (!focusAccepted)
             {
                 _debugOpen = false;
                 api->InteropCall(_view, "SetDebugMenu", "0");
                 api->Unfocus(_view);
+                SetDebugViewOwnsEscape(_view, false);
+                SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);
+
+                const auto now = ::GetTickCount64();
+                if (_debugNextFocusRetryMs == 0 || _debugFocusFailedSinceMs == 0)
+                    _debugFocusFailedSinceMs = now;
+                // Constraint: focus rejection gives up after kDebugFocusGiveUpMs, clears the pending open, and shows the player one message.
+                if (now - _debugFocusFailedSinceMs >= kDebugFocusGiveUpMs)
+                {
+                    _debugDesiredOpen = false;
+                    _debugTogglePending = false;
+                    _debugNextFocusRetryMs = 0;
+                    _debugFocusFailedSinceMs = 0;
+                    RE::SendHUDMessage::ShowHUDMessage(
+                        "[Radiation] Debug menu could not take focus. Press Shift+F8 to try again.", "", true, true);
+                    return;
+                }
                 _debugDesiredOpen = true;
                 _debugTogglePending = true;
-                _debugNextFocusRetryMs = ::GetTickCount64() + 150;
-                SetDebugViewOwnsEscape(_view, false);
+                _debugNextFocusRetryMs = now + kDebugFocusRetryMs;
 
                 static ULONGLONG lastFocusFailureLog = 0;
-                const auto now = ::GetTickCount64();
                 if (now - lastFocusFailureLog >= 1000)
                 {
                     lastFocusFailureLog = now;
@@ -766,7 +799,9 @@ void RadHud::SetDebugMenu(bool open)
             _debugOpen = true;
             _debugTogglePending = false;
             _debugNextFocusRetryMs = 0;
+            _debugFocusFailedSinceMs = 0;
             SetDebugViewOwnsEscape(_view, true);
+            SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kPanel);
             api->InteropCall(_view, "SetDebugMenu", "1");
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
             PushNeedsTuning(RadNeedsTuning::Json());
@@ -777,10 +812,12 @@ void RadHud::SetDebugMenu(bool open)
             _debugTogglePending = false;
             _debugDesiredOpen = false;
             _debugNextFocusRetryMs = 0;
+            _debugFocusFailedSinceMs = 0;
             SetLocalHudEditorPreview(false);
             api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
             SetDebugViewOwnsEscape(_view, false);
+            SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);
             _armorPayload.clear();
         }
     }

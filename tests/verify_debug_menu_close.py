@@ -82,6 +82,33 @@ def main() -> int:
             "RadiationEngine::Update must run the stale-focus watchdog")
     require("void ReleaseStaleDebugFocus() noexcept;" in hud_h, "RadHud must declare ReleaseStaleDebugFocus()")
 
+    # Constraint: focus rejection is bounded, falls back to FocusOverlay, and gives up with one player message.
+    require("constexpr ULONGLONG kDebugFocusGiveUpMs = 2000;" in hud_cpp, "focus give-up must be capped at 2 s")
+    require("constexpr ULONGLONG kDebugFocusRetryMs = 150;" in hud_cpp, "focus retry interval must stay 150 ms")
+    require("_debugFocusFailedSinceMs = now;" in hud_cpp, "first focus rejection must stamp the retry window")
+    require("now - _debugFocusFailedSinceMs >= kDebugFocusGiveUpMs" in hud_cpp,
+            "focus rejection must compare elapsed time against the give-up cap")
+    give_up = hud_cpp.split("now - _debugFocusFailedSinceMs >= kDebugFocusGiveUpMs", 1)[1].split("_debugDesiredOpen = true;", 1)[0]
+    for token in ("_debugDesiredOpen = false;", "_debugTogglePending = false;", "_debugNextFocusRetryMs = 0;",
+                  "_debugFocusFailedSinceMs = 0;", "RE::SendHUDMessage::ShowHUDMessage(", "return;"):
+        require(token in give_up, f"focus give-up branch must contain {token}")
+    require("RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>()" in hud_cpp, "FocusOverlay must come from the V10 interface")
+    require("overlay->FocusOverlay(view, false, false)" in hud_cpp, "FocusOverlay fallback must be called")
+    require("if (!focusAccepted) focusAccepted = FocusDebugOverlayFallback(_view);" in hud_cpp,
+            "FocusOverlay must be tried only after a rejected Focus")
+    require("overlay != nullptr &&" in hud_cpp, "FocusOverlay fallback must null-check the interface")
+
+    # Constraint: the view is kPanel only while the menu is open, and never declared kPanel at view creation.
+    require(hud_cpp.count("SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kPanel);") == 1,
+            "kPanel must be declared exactly once, on successful open")
+    require(hud_cpp.count("SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);") == 2,
+            "kWidget must be declared on close and on focus failure")
+    require("roles->SetViewRole(view, role);" in hud_cpp, "SetViewRole must go through the V10 interface")
+    require("if (auto* roles = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>())" in hud_cpp,
+            "SetViewRole must null-check the V10 interface")
+    create_body = hud_cpp.split("void RadHud::CreateView()", 1)[1].split("\nvoid RadHud::", 1)[0]
+    require("kPanel" not in create_body, "view creation must not declare kPanel")
+
     print("verify_debug_menu_close: OK")
     return 0
 

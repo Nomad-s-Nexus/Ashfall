@@ -151,3 +151,15 @@ Symptom risk: the close used to complete only inside PumpDeferredDebug, which ru
 Fix: RequestDebugClose still sets the atomic close flag, and also queues PumpDeferredDebug as a main-thread task through Hooks::QueueMainThreadTask, so the close (and its Unfocus plus SetViewOwnsEscape(false)) runs on the next main-thread pump. ReleaseStaleDebugFocus runs at the top of the 4 Hz RadiationEngine::Update and calls Unfocus plus SetViewOwnsEscape(false) only when the menu is closed and the view still reports HasFocus. It never touches a view that is open or that another view has focused.
 
 Not verified in game: the watchdog path itself needs a run where the close hook is forced to stall.
+
+## Debug menu focus: bounded retry, FocusOverlay fallback, kPanel only while open
+
+Reference: src/RadHud.cpp:RadHud::SetDebugMenu, src/RadHud.cpp:RadHud::PumpDeferredDebug, src/RadHud.cpp:FocusDebugOverlayFallback, src/RadHud.cpp:SetDebugViewRole.
+
+Symptom: when PrismaUI rejected Focus() on the debug view, the menu hid and retried every 150 ms with no end.
+
+Fix: the first rejection stamps _debugFocusFailedSinceMs and retries every 150 ms. Before each retry, IVPrismaUI10::FocusOverlay (null-checked) is tried as a fallback. After 2 s of rejection the pending open is cleared, the retry state is reset, and one player message is shown through RE::SendHUDMessage::ShowHUDMessage. The stamp is re-taken whenever the retry state was reset (_debugNextFocusRetryMs == 0), so a fresh open never inherits an old window.
+
+View role: the debug view declares kPanel only after a successful open and returns to kWidget on close and on focus failure. The always-on overlay is never kPanel, because IsAnyPanelVisible() would otherwise be true for other plugins.
+
+Not verified in game: whether FocusOverlay accepts where Focus does not, and whether the 2 s cap is long enough for a slow view.
