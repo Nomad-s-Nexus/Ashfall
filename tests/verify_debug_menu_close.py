@@ -242,6 +242,16 @@ def main() -> int:
     require("InvalidateLocalHudLayoutViews();" in pb,
             "refresh must reset the layout listener tracking for the new view")
     require("SetDebugMenu(" not in pb, "the refresh must not re-enter SetDebugMenu, so it cannot re-arm itself")
+    require("LocalHudEditorPreviewOn()" in pb,
+            "refresh must defer the destroy while the built-in HUD editor preview is open")
+    require("GetMenuOpen<RE::PauseMenu>()" in pb and "GetMenuOpen<RE::MessageBoxMenu>()" in pb,
+            "refresh must defer the destroy while the pause or message menu is open")
+    require(pb.index("LocalHudEditorPreviewOn()") < pb.index("api->Destroy(_view);"),
+            "the editor and menu deferral must be checked before the destroy")
+    require("bool LocalHudEditorPreviewOn() const noexcept;" in hud_h,
+            "RadHud must declare LocalHudEditorPreviewOn()")
+    require("bool RadHud::LocalHudEditorPreviewOn() const noexcept" in text(ROOT / "src" / "RadHudLayout.cpp"),
+            "LocalHudEditorPreviewOn() must be defined in RadHudLayout.cpp, where the layout state lives")
     require("_domReady.load()" in pb and "api->IsValid(_view)" in pb,
             "refresh must only recycle a live, DOM-ready view")
     require(hud_cpp.count("api->Destroy(_view);") == 1, "only the close refresh may destroy the main overlay view")

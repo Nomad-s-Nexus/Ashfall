@@ -56,6 +56,7 @@ public:
     void ApplyLocalHudLayout(const std::string& payload);
     void SyncLocalHudLayout();
     void SetLocalHudEditorPreview(bool on);
+    [[nodiscard]] bool LocalHudEditorPreviewOn() const noexcept;
     void InvalidateLocalHudLayoutViews();
     void ResetDebugMenuForSession();
     void PumpDeferredDebug();

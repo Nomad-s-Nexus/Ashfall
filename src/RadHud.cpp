@@ -720,8 +720,16 @@ void RadHud::PumpDebugViewRefresh()
     const auto nowMs = static_cast<std::uint64_t>(::GetTickCount64());
     const bool openRequested = _debugOpen || (_debugTogglePending.load() && _debugDesiredOpen);
     const auto step = RadCorrectnessPolicy::DebugViewRefreshStep(_debugRefresh, nowMs, openRequested);
+    if (step.action != RadCorrectnessPolicy::DebugViewRefreshAction::kDestroy)
+    {
+        _debugRefresh = step.state;
+        return;
+    }
+    // Constraint: the built-in HUD editor lives in this view and the pause or message menus cover it, so the armed refresh waits while either is up.
+    auto* ui = RE::UI::GetSingleton();
+    if (LocalHudEditorPreviewOn() || (ui && (ui->GetMenuOpen<RE::PauseMenu>() || ui->GetMenuOpen<RE::MessageBoxMenu>())))
+        return;
     _debugRefresh = step.state;
-    if (step.action != RadCorrectnessPolicy::DebugViewRefreshAction::kDestroy) return;
 
     // Constraint: destroy and re-create run in one game-thread pass, so no other tick observes _view == 0.
     api->Destroy(_view);

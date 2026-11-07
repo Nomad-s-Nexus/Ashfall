@@ -223,4 +223,5 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Load and new game: `src/RadHud.cpp:RadHud::ResetDebugMenuForSession` cancels a pending refresh.
 - Trade-off: view 5 also hosts the gas-mask overlay and storm banner, so they blink off for the DOM reload after each close. Toxicity and filter widget views are untouched.
 - Contract guards: `tests/verify_debug_menu_close.py:main`.
+- Deferred while the built-in HUD editor is open or a pause or message menu is up: `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` checks `src/RadHudLayout.cpp:RadHud::LocalHudEditorPreviewOn` and `RE::UI::GetMenuOpen` before it destroys view 5. The armed refresh stays pending and runs when they close. The editor lives in view 5, so a destroy during the editor would leave `g_layout.preview` true.
 - Not verified in game: whether destroy and re-create clears the stale frame, and how long the blink lasts.
