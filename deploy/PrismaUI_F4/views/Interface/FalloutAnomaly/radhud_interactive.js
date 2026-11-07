@@ -51,23 +51,19 @@ window.playRobcoBoot = function(onComplete) {
   timeouts.push(finalT);
   overlay.onclick = finish;
   var keyHandler = function(e) {
+    if (e.repeat) return;
     if (e.key !== "Shift" && e.key !== "Control" && e.key !== "Alt") {
       finish();
     }
   };
   if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("keydown", keyHandler);
 };
-var robcoBootPlayed = false;
 var origSetDebugMenu = window.SetDebugMenu;
 window.SetDebugMenu = function(on) {
   var show = ((""+on)==="1" || on===true);
   if (origSetDebugMenu) origSetDebugMenu(on);
   if (window.setEcgActive) window.setEcgActive(show);
   if (window.setGeigerActive) window.setGeigerActive(show);
-  if (show && !robcoBootPlayed && !window.suppressBootAnimation) {
-    robcoBootPlayed = true;
-    window.playRobcoBoot();
-  }
 };
 
 (function() {
