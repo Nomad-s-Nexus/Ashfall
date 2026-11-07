@@ -45,7 +45,8 @@ bool RadHud::StartPrismaViewRetry()
     // Constraint: at most one retry starts per second, and the atomic guard keeps retries from overlapping.
     const auto nowMs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count());
-    if (nowMs < _viewRetryNotBeforeMs.load()) return true;
+    // Constraint: a throttled call returns true only when a retry is already running or the views already exist; otherwise nothing started and the caller must create the view.
+    if (nowMs < _viewRetryNotBeforeMs.load()) return _viewCreateRetry.load() || ViewsExist();
     if (_viewCreateRetry.exchange(true)) return true;
     _viewRetryNotBeforeMs.store(nowMs + 1000);
 

@@ -53,6 +53,8 @@ assert 'if (api11 && !hud.IsCompanionMode())' in create_callback
 retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)[1]
 assert 'if (!_threadApi) return false;' in retry_worker
 assert 'if (_viewCreateRetry.exchange(true)) return true;' in retry_worker
+assert 'if (nowMs < _viewRetryNotBeforeMs.load()) return true;' not in retry_worker
+assert 'if (nowMs < _viewRetryNotBeforeMs.load()) return _viewCreateRetry.load() || ViewsExist();' in retry_worker
 assert retry_worker.rstrip().endswith('return true;\n}')
 retry_thread = retry_worker.split('auto* retrying', 1)[1]
 ready = retry_thread.find('RadHud::GetSingleton().ViewsReady()')
