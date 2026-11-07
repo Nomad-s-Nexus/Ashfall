@@ -4,6 +4,8 @@
 
 **Armor names with 4-byte characters no longer hang the HUD.** Armor piece names pass through `SanitizeUiText`, which replaces code points above U+FFFF, malformed UTF-8 and control characters with `?`. Notes: `docs/code-notes/Ashfall.md`.
 
+**Debug queue, view retry, input edges and dome follow are hardened.** Queued debug commands now survive load and not-ready ticks (bounded to 32), so `storm:N` typed before the first tick runs later. Hotkey edges come from one input read, the view retry no longer reports started when nothing started, and dome follow stamps its position only when the follow task ran. Notes: `docs/code-notes/Ashfall.md`.
+
 ## Unreleased: god mode stops rads from killing (not runtime-verified)
 
 **With TGM god mode on, plugin health drains can no longer take you to 0 HP.** The choking drain and the storm HP loss are clamped to a 1 HP floor while `[Survival] RespectGodMode=1` (default). Rads and the HUD keep accumulating; god mode off is unchanged. Detection uses `RE::ID::PlayerCharacter::IsGodMode` and runs on the OG runtime only, because the NG/AE address entry is unverified. Notes: `docs/code-notes/Ashfall.md`.

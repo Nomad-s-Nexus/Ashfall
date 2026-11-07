@@ -178,3 +178,12 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - The overview wetness readout targets the `ov-val-wetness` element (1fdb12c): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_diagnostics.js:ov-val-wetness`.
 - Dome follow returns early unless an IMAD fade tick is due or the player moved more than 64 units (c2a1fca): `src/Hooks_DomeFollow.cpp:QueueDomeFollow`.
 - Armor piece names pass through `SanitizeUiText`, because 4-byte UTF-8 characters hang the Ultralight shaper (see CHANGELOG): `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::SanitizeUiText`, `src/RadHud.cpp:RadHud::PushArmor`.
+
+## Pip-Boy stack follow-ups: hudlayout save, view retry, input edges, dome follow, debug queue
+
+- A, `src/RadEngine_Debug.cpp:RadiationEngine::HandleDebugCommand`: a coalesced hudlayout replacement keeps `save:true` from any queued entry it replaces (`HudLayoutRequestsSave` / `WithHudLayoutSave`), so a live-preview drag cannot drop a pending save.
+- B, `src/RadHudLifecycle.cpp:RadHud::StartPrismaViewRetry`: the throttled branch returns `_viewCreateRetry.load() || ViewsExist()`, not `true`. `CreateView` is not idempotent, so a caller must create the view when no retry is running and no view exists.
+- C, `src/RadiationEngine.cpp:RadiationEngine::PollInput`: one `ReadInputBits()` read is stored in `_polledInputBits`, and every key edge (debug toggle, filter replace, repair) is derived from that one mask. A second `GetAsyncKeyState` read could disagree with the stored bits and fire or miss an edge.
+- D, `src/Hooks_DomeFollow.cpp:Hooks::QueueDomeFollow`: the skip threshold is `RadInternal::kStormDomeFollowEpsilon` (64 units, `src/RadEngine_Internal.h`). `lastFollowPos` is stamped inside the main-thread task only after `PlayerUpdatesReady` passes; if the task bails, `followPosValid` is cleared so the next call moves the layer.
+- Debug queue, intentional: `src/RadEngine_Debug.cpp:RadiationEngine::DrainDebugCommands` no longer clears `_pendingDebugCmds` on load or not-ready ticks. The queue stays bounded at 32 (`kMaxPendingDebugCmds`, oldest dropped). Commands such as `storm:N` queued before the first tick therefore run later, on purpose.
+- Not verified in game.
