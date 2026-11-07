@@ -34,7 +34,6 @@ window.updateFilter = function(json) {
 };
 
 var MASK_ON_DELAY = 0.0;
-// Constraint: the 3D RadMaskView.nif replaces the PNG visor for now; flip this back to restore gasmask_overlay.png.
 var MASK_PNG_ENABLED = false;
 window.setMask = function(json) {
   try {
@@ -52,11 +51,11 @@ window.setMask = function(json) {
 };
 
 var STORM_THEMES = {
-  1: { cls:"fire",   name:"⚡ RAD FIRESTORM",       sub:"LETHAL RADIATION - SEEK SHELTER" },
-  2: { cls:"sulfur", name:"☣ TOXIC SULFUR STORM",  sub:"TOXIC ATMOSPHERE - AVOID EXPOSURE" },
-  3: { cls:"acid",   name:"⚗ ACID RAIN",           sub:"CAUSTIC PRECIPITATION" },
-  4: { cls:"ash",    name:"☢ ASH FALLOUT",         sub:"RADIATION PARTICULATE - LETHAL" },
-  5: { cls:"dust",   name:"☁ DUST STORM",           sub:"BLINDING DUST - MASK UP" }
+  1: { cls:"fire",   name:"[!] RAD FIRESTORM",       sub:"LETHAL RADIATION - SEEK SHELTER" },
+  2: { cls:"sulfur", name:"[!] TOXIC SULFUR STORM",  sub:"TOXIC ATMOSPHERE - AVOID EXPOSURE" },
+  3: { cls:"acid",   name:"[!] ACID RAIN",           sub:"CAUSTIC PRECIPITATION" },
+  4: { cls:"ash",    name:"[!] ASH FALLOUT",         sub:"RADIATION PARTICULATE - LETHAL" },
+  5: { cls:"dust",   name:"[!] DUST STORM",           sub:"BLINDING DUST - MASK UP" }
 };
 var currentStormTheme = 0, currentStormPhase = 0, bannerTimer = 0;
 
@@ -91,7 +90,37 @@ window.stormPhase = function(json) {
   } catch(e) {}
 };
 
-function cmd(action) { try { if (window.radDebug) window.radDebug(action); } catch (e) {} }
+function cmd(action) {
+  try {
+    if (window.pipAudio) window.pipAudio.click();
+    if (window.radDebug) {
+      window.radDebug(action);
+    } else {
+      if (action === "radHeal" || action === "heal") {
+        if (window.updateVitalsInfo) window.updateVitalsInfo({ health: 220, healthMax: 220, ap: 130, apMax: 130, rads: 0, radsMax: 1000, tissue: 0, permanentTissue: 0 });
+      } else if (action === "radBurst200" || action === "rads:200") {
+        if (window.updateVitalsInfo) window.updateVitalsInfo({ health: 180, healthMax: 220, ap: 100, apMax: 130, rads: 200, radsMax: 1000, tissue: 50, permanentTissue: 10 });
+      } else if (action === "radBurst600" || action === "rads:600") {
+        if (window.updateVitalsInfo) window.updateVitalsInfo({ health: 120, healthMax: 220, ap: 70, apMax: 130, rads: 600, radsMax: 1000, tissue: 150, permanentTissue: 40 });
+      } else if (action === "tissue150" || action === "tissue:150") {
+        if (window.updateVitalsInfo) window.updateVitalsInfo({ health: 80, healthMax: 220, ap: 50, apMax: 130, rads: 750, radsMax: 1000, tissue: 550, permanentTissue: 150 });
+      } else if (action === "tissueClear" || action === "clear") {
+        if (window.updateVitalsInfo) window.updateVitalsInfo({ health: 220, healthMax: 220, ap: 130, apMax: 130, rads: 0, radsMax: 1000, tissue: 0, permanentTissue: 0 });
+      } else if (action === "maskAuto" || action === "mask:auto") {
+        if (window.updateAirInfo) window.updateAirInfo({ contaminated: true, sealed: false, sheltered: false, masked: true, failed: false, charge: 85, condition: 94, spares: 4, filterDrain: 0.11, healthLoss: 0, radGain: 0, chokingEnabled: true });
+      } else if (action === "filterFull" || action === "filter:full") {
+        if (window.updateAirInfo) window.updateAirInfo({ contaminated: true, sealed: false, sheltered: false, masked: true, failed: false, charge: 100, condition: 100, spares: 5, filterDrain: 0.11, healthLoss: 0, radGain: 0, chokingEnabled: true });
+      } else if (action === "filterLow" || action === "filter:low") {
+        if (window.updateAirInfo) window.updateAirInfo({ contaminated: true, sealed: false, sheltered: false, masked: true, failed: false, charge: 20, condition: 45, spares: 1, filterDrain: 0.11, healthLoss: 0, radGain: 0, chokingEnabled: true });
+      } else if (action === "filterDead" || action === "filter:dead") {
+        if (window.updateAirInfo) window.updateAirInfo({ contaminated: true, sealed: false, sheltered: false, masked: true, failed: true, charge: 0, condition: 0, spares: 0, filterDrain: 0, healthLoss: 2.5, radGain: 5.0, chokingEnabled: true });
+      } else if (action === "endstorm") {
+        var ovStorm = document.getElementById("ov-storm-status");
+        if (ovStorm) { ovStorm.textContent = "NONE DETECTED"; ovStorm.className = ""; }
+      }
+    }
+  } catch (e) {}
+}
 
 window.setTheme = function() {};
 
@@ -174,39 +203,157 @@ function tuneText(row, value) {
 
 function tuneCommand(key, value) { cmd("tune:" + key + ":" + Number(value).toFixed(4)); }
 
+var TUNE_CATEGORIES = [
+  {
+    id: "metabolic",
+    title: "01 METABOLIC & SURVIVAL RATES",
+    groups: ["SURVIVAL RATES", "WATER BOTTLES", "HUD"]
+  },
+  {
+    id: "gasmask",
+    title: "02 GAS MASK & CANISTER MECHANICS",
+    groups: ["GAS MASK AND FILTER", "CHOKING"]
+  },
+  {
+    id: "pathology",
+    title: "03 PATHOLOGY & DISEASE VECTOR RISKS",
+    groups: ["DISEASES"]
+  },
+  {
+    id: "storms",
+    title: "04 STORMS, CLIMATE & AUDIO VOLUMES",
+    groups: ["AMBIENT AND STORMS", "TEMPERATURE AND WETNESS"]
+  }
+];
 function tuneRows() {
   var host = document.getElementById("tuneRows");
   if (!host || host.firstChild) return host;
-  TUNING.forEach(function(group) {
-    var head = document.createElement("div");
-    head.className = "dbg-sec";
-    head.textContent = group[0];
-    host.appendChild(head);
-    group[1].forEach(function(row) {
-      var key = row[0];
-      var line = document.createElement("div");
-      if (row.length === 2) {
-        line.className = "ghoul-range tune-range tune-toggle";
-        line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
-          '<input id="tune-' + key + '" type="checkbox"><output id="tuneval-' + key + '"></output>';
-        var box = line.querySelector("input");
-        box.onchange = function() {
-          document.getElementById("tuneval-" + key).textContent = box.checked ? "ON" : "OFF";
-          tuneCommand(key, box.checked ? 1 : 0);
-        };
-      } else {
-        line.className = "ghoul-range tune-range";
-        line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
-          '<input id="tune-' + key + '" type="range" step="' + row[2] + '"><output id="tuneval-' + key + '"></output>';
-        var input = line.querySelector("input");
-        input.oninput = function() { document.getElementById("tuneval-" + key).textContent = tuneText(row, input.value); };
-        input.onchange = function() { tuneCommand(key, input.value); };
-      }
-      host.appendChild(line);
+  var groupMap = {};
+  TUNING.forEach(function(g) { groupMap[g[0]] = g[1]; });
+  TUNE_CATEGORIES.forEach(function(cat, catIdx) {
+    var details = document.createElement("details");
+    details.className = "tune-accordion";
+    details.id = "tune-cat-" + cat.id;
+    if (catIdx === 0) details.open = true;
+    var totalControls = 0;
+    cat.groups.forEach(function(gName) {
+      if (groupMap[gName]) totalControls += groupMap[gName].length;
     });
+    var summary = document.createElement("summary");
+    summary.className = "tune-summary";
+    summary.innerHTML = '<div class="tune-summary-left">' +
+      '<span class="tune-chevron">&#9654;</span>' +
+      '<span class="tune-group-title">' + cat.title + '</span>' +
+      '</div>' +
+      '<div class="tune-summary-right">' +
+      '<span class="tune-mod-badge" id="tune-mod-' + cat.id + '" style="display:none;">MODIFIED</span>' +
+      '<span class="tune-count-badge">' + totalControls + ' CONTROLS</span>' +
+      '</div>';
+    details.appendChild(summary);
+    var body = document.createElement("div");
+    body.className = "tune-accordion-body";
+    cat.groups.forEach(function(gName) {
+      var rows = groupMap[gName];
+      if (!rows) return;
+      if (cat.groups.length > 1) {
+        var subhead = document.createElement("div");
+        subhead.className = "tune-subgroup-title";
+        subhead.textContent = "// " + gName;
+        body.appendChild(subhead);
+      }
+      rows.forEach(function(row) {
+        var key = row[0];
+        var line = document.createElement("div");
+        if (row.length === 2) {
+          line.className = "ghoul-range tune-range tune-toggle";
+          line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
+            '<input id="tune-' + key + '" type="checkbox"><output id="tuneval-' + key + '"></output>';
+          var box = line.querySelector("input");
+          box.onchange = function() {
+            document.getElementById("tuneval-" + key).textContent = box.checked ? "ON" : "OFF";
+            tuneCommand(key, box.checked ? 1 : 0);
+            checkTuneModified();
+          };
+        } else {
+          line.className = "ghoul-range tune-range";
+          line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
+            '<input id="tune-' + key + '" type="range" step="' + row[2] + '"><output id="tuneval-' + key + '"></output>';
+          var input = line.querySelector("input");
+          input.oninput = function() {
+            document.getElementById("tuneval-" + key).textContent = tuneText(row, input.value);
+          };
+          input.onchange = function() {
+            tuneCommand(key, input.value);
+            checkTuneModified();
+          };
+        }
+        body.appendChild(line);
+      });
+    });
+    details.appendChild(body);
+    host.appendChild(details);
   });
   return host;
 }
+window.toggleAllTuneAccordions = function(openState) {
+  var accordions = document.querySelectorAll(".tune-accordion");
+  accordions.forEach(function(a) { a.open = !!openState; });
+  if (window.pipAudio) window.pipAudio.click();
+};
+function checkTuneModified() {
+  TUNE_CATEGORIES.forEach(function(cat) {
+    var badge = document.getElementById("tune-mod-" + cat.id);
+    if (!badge) return;
+    var hasTuned = false;
+    var details = document.getElementById("tune-cat-" + cat.id);
+    if (details) {
+      hasTuned = !!details.querySelector("output.tuned");
+    }
+    badge.style.display = hasTuned ? "inline-block" : "none";
+  });
+}
+window.copyIniDiff = function(ev) {
+  var lines = ["[Tuning]"];
+  var modifiedCount = 0;
+  TUNING.forEach(function(group) {
+    group[1].forEach(function(row) {
+      var key = row[0];
+      var input = document.getElementById("tune-" + key);
+      var out = document.getElementById("tuneval-" + key);
+      if (!input) return;
+      var val = (row.length === 2) ? (input.checked ? "1" : "0") : Number(input.value).toFixed(4);
+      var isTuned = out && out.classList.contains("tuned");
+      if (isTuned) {
+        lines.push(key + " = " + val);
+        modifiedCount++;
+      }
+    });
+  });
+  if (modifiedCount === 0) {
+    lines.push("; All current parameter values");
+    TUNING.forEach(function(group) {
+      group[1].forEach(function(row) {
+        var key = row[0];
+        var input = document.getElementById("tune-" + key);
+        if (!input) return;
+        var val = (row.length === 2) ? (input.checked ? "1" : "0") : Number(input.value).toFixed(4);
+        lines.push(key + " = " + val);
+      });
+    });
+  }
+  var text = lines.join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      var btn = ev ? ev.target : null;
+      if (btn) {
+        var orig = btn.textContent;
+        btn.textContent = "[COPIED INI DIFF!]";
+        setTimeout(function() { btn.textContent = orig; }, 1800);
+      }
+    });
+  }
+  if (window.pipAudio) window.pipAudio.click();
+};
 
 window.setNeedsTuning = function(json) {
   try {
@@ -265,6 +412,10 @@ window.setArmorInfo = function(json) {
     document.getElementById("armorPower").textContent = d.powerArmor ? "SEALED" : "UNSEALED";
     document.getElementById("armorPowerDetail").textContent = d.powerArmor ? "COMPLETE SUIT DETECTED" : "NO COMPLETE SUIT DETECTED";
     var figure = document.getElementById("armorFigure");
+    var ovTorso = document.getElementById("ov-val-torso");
+    if (ovTorso) ovTorso.textContent = "INSULATION " + percent(d.insulation) + "%";
+    var ovFig = document.getElementById("overviewFigure");
+    if (ovFig) ovFig.classList.toggle("power-armor", d.inPowerArmor === true);
     figure.classList.toggle("power-armor", d.inPowerArmor === true);
     figure.setAttribute("aria-label", d.inPowerArmor === true ?
       "Front-facing Power Armor reference schematic" : "Front-facing Vault suit reference schematic");
@@ -284,32 +435,70 @@ window.setArmorInfo = function(json) {
       records.forEach(function(piece) {
         var row = document.createElement("tr");
         row.className = "armor-row";
-        var coverage = regions.filter(function(region) { return !!piece[region]; }).map(function(region) {
+                var coverage = regions.filter(function(region) { return !!piece[region]; }).map(function(region) {
           return labels[regions.indexOf(region)];
         });
-        [piece.name || "<unnamed>", coverage.length ? percent(piece.warmth) + "%" : "--", percent(piece.insulation) + "%",
-          coverage.join(" / ") || "NONE", piece.override ? "OVERRIDE" : coverage.length ? "DEFAULT" : "--"].forEach(function(value, index) {
-          var cell = document.createElement("td");
-          cell.textContent = value;
-          if (index === 4 && piece.override) cell.className = "armor-override";
-          row.appendChild(cell);
-        });
+        var cellName = document.createElement("td");
+        cellName.textContent = piece.name || "<unnamed>";
+        row.appendChild(cellName);
+        var cellWarmth = document.createElement("td");
+        cellWarmth.textContent = coverage.length ? percent(piece.warmth) + "%" : "--";
+        row.appendChild(cellWarmth);
+        var cellInsul = document.createElement("td");
+        cellInsul.textContent = percent(piece.insulation) + "%";
+        cellInsul.style.fontWeight = "bold";
+        row.appendChild(cellInsul);
+        var cellCov = document.createElement("td");
+        cellCov.textContent = coverage.join(" / ") || "NONE";
+        row.appendChild(cellCov);
+        var cellSrc = document.createElement("td");
+        cellSrc.textContent = piece.override ? "OVERRIDE" : coverage.length ? "DEFAULT" : "--";
+        if (piece.override) cellSrc.className = "armor-override";
+        row.appendChild(cellSrc);
         target.appendChild(row);
       });
     }
     renderRows(list, thermal, pieces.length ? "NO THERMAL CONTRIBUTION" : "NO WORN ARMOR");
     renderRows(nonThermalList, nonThermal, "NONE EQUIPPED");
-    regions.forEach(function(region) {
+        regions.forEach(function(region) {
       var zone = document.getElementById("armorRegion-" + region);
-      var names = thermal.filter(function(piece) { return !!piece[region]; });
+      if (!zone) return;
+      var matching = thermal.filter(function(piece) { return !!piece[region]; });
       var items = zone.querySelector("ul");
-      zone.classList.toggle("covered", names.length > 0);
+      zone.classList.toggle("covered", matching.length > 0);
       items.textContent = "";
-      (names.length ? names : [{name: "NO THERMAL COVERAGE"}]).forEach(function(piece) {
+      (matching.length ? matching : [{name: "NO THERMAL COVERAGE"}]).forEach(function(piece) {
         var item = document.createElement("li");
         item.textContent = piece.name || "<unnamed>";
         items.appendChild(item);
       });
+      var statEl = document.getElementById("regStat-" + region);
+      if (statEl) {
+        var topInsul = 0;
+        matching.forEach(function(p) { topInsul = Math.max(topInsul, percent(p.insulation)); });
+        statEl.textContent = matching.length ? topInsul + "%" : "EXPOSED";
+        statEl.style.color = matching.length ? "var(--pip-amber)" : "var(--pip-danger)";
+      }
+      var itemEl = document.getElementById("regItem-" + region);
+      if (itemEl) {
+        if (matching.length === 0) {
+          itemEl.textContent = "UNPROTECTED";
+          itemEl.className = "armor-reg-item reg-unprotected";
+        } else {
+          itemEl.textContent = matching[0].name + (matching.length > 1 ? " (+" + (matching.length - 1) + ")" : "");
+          itemEl.className = "armor-reg-item";
+        }
+      }
+    });
+    var nonThermalDetails = document.getElementById("armorNonThermalDetails");
+    if (nonThermalDetails) {
+      nonThermalDetails.style.display = nonThermal.length ? "block" : "none";
+    }
+    ["head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"].forEach(function(reg) {
+      var tag = document.getElementById("paTag-" + reg);
+      if (tag) {
+        tag.classList.toggle("sealed", !!d.powerArmor);
+      }
     });
   } catch (e) {}
 };
@@ -362,6 +551,16 @@ window.updateSurvival = function(json) {
     }
     pools.innerHTML = rows;
   }
+  if (window.updatePipDial) {
+    var h = Math.max(0, Math.min(100, Math.round(+data.hunger || 0)));
+    var t = Math.max(0, Math.min(100, Math.round(+data.thirst || 0)));
+    var f = Math.max(0, Math.min(100, Math.round(+data.sleepDebt || 0)));
+    var r = Math.max(0, Math.min(100, Math.round(+data.risk || 0)));
+    window.updatePipDial("hunger", h, h + "%", "STAGE " + survStage(h));
+    window.updatePipDial("thirst", t, t + "%", "STAGE " + survStage(t));
+    window.updatePipDial("fatigue", f, f + "%", "STAGE " + survStage(f));
+    window.updatePipDial("exposure", r, r + "%", (+data.disease > 0 ? "INFECTED" : "NO ILLNESS"));
+  }
   var illness = document.getElementById("survivalDisease");
   if (illness) {
     var risk = Math.max(0, Math.min(100, Math.round(+data.risk || 0)));
@@ -374,7 +573,7 @@ window.updateSurvival = function(json) {
 };
 
 function showTab(which) {
-  var tabs = ["rad", "wthr", "ghouls", "armor", "survival", "showcase", "hud"];
+  var tabs = ["overview", "rad", "wthr", "ghouls", "armor", "survival", "showcase", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);
@@ -387,6 +586,7 @@ function showTab(which) {
     panel.classList.toggle("armor-view", which === "armor");
     panel.scrollTop = 0;
   }
+  if (window.pipAudio) window.pipAudio.tab();
 }
 
 function needsScene(id, label, apply, revert) {
@@ -466,7 +666,7 @@ var RadShowcase = window.RadShowcase = (function() {
       at = schedule(scenes[i], at);
     }
     later(function() { status("Tour finished."); }, at);
-    cmd("close");
+    closeDebugMenu();
   }
   function build() {
     var row = document.getElementById("showcaseScenes");
@@ -481,3 +681,302 @@ var RadShowcase = window.RadShowcase = (function() {
   build();
   return { scenes: scenes, run: run, startTour: startTour, stop: stop };
 })();
+
+window.pipAudio = (function() {
+  var ctx = null;
+  var enabled = true;
+  function getContext() {
+    if (!ctx && (window.AudioContext || window.webkitAudioContext)) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    return ctx;
+  }
+  return {
+    playChirp: function(freq, duration, type) {
+      if (!enabled) return;
+      try {
+        var c = getContext();
+        if (!c) return;
+        if (c.state === 'suspended') c.resume();
+        var osc = c.createOscillator();
+        var gain = c.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq || 880, c.currentTime);
+        gain.gain.setValueAtTime(0.04, c.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + (duration || 0.08));
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start();
+        osc.stop(c.currentTime + (duration || 0.08));
+      } catch(e) {}
+    },
+    click: function() { this.playChirp(1200, 0.03, 'square'); },
+    tab: function() { this.playChirp(750, 0.05, 'triangle'); },
+    alert: function() { this.playChirp(440, 0.12, 'sawtooth'); },
+    toggle: function() {
+      enabled = !enabled;
+      return enabled;
+    },
+    isEnabled: function() { return enabled; }
+  };
+})();
+window.togglePipAudio = function() {
+  var on = window.pipAudio.toggle();
+  var btn = document.getElementById("pipAudioToggle");
+  if (btn) {
+    btn.textContent = on ? "FX: ON" : "FX: OFF";
+    btn.classList.toggle("muted", !on);
+  }
+  if (on) window.pipAudio.click();
+};
+window.setPipColor = function(colorTheme) {
+  var root = document.documentElement;
+  var body = document.body;
+  var panel = document.getElementById("debugPanel");
+  ["pip-theme-amber", "pip-theme-cyan", "pip-theme-white"].forEach(function(cls) {
+    root.classList.remove(cls);
+    if (body) body.classList.remove(cls);
+    if (panel) panel.classList.remove(cls);
+  });
+  if (colorTheme === "amber" || colorTheme === "cyan" || colorTheme === "white") {
+    var cls = "pip-theme-" + colorTheme;
+    root.classList.add(cls);
+    if (body) body.classList.add(cls);
+    if (panel) panel.classList.add(cls);
+  }
+  var btns = document.querySelectorAll(".pip-theme-pickers .theme-btn");
+  btns.forEach(function(b) {
+    b.classList.toggle("active", b.getAttribute("data-theme") === colorTheme);
+  });
+  try { localStorage.setItem("pip_theme_color", colorTheme); } catch(e) {}
+  if (window.pipAudio) window.pipAudio.click();
+};
+window.updatePipDial = function(type, pct, valText, subText) {
+  var valEl = document.getElementById("dial-val-" + type);
+  if (valEl && valText !== undefined) valEl.textContent = valText;
+  var subEl = document.getElementById("dial-sub-" + type);
+  if (subEl && subText !== undefined) subEl.textContent = subText;
+  var barEl = document.getElementById("dial-bar-" + type);
+  if (barEl) {
+    var r = barEl.getAttribute("r") || 30;
+    var circ = 2 * Math.PI * parseFloat(r);
+    var safePct = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+    var offset = circ * (1 - safePct / 100);
+    barEl.style.strokeDasharray = circ.toFixed(2);
+    barEl.style.strokeDashoffset = offset.toFixed(2);
+    barEl.classList.remove("dial-bar-yellow", "dial-bar-orange", "dial-bar-red", "dial-bar-warn", "dial-bar-crit");
+    var dialBox = barEl.closest ? barEl.closest(".overview-dial") : null;
+    if (dialBox) {
+      dialBox.classList.remove("dial-state-yellow", "dial-state-orange", "dial-state-red");
+    }
+    var state = null;
+    var isHazard = (type === "rads" || type === "tissue" || type === "hunger" || type === "thirst" || type === "fatigue" || type === "exposure");
+    if (isHazard) {
+      if (safePct >= 75) {
+        state = "red";
+      } else if (safePct >= 50) {
+        state = "orange";
+      } else if (safePct >= 25) {
+        state = "yellow";
+      }
+    } else {
+      if (safePct <= 25) {
+        state = "red";
+      } else if (safePct <= 50) {
+        state = "orange";
+      } else if (safePct <= 75) {
+        state = "yellow";
+      }
+    }
+    if (state) {
+      barEl.classList.add("dial-bar-" + state);
+      if (dialBox) dialBox.classList.add("dial-state-" + state);
+    }
+    if (type === "maskcond") {
+      var maskMeter = document.getElementById("dial-meter-maskcond");
+      if (maskMeter) {
+        maskMeter.classList.remove("meter-state-yellow", "meter-state-orange", "meter-state-red");
+        if (state) maskMeter.classList.add("meter-state-" + state);
+      }
+    }
+  }
+};
+window.copyTelemetrySnapshot = function() {
+  var snapshot = {
+    timestamp: new Date().toISOString(),
+    climate: document.getElementById("climateReadout") ? document.getElementById("climateReadout").innerText : "",
+    air: document.getElementById("airReadout") ? document.getElementById("airReadout").innerText : "",
+    vitals: document.getElementById("vitalsReadout") ? document.getElementById("vitalsReadout").innerText : "",
+    armor: {
+      insulation: document.getElementById("armorInsulation") ? document.getElementById("armorInsulation").innerText : "",
+      power: document.getElementById("armorPower") ? document.getElementById("armorPower").innerText : ""
+    }
+  };
+  var text = JSON.stringify(snapshot, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      var btn = document.querySelector(".pip-btn-copy");
+      if (btn) {
+        var prev = btn.textContent;
+        btn.textContent = "COPIED!";
+        setTimeout(function() { btn.textContent = prev; }, 1500);
+      }
+    });
+  }
+  if (window.pipAudio) window.pipAudio.click();
+};
+if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("keydown", function(e) {
+  var p = document.getElementById("debugPanel");
+  if (!p || !p.classList.contains("on")) return;
+  var tabs = ["overview", "rad", "wthr", "ghouls", "armor", "survival", "showcase", "hud"];
+  if (e.key >= "0" && e.key <= "7") {
+    var idx = parseInt(e.key, 10);
+    if (tabs[idx]) {
+      showTab(tabs[idx]);
+    }
+  }
+});
+try {
+  var savedTheme = localStorage.getItem("pip_theme_color");
+  if (savedTheme) setPipColor(savedTheme);
+} catch(e) {}
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("DOMContentLoaded", function() {
+        if (!window.radDebug) {
+      if (window.location && window.location.hash) {
+        if (window.location.hash.indexOf("skipboot=1") !== -1) {
+          window.suppressBootAnimation = true;
+          var bootEl = document.getElementById("robcoBootOverlay");
+          if (bootEl) bootEl.classList.add("boot-hidden");
+        }
+      }
+      if (window.SetDebugMenu) window.SetDebugMenu(1);
+      var initialTab = "overview";
+      if (window.location && window.location.hash) {
+        var m = window.location.hash.match(/tab=([a-z0-9_-]+)/i);
+        if (m) initialTab = m[1];
+      }
+      if (window.showTab) window.showTab(initialTab);
+      function loadMockPreview() {
+        if (window.updateClimateInfo) {
+          window.updateClimateInfo({
+            core: 36.8, warmth: 85, stage: 0, ambient: 16.2, wind: 4.1,
+            wetness: 15, insulation: 68, heat: 10, shelter: 50, rainCover: 80,
+            indoors: false, cooling: 0.025, warming: 0.035
+          });
+        }
+        if (window.updateAirInfo) {
+          window.updateAirInfo({
+            contaminated: true, sealed: false, sheltered: false, masked: true, failed: false,
+            charge: 76, condition: 94, spares: 4, filterDrain: 0.11, healthLoss: 0,
+            radGain: 0, chokingEnabled: true
+          });
+        }
+        if (window.updateVitalsInfo) {
+          window.updateVitalsInfo({
+            health: 195, healthMax: 220, ap: 115, apMax: 130, rads: 85, radsMax: 1000,
+            tissue: 28, permanentTissue: 10
+          });
+        }
+        if (window.setGhoulSettings) {
+          window.setGhoulSettings({ enabled: true, chance: 40 });
+        }
+        if (window.setArmorInfo) {
+          window.setArmorInfo({
+            insulation: 68, effectiveInsulation: 62, powerArmor: false, inPowerArmor: false,
+            pieces: [
+              { name: "Vault 111 Armored Jumpsuit", warmth: 50, insulation: 28, torso: true, leftLeg: true, rightLeg: true, leftArm: true, rightArm: true },
+              { name: "Heavy Combat Armor Chest", warmth: 35, insulation: 32, torso: true, override: true },
+              { name: "Sturdy Leather Arm Guards", warmth: 25, insulation: 18, leftArm: true, rightArm: true },
+              { name: "M50 Military Gas Mask", warmth: 20, insulation: 14, head: true }
+            ]
+          });
+        }
+        if (window.updateSurvival) {
+          window.updateSurvival({ hunger: 18, thirst: 32, sleepDebt: 12, risk: 24, disease: 0 });
+        }
+        if (window.setNeedsTuning) {
+          window.setNeedsTuning({
+            RateMultiplier: { v: 1.0, min: 0.1, max: 3.0, o: 0 },
+            HourlyHunger: { v: 0.05, min: 0.01, max: 0.2, o: 0 },
+            HourlyThirst: { v: 0.1, min: 0.01, max: 0.3, o: 0 },
+            HourlySleepDebt: { v: 0.025, min: 0.005, max: 0.1, o: 0 },
+            FoodScale: { v: 0.2, min: 0.05, max: 0.5, o: 0 },
+            DrinkScale: { v: 0.25, min: 0.05, max: 0.5, o: 0 },
+            SleepRecovery: { v: 0.12, min: 0.02, max: 0.3, o: 0 },
+            DiseasesEnabled: { v: 1 },
+            FilterEnabled: { v: 1 },
+            FilterDuration: { v: 300, min: 60, max: 1200, o: 0 },
+            FilterAutoReplace: { v: 1 },
+            ConditionEnabled: { v: 1 },
+            AmbientEnabled: { v: 1 },
+            AmbientVolume: { v: 100, min: 0, max: 100, o: 0 },
+            StormVolume: { v: 100, min: 0, max: 100, o: 0 },
+            StormsEnabled: { v: 1 },
+            TemperatureEnabled: { v: 1 }
+          });
+        }
+      }
+      loadMockPreview();
+    }
+  });
+}
+
+window.showRadDeck = function(deck) {
+  var decks = ["rads", "mask", "storm"];
+  var container = document.getElementById("radUniformDecks");
+  var pills = document.querySelectorAll(".rad-deck-pill");
+  pills.forEach(function(p) {
+    p.classList.toggle("active", p.getAttribute("data-deck") === deck);
+  });
+  if (deck === "all") {
+    decks.forEach(function(d) {
+      var el = document.getElementById("deck-" + d);
+      if (el) el.style.display = "flex";
+    });
+    if (container) {
+      container.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
+      container.style.maxWidth = "none";
+      container.style.margin = "0";
+    }
+  } else {
+    decks.forEach(function(d) {
+      var el = document.getElementById("deck-" + d);
+      if (el) el.style.display = (d === deck) ? "flex" : "none";
+    });
+    if (container) {
+      container.style.gridTemplateColumns = "1fr";
+      container.style.maxWidth = "640px";
+      container.style.margin = "0 auto";
+    }
+  }
+  if (window.pipAudio) window.pipAudio.click();
+};
+window.toggleArmorMechanics = function() {
+  var drawer = document.getElementById("armorMechanicsDrawer");
+  var btn = document.getElementById("btnToggleArmorMech");
+  if (!drawer) return;
+  var isHidden = drawer.style.display === "none";
+  drawer.style.display = isHidden ? "grid" : "none";
+  if (btn) btn.textContent = isHidden ? "[-] CLOSE GUIDE" : "[?] MECHANICS GUIDE";
+  if (window.pipAudio) window.pipAudio.click();
+};
+window.focusLimb = function(regionName) {
+  var regions = ["head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"];
+  regions.forEach(function(r) {
+    var card = document.getElementById("armorRegion-" + r);
+    if (card) card.classList.toggle("active-limb", r === regionName);
+  });
+  var rows = document.querySelectorAll("#armorList .armor-row");
+  var labelMap = { head: "HEAD", torso: "TORSO", leftArm: "L ARM", rightArm: "R ARM", leftLeg: "L LEG", rightLeg: "R LEG" };
+  var targetLabel = labelMap[regionName];
+  rows.forEach(function(row) {
+    var covText = (row.children[3] || {}).textContent || "";
+    if (covText.indexOf(targetLabel) !== -1) {
+      row.classList.add("highlight-limb-row");
+    } else {
+      row.classList.remove("highlight-limb-row");
+    }
+  });
+  if (window.pipAudio) window.pipAudio.click();
+};

@@ -10,6 +10,7 @@ the editor writer cannot set Authoring\\FULL.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -45,7 +46,7 @@ check("window.updateSurvival" in js, "the view must render the survival payload"
 check("updateSurvival" in text(SRC / "RadHudNeeds.cpp"), "PushSurvival must reach the main view")
 check("PushSurvival(snapshot)" in text(SRC / "NeedsRuntime.cpp"),
       "the needs tick must push the survival snapshot")
-check("font-size:15px" in css, "the debug detail rows must be readable without squinting")
+check(re.search(r"\.diagnostics dl \{[^}]*font-size: 11px", css) is not None, "the debug detail rows must declare the redesign font size")
 
 names = json.loads(text(TOOLS / "rad_names.json") or "{}").get("names", {})
 check(bool(names), "tools/rad_names.json must list the display names")
