@@ -91,18 +91,27 @@ int main()
         const auto early = VisibleShapeMask(10.0);
         Require(early == (std::uint64_t{ 1 } << DomeShapeIndex("PlainHigh")));
         const auto mid = VisibleShapeMask(200.0);
-        for (const char* n : { "PortalA", "PortalB", "CoreBack", "CoreFront", "DiskOuter", "DiskInner", "DiskHalo", "EyeGlow", "PhotonRing", "Overcast", "OuterHigh" })
+        for (const char* n : { "EyeGlow", "Overcast", "OuterHigh" })
             Require((mid >> DomeShapeIndex(n)) & 1u);
+        for (const char* n : { "PortalA", "PortalB", "CoreBack", "CoreFront", "DiskOuter", "DiskInner", "DiskHalo", "PhotonRing" })
+            Require(((mid >> DomeShapeIndex(n)) & 1u) == 0u);
         Require(VisibleShapeMask(0.0) == (std::uint64_t{ 1 } << DomeShapeIndex("Overcast")));
         Require(VisibleShapeMask(360.0) == VisibleShapeMask(0.0));
         Require(VisibleShapeMask(365.0) == VisibleShapeMask(5.0));
         Require(VisibleShapeMask(560.0) == VisibleShapeMask(200.0));
-        Require(VisibleShapeMask(std::nan("")) == kAllDomeShapesVisible);
-        Require(VisibleShapeMask(-1.0) == kAllDomeShapesVisible);
-        Require(VisibleShapeMask(std::numeric_limits<double>::infinity()) == kAllDomeShapesVisible);
+        {
+            int hidden = 0;
+            for (std::uint64_t m = DomeHiddenShapeMask(); m; m &= m - 1) ++hidden;
+            Require(hidden == 8);
+        }
+        Require(kDomeShownShapes == (kAllDomeShapesVisible & ~DomeHiddenShapeMask()));
+        Require(VisibleShapeMask(std::nan("")) == kDomeShownShapes);
+        Require(VisibleShapeMask(-1.0) == kDomeShownShapes);
+        Require(VisibleShapeMask(std::numeric_limits<double>::infinity()) == kDomeShownShapes);
+        for (double t = 0.0; t < 720.0; t += 0.5)
+            Require((VisibleShapeMask(t) & DomeHiddenShapeMask()) == 0u);
         Require((VisibleShapeMask(355.0) >> DomeShapeIndex("EyeGlow") & 1u) == 0u);
         Require((VisibleShapeMask(100.0) >> DomeShapeIndex("PortalA") & 1u) == 0u);
-        Require((VisibleShapeMask(129.0) >> DomeShapeIndex("PortalA") & 1u) == 1u);
     }
     Require(DomeSequenceOffset(170.5f) == 170.5f);
     Require(DomeSequenceOffset(0.0f) == 0.0f);
