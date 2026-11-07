@@ -13,6 +13,7 @@ shelter_runtime = (SRC / "ClimateShelterRuntime.cpp").read_text(encoding="utf-8"
 shelter_header = (SRC / "ClimateShelterRuntime.h").read_text(encoding="utf-8")
 heat_runtime = (SRC / "ClimateHeatRuntime.cpp").read_text(encoding="utf-8")
 heat_header = (SRC / "ClimateHeatRuntime.h").read_text(encoding="utf-8")
+internal_header = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
 
 for token in (
     "RE::PlayerCharacter::GetSingleton()",
@@ -48,6 +49,8 @@ for token in (
     "environment.rooflessInterior = rooflessInterior;",
     "? _shelter.SampleRooflessInterior(player, cell)",
     ": _shelter.Sample(player);",
+    "environment.windShelter01 = shelter.windShelter01;",
+    "RadClimateEnvironmentPolicy::ShelteredAmbientC(environment.ambientC, shelter.enclosed01, _enclosedFloorC)",
     "ClimateRuntime::Reset()",
     "_shelter.Reset();",
     "_heat.Reset();",
@@ -108,9 +111,18 @@ for token in (
     "RadClimateShelterPolicy::ShouldProbe",
     "player->GetPosition()",
     "ProbeRoof(player, cell)",
-    "cell->Pick(pick)",
+    "RadInternal::RayHitsStructure(",
+    "ProbeWallHits(player, cell)",
+    "RadClimateShelterPolicy::RoofCover(up, hits)",
+    "RadClimateShelterPolicy::ShouldReprobeTimed(",
+    "std::chrono::steady_clock::now()",
 ):
     assert token in shelter_runtime, f"climate shelter runtime contract missing: {token}"
+
+for token in (
+    "pick.allowFailedPicks = false;",
+):
+    assert token in internal_header, f"shelter ray helper contract missing: {token}"
 
 for token in (
     "RE::TES::GetSingleton()",

@@ -34,6 +34,7 @@ namespace RadClimatePolicy
         bool rooflessInterior{ false };
         float shelter01{ 0.0f };
         float precipitationShelter01{ 0.0f };
+        float windShelter01{ 0.0f };
         float heat01{ 0.0f };
         float activity01{ 0.0f };
     };
@@ -156,6 +157,19 @@ namespace RadClimatePolicy
         return exterior;
     }
 
+    [[nodiscard]] inline float EffectiveWindShelter01(const EnvironmentSample& environment) noexcept
+    {
+        if (environment.indoors)
+            return 1.0f;
+        return std::max(Clamp01(environment.windShelter01), Clamp01(environment.shelter01));
+    }
+
+    [[nodiscard]] inline float VisibleWindMps(const EnvironmentSample& environment) noexcept
+    {
+        const float raw = std::isfinite(environment.windMps) ? std::max(0.0f, environment.windMps) : 0.0f;
+        return raw * (1.0f - EffectiveWindShelter01(environment));
+    }
+
     [[nodiscard]] inline float NextWetness(
         float currentWetness01,
         const EnvironmentSample& environment,
@@ -205,7 +219,7 @@ namespace RadClimatePolicy
         const float ambientC = std::isfinite(environment.ambientC) ? environment.ambientC : kNeutralAmbientC;
         const float windMps = std::isfinite(environment.windMps) ? std::max(0.0f, environment.windMps) : 0.0f;
         const float coldSeverity = std::clamp((kNeutralAmbientC - ambientC) / 40.0f, 0.0f, 1.5f);
-        const float windExposure = Clamp01(windMps / 20.0f) * (1.0f - shelter);
+        const float windExposure = Clamp01(windMps / 20.0f) * (1.0f - EffectiveWindShelter01(environment));
         const float windFactor = 1.0f + 0.75f * windExposure;
         const float wetnessFactor = 1.0f + 1.15f * wetness;
         const float insulationFactor = std::max(0.12f, 1.0f - 0.82f * insulation);
