@@ -31,8 +31,34 @@
     window.radHudLayout(JSON.stringify(command));
   }
 
+  var SEND_INTERVAL_MS = 100;
+  var lastSendAt = {};
+  var trailingTimer = {};
+
+  // Constraint: live range drags send at most every 100 ms, and the trailing timer sends the latest value.
   function sendUpdate(id, save) {
     if (!layout || !layout[id]) return;
+    if (save) {
+      clearTimeout(trailingTimer[id]);
+      trailingTimer[id] = null;
+      sendNow(id, true);
+      return;
+    }
+    if (trailingTimer[id]) return;
+    var wait = SEND_INTERVAL_MS - (Date.now() - (lastSendAt[id] || 0));
+    if (wait <= 0) {
+      sendNow(id, false);
+      return;
+    }
+    trailingTimer[id] = setTimeout(function () {
+      trailingTimer[id] = null;
+      sendNow(id, false);
+    }, wait);
+  }
+
+  function sendNow(id, save) {
+    if (!layout || !layout[id]) return;
+    lastSendAt[id] = Date.now();
     var cfg = layout[id];
     queueLayout({
       action: "update",

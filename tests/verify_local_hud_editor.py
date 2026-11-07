@@ -86,6 +86,14 @@ assert 'a.rfind("hudlayout:", 0) == 0' in rad_debug
 assert 'ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")))' in rad_debug
 assert 'cmds.swap(_pendingDebugCmds);' in rad_debug
 assert 'DispatchDebugCommand(c);' in rad_debug
+assert 'constexpr std::size_t kMaxPendingDebugCmds = 32;' in rad_debug
+assert '_pendingDebugCmds.erase(_pendingDebugCmds.begin());' in rad_debug
+assert 'HudLayoutWidgetKey(queued) == widget' in rad_debug
+assert 'Log()->warn("[DIAG] HandleDebugCommand' not in rad_debug
+assert 'Log()->warn("[DIAG] DispatchDebugCommand' not in rad_debug
+assert 'SEND_INTERVAL_MS = 100;' in editor_js
+assert 'function sendNow(id, save)' in editor_js
+assert 'sendUpdate(id, true);' in editor_js
 drain_debug = rad_debug.split('void RadiationEngine::DrainDebugCommands()', 1)[1].split(
     'void RadiationEngine::DispatchDebugCommand', 1
 )[0]
