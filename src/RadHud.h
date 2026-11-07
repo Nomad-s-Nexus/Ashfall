@@ -58,7 +58,10 @@ public:
     void InvalidateLocalHudLayoutViews();
     void ResetDebugMenuForSession();
     void PumpDeferredDebug();
+    void ReleaseStaleDebugFocus() noexcept;
     void OnBlockingMenuOpened();
+    // Constraint: read from the PlayerCharacter::Update worker, so pending state is atomic.
+    [[nodiscard]] bool DebugWorkPending() const noexcept { return _debugCloseRequested.load() || _debugTogglePending.load(); }
 
     [[nodiscard]] bool PlayerInWorld() const;
     [[nodiscard]] bool ViewsExist() const;
@@ -116,8 +119,9 @@ private:
 
     bool _debugOpen = false;
     std::atomic_bool _debugCloseRequested{ false };
-    bool _debugTogglePending = false;
+    std::atomic_bool _debugTogglePending{ false };
     bool _debugDesiredOpen = false;
 
     std::uint64_t _debugNextFocusRetryMs = 0;
+    std::uint64_t _debugFocusFailedSinceMs = 0;
 };

@@ -141,3 +141,13 @@ Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.html`, `dep
 - Item 1, `src/RadHudLifecycle.cpp:StartPrismaViewRetry`: the retry was started from `PushNeeds`, `PushClimate` and `PushToxic` every 4 Hz tick while a view was missing, including before the player was in the world. Each start spawned a thread whose first step un-suppressed then re-suppressed the vanilla HP/AP meters and called `CreateView`, which resets `g_inWorld` and `_maskPushed`. Now the three call sites gate on `PlayerInWorld()`, the retry is rate-limited to one start per second (`_viewRetryNotBeforeMs`), and `StartPrismaViewRetry` with all views present (`RadHud::ViewsExist`) only re-applies vanilla-meter suppression. `CreateRadHudViewOnPrismaThread` takes the same early exit, so a retry attempt never recreates existing views.
 - The `_viewCreateRetry` atomic guard still prevents overlapping retry threads.
 - Not verified in game.
+
+## Debug menu close: focus is released on the game thread, with a watchdog
+
+Reference: src/RadHud.cpp:RadHud::RequestDebugClose, src/RadHud.cpp:RadHud::ReleaseStaleDebugFocus, src/RadiationEngine.cpp:RadiationEngine::Update.
+
+Symptom risk: the close used to complete only inside PumpDeferredDebug, which runs from PollInput, queued from the PlayerCharacter::Update hook. If that stalled, the panel hid but the PrismaUI view kept focus, so the cursor stayed captured and Escape was swallowed.
+
+Fix: RequestDebugClose still sets the atomic close flag, and also queues PumpDeferredDebug as a main-thread task through Hooks::QueueMainThreadTask, so the close (and its Unfocus plus SetViewOwnsEscape(false)) runs on the next main-thread pump. ReleaseStaleDebugFocus runs at the top of the 4 Hz RadiationEngine::Update and calls Unfocus plus SetViewOwnsEscape(false) only when the menu is closed and the view still reports HasFocus. It never touches a view that is open or that another view has focused.
+
+Not verified in game: the watchdog path itself needs a run where the close hook is forced to stall.

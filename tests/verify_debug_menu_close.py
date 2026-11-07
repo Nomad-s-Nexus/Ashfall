@@ -70,6 +70,18 @@ def main() -> int:
     require("if (!open && _view != 0 && api->IsValid(_view))" in hud_cpp,
             "SetDebugMenu(false) must release focus when the DOM is not ready")
 
+    req_m = re.search(r"void RadHud::RequestDebugClose\(\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(req_m is not None, "RequestDebugClose body not found")
+    require("Hooks::QueueMainThreadTask" in req_m.group(1), "RequestDebugClose must queue a main-thread close task")
+    watch = re.search(r"void RadHud::ReleaseStaleDebugFocus\(\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(watch is not None, "ReleaseStaleDebugFocus must be defined")
+    require("!api->HasFocus(_view)" in watch.group(1) and "api->Unfocus(_view);" in watch.group(1)
+            and "SetDebugViewOwnsEscape(_view, false);" in watch.group(1),
+            "watchdog must Unfocus and release Escape only when the closed view still has focus")
+    require("RadHud::GetSingleton().ReleaseStaleDebugFocus();" in rad_cpp,
+            "RadiationEngine::Update must run the stale-focus watchdog")
+    require("void ReleaseStaleDebugFocus() noexcept;" in hud_h, "RadHud must declare ReleaseStaleDebugFocus()")
+
     print("verify_debug_menu_close: OK")
     return 0
 

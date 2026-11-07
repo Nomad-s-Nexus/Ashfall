@@ -144,6 +144,8 @@ bool RadiationEngine::Initialize()
 void RadiationEngine::Update()
 {
     auto logger = Log();
+    // Constraint: runs before the player checks so a stalled close cannot leave the view focused.
+    RadHud::GetSingleton().ReleaseStaleDebugFocus();
 
     try
     {

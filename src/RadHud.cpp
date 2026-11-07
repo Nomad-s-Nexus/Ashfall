@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "RadHud.h"
 #include "RadiationEngine.h"
+#include "Hooks.h"
 #include "ClimateRuntime.h"
 #include "RadNeedsTuning.h"
 
@@ -651,6 +652,14 @@ void RadHud::ToggleDebugMenu()
 void RadHud::RequestDebugClose() noexcept
 {
     _debugCloseRequested.store(true);
+    // Constraint: the close also runs as a game-thread task now, so focus/Escape release does not wait on PollInput.
+    try
+    {
+        Hooks::QueueMainThreadTask([]() { RadHud::GetSingleton().PumpDeferredDebug(); });
+    }
+    catch (...)
+    {
+    }
 }
 
 void RadHud::PumpDeferredDebug()
@@ -704,6 +713,16 @@ namespace
         if (auto* escape = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI9>())
             escape->SetViewOwnsEscape(view, owns);
     }
+}
+
+void RadHud::ReleaseStaleDebugFocus() noexcept
+{
+    // Constraint: the 4 Hz engine tick is the backstop; it only releases focus this view holds while the menu is closed.
+    if (_debugOpen || _api == nullptr || _view == 0) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view) || !api->HasFocus(_view)) return;
+    api->Unfocus(_view);
+    SetDebugViewOwnsEscape(_view, false);
 }
 
 void RadHud::SetDebugMenu(bool open)
