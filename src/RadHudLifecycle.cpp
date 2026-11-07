@@ -19,6 +19,12 @@ namespace
     {
         auto& hud = RadHud::GetSingleton();
         auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(userData);
+        // Constraint: when all views exist, only re-apply meter suppression (no un-suppress or CreateView).
+        if (hud.ViewsExist())
+        {
+            SuppressVanillaMetersOnPrismaThread(api11);
+            return;
+        }
         if (api11 && !hud.IsCompanionMode())
         {
             api11->SuppressHUDWidget("HUDPlayerHealthMeter", false);
@@ -32,11 +38,25 @@ namespace
 
 bool RadHud::StartPrismaViewRetry()
 {
-    _threadApi = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI11>();
+    if (!_threadApi)
+        _threadApi = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI11>();
     if (!_threadApi) return false;
+
+    // Constraint: at most one retry starts per second, and the atomic guard keeps retries from overlapping.
+    const auto nowMs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+    if (nowMs < _viewRetryNotBeforeMs.load()) return true;
     if (_viewCreateRetry.exchange(true)) return true;
+    _viewRetryNotBeforeMs.store(nowMs + 1000);
 
     auto* api11 = static_cast<PRISMA_UI_API::IVPrismaUI11*>(_threadApi);
+    if (ViewsExist())
+    {
+        // Constraint: all views already exist, so no retry thread is needed; re-apply suppression only.
+        _viewCreateRetry.store(false);
+        api11->DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11);
+        return true;
+    }
     auto* retrying = &_viewCreateRetry;
     std::thread([api11, retrying]() {
         // A successful DispatchToGameThread only proves the callback was accepted, not that all three

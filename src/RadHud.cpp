@@ -189,13 +189,24 @@ void RadHud::RequestAPI()
         _hudApi ? "toxicity widget will be positionable in the HUD editor"
                 : "standalone health, stamina, and tissue HUD enabled");
 
-    StartPrismaViewRetry();
+    // Constraint: view creation is deferred until the world exists (main.cpp's load wait starts it).
+    if (PlayerInWorld())
+        StartPrismaViewRetry();
 }
 
 bool RadHud::PlayerInWorld() const
 {
     // Constraint: view creation is deferred until the world exists, so no widget is built on a menu.
     return IsPlayerInWorld();
+}
+
+bool RadHud::ViewsExist() const
+{
+    if (!_api) return false;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    return _view != 0 && api->IsValid(_view) &&
+           _toxicView != 0 && api->IsValid(_toxicView) &&
+           _filterView != 0 && api->IsValid(_filterView);
 }
 
 void RadHud::CreateView()
@@ -337,9 +348,13 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         _toxicView == 0 || !api->IsValid(_toxicView) ||
         _filterView == 0 || !api->IsValid(_filterView))
     {
-        StartPrismaViewRetry();
-        if (!_threadApi)
-            CreateView();
+        // Constraint: view creation starts only once the player is in the world.
+        if (IsPlayerInWorld())
+        {
+            StartPrismaViewRetry();
+            if (!_threadApi)
+                CreateView();
+        }
         return;
     }
     SyncLocalHudLayout();

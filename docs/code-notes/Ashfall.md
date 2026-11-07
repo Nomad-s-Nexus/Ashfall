@@ -135,3 +135,9 @@ Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.html`, `dep
   - `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:toggleArmorMechanics`: Toggles on-demand quick-reference drawer explaining insulation, layer stacking rules, and wetness penalties without cluttering the primary diagnostics screen.
   - `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:.pip-grid-2`: Enforces strict 2-column button geometry with 34px fixed heights, 50% relative widths, uniform border radiuses, and green/amber/danger phosphor color states.
   - `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_diagnostics.js:updateVitalsInfo`: Dispatches live vitals telemetry to circular gauges, ECG pulse canvas, and geiger counter audio synthesizer while maintaining compatibility with headless assertions.
+
+## Radiation HUD push and view-retry throttling (audit items 1-4)
+
+- Item 1, `src/RadHudLifecycle.cpp:StartPrismaViewRetry`: the retry was started from `PushNeeds`, `PushClimate` and `PushToxic` every 4 Hz tick while a view was missing, including before the player was in the world. Each start spawned a thread whose first step un-suppressed then re-suppressed the vanilla HP/AP meters and called `CreateView`, which resets `g_inWorld` and `_maskPushed`. Now the three call sites gate on `PlayerInWorld()`, the retry is rate-limited to one start per second (`_viewRetryNotBeforeMs`), and `StartPrismaViewRetry` with all views present (`RadHud::ViewsExist`) only re-applies vanilla-meter suppression. `CreateRadHudViewOnPrismaThread` takes the same early exit, so a retry attempt never recreates existing views.
+- The `_viewCreateRetry` atomic guard still prevents overlapping retry threads.
+- Not verified in game.
