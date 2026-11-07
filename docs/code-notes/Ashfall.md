@@ -78,6 +78,16 @@ Log lines to look for:
 - `[StormFX] dome sequence milestone: approach|warning|active|aftermath begins at seq ...`
 
 Not verified in game.
+
+## God mode: plugin drains cannot kill a TGM player
+
+Status: TODO-verify. Runtime god-mode detection is not verified in game.
+
+- Drain sites: choking (`RadiationEngine.cpp:RadiationEngine::Update`) and storm HP loss (`RadEngine_Storm_FX.cpp:RadiationEngine::ApplyStormExposure`). The vomiting fit (`RadEngine_Tissue.cpp:RadiationEngine::UpdateTissueSymptoms`) is already floored at `kSymVomitFloorHp` and is unchanged.
+- Gate: `RadEngine_Storm_FX.cpp:RadiationEngine::GodModeHealthDrain` checks `[Survival] RespectGodMode` first, then `IsPlayerGodMode`, which runs only on the OG runtime. TODO-verify: the `RE::ID::PlayerCharacter::IsGodMode` address entry in `IDs.h`; NG and AE are untested.
+- Clamp: `RadCorrectnessPolicy.h:GodModeClampedDrain` keeps health at or above `kGodModeFloorHealth` (1). Heals pass through. Rads and the HUD are not clamped.
+- Config: `RadEngine_Mask.cpp:RadiationEngine::LoadFilterIni` reads `[Survival] RespectGodMode` (default 1).
+
 ## Phosphor HUD core rings
 
 - **Why arc paths.** Ultralight (PrismaUI) has no SVG masks and no `pathLength`, so a ring cannot be a dash-array circle. Each ring layer is a set of arc `<path>`s over a 64-unit viewBox (ring r=28, disc r=24.5). `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_core.js:build` writes n empty `<path d="">` elements per layer (trk, ghost, val) into the core markup, as the Phosphor reference does. `hud_core.js:ring` then sets each path's `d` for the range lo..hi (clockwise from the top) and leaves it empty when the segment is outside the range. Every core has 20 segments with a 3.2 gap; there is no small variant (the old 10-segment `sm` core was removed 2026-11-06). Setting `d` on existing elements avoids writing SVG markup at runtime, which Ultralight has not been verified to parse.
