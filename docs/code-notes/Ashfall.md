@@ -203,3 +203,12 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Native side: the DOM-ready callback in `src/RadHud.cpp:RadHud::CreateView` pushes `SetDebugMenu("0")`, and a newly created view resets `_debugOpen` to false, so native and page state agree on every (re)created view.
 - Contract guards: `tests/verify_debug_menu_close.py` (hidden first paint, single `SetDebugMenu(1)` gate, DOM-ready push) and `tests/showcase_tests.js` (DOMContentLoaded leaves the panel closed with no native bridge).
 - Not verified in game: the in-game open, Esc, CLOSE and Shift+F8 sequence after this change.
+
+## Debug panel follows native state on every transition
+
+- Log evidence (02:24 session): native open at 02:24:21.261 came through `src/RadiationEngine.cpp:RadiationEngine::PollInput` to `src/RadHud.cpp:RadHud::ToggleDebugMenu` case 2 (no deferred or pending log line, so not the pending path). Native close at 02:24:25.417 and the JS `close` at 02:24:23.293 and 02:24:27.690 each reached `src/RadHud.cpp:RadHud::SetDebugMenu` and the PrismaUI log shows Unfocus, SetViewOwnsEscape(false) and SetViewRole(kWidget). Native and page state agree after 27.691, so no state mismatch is visible in that trace.
+- Old gap: `src/RadHud.cpp:RadHud::SetDebugMenu` had a no-view branch that latched `_debugOpen = true` with no panel to show. It now drops an open request there.
+- Every page push goes through `src/RadHud.cpp:RadHud::PushDebugPanelState`, which records the delivered state in `_debugPushedOpen`. `src/RadHud.cpp:RadHud::SyncDebugPanelState` runs on the 4 Hz tick from `src/RadiationEngine.cpp:RadiationEngine::Update` and re-sends only when the delivered state differs. A new view resets the delivered state in `src/RadHud.cpp:RadHud::CreateView`.
+- Load and new game call `src/RadiationEngine.cpp:RadiationEngine::ResetDebugKeyBaseline`, which sets the Shift+F8 edge baseline to the key state held at load time. `src/RadHud.cpp:RadHud::ResetDebugMenuForSession` also clears a pending close request.
+- Contract guards: `tests/verify_debug_menu_close.py:main`.
+- Not verified in game: whether the Ultralight compositor repaints the hidden panel after a native-initiated close. The PrismaUI log shows `committed-frame reuse` with `contentChanged=0` after the 27.691 close, which could mean a stale frame on screen. This is not proven and a page-state fix does not address it.
