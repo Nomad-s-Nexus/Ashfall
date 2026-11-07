@@ -122,6 +122,12 @@ window.SetDebugMenu = function(on) {
   window.updateGeigerRadLevel = function(rads) {
     currentRads = Number(rads) || 0;
   };
+  // Constraint: clickLoop stops itself while FX is off, so FX toggle-on must restart it (clickLoop clears any pending timer first).
+  var baseTogglePipAudio = window.togglePipAudio;
+  window.togglePipAudio = function() {
+    if (baseTogglePipAudio) baseTogglePipAudio();
+    if (window.pipAudio && window.pipAudio.isEnabled()) clickLoop();
+  };
 })();
 if (window.pipAudio) {
   window.pipAudio.playGeigerClick = function() {
