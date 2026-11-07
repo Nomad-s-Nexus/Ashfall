@@ -336,6 +336,7 @@ namespace
                         return;
                     }
                     logger->info("[PostLoad] task entered on game-main thread {}.", ::GetCurrentThreadId());
+                    RadHud::GetSingleton().BeginLoadSettle();
 
                     if (!RadLifecycle::EnsureEngineActiveOnGameThread())
                     {
@@ -410,6 +411,7 @@ namespace
                     RadHud::GetSingleton().ResetDebugMenuForSession();
                     if (!RadCorrectnessPolicy::IsCurrentLoadGeneration(
                             loadGeneration, g_radLoadGeneration.load(std::memory_order_acquire))) return;
+                    RadHud::GetSingleton().BeginLoadSettle();
                     engine.OnPostLoad();   // reset per-load tracking
                     ClimateRuntime::GetSingleton().Reset();
                     NeedsRuntime::GetSingleton().Reset();

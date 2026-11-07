@@ -106,16 +106,6 @@ namespace
         return false;
     }
 
-    // OnDomReady callbacks may run on PrismaUI's web thread while CreateView/recovery runs on the
-    // verified game thread. The bridge pointers themselves therefore need synchronization, not only
-    // the bools they point at. Atomic pointer publication keeps late/recovered callbacks defined.
-    std::atomic<std::atomic<bool>*> g_domReadyFlag{ nullptr };
-    std::atomic<PRISMA_UI_API::IVPrismaUI2*> g_apiForCb{ nullptr };
-    std::atomic<std::atomic<bool>*> g_toxicDomReadyFlag{ nullptr };
-    std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_hudApiForCb{ nullptr };
-    std::atomic<std::atomic<bool>*> g_toxicWidgetRegisteredFlag{ nullptr };
-    std::atomic<std::atomic<bool>*> g_filterDomReadyFlag{ nullptr };
-
     float EffectiveActorValueMax(const RE::PlayerCharacter& player, const RE::ActorValueInfo& value)
     {
         return std::max(0.0f,
@@ -214,7 +204,8 @@ void RadHud::CreateView()
 {
     auto logger = spdlog::get("FalloutAnomaly");
     _viewsReady.store(false);
-    if (!_api) return;
+    // Constraint: no view is created inside the load settle window; the retry worker and the tick re-attempt it afterwards.
+    if (!_api || !LoadSettled()) return;
 
     // Re-evaluate the in-world gate for each loaded game / new game.
     g_inWorld.store(false);
@@ -254,34 +245,20 @@ void RadHud::CreateView()
         }
     }
 
-    // Publish callback state before creating views. These pointers are read from PrismaUI's web thread.
-    g_apiForCb.store(api, std::memory_order_release);
-    g_hudApiForCb.store(static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi), std::memory_order_release);
     _toxicWidgetRegistered.store(_hudApi != nullptr);
-    g_toxicWidgetRegisteredFlag.store(&_toxicWidgetRegistered, std::memory_order_release);
 
     // --- Main overlay view (radhud.html: gas-mask overlay, filter, storm banners, popup, debug) ---
     if (_view == 0 || !api->IsValid(_view))
     {
         _domReady = false;
-        g_domReadyFlag.store(&_domReady, std::memory_order_release);
         // Constraint: a freshly created view starts with the native debug menu closed, matching its hidden panel.
         _debugOpen = false;
         // Constraint: a new view has received no debug state yet, so the first sync pushes the native state.
         _debugPushedOpen = -1;
 
-        _view = api->CreateView(kViewPath, [](PrismaView v) {
-            auto* a = g_apiForCb.load(std::memory_order_acquire);
-            if (!a || !a->IsValid(v)) return;
-            a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
-            a->Show(v);
-            // Constraint: DOM-ready pushes the closed state so the page's debug panel matches native _debugOpen (false here).
-            a->InteropCall(v, "SetDebugMenu", "0");
-            RadHud::GetSingleton().PushTheme(v);
-            // Flag LAST: a Push seeing _domReady=true must find the listener already registered.
-            if (auto* flag = g_domReadyFlag.load(std::memory_order_acquire))
-                flag->store(true, std::memory_order_release);
-        });
+        _domLive[kDomSlotMain].store(0);
+        _view = api->CreateView(kViewPath, [](PrismaView v) { RadHud::NoteDomReady(kDomSlotMain, v); });
+        _domLive[kDomSlotMain].store(_view);
 
         // Hide-until-DOM-ready. Guarded: if the DOM-ready callback already ran (synchronous or
         // very fast), its Show must win — an unconditional Hide here would blank the HUD all session.
@@ -293,32 +270,18 @@ void RadHud::CreateView()
     if (_toxicView == 0 || !api->IsValid(_toxicView))
     {
         _toxicDomReady = false;
-        g_toxicDomReadyFlag.store(&_toxicDomReady, std::memory_order_release);
 
-        _toxicView = api->CreateView(kToxicViewPath, [](PrismaView v) {
-            auto* a = g_apiForCb.load(std::memory_order_acquire);
-            if (!a || !a->IsValid(v)) return;
-            auto* hudApi = g_hudApiForCb.load(std::memory_order_acquire);
-            a->Show(v);
-            RadHud::GetSingleton().PushTheme(v);
-            if (hudApi)
-            {
-                hudApi->RegisterWidget(v, CompanionPlaced(kToxicDesc));
-                if (auto* flag = g_toxicWidgetRegisteredFlag.load(std::memory_order_acquire))
-                    flag->store(true, std::memory_order_release);
-            }
-            if (auto* flag = g_toxicDomReadyFlag.load(std::memory_order_acquire))
-                flag->store(true, std::memory_order_release);
-        });
+        _domLive[kDomSlotToxic].store(0);
+        _toxicView = api->CreateView(kToxicViewPath, [](PrismaView v) { RadHud::NoteDomReady(kDomSlotToxic, v); });
+        _domLive[kDomSlotToxic].store(_toxicView);
 
         // Same guarded hide-until-DOM-ready as the main view above.
         if (_toxicView != 0) { setHudViewOrder(_toxicView); logger->info("[HUD] Toxicity widget view created (handle {}).", _toxicView); if (!_toxicDomReady.load()) api->Hide(_toxicView); }
     }
     else if (_hudApi && api->IsValid(_toxicView))
     {
-        // Existing toxic view on reload: re-register so PrismaHUD re-applies the saved layout.
-        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_toxicView, CompanionPlaced(kToxicDesc));
-        _toxicWidgetRegistered.store(true);
+        // Constraint: an existing toxic view is re-registered by the pump, never from the view-creation path.
+        _widgetReapplyPending.store(true);
     }
 
     // --- Filter/mask bar widget view (hud_filter.html), registered with PrismaHUD_F4 for positioning ---
@@ -326,26 +289,18 @@ void RadHud::CreateView()
     {
         _airPayload.clear();
         _filterDomReady = false;
-        g_filterDomReadyFlag.store(&_filterDomReady, std::memory_order_release);
 
-        _filterView = api->CreateView(kFilterViewPath, [](PrismaView v) {
-            auto* a = g_apiForCb.load(std::memory_order_acquire);
-            if (!a || !a->IsValid(v)) return;
-            auto* hudApi = g_hudApiForCb.load(std::memory_order_acquire);
-            a->Show(v);
-            RadHud::GetSingleton().PushTheme(v);
-            if (hudApi)
-                hudApi->RegisterWidget(v, CompanionPlaced(kFilterDesc));
-            if (auto* flag = g_filterDomReadyFlag.load(std::memory_order_acquire))
-                flag->store(true, std::memory_order_release);
-        });
+        _domLive[kDomSlotFilter].store(0);
+        _filterView = api->CreateView(kFilterViewPath, [](PrismaView v) { RadHud::NoteDomReady(kDomSlotFilter, v); });
+        _domLive[kDomSlotFilter].store(_filterView);
 
         // Same guarded hide-until-DOM-ready as the views above.
         if (_filterView != 0) { setHudViewOrder(_filterView); logger->info("[HUD] Filter widget view created (handle {}).", _filterView); if (!_filterDomReady.load()) api->Hide(_filterView); }
     }
     else if (_hudApi)
     {
-        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(_filterView, CompanionPlaced(kFilterDesc));
+        // Constraint: an existing filter view is re-registered by the pump, never from the view-creation path.
+        _widgetReapplyPending.store(true);
     }
 
     EnsureClimateView();
@@ -356,9 +311,66 @@ void RadHud::CreateView()
     SyncLocalHudLayout();
 }
 
-void RadHud::PushToxic(float tissue, float permanentTissue)
+// Constraint: the finalizers below run on the game thread from PumpDomReady, after the DOM-ready callback has only published the handle.
+void RadHud::FinalizeMainDomReady(uint64_t view)
 {
     if (!_api) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(view)) return;
+    api->RegisterJSListener(view, "radDebug", OnRadDebugCommand);
+    api->Show(view);
+    // Constraint: DOM-ready pushes the closed state so the page's debug panel matches native _debugOpen (false here).
+    api->InteropCall(view, "SetDebugMenu", "0");
+    PushTheme(view);
+    // Constraint: set _domReady last so a Push that sees it finds the listener registered.
+    _domReady.store(true, std::memory_order_release);
+}
+
+void RadHud::FinalizeToxicDomReady(uint64_t view)
+{
+    if (!_api) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(view)) return;
+    api->Show(view);
+    PushTheme(view);
+    if (_hudApi)
+    {
+        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(view, CompanionPlaced(kToxicDesc));
+        _toxicWidgetRegistered.store(true);
+    }
+    _toxicDomReady.store(true, std::memory_order_release);
+}
+
+void RadHud::FinalizeFilterDomReady(uint64_t view)
+{
+    if (!_api) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(view)) return;
+    api->Show(view);
+    PushTheme(view);
+    if (_hudApi)
+        static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi)->RegisterWidget(view, CompanionPlaced(kFilterDesc));
+    _filterDomReady.store(true, std::memory_order_release);
+}
+
+void RadHud::ReapplyWidgetRegistrations()
+{
+    if (!_api || !_hudApi) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    auto* hud = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
+    // Constraint: a re-registration re-applies the saved PrismaHUD layout to an existing widget view.
+    if (_toxicView != 0 && api->IsValid(_toxicView))
+    {
+        hud->RegisterWidget(_toxicView, CompanionPlaced(kToxicDesc));
+        _toxicWidgetRegistered.store(true);
+    }
+    if (_filterView != 0 && api->IsValid(_filterView))
+        hud->RegisterWidget(_filterView, CompanionPlaced(kFilterDesc));
+}
+
+void RadHud::PushToxic(float tissue, float permanentTissue)
+{
+    if (!_api || !LoadSettled()) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     if (_view == 0 || !api->IsValid(_view) ||
         _toxicView == 0 || !api->IsValid(_toxicView) ||

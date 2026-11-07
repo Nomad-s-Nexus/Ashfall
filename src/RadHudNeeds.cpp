@@ -15,6 +15,15 @@ namespace
     }
 }
 
+void RadHud::FinalizeNeedsDomReady(uint64_t view)
+{
+    if (!_api) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(view)) return;
+    PushTheme(view);
+    _needsReadyView.store(view);
+}
+
 void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
 {
     if (!_api) return;
@@ -24,13 +33,14 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         _needsReadyView.store(0);
         _needsWidgetRegistered = false;
         _needsPayload.clear();
-        // Constraint: build views through the shared retry and only once the player is in the world.
-        if (!PlayerInWorld()) return;
+        // Constraint: build views through the shared retry and only once the player is in the world and the load has settled.
+        if (!PlayerInWorld() || !LoadSettled()) return;
         StartPrismaViewRetry();
+        _domLive[kDomSlotNeeds].store(0);
         _needsView = api->CreateView("Interface/FalloutAnomaly/hud_needs.html", [](PrismaView view) {
-            RadHud::GetSingleton().PushTheme(view);
-            RadHud::GetSingleton()._needsReadyView.store(view);
+            RadHud::NoteDomReady(RadHud::kDomSlotNeeds, view);
         });
+        _domLive[kDomSlotNeeds].store(_needsView);
         if (_needsView && api->IsValid(_needsView))
         {
             api->SetOrder(_needsView, 1'000'000);
@@ -47,7 +57,8 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
         }
         return;
     }
-    if (_hudApi && !_needsWidgetRegistered)
+    // Constraint: the needs widget joins the PrismaHUD layout only once the companion bridge is ready.
+    if (_hudApi && !_needsWidgetRegistered && BridgeReady())
     {
         auto* hud = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
         hud->RegisterWidget(_needsView, CompanionPlaced({ "rad_needs", "Needs", 22.0f / 1920.0f,

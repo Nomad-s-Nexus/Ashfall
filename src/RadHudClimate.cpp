@@ -25,11 +25,6 @@ namespace
         98.0f / 1080.0f
     };
 
-    std::atomic<std::atomic<bool>*> g_climateDomReadyFlag{ nullptr };
-    std::atomic<std::atomic<bool>*> g_climateWidgetRegisteredFlag{ nullptr };
-    std::atomic<PRISMA_UI_API::IVPrismaUI2*> g_climateApiForCb{ nullptr };
-    std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_climateHudApiForCb{ nullptr };
-
     int TempTenth(float value) noexcept
     {
         if (!std::isfinite(value))
@@ -52,16 +47,38 @@ void RadHud::ResetClimateForSession() noexcept
     _toxicPayload.clear();
 }
 
-void RadHud::EnsureClimateView()
+void RadHud::FinalizeClimateDomReady(uint64_t view)
 {
     if (!_api)
+        return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(view))
+        return;
+    api->Show(view);
+    PushTheme(view);
+    if (_hudApi)
+    {
+        auto* hudApi = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
+        hudApi->RegisterWidget(view, CompanionPlaced(kClimateDesc));
+        hudApi->ApplyLayout(view);
+        _climateWidgetRegistered.store(true, std::memory_order_release);
+    }
+    _climateDomReady.store(true, std::memory_order_release);
+}
+
+void RadHud::EnsureClimateView()
+{
+    // Constraint: the climate view and its PrismaHUD registration never run inside the load settle window.
+    if (!_api || !LoadSettled())
         return;
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     if (_climateView != 0 && api->IsValid(_climateView))
     {
         api->SetOrder(_climateView, kHudViewOrder);
-        if (_hudApi && !_climateWidgetRegistered.load(std::memory_order_acquire))
+        // Constraint: an existing climate view joins the layout only after its DOM-ready finalize, which otherwise registers it.
+        if (_hudApi && _climateDomReady.load(std::memory_order_acquire) &&
+            !_climateWidgetRegistered.load(std::memory_order_acquire) && BridgeReady())
         {
             auto* hudApi = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
             hudApi->RegisterWidget(_climateView, CompanionPlaced(kClimateDesc));
@@ -73,27 +90,12 @@ void RadHud::EnsureClimateView()
 
     _climateDomReady.store(false, std::memory_order_release);
     _climateWidgetRegistered.store(false, std::memory_order_release);
-    g_climateDomReadyFlag.store(&_climateDomReady, std::memory_order_release);
-    g_climateWidgetRegisteredFlag.store(&_climateWidgetRegistered, std::memory_order_release);
-    g_climateApiForCb.store(api, std::memory_order_release);
-    g_climateHudApiForCb.store(static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi), std::memory_order_release);
 
+    _domLive[kDomSlotClimate].store(0);
     _climateView = api->CreateView(kClimateViewPath, [](PrismaView view) {
-        auto* climateApi = g_climateApiForCb.load(std::memory_order_acquire);
-        auto* hudApi = g_climateHudApiForCb.load(std::memory_order_acquire);
-        if (climateApi)
-            climateApi->Show(view);
-        RadHud::GetSingleton().PushTheme(view);
-        if (climateApi && hudApi && climateApi->IsValid(view))
-        {
-            hudApi->RegisterWidget(view, CompanionPlaced(kClimateDesc));
-            hudApi->ApplyLayout(view);
-            if (auto* flag = g_climateWidgetRegisteredFlag.load(std::memory_order_acquire))
-                flag->store(true, std::memory_order_release);
-        }
-        if (auto* flag = g_climateDomReadyFlag.load(std::memory_order_acquire))
-            flag->store(true, std::memory_order_release);
+        RadHud::NoteDomReady(RadHud::kDomSlotClimate, view);
     });
+    _domLive[kDomSlotClimate].store(_climateView);
 
     if (_climateView != 0 && api->IsValid(_climateView))
     {

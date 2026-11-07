@@ -217,6 +217,8 @@ void RadHud::SyncLocalHudLayout()
 {
     if (!_api) return;
     EnsureLoaded();
+    // Constraint: the layout bridge (listener, releases, applies) waits for the load settle and the companion bridge gate.
+    if (!BridgeReady()) return;
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
