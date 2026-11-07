@@ -586,5 +586,18 @@ int main()
     Require(Near(GodModeClampedDrain(1.0f, 10.0f, true, true), 10.0f));
     Require(Near(GodModeClampedDrain(5.0f, 0.0f, true, true), 0.0f));
 
+    // Constraint: UI text keeps valid BMP UTF-8 and reduces controls, above-BMP code points and malformed bytes to '?'.
+    Require(SanitizeUiText("Raider Helm") == "Raider Helm");
+    Require(SanitizeUiText("caf\xC3\xA9 25\xC2\xB0") == "caf\xC3\xA9 25\xC2\xB0");
+    Require(SanitizeUiText("a\xF0\x9F\x98\x80" "b") == "a?b");
+    Require(SanitizeUiText("x\xE4\xB8") == "x?");
+    Require(SanitizeUiText("x\xC3") == "x?");
+    Require(SanitizeUiText("a\tb\nc\x7F") == "a?b?c?");
+    Require(SanitizeUiText("\x80z") == "?z");
+    Require(SanitizeUiText("\xC0\xAF") == "??");
+    Require(SanitizeUiText("\xE0\x80\xAF") == "???");
+    Require(SanitizeUiText("\xED\xA0\x80") == "???");
+    Require(SanitizeUiText("") == "");
+
     return 0;
 }

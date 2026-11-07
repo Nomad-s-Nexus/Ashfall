@@ -5,7 +5,9 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace RadCorrectnessPolicy
@@ -462,5 +464,65 @@ namespace RadCorrectnessPolicy
             return 0.0f;
         const float take = (-kDamage < room) ? -kDamage : room;
         return -take;
+    }
+
+    // Constraint: UI text keeps valid UTF-8 up to U+FFFF; controls, code points above U+FFFF and malformed or truncated sequences each become one '?'.
+    inline std::string SanitizeUiText(std::string_view a_text)
+    {
+        std::string out;
+        out.reserve(a_text.size());
+        std::size_t i = 0;
+        while (i < a_text.size())
+        {
+            const auto lead = static_cast<unsigned char>(a_text[i]);
+            if (lead < 0x80)
+            {
+                out.push_back((lead < 0x20 || lead == 0x7F) ? '?' : static_cast<char>(lead));
+                ++i;
+                continue;
+            }
+            std::size_t len = 0;
+            unsigned char lo = 0x80;
+            unsigned char hi = 0xBF;
+            if (lead >= 0xC2 && lead <= 0xDF)
+                len = 2;
+            else if (lead >= 0xE0 && lead <= 0xEF)
+            {
+                len = 3;
+                if (lead == 0xE0) lo = 0xA0;
+                if (lead == 0xED) hi = 0x9F;
+            }
+            else if (lead >= 0xF0 && lead <= 0xF4)
+            {
+                len = 4;
+                if (lead == 0xF0) lo = 0x90;
+                if (lead == 0xF4) hi = 0x8F;
+            }
+            if (len == 0)
+            {
+                out.push_back('?');
+                ++i;
+                continue;
+            }
+            std::size_t valid = 1;
+            while (valid < len && i + valid < a_text.size())
+            {
+                const auto next = static_cast<unsigned char>(a_text[i + valid]);
+                const unsigned char low = valid == 1 ? lo : 0x80;
+                const unsigned char high = valid == 1 ? hi : 0xBF;
+                if (next < low || next > high)
+                    break;
+                ++valid;
+            }
+            if (valid < len || len == 4)
+            {
+                out.push_back('?');
+                i += valid;
+                continue;
+            }
+            out.append(a_text.substr(i, len));
+            i += len;
+        }
+        return out;
     }
 }

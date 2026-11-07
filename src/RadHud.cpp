@@ -545,7 +545,7 @@ void RadHud::PushArmor(
     {
         payload["pieces"].push_back({
             { "formID", piece.formID },
-            { "name", piece.name },
+            { "name", RadCorrectnessPolicy::SanitizeUiText(piece.name) },
             { "warmth", percent(piece.warmth01) },
             { "insulation", percent(piece.insulation01) },
             { "override", piece.overridden },
