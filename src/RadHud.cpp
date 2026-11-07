@@ -53,9 +53,9 @@ namespace
     // was wrong and is corrected there now; passing raw pixels puts the editor drag box off-screen at
     // e.g. 30*1920, which is why the toxicity widget registered but never appeared usable in the editor.)
     constexpr PRISMA_HUD_API::WidgetDesc kToxicDesc{
-        kToxicWidgetId, "Toxicity", 30.0f / 1920.0f, 882.0f / 1080.0f, 240.0f / 1920.0f, 58.0f / 1080.0f };
+        kToxicWidgetId, "Toxicity", 22.0f / 1920.0f, 638.0f / 1080.0f, 360.0f / 1920.0f, 98.0f / 1080.0f };
     constexpr PRISMA_HUD_API::WidgetDesc kFilterDesc{
-        kFilterWidgetId, "Gas Mask Filter", 22.0f / 1920.0f, 1014.0f / 1080.0f, 180.0f / 1920.0f, 58.0f / 1080.0f };
+        kFilterWidgetId, "Gas Mask Filter", 22.0f / 1920.0f, 962.0f / 1080.0f, 360.0f / 1920.0f, 98.0f / 1080.0f };
 
     // HUD gate: latches once the player is in the world (cleared each load in
     // CreateView) so the inventory scan only runs during the intro.

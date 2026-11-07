@@ -19,10 +19,10 @@ namespace
 
     struct LayoutState
     {
-        WidgetLayout toxic{ 30.0f / 1920.0f, 882.0f / 1080.0f, 1.0f, 0.0f, false };
-        WidgetLayout filter{ 22.0f / 1920.0f, 1014.0f / 1080.0f, 1.0f, 0.0f, false };
-        WidgetLayout needs{ 22.0f / 1920.0f, 812.0f / 1080.0f, 1.0f, 0.0f, false };
-        WidgetLayout climate{ 22.0f / 1920.0f, 944.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout toxic{ 22.0f / 1920.0f, 638.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout filter{ 22.0f / 1920.0f, 962.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout needs{ 22.0f / 1920.0f, 746.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout climate{ 22.0f / 1920.0f, 854.0f / 1080.0f, 1.0f, 0.0f, false };
         bool fahrenheit{ false };
         bool loaded{ false };
         bool preview{ false };

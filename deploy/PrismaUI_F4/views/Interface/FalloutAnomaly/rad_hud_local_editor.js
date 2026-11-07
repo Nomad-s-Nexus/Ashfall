@@ -1,9 +1,9 @@
 (function () {
   var defaults = {
-    rad_toxic: { name: "Fallback vitals: Health + Rads / Stamina (AP) / Tissue", x: 30 / 1920, y: 882 / 1080, s: 1, r: 0, hidden: false },
-    rad_filter: { name: "Gas mask filter", x: 22 / 1920, y: 1014 / 1080, s: 1, r: 0, hidden: false },
-    rad_needs: { name: "Needs: hunger / thirst / fatigue", x: 22 / 1920, y: 812 / 1080, s: 1, r: 0, hidden: false },
-    rad_climate: { name: "Climate: CORE / AIR / WET / WARM / HEAT", x: 22 / 1920, y: 944 / 1080, s: 1, r: 0, hidden: false }
+    rad_toxic: { name: "Fallback vitals: Health + Rads / Stamina (AP) / Tissue", x: 22 / 1920, y: 638 / 1080, s: 1, r: 0, hidden: false },
+    rad_filter: { name: "Gas mask filter", x: 22 / 1920, y: 962 / 1080, s: 1, r: 0, hidden: false },
+    rad_needs: { name: "Needs: hunger / thirst / fatigue", x: 22 / 1920, y: 746 / 1080, s: 1, r: 0, hidden: false },
+    rad_climate: { name: "Climate: CORE / AIR / WET / WARM / HEAT", x: 22 / 1920, y: 854 / 1080, s: 1, r: 0, hidden: false }
   };
   var editor = null;
   var status = null;

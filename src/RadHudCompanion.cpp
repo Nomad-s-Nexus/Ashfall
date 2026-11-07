@@ -55,8 +55,9 @@ bool CompanionWidgetDefault(const char* id, float& x, float& y)
 {
     struct Slot { const char* id; float x; float y; };
     constexpr Slot kSlots[] = {
-        { "rad_needs", 290.0f, 962.0f }, { "rad_filter", 478.0f, 962.0f },
-        { "rad_climate", 400.0f, 892.0f }, { "rad_toxic", 652.0f, 892.0f } };
+        // Constraint: companion rows keep clear of Phosphor's rings, XP text and compass row; see docs/code-notes/Ashfall.md.
+        { "rad_toxic", 396.0f, 538.0f }, { "rad_needs", 396.0f, 646.0f },
+        { "rad_climate", 396.0f, 754.0f }, { "rad_filter", 396.0f, 862.0f } };
     if (!id || !RadHud::GetSingleton().IsCompanionMode()) return false;
     for (const auto& slot : kSlots)
     {

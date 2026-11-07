@@ -20,9 +20,9 @@ namespace
         kClimateWidgetId,
         "Climate",
         22.0f / 1920.0f,
-        944.0f / 1080.0f,
-        250.0f / 1920.0f,
-        58.0f / 1080.0f
+        854.0f / 1080.0f,
+        360.0f / 1920.0f,
+        98.0f / 1080.0f
     };
 
     std::atomic<std::atomic<bool>*> g_climateDomReadyFlag{ nullptr };

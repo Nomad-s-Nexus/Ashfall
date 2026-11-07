@@ -1,6 +1,14 @@
+## Unreleased: the storm portal shows again; only the vortex tube stays hidden (not verified in game)
+
+**The storm portal is back.** Hiding the tube also hid the portal ring (`PortalA`, `PortalB`, `DiskOuter`, `DiskInner`, `DiskHalo`, `PhotonRing`), so only the clouds were left. Now only the tube shapes (`CoreBack`, `CoreFront`) stay culled, and the portal follows its baked window (about 128 to 320 s). Contract: `tests/correctness_policy_tests.cpp`, `tests/verify_dome_visibility.py`. Notes: `docs/code-notes/Ashfall.md`. Not verified in game.
+
 ## Unreleased: the storm dome no longer draws the floating tube (build-verified only)
 
 **The glassy tube and glowing ring in the sky are gone.** The baked dome's vortex core (`CoreBack`, `CoreFront`) is an open-topped cylinder with a hard rim, and the portal group (`PortalA`, `PortalB`, `DiskOuter`, `DiskInner`, `DiskHalo`, `PhotonRing`) sits inside it, about 4000 units from the player. `VisibleShapeMask` now clears those eight shapes at every sequence time, so they stay culled. The cloud decks, overcast, lightning and the sky fade are unchanged. Contract: `tests/correctness_policy_tests.cpp`. Notes: `docs/code-notes/Ashfall.md`. Not yet compiled or tested in game.
+
+## Unreleased: Phosphor HUD cores share one size and one grid (not verified in game)
+
+**Every status core is now 64 px in the same 84 x 98 cell, with 8 px gaps, and the four widget rows share one left edge at a 108 px pitch.** Labels are 11 px and values 12 px. The defaults are updated together in each widget, the editor, `RadHudLayout.cpp` and the companion table; saved layouts still win. Checked by `tests/status_hud_tests.js` and `tests/verify_hud_core_layout.py` only.
 
 ## Unreleased: Phosphor HUD cores are the only status look (not tested in game)
 

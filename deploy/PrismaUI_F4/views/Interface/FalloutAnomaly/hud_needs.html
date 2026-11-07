@@ -13,7 +13,7 @@ var DISEASE_NAMES={1:'FEVER',2:'WASTING'};
 var PHOS_WORDS={hunger:['SATED','PECKISH','HUNGRY','STARVING'],thirst:['QUENCHED','THIRSTY','PARCHED','DEHYDRATED'],sleepDebt:['RESTED','TIRED','DROWSY','EXHAUSTED']};
 var PHOS_ICONS={hunger:['<path d="M8 4v6c0 1.2.9 2 2 2v8M10 4v5M12 4v6c0 1.2-.9 2-2 2M16.5 4c-1.6 0-2.5 2-2.5 5.5s1 3 2.5 3V20"/>','Food'],thirst:['<path d="M12 3.5c3.4 4.3 5.5 7.2 5.5 10.2a5.5 5.5 0 0 1-11 0c0-3 2.1-5.9 5.5-10.2z"/>','Water'],sleepDebt:['<path d="M15 4.5a8 8 0 1 0 4.8 11.7A7 7 0 0 1 15 4.5z"/>','Rest']};
 var cores={};
-['hunger','thirst','sleepDebt'].forEach(function(id){cores[id]=PhosCore.build(document.getElementById(id+'Core'),PHOS_ICONS[id][0],PHOS_ICONS[id][1],true);});
+['hunger','thirst','sleepDebt'].forEach(function(id){cores[id]=PhosCore.build(document.getElementById(id+'Core'),PHOS_ICONS[id][0],PHOS_ICONS[id][1]);});
 function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
 function stageOf(v){return v<STAGE1?0:v<STAGE2?1:v<STAGE3?2:3;}
 function renderNeeds(d){
@@ -67,7 +67,7 @@ window.setEditorPreview=function(json){
 window.setTheme=function(){};
 
 var WIDGET_ID='rad_needs';
-var DEF={xf:22/1920,yf:812/1080,wf:176/1920,hf:58/1080};
+var DEF={xf:22/1920,yf:746/1080,wf:268/1920,hf:98/1080};
 var _want=null,_lastW=0,_lastH=0;
 function flushPos(){
   if(!_want)return;

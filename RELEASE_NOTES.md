@@ -11,7 +11,7 @@ was not measured.** It is validated by contract tests and a green build only. Se
 
 1. **The floating glass tube is gone from storms.** During Ash Fallout and other storms the
    baked dome drew a glassy tube with a glowing ring hanging about 4000 units away in the sky.
-   The plugin now never draws those eight shapes (the vortex core and the portal group). The
+   The plugin now never draws the two vortex-core shapes (the tube); the portal shapes show again. The
    cloud decks, lightning and the sky fade are unchanged. Whether the remaining cloud layers
    read as ash was not checked in game.
 2. **Every status icon is a Phosphor HUD style core.** Hunger, thirst, fatigue, warmth,
