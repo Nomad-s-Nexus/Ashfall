@@ -88,6 +88,16 @@ Status: TODO-verify. Runtime god-mode detection is not verified in game.
 - Clamp: `RadCorrectnessPolicy.h:GodModeClampedDrain` keeps health at or above `kGodModeFloorHealth` (1). Heals pass through. Rads and the HUD are not clamped.
 - Config: `RadEngine_Mask.cpp:RadiationEngine::LoadFilterIni` reads `[Survival] RespectGodMode` (default 1).
 
+## Pip-Boy redesign (PR #59) on the debug-menu stack
+
+Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.html`, `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:closeDebugMenu`, `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:RadShowcase.startTour`, and `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud_interactive.js`.
+
+- #59's markup, CSS and JS are taken as-is. Its module split (`radhud_interactive.js`, loaded by `radhud.html`) is kept.
+- #58's close behaviour is re-applied: the footer CLOSE button calls `closeDebugMenu()` (local hide, then native `close`). Escape closes the debug panel through the single keydown handler. #59's duplicate Escape branch was removed. `startTour()` closes through `closeDebugMenu()`.
+- `tests/verify_hud_layout_bridge.py` now checks #59's armor markup (`armor-region-card`, `armorInsulation`, `armorEffective`).
+- `tests/verify_survival_menu.py` asserts the redesign's `.diagnostics dl` font size (11px) instead of the old 15px. This weakens the readability check and is flagged for a decision.
+- Not verified in game.
+
 ## Phosphor HUD core rings
 
 - **Why arc paths.** Ultralight (PrismaUI) has no SVG masks and no `pathLength`, so a ring cannot be a dash-array circle. Each ring layer is a set of arc `<path>`s over a 64-unit viewBox (ring r=28, disc r=24.5). `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_core.js:build` writes n empty `<path d="">` elements per layer (trk, ghost, val) into the core markup, as the Phosphor reference does. `hud_core.js:ring` then sets each path's `d` for the range lo..hi (clockwise from the top) and leaves it empty when the segment is outside the range. Every core has 20 segments with a 3.2 gap; there is no small variant (the old 10-segment `sm` core was removed 2026-11-06). Setting `d` on existing elements avoids writing SVG markup at runtime, which Ultralight has not been verified to parse.
