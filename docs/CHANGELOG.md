@@ -1,3 +1,7 @@
+## Unreleased: M50 mask view shelved, PNG visor back (not verified in game)
+
+**The 3D M50 mask view is not shipped for now.** Its mesh, materials, textures, `RadOverhaul_MaskFX.esp` and the `RadMaskViewFX` script moved to `wip/m50-mask/`, which is not packaged. The flat PNG gas-mask visor is the mask view again. Notes: `docs/code-notes/Rad-Overhaul-Fallout-4.md`.
+
 ## Unreleased: enclosed shelter keeps the player chilled, not freezing, with no wind chill (not verified in game)
 
 **Standing inside a four-wall, roofed building is now an enclosed shelter.** The cold ambient reads as 8 C (`[Climate] EnclosedAmbientFloorC`, range -10 to 20), so the HUD shows COLD rather than FREEZING, and wind is removed from both the cooling and the HUD wind readout. A roofed spot with open sides is partial shelter: thermal shelter is 0.5, up from 0.25 before this change, and wind is cut by 75%. A roof counts when the straight-up ray hits and at least 3 of the 5 roof rays hit in total, the same rule as the radiation roof fan. `[Climate] EnclosedShelterEnabled=0` turns the enclosed level off. Notes: `docs/code-notes/Ashfall.md`. Not verified in game.

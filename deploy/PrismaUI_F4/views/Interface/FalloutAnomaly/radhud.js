@@ -34,7 +34,7 @@ window.updateFilter = function(json) {
 };
 
 var MASK_ON_DELAY = 0.0;
-var MASK_PNG_ENABLED = false;
+var MASK_PNG_ENABLED = true;
 window.setMask = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
