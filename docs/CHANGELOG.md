@@ -1,6 +1,8 @@
-## Unreleased: enclosed shelter keeps the player chilled, not freezing, with no wind chill (build-verified only)
+## Unreleased: enclosed shelter keeps the player chilled, not freezing, with no wind chill (not verified in game)
 
-**Standing inside a four-wall, roofed building is now an enclosed shelter.** The cold ambient reads as 8 C (`[Climate] EnclosedAmbientFloorC`, range -10 to 20), so the HUD shows COLD rather than FREEZING, and wind is removed from both the cooling and the HUD wind readout. A roofed spot with open sides keeps partial shelter. `[Climate] EnclosedShelterEnabled=0` turns the enclosed level off. Notes: `docs/code-notes/Ashfall.md`. Not verified in game.
+**Standing inside a four-wall, roofed building is now an enclosed shelter.** The cold ambient reads as 8 C (`[Climate] EnclosedAmbientFloorC`, range -10 to 20), so the HUD shows COLD rather than FREEZING, and wind is removed from both the cooling and the HUD wind readout. A roofed spot with open sides is partial shelter: thermal shelter is 0.5, up from 0.25 before this change, and wind is cut by 75%. A roof counts when the straight-up ray hits and at least 3 of the 5 roof rays hit in total, the same rule as the radiation roof fan. `[Climate] EnclosedShelterEnabled=0` turns the enclosed level off. Notes: `docs/code-notes/Ashfall.md`. Not verified in game.
+
+## Unreleased: Pip-Boy debug panel and PrismaUI stack fixes (not verified in game)
 
 **The debug panel is lighter and closes cleanly.** The ECG animation runs only while the panel is open (about 30 fps). The Geiger click timer stops on close and restarts on FX toggle-on. Dial scrubbers start from the live percentage, and partial vitals no longer zero the ECG. Dial hover no longer moves the box. The RobCo boot plays only from the replay control and ignores key auto-repeat. Widgets send visibility only on change. Unused telemetry helpers are removed. Clipboard copy falls back to `execCommand` and never throws. Notes: `docs/code-notes/Ashfall.md`.
 

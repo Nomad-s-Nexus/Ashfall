@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "ClimateShelterRuntime.h"
+#include "RadEngine_Internal.h"
 
-#include <RE/B/bhkPickData.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/T/TESObjectCELL.h>
 
@@ -16,25 +16,6 @@ namespace
     constexpr float kWallZ = 80.0f;
     constexpr float kWallDistance = 600.0f;
     constexpr float kPi = 3.14159265f;
-
-    bool RayHits(RE::TESObjectCELL* cell, const RE::NiPoint3& from, const RE::NiPoint3& to)
-    {
-        if (!cell)
-            return false;
-        RE::bhkPickData pick;
-        pick.SetStartEnd(from, to);
-        return cell->Pick(pick) != nullptr || pick.HasHit();
-    }
-
-    bool WallRayHit(RE::TESObjectCELL* cell, const RE::NiPoint3& from, const RE::NiPoint3& to, float rayLength)
-    {
-        if (!cell)
-            return false;
-        RE::bhkPickData pick;
-        pick.SetStartEnd(from, to);
-        const bool hit = cell->Pick(pick) != nullptr || pick.HasHit();
-        return RadClimateShelterPolicy::WallRayCounts(hit, pick.GetHitFraction(), rayLength);
-    }
 }
 
 void ClimateShelterRuntime::Reset() noexcept
@@ -45,13 +26,13 @@ void ClimateShelterRuntime::Reset() noexcept
     _lastX = 0.0f;
     _lastY = 0.0f;
     _lastZ = 0.0f;
-    _lastProbeGameDays = 0.0f;
+    _lastProbeTime = {};
     _lastRoofed = false;
     _roofStateKnown = false;
     _lastProbeRoofless = false;
 }
 
-RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharacter* player, float gameDays)
+RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharacter* player)
 {
     // Constraint: switching between the exterior and roofless-interior probes invalidates the shared roof cache.
     if (_lastProbeRoofless)
@@ -95,8 +76,9 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharact
     const float deltaZ = position.z - _lastZ;
     if (!_roofStateKnown || cellID != _lastCellID)
         _settled = {};
-    const bool timed = _roofStateKnown &&
-        RadClimateShelterPolicy::ShouldReprobeTimed(_settled.value, gameDays - _lastProbeGameDays);
+    const auto now = std::chrono::steady_clock::now();
+    const float elapsedSeconds = std::chrono::duration<float>(now - _lastProbeTime).count();
+    const bool timed = _roofStateKnown && RadClimateShelterPolicy::ShouldReprobeTimed(_settled.value, elapsedSeconds);
     if (!timed && !RadClimateShelterPolicy::ShouldProbe(
             _roofStateKnown, cellID, _lastCellID, deltaX, deltaY, deltaZ))
         return _cached;
@@ -112,7 +94,7 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharact
     _lastX = position.x;
     _lastY = position.y;
     _lastZ = position.z;
-    _lastProbeGameDays = gameDays;
+    _lastProbeTime = now;
 
     if (!_roofStateKnown || settledRoofed != _lastRoofed)
     {
@@ -128,8 +110,7 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::Sample(RE::PlayerCharact
 
 RadClimateShelterPolicy::Factors ClimateShelterRuntime::SampleRooflessInterior(
     RE::PlayerCharacter* player,
-    RE::TESObjectCELL* cell,
-    float gameDays)
+    RE::TESObjectCELL* cell)
 {
     if (!player || !cell)
     {
@@ -151,8 +132,9 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::SampleRooflessInterior(
     const float deltaZ = position.z - _lastZ;
     if (!_roofStateKnown || cellID != _lastCellID)
         _settled = {};
-    const bool timed = _roofStateKnown &&
-        RadClimateShelterPolicy::ShouldReprobeTimed(_settled.value, gameDays - _lastProbeGameDays);
+    const auto now = std::chrono::steady_clock::now();
+    const float elapsedSeconds = std::chrono::duration<float>(now - _lastProbeTime).count();
+    const bool timed = _roofStateKnown && RadClimateShelterPolicy::ShouldReprobeTimed(_settled.value, elapsedSeconds);
     if (!timed && !RadClimateShelterPolicy::ShouldProbe(
             _roofStateKnown, cellID, _lastCellID, deltaX, deltaY, deltaZ))
         return _cached;
@@ -172,7 +154,7 @@ RadClimateShelterPolicy::Factors ClimateShelterRuntime::SampleRooflessInterior(
     _lastX = position.x;
     _lastY = position.y;
     _lastZ = position.z;
-    _lastProbeGameDays = gameDays;
+    _lastProbeTime = now;
 
     if (!_roofStateKnown || settledRoofed != _lastRoofed)
     {
@@ -193,11 +175,11 @@ bool ClimateShelterRuntime::ProbeRoof(RE::PlayerCharacter* player, RE::TESObject
     const float horizontal = kRayDistance * kHorizontal;
     const float vertical = kRayDistance * kVertical;
 
-    const bool up = RayHits(cell, head, { head.x, head.y, head.z + kRayDistance });
-    const bool px = RayHits(cell, head, { head.x + horizontal, head.y, head.z + vertical });
-    const bool nx = RayHits(cell, head, { head.x - horizontal, head.y, head.z + vertical });
-    const bool py = RayHits(cell, head, { head.x, head.y + horizontal, head.z + vertical });
-    const bool ny = RayHits(cell, head, { head.x, head.y - horizontal, head.z + vertical });
+    const bool up = RadInternal::RayHitsStructure(cell, head, { head.x, head.y, head.z + kRayDistance });
+    const bool px = RadInternal::RayHitsStructure(cell, head, { head.x + horizontal, head.y, head.z + vertical });
+    const bool nx = RadInternal::RayHitsStructure(cell, head, { head.x - horizontal, head.y, head.z + vertical });
+    const bool py = RadInternal::RayHitsStructure(cell, head, { head.x, head.y + horizontal, head.z + vertical });
+    const bool ny = RadInternal::RayHitsStructure(cell, head, { head.x, head.y - horizontal, head.z + vertical });
     const int hits = static_cast<int>(up) + static_cast<int>(px) + static_cast<int>(nx) +
         static_cast<int>(py) + static_cast<int>(ny);
     return RadClimateShelterPolicy::RoofCover(up, hits);
@@ -216,7 +198,7 @@ int ClimateShelterRuntime::ProbeWallHits(RE::PlayerCharacter* player, RE::TESObj
             origin.y + std::sin(angle) * kWallDistance,
             origin.z
         };
-        hits += WallRayHit(cell, origin, target, kWallDistance) ? 1 : 0;
+        hits += RadInternal::RayHitsStructure(cell, origin, target) ? 1 : 0;
     }
     return hits;
 }

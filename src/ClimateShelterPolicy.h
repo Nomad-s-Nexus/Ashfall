@@ -9,12 +9,9 @@ namespace RadClimateShelterPolicy
     inline constexpr float kProbeMoveDistanceSquared = kProbeMoveDistance * kProbeMoveDistance;
     inline constexpr float kReprobeSecondsOpen = 1.5f;
     inline constexpr float kReprobeSecondsEnclosed = 3.0f;
-    inline constexpr float kSecondsPerGameDay = 86400.0f;
     inline constexpr int kRoofMinimumHits = 3;
-    inline constexpr int kRoofMinimumHitsWithUp = 2;
     inline constexpr int kWallMinimumHits = 5;
     inline constexpr int kWallRays = 8;
-    inline constexpr float kWallSelfClearance = 24.0f;
 
     enum class Level : std::uint8_t
     {
@@ -72,17 +69,12 @@ namespace RadClimateShelterPolicy
     // Constraint: a listed roofless interior keeps indoor thermal shelter; its rain cover comes from the roof raycast.
     [[nodiscard]] constexpr Factors FromRooflessInterior(bool roofed) noexcept
     {
-        return { 1.0f, roofed ? 1.0f : 0.0f, 1.0f, 1.0f };
+        return { 1.0f, roofed ? 1.0f : 0.0f, roofed ? 1.0f : 0.0f, 1.0f };
     }
 
     [[nodiscard]] constexpr bool RoofCover(bool upHit, int roofHits) noexcept
     {
-        return (upHit && roofHits >= kRoofMinimumHitsWithUp) || roofHits >= kRoofMinimumHits;
-    }
-
-    [[nodiscard]] constexpr bool WallRayCounts(bool hit, float fraction, float rayLength) noexcept
-    {
-        return hit && fraction >= 0.0f && fraction <= 1.0f && fraction * rayLength >= kWallSelfClearance;
+        return upHit && roofHits >= kRoofMinimumHits;
     }
 
     [[nodiscard]] constexpr Enclosure Classify(bool roofed, int wallHits, bool enabled) noexcept
@@ -112,12 +104,12 @@ namespace RadClimateShelterPolicy
         return { settled.value, observed, true, true };
     }
 
-    [[nodiscard]] inline bool ShouldReprobeTimed(Level settled, float elapsedGameDays) noexcept
+    [[nodiscard]] inline bool ShouldReprobeTimed(Level settled, float elapsedSeconds) noexcept
     {
-        if (!std::isfinite(elapsedGameDays) || elapsedGameDays < 0.0f)
+        if (!std::isfinite(elapsedSeconds) || elapsedSeconds < 0.0f)
             return true;
         const float limit = settled == Level::kEnclosed ? kReprobeSecondsEnclosed : kReprobeSecondsOpen;
-        return elapsedGameDays * kSecondsPerGameDay >= limit;
+        return elapsedSeconds >= limit;
     }
 
     [[nodiscard]] constexpr bool ShouldProbe(

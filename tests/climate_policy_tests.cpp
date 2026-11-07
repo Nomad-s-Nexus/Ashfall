@@ -237,9 +237,10 @@ int main()
     Require(Near(unresolvedShelter.thermal01, 1.0f) && Near(unresolvedShelter.enclosed01, 0.0f));
     Require(Near(FromState(true, false, false).enclosed01, 1.0f));
 
-    Require(RoofCover(true, 2));
+    Require(!RoofCover(true, 2));
     Require(!RoofCover(false, 2));
-    Require(RoofCover(false, 3));
+    Require(!RoofCover(false, 3));
+    Require(RoofCover(true, 3));
     Require(!RoofCover(true, 1));
     Require(Classify(true, 5, true).enclosed);
     Require(Classify(true, 5, true).walled);
@@ -268,18 +269,13 @@ int main()
     settled = Observe(settled, Level::kRoofed);
     Require(settled.value == Level::kRoofed);
 
-    Require(ShouldReprobeTimed(Level::kOpen, 1.6f / kSecondsPerGameDay));
-    Require(!ShouldReprobeTimed(Level::kOpen, 1.4f / kSecondsPerGameDay));
-    Require(!ShouldReprobeTimed(Level::kEnclosed, 2.9f / kSecondsPerGameDay));
-    Require(ShouldReprobeTimed(Level::kEnclosed, 3.1f / kSecondsPerGameDay));
-    Require(ShouldReprobeTimed(Level::kRoofed, 1.6f / kSecondsPerGameDay));
+    Require(ShouldReprobeTimed(Level::kOpen, 1.6f));
+    Require(!ShouldReprobeTimed(Level::kOpen, 1.4f));
+    Require(!ShouldReprobeTimed(Level::kEnclosed, 2.9f));
+    Require(ShouldReprobeTimed(Level::kEnclosed, 3.1f));
+    Require(ShouldReprobeTimed(Level::kRoofed, 1.6f));
     Require(ShouldReprobeTimed(Level::kOpen, -1.0f));
     Require(ShouldReprobeTimed(Level::kOpen, std::numeric_limits<float>::quiet_NaN()));
-    Require(WallRayCounts(true, 0.5f, 600.0f));
-    Require(!WallRayCounts(true, 0.01f, 600.0f));
-    Require(!WallRayCounts(false, 0.5f, 600.0f));
-    Require(!WallRayCounts(true, std::numeric_limits<float>::quiet_NaN(), 600.0f));
-    Require(!WallRayCounts(true, 1.5f, 600.0f));
     Require(ShouldProbe(false, 10, 10, 0.0f, 0.0f, 0.0f));
     Require(ShouldProbe(true, 11, 10, 0.0f, 0.0f, 0.0f));
     Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));
@@ -415,8 +411,10 @@ int main()
     // Constraint: a listed roofless interior keeps indoor thermal shelter but its rain cover comes from the raycast.
     const auto roofedFactors = RadClimateShelterPolicy::FromRooflessInterior(true);
     Require(Near(roofedFactors.thermal01, 1.0f) && Near(roofedFactors.precipitation01, 1.0f));
+    Require(Near(roofedFactors.enclosed01, 1.0f));
     const auto openFactors = RadClimateShelterPolicy::FromRooflessInterior(false);
     Require(Near(openFactors.thermal01, 1.0f) && Near(openFactors.precipitation01, 0.0f));
+    Require(Near(openFactors.enclosed01, 0.0f));
 
     return 0;
 }

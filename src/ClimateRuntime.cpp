@@ -154,7 +154,6 @@ void ClimateRuntime::Update()
         _climateIniLoaded = true;
     }
 
-    const float nowDays = GameDays();
     auto* sky = RE::Sky::GetSingleton();
     auto* weather = sky ? sky->currentWeather : nullptr;
     const bool indoors = cell->IsInterior();
@@ -167,8 +166,8 @@ void ClimateRuntime::Update()
         ? _weatherConfig.Override(weather->GetFormID())
         : std::nullopt;
     auto shelter = rooflessInterior
-        ? _shelter.SampleRooflessInterior(player, cell, nowDays)
-        : _shelter.Sample(player, nowDays);
+        ? _shelter.SampleRooflessInterior(player, cell)
+        : _shelter.Sample(player);
     const bool roofed = _shelter.LastRoofed();
     const auto gameMonth = GameMonth();
 
@@ -193,6 +192,7 @@ void ClimateRuntime::Update()
     environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;
 
     const auto protection = _protection.Sample(player);
+    const float nowDays = GameDays();
     const auto pauseInfo = QueryPauseInfo();
 
     using RadNeedsTuningPolicy::Key;

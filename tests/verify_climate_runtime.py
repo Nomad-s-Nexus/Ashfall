@@ -46,8 +46,8 @@ for token in (
     "environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;",
     "auto shelter = rooflessInterior",
     "environment.rooflessInterior = rooflessInterior;",
-    "? _shelter.SampleRooflessInterior(player, cell, nowDays)",
-    ": _shelter.Sample(player, nowDays);",
+    "? _shelter.SampleRooflessInterior(player, cell)",
+    ": _shelter.Sample(player);",
     "environment.windShelter01 = shelter.windShelter01;",
     "RadClimateEnvironmentPolicy::ShelteredAmbientC(environment.ambientC, shelter.enclosed01, _enclosedFloorC)",
     "ClimateRuntime::Reset()",
@@ -67,13 +67,13 @@ for token in (
 
 # Constraint: one sampler per tick, chosen by the roofless flag; never sample both.
 sampler_ternary = re.compile(
-    r"auto shelter = rooflessInterior\s+\? _shelter\.SampleRooflessInterior\(player, cell, nowDays\)\s+"
-    r": _shelter\.Sample\(player, nowDays\);")
+    r"auto shelter = rooflessInterior\s+\? _shelter\.SampleRooflessInterior\(player, cell\)\s+"
+    r": _shelter\.Sample\(player\);")
 assert sampler_ternary.search(runtime) is not None, (
     "Update must choose one shelter sampler with the roofless ternary")
 assert runtime.count("auto shelter") == 1, "Update must declare the shelter sample exactly once"
-assert runtime.count("_shelter.Sample(player, nowDays)") == 1, "Update must call the normal shelter sampler exactly once"
-assert runtime.count("SampleRooflessInterior(player, cell, nowDays)") == 1, (
+assert runtime.count("_shelter.Sample(player)") == 1, "Update must call the normal shelter sampler exactly once"
+assert runtime.count("SampleRooflessInterior(player, cell)") == 1, (
     "Update must call the roofless sampler exactly once")
 
 
@@ -110,7 +110,11 @@ for token in (
     "RadClimateShelterPolicy::ShouldProbe",
     "player->GetPosition()",
     "ProbeRoof(player, cell)",
-    "cell->Pick(pick)",
+    "RadInternal::RayHitsStructure(",
+    "ProbeWallHits(player, cell)",
+    "RadClimateShelterPolicy::RoofCover(up, hits)",
+    "RadClimateShelterPolicy::ShouldReprobeTimed(",
+    "std::chrono::steady_clock::now()",
 ):
     assert token in shelter_runtime, f"climate shelter runtime contract missing: {token}"
 
