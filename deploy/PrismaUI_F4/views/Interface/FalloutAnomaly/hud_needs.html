@@ -8,7 +8,7 @@
 <div class="status" id="illness" role="img" aria-label="Illness: none" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0"/><path d="M12 7v-4"/><path d="M11 3h2"/><path d="M15.536 8.464l2.828 -2.828"/><path d="M17.657 4.929l1.414 1.414"/><path d="M17 12h4"/><path d="M21 11v2"/><path d="M15.535 15.536l2.829 2.828"/><path d="M19.071 17.657l-1.414 1.414"/><path d="M12 17v4"/><path d="M13 21h-2"/><path d="M8.465 15.536l-2.829 2.828"/><path d="M6.343 19.071l-1.413 -1.414"/><path d="M7 12h-4"/><path d="M3 13v-2"/><path d="M8.464 8.464l-2.828 -2.828"/><path d="M4.929 6.343l1.414 -1.413"/></svg><span class="label">ILLNESS</span><b id="illnessValue">--</b></div>
 </div><script>
 var root=document.getElementById('root'),_preview=false,_lastData=null;
-var STAGE1=34,STAGE2=67,STAGE3=90;
+var STAGE1=34,STAGE2=67,STAGE3=90,_repVis=null;
 var DISEASE_NAMES={1:'FEVER',2:'WASTING'};
 var PHOS_WORDS={hunger:['SATED','PECKISH','HUNGRY','STARVING'],thirst:['QUENCHED','THIRSTY','PARCHED','DEHYDRATED'],sleepDebt:['RESTED','TIRED','DROWSY','EXHAUSTED']};
 var PHOS_ICONS={hunger:['<path d="M8 4v6c0 1.2.9 2 2 2v8M10 4v5M12 4v6c0 1.2-.9 2-2 2M16.5 4c-1.6 0-2.5 2-2.5 5.5s1 3 2.5 3V20"/>','Food'],thirst:['<path d="M12 3.5c3.4 4.3 5.5 7.2 5.5 10.2a5.5 5.5 0 0 1-11 0c0-3 2.1-5.9 5.5-10.2z"/>','Water'],sleepDebt:['<path d="M15 4.5a8 8 0 1 0 4.8 11.7A7 7 0 0 1 15 4.5z"/>','Rest']};
@@ -49,7 +49,7 @@ function renderNeeds(d){
  }
  var show=any||_preview;
  root.classList.toggle('visible',show);
- window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));
+ if(show!==_repVis){_repVis=show;window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));}
 }
 window.updateNeeds=function(json){
  try{

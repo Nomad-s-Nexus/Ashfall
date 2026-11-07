@@ -330,6 +330,11 @@ void RadHud::SetLocalHudEditorPreview(bool on)
         api->InteropCall(_view, "CloseLocalHudEditor", "");
 }
 
+bool RadHud::LocalHudEditorPreviewOn() const noexcept
+{
+    return g_layout.preview;
+}
+
 void RadHud::ApplyLocalHudLayout(const std::string& payload)
 {
     if (payload.empty()) return;

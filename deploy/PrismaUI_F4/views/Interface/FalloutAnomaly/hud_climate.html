@@ -8,6 +8,7 @@ var PHOS_ICONS={warm:['<path d="M10 13.5a4 4 0 1 0 4 0v-8.5a2 2 0 0 0 -4 0v8.5"/
 var cores={};
 ['warm','wet','air','wind'].forEach(function(id){cores[id]=PhosCore.build(document.getElementById(id+'Core'),PHOS_ICONS[id][0],PHOS_ICONS[id][1]);});
 function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
+var _repVis=null;
 function status(id,value,description,severity,frac){
  var e=document.getElementById(id);
  e.className='status '+(severity||'');e.setAttribute('aria-label',description);e.title=description;
@@ -23,7 +24,7 @@ function renderClimate(d){
  status('wind',wind<2?'CALM':wind<8?'BREEZE':wind<14?'WINDY':'STRONG','Wind increases cooling; shelter reduces exposure',wind>=14?'danger':wind>=8?'warn':'dim',wind/20);
  var show=_preview||s>=1||wet>=50||ambient<=0||wind>=14;
  root.className=show?('visible s'+s):'';
- window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));
+ if(show!==_repVis){_repVis=show;window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show}));}
 }
 window.updateClimate=function(json){try{var d=typeof json==='string'?JSON.parse(json):json;if(!d||typeof d!=='object')return;_lastData=d;_hasData=true;if(!_preview)renderClimate(d);}catch(e){}};
 window.setClimateUnit=function(json){_fahrenheit=json==='F'||json==='"F"';if(_lastData)renderClimate(_lastData);};

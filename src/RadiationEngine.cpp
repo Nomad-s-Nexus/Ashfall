@@ -144,6 +144,12 @@ bool RadiationEngine::Initialize()
 void RadiationEngine::Update()
 {
     auto logger = Log();
+    // Constraint: runs before the player checks so a stalled close cannot leave the view focused.
+    // Constraint: the page is re-synced to the native debug state before the stale-focus check runs.
+    RadHud::GetSingleton().SyncDebugPanelState();
+    RadHud::GetSingleton().ReleaseStaleDebugFocus();
+    // Constraint: the close refresh runs after the focus release, so the destroyed view never holds focus.
+    RadHud::GetSingleton().PumpDebugViewRefresh();
 
     try
     {
@@ -624,12 +630,34 @@ void RadiationEngine::Update()
 }
 
 
+std::uint32_t RadiationEngine::ReadInputBits() const noexcept
+{
+    const int keys[4] = { kDebugMenuKey, VK_LSHIFT, _filterReplaceKey.load(), _conditionRepairKey.load() };
+    std::uint32_t bits = 0;
+    for (std::size_t i = 0; i < 4; ++i)
+    {
+        if (keys[i] != 0 && (GetAsyncKeyState(keys[i]) & 0x8000) != 0)
+            bits |= 1u << i;
+    }
+    return bits;
+}
+
+
+void RadiationEngine::ResetDebugKeyBaseline() noexcept
+{
+    // Constraint: the baseline is the key state at load time, so only a Shift+F8 press after load can open the menu.
+    _f8WasDown = (ReadInputBits() & 1u) != 0;
+}
+
 void RadiationEngine::PollInput()
 {
-    // Runs EVERY frame (from the hook, before the 4Hz throttle) so quick taps are never missed.
+    // Constraint: the producer queues this poll only on a key-bit change, pending debug work, or a stored-bit mismatch.
+    _polledInputBits.store(ReadInputBits());
+    // Constraint: every key edge in this poll is derived from the one stored bit mask, never from a second GetAsyncKeyState read.
+    const std::uint32_t bits = _polledInputBits.load();
     // DEBUG menu: Left Shift + F8, edge-detected from the reliable key-DOWN bit (0x8000).
-    const bool dbgKeyDown = (GetAsyncKeyState(kDebugMenuKey) & 0x8000) != 0;
-    const bool lshift     = (GetAsyncKeyState(VK_LSHIFT)     & 0x8000) != 0;
+    const bool dbgKeyDown = (bits & (1u << 0)) != 0;
+    const bool lshift     = (bits & (1u << 1)) != 0;
     // Constraint: an open menu always accepts Shift+F8 as close.
     const bool debugToggleAllowed = GameWindowForeground() || RadHud::GetSingleton().DebugMenuOpen();
     if (dbgKeyDown && !_f8WasDown && lshift && debugToggleAllowed)
@@ -657,7 +685,7 @@ void RadiationEngine::PollInput()
     // Gas-mask filter replace keybind (INI [Filter] ReplaceKey; 0 = disabled).
     if (_filterReplaceKey != 0)
     {
-        const bool rdown = (GetAsyncKeyState(_filterReplaceKey) & 0x8000) != 0;
+        const bool rdown = (bits & (1u << 2)) != 0;
         if (hotkeysAllowed && rdown && !_filterReplaceWasDown)
             ReplaceFilter(false);
         _filterReplaceWasDown = rdown;
@@ -670,7 +698,7 @@ void RadiationEngine::PollInput()
     // Gas-mask repair keybind (INI [Condition] RepairKey; 0 = disabled).
     if (_conditionRepairKey != 0)
     {
-        const bool rdown = (GetAsyncKeyState(_conditionRepairKey) & 0x8000) != 0;
+        const bool rdown = (bits & (1u << 3)) != 0;
         if (hotkeysAllowed && rdown && !_conditionRepairWasDown)
             RepairMask(false);
         _conditionRepairWasDown = rdown;

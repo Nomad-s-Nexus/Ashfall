@@ -113,8 +113,8 @@ void RadHud::PushClimate(const RadClimatePolicy::ClimateState& state,
     // Constraint: build views through the shared retry and only once the player is in the world.
     if (_climateView == 0 || !static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api)->IsValid(_climateView))
     {
-        StartPrismaViewRetry();
         if (!PlayerInWorld()) return;
+        StartPrismaViewRetry();
     }
     EnsureClimateView();
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);

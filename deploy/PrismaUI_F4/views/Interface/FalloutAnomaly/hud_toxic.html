@@ -7,7 +7,7 @@
 <div class="status" id="tissue" role="img" aria-label="TISSUE"><div class="core" id="tissueCore" style="--c:#ff7052"></div></div>
 </div><script>
 
-var root=document.getElementById('root'),_visState=false,_preview=false,_lastData=null;
+var root=document.getElementById('root'),_visState=false,_preview=false,_lastData=null,_repVis=null;
 function pct(n){return Math.round(Math.max(0,Math.min(100,+n||0)));}
 var PHOS_CORES={health:['<path d="M9.6 4h4.8v5.6H20v4.8h-5.6V20H9.6v-5.6H4V9.6h5.6z"/>','HP',true],stamina:['<path d="M13.6 3L6 13.4h5.2L10.2 21 18 10.4h-5.3z"/>','AP',true],rads:['<circle cx="12" cy="12" r="1.7"/><path d="M10.30 9.06L7.40 4.03A9.2 9.2 0 0 1 16.60 4.03L13.70 9.06A3.4 3.4 0 0 0 10.30 9.06z"/><path d="M15.40 12.00L21.20 12.00A9.2 9.2 0 0 1 16.60 19.97L13.70 14.94A3.4 3.4 0 0 0 15.40 12.00z"/><path d="M10.30 14.94L7.40 19.97A9.2 9.2 0 0 1 2.80 12.00L8.60 12.00A3.4 3.4 0 0 0 10.30 14.94z"/>','RAD',true],tissue:['<path d="M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0"/><path d="M12 7v-4"/><path d="M11 3h2"/><path d="M15.536 8.464l2.828 -2.828"/><path d="M17.657 4.929l1.414 1.414"/><path d="M17 12h4"/><path d="M21 11v2"/><path d="M15.535 15.536l2.829 2.828"/><path d="M19.071 17.657l-1.414 1.414"/><path d="M12 17v4"/><path d="M13 21h-2"/><path d="M8.465 15.536l-2.829 2.828"/><path d="M6.343 19.071l-1.413 -1.414"/><path d="M7 12h-4"/><path d="M3 13v-2"/><path d="M8.464 8.464l-2.828 -2.828"/><path d="M4.929 6.343l1.414 -1.413"/>','TISSUE']};
 var cores={};
@@ -24,7 +24,7 @@ function renderToxic(d){
  PhosCore.set(cores.stamina,ap/100,pct(ap)+'%',1,ap<=20?'warn':'');
  PhosCore.set(cores.rads,radsFrac>0?Math.max(.03,radsFrac):0,pct(radsFrac*100)+'%',radsFrac,(+d.rads||0)>=600?'crit':'');
  PhosCore.set(cores.tissue,t/1000,pct(t/10)+'%',1,t>=600?'crit':t>=150?'warn':'');
- var show=fallback||t>0;_visState=show;root.classList.toggle('visible',show||_preview);window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:show||_preview}));
+ var show=fallback||t>0;_visState=show;root.classList.toggle('visible',show||_preview);if((show||_preview)!==_repVis){_repVis=show||_preview;window.reportVisibility(JSON.stringify({id:WIDGET_ID,visible:_repVis}));}
 }
 window.updateToxic=function(json){try{var d=typeof json==='string'?JSON.parse(json):json;if(!d||typeof d!=='object')return;_lastData=d;renderToxic(d);}catch(e){}};
 window.setEditorPreview=function(json){_preview=json==='1'||json===1||json===true;if(_preview)renderToxic({fallback:true,health:180,healthMax:300,ap:80,apMax:100,rads:200,tissue:150});else if(_lastData)renderToxic(_lastData);else root.classList.remove('visible');};

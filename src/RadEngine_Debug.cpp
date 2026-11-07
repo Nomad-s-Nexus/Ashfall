@@ -19,6 +19,54 @@ using namespace RadInternal;
 // the full [Storm] DomeLeadMinutes. Long enough to see the dome come up alone before the siren.
 constexpr int kDebugLeadTicks = 10 * 4;
 
+// Constraint: the JS-thread command queue drops its oldest entry at 32 so a stalled main thread cannot grow it without bound.
+constexpr std::size_t kMaxPendingDebugCmds = 32;
+
+namespace
+{
+    constexpr const char* kHudLayoutPrefix = "hudlayout:";
+
+    // Constraint: a coalesced hudlayout replacement keeps save:true from any entry it replaces, so a live-preview update cannot drop a pending save.
+    bool HudLayoutRequestsSave(const std::string& command)
+    {
+        try
+        {
+            return json::parse(command.substr(std::strlen(kHudLayoutPrefix))).value("save", false);
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    std::string WithHudLayoutSave(const std::string& command)
+    {
+        try
+        {
+            auto body = json::parse(command.substr(std::strlen(kHudLayoutPrefix)));
+            body["save"] = true;
+            return kHudLayoutPrefix + body.dump();
+        }
+        catch (...)
+        {
+            return command;
+        }
+    }
+
+    // Constraint: hudlayout commands are coalesced per widget, so only the newest drag state per widget is replayed.
+    std::string HudLayoutWidgetKey(const std::string& command)
+    {
+        try
+        {
+            return json::parse(command.substr(std::strlen(kHudLayoutPrefix))).value("widget", std::string{});
+        }
+        catch (...)
+        {
+            return {};
+        }
+    }
+}
+
 void RadiationEngine::DebugForceStorm(int typeIndex)
 {
     Log()->warn("[DIAG] DebugForceStorm entry typeIndex={}.", typeIndex);
@@ -136,9 +184,31 @@ void RadiationEngine::HandleDebugCommand(const char* action)
     if (!action || !action[0]) return;
     // DIAG (flushed): first C++ contact from the JS thread. If this logs but [dispatch] never does,
     // the main-thread Update loop stopped before draining (UI/render-side hang, not storm code).
-    Log()->warn("[DIAG] HandleDebugCommand recv (JS thread): '{}'", action);
+    Log()->debug("[DIAG] HandleDebugCommand recv (JS thread): '{}'", action);
+    std::string command(action);
     std::lock_guard<std::mutex> lock(_debugCmdMutex);
-    _pendingDebugCmds.emplace_back(action);
+    if (command.rfind(kHudLayoutPrefix, 0) == 0)
+    {
+        const auto widget = HudLayoutWidgetKey(command);
+        if (!widget.empty())
+        {
+            bool replacedSave = false;
+            _pendingDebugCmds.erase(
+                std::remove_if(_pendingDebugCmds.begin(), _pendingDebugCmds.end(), [&](const std::string& queued) {
+                    if (queued.rfind(kHudLayoutPrefix, 0) == 0 && HudLayoutWidgetKey(queued) == widget)
+                    {
+                        replacedSave = replacedSave || HudLayoutRequestsSave(queued);
+                        return true;
+                    }
+                    return false;
+                }),
+                _pendingDebugCmds.end());
+            if (replacedSave) command = WithHudLayoutSave(command);
+        }
+    }
+    if (_pendingDebugCmds.size() >= kMaxPendingDebugCmds)
+        _pendingDebugCmds.erase(_pendingDebugCmds.begin());
+    _pendingDebugCmds.emplace_back(std::move(command));
 }
 
 void RadiationEngine::PushGhoulSettingsToHud()
@@ -169,7 +239,6 @@ void RadiationEngine::DrainDebugCommands()
             _weatherReturnCaptured = false;
             _releaseWeatherOverrideWhenSettled = false;
             _weatherHandoffSettleTicks = 0;
-            _pendingDebugCmds.clear();
             return;
         }
         if (_pendingDebugCmds.empty()) return;
@@ -185,7 +254,7 @@ void RadiationEngine::DispatchDebugCommand(const std::string& action)
     if (action.empty()) return;
     std::string a(action);
     // DIAG (flushed): main-thread dispatch reached. Pinpoints the exact command that hangs.
-    Log()->warn("[DIAG] DispatchDebugCommand (main thread): '{}'", a);
+    Log()->debug("[DIAG] DispatchDebugCommand (main thread): '{}'", a);
 
     // Commands: "storm:0".."storm:4", "endstorm", "tissue:150", "perm:40",
     auto numAfter = [&](const char* prefix) -> float {

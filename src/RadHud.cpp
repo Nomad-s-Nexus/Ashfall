@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "RadHud.h"
 #include "RadiationEngine.h"
+#include "Hooks.h"
 #include "ClimateRuntime.h"
 #include "RadNeedsTuning.h"
 
@@ -189,13 +190,24 @@ void RadHud::RequestAPI()
         _hudApi ? "toxicity widget will be positionable in the HUD editor"
                 : "standalone health, stamina, and tissue HUD enabled");
 
-    StartPrismaViewRetry();
+    // Constraint: view creation is deferred until the world exists (main.cpp's load wait starts it).
+    if (PlayerInWorld())
+        StartPrismaViewRetry();
 }
 
 bool RadHud::PlayerInWorld() const
 {
     // Constraint: view creation is deferred until the world exists, so no widget is built on a menu.
     return IsPlayerInWorld();
+}
+
+bool RadHud::ViewsExist() const
+{
+    if (!_api) return false;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    return _view != 0 && api->IsValid(_view) &&
+           _toxicView != 0 && api->IsValid(_toxicView) &&
+           _filterView != 0 && api->IsValid(_filterView);
 }
 
 void RadHud::CreateView()
@@ -209,6 +221,16 @@ void RadHud::CreateView()
     // Force a mask-overlay re-sync on the next tick: a freshly (re)created view starts with the
     // overlay hidden, so the cached state must not suppress the first push after a load.
     _maskPushed = -1;
+    // Constraint: a (re)created view holds no payload yet, so every last-sent cache is forgotten here.
+    _toxicPayload.clear();
+    _armorPayload.clear();
+    _survivalPayload.clear();
+    _climatePayload.clear();
+    _filterMainPayload.clear();
+    _filterBarPayload.clear();
+    _stormPayload.clear();
+    _keysReplaceSent = -2;
+    _keysRepairSent = -2;
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
@@ -243,12 +265,18 @@ void RadHud::CreateView()
     {
         _domReady = false;
         g_domReadyFlag.store(&_domReady, std::memory_order_release);
+        // Constraint: a freshly created view starts with the native debug menu closed, matching its hidden panel.
+        _debugOpen = false;
+        // Constraint: a new view has received no debug state yet, so the first sync pushes the native state.
+        _debugPushedOpen = -1;
 
         _view = api->CreateView(kViewPath, [](PrismaView v) {
             auto* a = g_apiForCb.load(std::memory_order_acquire);
             if (!a || !a->IsValid(v)) return;
             a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
             a->Show(v);
+            // Constraint: DOM-ready pushes the closed state so the page's debug panel matches native _debugOpen (false here).
+            a->InteropCall(v, "SetDebugMenu", "0");
             RadHud::GetSingleton().PushTheme(v);
             // Flag LAST: a Push seeing _domReady=true must find the listener already registered.
             if (auto* flag = g_domReadyFlag.load(std::memory_order_acquire))
@@ -297,7 +325,6 @@ void RadHud::CreateView()
     if (_filterView == 0 || !api->IsValid(_filterView))
     {
         _airPayload.clear();
-        _keysPayload.clear();
         _filterDomReady = false;
         g_filterDomReadyFlag.store(&_filterDomReady, std::memory_order_release);
 
@@ -337,9 +364,13 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         _toxicView == 0 || !api->IsValid(_toxicView) ||
         _filterView == 0 || !api->IsValid(_filterView))
     {
-        StartPrismaViewRetry();
-        if (!_threadApi)
-            CreateView();
+        // Constraint: view creation starts only once the player is in the world.
+        if (IsPlayerInWorld())
+        {
+            StartPrismaViewRetry();
+            if (!_threadApi)
+                CreateView();
+        }
         return;
     }
     SyncLocalHudLayout();
@@ -375,13 +406,12 @@ void RadHud::PushToxic(float tissue, float permanentTissue)
         "\"health\":%.1f,\"healthMax\":%.1f,\"rads\":%.1f,\"radsMax\":1000.0,"
         "\"ap\":%.1f,\"apMax\":%.1f}",
         tissue, permanentTissue, fallback ? "true" : "false", health, healthMax, rads, ap, apMax);
+    // Constraint: send only on change; the same payload feeds the debug menu's vitals view.
+    if (_toxicPayload == json) return;
+    _toxicPayload = json;
     api->InteropCall(_toxicView, "updateToxic", json);
-    if (_toxicPayload != json)
-    {
-        _toxicPayload = json;
-        if (_debugOpen && _view && _domReady && api->IsValid(_view))
-            api->InteropCall(_view, "updateVitalsInfo", json);
-    }
+    if (_debugOpen && _view && _domReady && api->IsValid(_view))
+        api->InteropCall(_view, "updateVitalsInfo", json);
 }
 
 void RadHud::PushMask(bool on)
@@ -413,11 +443,19 @@ void RadHud::PushFilter(float charge, float condition, int spares, bool masked)
     // Fullscreen visor fog lives in radhud.html (_view); the positionable FILTER/MASK bar widget is
     // the standalone hud_filter.html (_filterView). Both consume the same updateFilter payload; drive
     // each independently so one not being DOM-ready doesn't starve the other.
-    if (_view != 0 && _domReady && api->IsValid(_view))
+    // Constraint: each view tracks its own last-sent payload so a late DOM-ready view still gets data.
+    if (_view != 0 && _domReady && api->IsValid(_view) && _filterMainPayload != json)
+    {
+        _filterMainPayload = json;
         api->InteropCall(_view, "updateFilter", json);
+    }
     if (_filterView != 0 && _filterDomReady && api->IsValid(_filterView))
     {
-        api->InteropCall(_filterView, "updateFilter", json);
+        if (_filterBarPayload != json)
+        {
+            _filterBarPayload = json;
+            api->InteropCall(_filterView, "updateFilter", json);
+        }
         PushFilterKeys(_filterView);
     }
 }
@@ -479,6 +517,8 @@ void RadHud::PushStorm(int phase, int theme, float intensity, bool sheltered, bo
     std::snprintf(json, sizeof(json),
         "{\"phase\":%d,\"theme\":%d,\"intensity\":%.3f,\"sheltered\":%s,\"lethal\":%s}",
         phase, theme, intensity, sheltered ? "true" : "false", lethal ? "true" : "false");
+    if (_stormPayload == json) return;
+    _stormPayload = json;
     api->InteropCall(_view, "stormPhase", json);
 }
 
@@ -511,7 +551,7 @@ void RadHud::PushArmor(
     {
         payload["pieces"].push_back({
             { "formID", piece.formID },
-            { "name", piece.name },
+            { "name", RadCorrectnessPolicy::SanitizeUiText(piece.name) },
             { "warmth", percent(piece.warmth01) },
             { "insulation", percent(piece.insulation01) },
             { "override", piece.overridden },
@@ -534,13 +574,17 @@ void RadHud::PushArmor(
 void RadHud::ResetDebugMenuForSession()
 {
     g_inWorld.store(false);
+    RadiationEngine::GetSingleton().ResetDebugKeyBaseline();
     _debugOpen = false;
+    _debugCloseRequested.store(false);
     _debugTogglePending = false;
     _debugDesiredOpen = false;
     _armorPayload.clear();
     _debugNextFocusRetryMs = 0;
     SetLocalHudEditorPreview(false);
     SetDebugMenu(false);
+    // Constraint: load and new game never refresh the view, so a pending close refresh is dropped here.
+    _debugRefresh = {};
     _survivalPayload.clear();
     HideNeeds();
 }
@@ -618,6 +662,14 @@ void RadHud::ToggleDebugMenu()
 void RadHud::RequestDebugClose() noexcept
 {
     _debugCloseRequested.store(true);
+    // Constraint: the close also runs as a game-thread task now, so focus/Escape release does not wait on PollInput.
+    try
+    {
+        Hooks::QueueMainThreadTask([]() { RadHud::GetSingleton().PumpDeferredDebug(); });
+    }
+    catch (...)
+    {
+    }
 }
 
 void RadHud::PumpDeferredDebug()
@@ -654,6 +706,43 @@ void RadHud::PumpDeferredDebug()
     }
 }
 
+void RadHud::PumpDebugViewRefresh()
+{
+    // Constraint: an idle refresh costs one enum compare, so the 4 Hz tick adds no work while nothing is armed.
+    using Phase = RadCorrectnessPolicy::DebugViewRefreshState::Phase;
+    if (_debugRefresh.phase == Phase::kIdle) return;
+    if (_api == nullptr) { _debugRefresh = {}; return; }
+
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    // Constraint: a refresh only recycles a live, DOM-ready overlay view; otherwise the normal creation path owns it.
+    if (_view == 0 || !_domReady.load() || !api->IsValid(_view)) { _debugRefresh = {}; return; }
+
+    const auto nowMs = static_cast<std::uint64_t>(::GetTickCount64());
+    const bool openRequested = _debugOpen || (_debugTogglePending.load() && _debugDesiredOpen);
+    const auto step = RadCorrectnessPolicy::DebugViewRefreshStep(_debugRefresh, nowMs, openRequested);
+    if (step.action != RadCorrectnessPolicy::DebugViewRefreshAction::kDestroy)
+    {
+        _debugRefresh = step.state;
+        return;
+    }
+    // Constraint: the built-in HUD editor lives in this view and the pause or message menus cover it, so the armed refresh waits while either is up.
+    auto* ui = RE::UI::GetSingleton();
+    if (LocalHudEditorPreviewOn() || (ui && (ui->GetMenuOpen<RE::PauseMenu>() || ui->GetMenuOpen<RE::MessageBoxMenu>())))
+        return;
+    _debugRefresh = step.state;
+
+    // Constraint: destroy and re-create run in one game-thread pass, so no other tick observes _view == 0.
+    api->Destroy(_view);
+    _view = 0;
+    _domReady = false;
+    _viewsReady.store(false);
+    InvalidateLocalHudLayoutViews();
+    const auto create = RadCorrectnessPolicy::DebugViewRefreshStep(_debugRefresh, nowMs, openRequested);
+    _debugRefresh = create.state;
+    // Constraint: the re-created view starts hidden until its DOM is ready and holds no debug state, exactly as on first creation.
+    CreateView();
+}
+
 void RadHud::OnBlockingMenuOpened()
 {
     _debugTogglePending = false;
@@ -671,12 +760,58 @@ namespace
         if (auto* escape = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI9>())
             escape->SetViewOwnsEscape(view, owns);
     }
+
+    // Constraint: the debug view is kPanel only while its menu is open; an always-on kPanel makes IsAnyPanelVisible() true for other plugins.
+    constexpr ULONGLONG kDebugFocusRetryMs = 150;
+    constexpr ULONGLONG kDebugFocusGiveUpMs = 2000;
+
+    void SetDebugViewRole(uint64_t view, PRISMA_UI_API::ViewRole role)
+    {
+        if (auto* roles = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>())
+            roles->SetViewRole(view, role);
+    }
+
+    // Constraint: FocusOverlay is tried only after a plain Focus is rejected; a missing V10 interface simply returns false.
+    bool FocusDebugOverlayFallback(uint64_t view)
+    {
+        auto* overlay = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
+        return overlay != nullptr && overlay->FocusOverlay(view, false, false);
+    }
+}
+
+void RadHud::ReleaseStaleDebugFocus() noexcept
+{
+    // Constraint: the 4 Hz engine tick is the backstop; it only releases focus this view holds while the menu is closed.
+    if (_debugOpen || _api == nullptr || _view == 0) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view) || !api->HasFocus(_view)) return;
+    api->Unfocus(_view);
+    SetDebugViewOwnsEscape(_view, false);
+}
+
+void RadHud::PushDebugPanelState(bool open) noexcept
+{
+    // Constraint: every native debug-state change reaches the page through this helper, so the page's panel cannot drift from _debugOpen.
+    if (_api == nullptr || _view == 0 || !_domReady.load()) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view)) return;
+    api->InteropCall(_view, "SetDebugMenu", open ? "1" : "0");
+    _debugPushedOpen = open ? 1 : 0;
+}
+
+void RadHud::SyncDebugPanelState() noexcept
+{
+    // Constraint: an unchanged state costs one integer compare, so the 4 Hz tick never re-sends the same state.
+    if (_debugPushedOpen == (_debugOpen ? 1 : 0)) return;
+    PushDebugPanelState(_debugOpen);
 }
 
 void RadHud::SetDebugMenu(bool open)
 {
     if (!_api) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    // Constraint: only a close of a menu that was open arms the overlay refresh; the focus give-up path never opened.
+    const bool wasOpen = _debugOpen;
 
     if (_view != 0 && _domReady && api->IsValid(_view))
     {
@@ -689,19 +824,35 @@ void RadHud::SetDebugMenu(bool open)
             PushArmor(climate.LastInsulation01(), climate.LastEffectiveInsulation01(),
                 climate.LastPowerArmor(), climate.LastArmor());
             api->Show(_view);
-            const bool focusAccepted = api->Focus(_view, false, false);
+            bool focusAccepted = api->Focus(_view, false, false);
+            if (!focusAccepted) focusAccepted = FocusDebugOverlayFallback(_view);
             if (!focusAccepted)
             {
                 _debugOpen = false;
-                api->InteropCall(_view, "SetDebugMenu", "0");
+                PushDebugPanelState(false);
                 api->Unfocus(_view);
+                SetDebugViewOwnsEscape(_view, false);
+                SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);
+
+                const auto now = ::GetTickCount64();
+                if (_debugNextFocusRetryMs == 0 || _debugFocusFailedSinceMs == 0)
+                    _debugFocusFailedSinceMs = now;
+                // Constraint: focus rejection gives up after kDebugFocusGiveUpMs, clears the pending open, and shows the player one message.
+                if (now - _debugFocusFailedSinceMs >= kDebugFocusGiveUpMs)
+                {
+                    _debugDesiredOpen = false;
+                    _debugTogglePending = false;
+                    _debugNextFocusRetryMs = 0;
+                    _debugFocusFailedSinceMs = 0;
+                    RE::SendHUDMessage::ShowHUDMessage(
+                        "[Radiation] Debug menu could not take focus. Press Shift+F8 to try again.", "", true, true);
+                    return;
+                }
                 _debugDesiredOpen = true;
                 _debugTogglePending = true;
-                _debugNextFocusRetryMs = ::GetTickCount64() + 150;
-                SetDebugViewOwnsEscape(_view, false);
+                _debugNextFocusRetryMs = now + kDebugFocusRetryMs;
 
                 static ULONGLONG lastFocusFailureLog = 0;
-                const auto now = ::GetTickCount64();
                 if (now - lastFocusFailureLog >= 1000)
                 {
                     lastFocusFailureLog = now;
@@ -714,8 +865,10 @@ void RadHud::SetDebugMenu(bool open)
             _debugOpen = true;
             _debugTogglePending = false;
             _debugNextFocusRetryMs = 0;
+            _debugFocusFailedSinceMs = 0;
             SetDebugViewOwnsEscape(_view, true);
-            api->InteropCall(_view, "SetDebugMenu", "1");
+            SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kPanel);
+            PushDebugPanelState(true);
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
             PushNeedsTuning(RadNeedsTuning::Json());
         }
@@ -725,16 +878,20 @@ void RadHud::SetDebugMenu(bool open)
             _debugTogglePending = false;
             _debugDesiredOpen = false;
             _debugNextFocusRetryMs = 0;
+            _debugFocusFailedSinceMs = 0;
             SetLocalHudEditorPreview(false);
-            api->InteropCall(_view, "SetDebugMenu", "0");
+            PushDebugPanelState(false);
             api->Unfocus(_view);
             SetDebugViewOwnsEscape(_view, false);
+            SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);
             _armorPayload.clear();
         }
     }
     else
     {
-        _debugOpen = open;
+        // Constraint: without a DOM-ready view there is no panel to show, so an open request is dropped rather than latched.
+        if (open) return;
+        _debugOpen = false;
         if (!open && _view != 0 && api->IsValid(_view))
         {
             _debugTogglePending = false;
@@ -744,6 +901,10 @@ void RadHud::SetDebugMenu(bool open)
             SetDebugViewOwnsEscape(_view, false);
         }
     }
+
+    if (!open)
+        _debugRefresh = RadCorrectnessPolicy::DebugViewRefreshArm(_debugRefresh, wasOpen,
+            static_cast<std::uint64_t>(::GetTickCount64()));
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");
 }

@@ -206,4 +206,33 @@ for (const scene of showcase.scenes) {
 }
 assert.equal(elements.showcaseStatus.textContent, 'Tour finished.');
 
+{
+  // Constraint: before native registers radDebug, DOMContentLoaded must leave the debug panel closed.
+  const loadListeners = [];
+  const loadElements = {};
+  for (const match of html.matchAll(/id="([^"]+)"/g)) {
+    loadElements[match[1]] = makeFakeElement();
+  }
+  const loadContext = {
+    document: {
+      getElementById: (id) => loadElements[id],
+      createElement: makeFakeElement,
+      documentElement: {},
+      addEventListener() {},
+    },
+    ResizeObserver: class { observe() {} },
+    innerWidth: 1920,
+    innerHeight: 1080,
+    setTimeout() { return 0; },
+    clearTimeout() {},
+    location: { hash: '' },
+    addEventListener(type, fn) { if (type === 'DOMContentLoaded') loadListeners.push(fn); },
+  };
+  loadContext.window = loadContext;
+  vm.createContext(loadContext);
+  vm.runInContext(fs.readFileSync(path.join(viewDir, 'radhud.js'), 'utf8'), loadContext);
+  loadListeners.forEach((fn) => fn());
+  assert.ok(!loadElements.debugPanel.classes.has('on'), 'debug panel must not self-open on load');
+}
+
 console.log('showcase tests passed');

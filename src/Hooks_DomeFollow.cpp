@@ -2,6 +2,10 @@
 #include "Hooks.h"
 #include "RadiationEngine.h"
 #include "RadLifecycleDispatch.h"
+#include "RadCorrectnessPolicy.h"
+#include "RadEngine_Internal.h"
+
+#include <RE/P/PlayerCharacter.h>
 
 #include <atomic>
 #include <chrono>
@@ -44,6 +48,24 @@ namespace Hooks
             return true;
         }();
 
+        // Constraint: the follow skip threshold is RadInternal::kStormDomeFollowEpsilon; IMAD ticks keep DriveDomeAnimation running.
+        static std::mutex followMutex;
+        static bool followPosValid = false;
+        static RE::NiPoint3 lastFollowPos{};
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        const RE::NiPoint3 playerPos = player ? player->GetPosition() : RE::NiPoint3{};
+        const bool movedBeyondEpsilon = [&] {
+            std::lock_guard<std::mutex> lock(followMutex);
+            if (!followPosValid) return true;
+            const float dx = playerPos.x - lastFollowPos.x;
+            const float dy = playerPos.y - lastFollowPos.y;
+            const float dz = playerPos.z - lastFollowPos.z;
+            return RadCorrectnessPolicy::ShouldMoveDomeLayer((dx * dx) + (dy * dy) + (dz * dz),
+                RadInternal::kStormDomeFollowEpsilon * RadInternal::kStormDomeFollowEpsilon);
+        }();
+        if (!runImadFade && !movedBeyondEpsilon)
+            return;
+
         bool expected = false;
         if (!s_domeFollowTaskQueued.compare_exchange_strong(expected, true))
             return;
@@ -59,6 +81,15 @@ namespace Hooks
                         RadiationEngine::GetSingleton().UpdateStormDomeFollow();
                         if (runImadFade)
                             RadiationEngine::GetSingleton().UpdateStormIMADFade();
+                        auto* followedPlayer = RE::PlayerCharacter::GetSingleton();
+                        std::lock_guard<std::mutex> lock(followMutex);
+                        followPosValid = true;
+                        lastFollowPos = followedPlayer ? followedPlayer->GetPosition() : RE::NiPoint3{};
+                    }
+                    else
+                    {
+                        std::lock_guard<std::mutex> lock(followMutex);
+                        followPosValid = false;
                     }
                 }
                 catch (...)
@@ -75,7 +106,10 @@ namespace Hooks
             throw;
         }
         if (!queued)
+        {
             s_domeFollowTaskQueued.store(false);
+            return;
+        }
     }
 
 }

@@ -50,21 +50,22 @@ def main() -> None:
     assert '.armor-figure.power-armor' in css
     structure = ArmorStructure()
     structure.feed(html)
-    for label in ("armorInsulationLabel", "armorEffectiveLabel", "armorPowerLabel"):
-        assert structure.nodes[label][0] == "h3"
-        assert f'aria-labelledby="{label}"' in html
+    for label in ("armorInsulation", "armorEffective", "armorEquipmentTitle", "armorMapTitle"):
+        assert label in structure.nodes, f"missing armor console node {label}"
+    assert 'getElementById("armorInsulation")' in view and 'getElementById("armorEffective")' in view
+    assert 'aria-labelledby="armorEquipmentTitle"' in html and 'aria-labelledby="armorMapTitle"' in html
     for region in ("head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"):
         tag, attrs = structure.nodes[f"armorRegion-{region}"]
-        assert tag == "section" and attrs["class"] == "armor-region"
+        assert tag == "section" and attrs["class"] == "armor-region-card"
         assert f"#armorRegion-{region}" in css
-    assert html.count('class="armor-region"') == 6
+    assert html.count('class="armor-region-card"') == 6
     assert structure.nodes["armorFigure"][1]["role"] == "img"
     assert "Vault suit" in structure.nodes["armorFigure"][1]["aria-label"]
     assert 'grid-column: 2; grid-row: 1 / 4;' in css
     for table in ("armorList", "armorNonThermalList"):
         assert structure.nodes[table][0] == "tbody"
-    assert 'NON-THERMAL EQUIPMENT' in html and '.armor-nonthermal .armor-records td' in css
-    assert 'THERMAL EQUIPMENT' in html and 'READ ONLY' in html
+    assert 'NON-THERMAL ITEMS' in html and '.armor-nonthermal .armor-records td' in css
+    assert 'Thermal equipment' in html
     armor_view = view.split("window.setArmorInfo = function(json)", 1)[1].split("window.setHudLayoutStatus", 1)[0]
     for forbidden in ("innerHTML", "setInterval", "setTimeout", "requestAnimationFrame", "cmd(", "radDebug", "PrismaHUD"):
         assert forbidden not in armor_view

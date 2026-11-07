@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 #include <chrono>
 #include <mutex>
 #include <cstdint>
@@ -139,6 +140,11 @@ public:
     [[nodiscard]] bool StormGhoulsEnabled() const noexcept { return _stormGhoulsEnabled; }
     [[nodiscard]] int FilterReplaceKey() const noexcept { return _filterReplaceKey; }
     [[nodiscard]] int ConditionRepairKey() const noexcept { return _conditionRepairKey; }
+    // Constraint: producer and consumer compare this bit mask of F8, LShift, ReplaceKey and RepairKey down states.
+    [[nodiscard]] std::uint32_t ReadInputBits() const noexcept;
+    [[nodiscard]] std::uint32_t PolledInputBits() const noexcept { return _polledInputBits.load(); }
+    // Constraint: after load or new game the Shift+F8 state already held is the edge baseline, so a key held across load cannot toggle the debug menu.
+    void ResetDebugKeyBaseline() noexcept;
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();
@@ -230,6 +236,7 @@ private:
     // (reliable 0x8000 bit) and fire only on the up->down transition. The old `& 0x0001`
     // ("pressed since last call") LSB is documented-unreliable and false-fired. Not persisted.
     bool _f8WasDown = false;
+    std::atomic<std::uint32_t> _polledInputBits{0};
 
     // STORM SYSTEM — our self-contained versions of NAC's rad storms. Lethal blowouts
     // (Ash Fallout, Firestorm) and ambient hazard weathers (Sulfur, Acid Rain) share one
@@ -393,7 +400,7 @@ private:
     // the player (rads) while in rad weather. Charge persists in the co-save.
     float _filterCharge      = 100.0f;  // 0..100; drains while masked
     int   _filterDurationSec = 300;     // [Filter] DurationSeconds — full->empty wear time
-    int   _filterReplaceKey  = 0;       // [Filter] ReplaceKey VK code (0 = disabled)
+    std::atomic<int> _filterReplaceKey{0};
     bool  _filterAutoReplace = false;   // [Filter] AutoReplace — auto-consume a filter at 0%
     float _filterChokeRads   = 8.0f;    // [Filter] ChokeRadsPerSec when masked w/ a dead filter in rad weather
     RE::TESBoundObject* _filterItem = nullptr;  // ESL 0x803 — the consumable filter
@@ -405,6 +412,7 @@ private:
     void  LoadFilterIni();              // read the [Filter] + [Condition] INI sections
     void  ApplyTuning();
     void  ReloadHotkeysFromIni();
+    std::uint64_t _hotkeyIniWriteTime = 0;
     void  LoadMaskConfig();             // read the [Masks] INI section (extra keywords / listed armors)
     void  ReplaceFilter(bool silent);   // consume one filter item -> charge 100
     int   FilterItemCount() const;      // count of the filter item in the player's inventory
@@ -414,7 +422,7 @@ private:
     float _maskCondition       = 100.0f;  // 0..100; drops on player hits while masked
     bool  _conditionEnabled    = true;    // [Condition] Enabled
     float _conditionHitDamage  = 6.0f;    // [Condition] DamagePerHit
-    int   _conditionRepairKey  = 0;       // [Condition] RepairKey VK code (0 = disabled)
+    std::atomic<int> _conditionRepairKey{0};
     bool  _conditionAutoRepair = false;   // [Condition] AutoRepair
     RE::TESBoundObject* _repairKitItem = nullptr;  // ESL 0x804 — repair kit consumable
     bool  _conditionRepairWasDown = false;         // edge-detect for the repair hotkey

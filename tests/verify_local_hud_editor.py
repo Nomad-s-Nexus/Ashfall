@@ -53,9 +53,12 @@ assert 'if (api11 && !hud.IsCompanionMode())' in create_callback
 retry_worker = rad_hud_lifecycle.split('bool RadHud::StartPrismaViewRetry()', 1)[1]
 assert 'if (!_threadApi) return false;' in retry_worker
 assert 'if (_viewCreateRetry.exchange(true)) return true;' in retry_worker
+assert 'if (nowMs < _viewRetryNotBeforeMs.load()) return true;' not in retry_worker
+assert 'if (nowMs < _viewRetryNotBeforeMs.load()) return _viewCreateRetry.load() || ViewsExist();' in retry_worker
 assert retry_worker.rstrip().endswith('return true;\n}')
-ready = retry_worker.find('RadHud::GetSingleton().ViewsReady()')
-suppress_dispatch = retry_worker.find('DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11)')
+retry_thread = retry_worker.split('auto* retrying', 1)[1]
+ready = retry_thread.find('RadHud::GetSingleton().ViewsReady()')
+suppress_dispatch = retry_thread.find('DispatchToGameThread(SuppressVanillaMetersOnPrismaThread, api11)')
 assert ready != -1 and suppress_dispatch != -1 and ready < suppress_dispatch
 
 push_toxic = rad_hud.split('void RadHud::PushToxic', 1)[1].split('void RadHud::PushMask', 1)[0]
@@ -85,17 +88,25 @@ assert 'a.rfind("hudlayout:", 0) == 0' in rad_debug
 assert 'ApplyLocalHudLayout(a.substr(std::strlen("hudlayout:")))' in rad_debug
 assert 'cmds.swap(_pendingDebugCmds);' in rad_debug
 assert 'DispatchDebugCommand(c);' in rad_debug
+assert 'constexpr std::size_t kMaxPendingDebugCmds = 32;' in rad_debug
+assert '_pendingDebugCmds.erase(_pendingDebugCmds.begin());' in rad_debug
+assert 'HudLayoutWidgetKey(queued) == widget' in rad_debug
+assert 'Log()->warn("[DIAG] HandleDebugCommand' not in rad_debug
+assert 'Log()->warn("[DIAG] DispatchDebugCommand' not in rad_debug
+assert 'SEND_INTERVAL_MS = 100;' in editor_js
+assert 'function sendNow(id, save)' in editor_js
+assert 'sendUpdate(id, true);' in editor_js
 drain_debug = rad_debug.split('void RadiationEngine::DrainDebugCommands()', 1)[1].split(
     'void RadiationEngine::DispatchDebugCommand', 1
 )[0]
 session_gate = drain_debug.find('if (_prevRads < 0.0f)')
 mask_reset = drain_debug.find('_maskOverride = -1;')
 shelter_reset = drain_debug.find('_debugShelter = false;')
-pending_clear = drain_debug.find('_pendingDebugCmds.clear();')
 swap = drain_debug.find('cmds.swap(_pendingDebugCmds);')
-assert session_gate != -1 and mask_reset != -1 and shelter_reset != -1 and pending_clear != -1 and swap != -1
-assert session_gate < mask_reset < pending_clear < swap
-assert session_gate < shelter_reset < pending_clear < swap
+assert session_gate != -1 and mask_reset != -1 and shelter_reset != -1 and swap != -1
+assert '_pendingDebugCmds.clear();' not in drain_debug
+assert session_gate < mask_reset < swap
+assert session_gate < shelter_reset < swap
 
 assert rad_layout.count('void RadHud::OpenHudLayoutEditor()') == 1
 assert 'RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand)' in rad_layout
