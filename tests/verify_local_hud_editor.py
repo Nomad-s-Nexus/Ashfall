@@ -100,11 +100,11 @@ drain_debug = rad_debug.split('void RadiationEngine::DrainDebugCommands()', 1)[1
 session_gate = drain_debug.find('if (_prevRads < 0.0f)')
 mask_reset = drain_debug.find('_maskOverride = -1;')
 shelter_reset = drain_debug.find('_debugShelter = false;')
-pending_clear = drain_debug.find('_pendingDebugCmds.clear();')
 swap = drain_debug.find('cmds.swap(_pendingDebugCmds);')
-assert session_gate != -1 and mask_reset != -1 and shelter_reset != -1 and pending_clear != -1 and swap != -1
-assert session_gate < mask_reset < pending_clear < swap
-assert session_gate < shelter_reset < pending_clear < swap
+assert session_gate != -1 and mask_reset != -1 and shelter_reset != -1 and swap != -1
+assert '_pendingDebugCmds.clear();' not in drain_debug
+assert session_gate < mask_reset < swap
+assert session_gate < shelter_reset < swap
 
 assert rad_layout.count('void RadHud::OpenHudLayoutEditor()') == 1
 assert 'RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand)' in rad_layout

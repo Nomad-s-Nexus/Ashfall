@@ -205,7 +205,6 @@ void RadiationEngine::DrainDebugCommands()
             _weatherReturnCaptured = false;
             _releaseWeatherOverrideWhenSettled = false;
             _weatherHandoffSettleTicks = 0;
-            _pendingDebugCmds.clear();
             return;
         }
         if (_pendingDebugCmds.empty()) return;

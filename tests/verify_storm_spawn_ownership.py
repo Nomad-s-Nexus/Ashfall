@@ -486,6 +486,7 @@ for token in (
     "_weatherHandoffSettleTicks = 0;",
 ):
     assert token in load_local_scrub, f"first post-load transient scrub is missing: {token}"
+assert "_pendingDebugCmds.clear();" not in load_local_scrub, "queued debug commands must survive the not-ready gate"
 
 core_update = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
     "void RadiationEngine::PollInput()", 1
