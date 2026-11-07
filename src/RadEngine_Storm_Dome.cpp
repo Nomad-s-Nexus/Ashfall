@@ -13,11 +13,40 @@
 #include <RE/N/NiObjectNET.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESWorldSpace.h>
+#include <RE/B/BSGeometry.h>
+#include <RE/B/BSShaderProperty.h>
+#include <RE/N/NiRTTI.h>
+#include <cstdlib>
 
 using namespace RadInternal;
 
 namespace
 {
+    constexpr int kDomeDeckCount = static_cast<int>(sizeof(RadCorrectnessPolicy::kDomeDeckShapes) / sizeof(RadCorrectnessPolicy::kDomeDeckShapes[0]));
+    static_assert(kDomeDeckCount <= 8, "StormDomeLayer::decks holds 8 shapes");
+
+    constexpr const char* kDomeIniPath = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+
+    float ReadDomeTunable(const char* a_key, float a_lo, float a_hi, float a_fallback)
+    {
+        char buf[32] = {};
+        ::GetPrivateProfileStringA("StormDome", a_key, "", buf, sizeof(buf), kDomeIniPath);
+        if (buf[0] == '\0') return a_fallback;
+        char* end = nullptr;
+        const float raw = std::strtof(buf, &end);
+        if (end == buf) return a_fallback;
+        return RadCorrectnessPolicy::DomeTunableOr(raw, a_lo, a_hi, a_fallback);
+    }
+
+    // Constraint: properties[1] is cast to BSShaderProperty only after its runtime type is confirmed.
+    RE::BSShaderProperty* ShaderPropertyOf(RE::BSGeometry* a_geom)
+    {
+        auto* prop = a_geom ? a_geom->properties[1].get() : nullptr;
+        if (!prop || !prop->GetRTTI()) return nullptr;
+        static REL::Relocation<const RE::NiRTTI*> shaderRtti{ RE::BSShaderProperty::Ni_RTTI };
+        return prop->GetRTTI()->IsKindOf(shaderRtti.get()) ? static_cast<RE::BSShaderProperty*>(prop) : nullptr;
+    }
+
     bool IsValidDomeOwner(RE::PlayerCharacter* player, RE::TESObjectCELL*& cell, RE::TESWorldSpace*& world)
     {
         cell = player ? player->GetParentCell() : nullptr;
@@ -85,7 +114,8 @@ void RadiationEngine::SpawnStormDome()
     }
     _stormDomeAnimStarted = false;
     _domeAnimTime = 0.0;
-    _domeAnimLastRealS = -1.0;
+    _domeSeqNowSec = 0.0;
+    _domeLoggedSlot = -1;
     _domeAnimLogIndex = 0;
     _domeAnimDriverLogged = false;
     _domeSpinLogged = false;
@@ -93,6 +123,16 @@ void RadiationEngine::SpawnStormDome()
     _domeDriveLastSec = -1.0e9;
     _stormDomeStatsLogged = false;
     ResetDomeShapeMask();
+    _domeVortexYaw = player->data.angle.z;
+    const float distance = ReadDomeTunable("VortexDistance", 500.0f, 5000.0f, RadCorrectnessPolicy::kDomeVortexDistance);
+    const float height = ReadDomeTunable("VortexHeight", 100.0f, 3000.0f, RadCorrectnessPolicy::kDomeVortexHeight);
+    _domeVortexScale = ReadDomeTunable("VortexScale", 0.5f, 6.0f, RadCorrectnessPolicy::kDomeVortexScale);
+    _domeDeckFloorOn = ::GetPrivateProfileIntA("StormDome", "DeckFloor", 0, kDomeIniPath) != 0;
+    _domeVortexDelta = RadCorrectnessPolicy::VortexLocalDelta(_domeVortexYaw, distance, height);
+    Log()->info("[StormFX] dome portal placed: yaw {:.1f} deg, eye {:.0f} units ahead and {:.0f} up, scale x{:.2f}, "
+                "node shift ({:.0f},{:.0f},{:.0f}) NIF units, deck floor {}.",
+        _domeVortexYaw * 180.0f / 3.14159265f, distance, height, _domeVortexScale,
+        _domeVortexDelta.x, _domeVortexDelta.y, _domeVortexDelta.z, _domeDeckFloorOn ? "on" : "off");
 
     bool lit = false, flare = false;
     if (placed > 0 && !interiorCell)
@@ -207,11 +247,9 @@ void RadiationEngine::UpdateDomeAnimation()
     if (pending == 0)
     {
         _stormDomeAnimStarted = true;
-        _domeSeekSec = RadCorrectnessPolicy::DomeSeekSecondsForStorm(
-            _playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec, _stormDomeLeadShiftSec);
+        _domeSeekSec = CurrentDomeSequenceSec();
         _domeAnimTime = 0.0;
         _domeDriveLastSec = -1.0e9;
-        _domeAnimLastRealS = -1.0;
         _domeAnimLogIndex = 0;
         _domeAnimDriverLogged = false;
         _domeSpinLogged = false;
@@ -324,12 +362,33 @@ void RadiationEngine::UpdateStormDomeLifecycle()
 
 }
 
+double RadiationEngine::CurrentDomeSequenceSec()
+{
+    using Slot = RadCorrectnessPolicy::DomePhaseSlot;
+    Slot slot = Slot::kApproach;
+    switch (_stormPhase)
+    {
+    case StormPhase::Approach: slot = Slot::kApproach; break;
+    case StormPhase::Warning:  slot = Slot::kWarning;  break;
+    case StormPhase::Active:   slot = Slot::kActive;   break;
+    case StormPhase::Aftermath: slot = Slot::kAftermath; break;
+    default: return _domeSeqNowSec;
+    }
+    const double frac = _stormPhaseDurSec > 0.0 ? (_playSeconds - _stormPhaseStartSec) / _stormPhaseDurSec : 1.0;
+    _domeSeqNowSec = RadCorrectnessPolicy::DomeSequenceForPhase(slot, frac);
+    if (static_cast<int>(slot) != _domeLoggedSlot)
+    {
+        _domeLoggedSlot = static_cast<int>(slot);
+        static constexpr const char* kSlotNames[] = { "approach", "warning", "active", "aftermath" };
+        Log()->info("[StormFX] dome sequence milestone: {} begins at seq {:.0f} s (spawn+{:.0f} s).",
+            kSlotNames[_domeLoggedSlot], _domeSeqNowSec, _playSeconds - _stormDomeSpawnSec);
+    }
+    return _domeSeqNowSec;
+}
+
 void RadiationEngine::AdvanceDomeClock()
 {
-    const double nowS = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    const bool first = _domeAnimLastRealS < 0.0;
-    _domeAnimTime += RadCorrectnessPolicy::ClampDomeAnimDelta(first ? 0.0 : nowS - _domeAnimLastRealS, kDomeAnimMaxDeltaSec);
-    _domeAnimLastRealS = nowS;
+    _domeAnimTime = std::max(0.0, CurrentDomeSequenceSec() - _domeSeekSec);
 }
 
 static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_seconds)
@@ -344,6 +403,7 @@ static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_se
 void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root)
 {
     a_layer.root = a_root;
+    a_layer.resolved = true;
     _domeShapeMaskDirty = true;
     a_layer.hasManager = RE::NiControllerManager::GetNiControllerManager(a_root) != nullptr;
     a_layer.hole4 = nullptr;
@@ -353,6 +413,44 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
     a_layer.hole4 = a_root->GetObjectByName(RE::BSFixedString("Hole4"));
     a_layer.vortex2 = a_root->GetObjectByName(RE::BSFixedString("Vortex2"));
     a_layer.vortex3 = a_root->GetObjectByName(RE::BSFixedString("Vortex3"));
+    // Constraint: the authored translation is captured only when a node pointer first appears, so a re-resolve never compounds the shift.
+    static constexpr const char* kVortexNodeNames[] = { "Vortex2", "Vortex3", "Hole4" };
+    for (int i = 0; i < 3; ++i)
+    {
+        auto* node = a_root->GetObjectByName(RE::BSFixedString(kVortexNodeNames[i]));
+        auto& state = a_layer.vortex[i];
+        if (node != state.node.get())
+        {
+            state.node = RE::NiPointer<RE::NiAVObject>(node);
+            state.writtenScale = -1.0f;
+            state.baseTranslate = node ? node->local.translate : RE::NiPoint3{};
+        }
+    }
+    for (int i = 0; i < kDomeDeckCount; ++i)
+    {
+        auto* node = a_root->GetObjectByName(RE::BSFixedString(RadCorrectnessPolicy::kDomeDeckShapes[i].data()));
+        auto* geometry = node ? node->IsGeometry() : nullptr;
+        auto& deck = a_layer.decks[i];
+        if (geometry == deck.geom.get()) continue;
+        deck.geom = RE::NiPointer<RE::BSGeometry>(geometry);
+        deck.writtenAlpha = -1.0f;
+        deck.floorAlpha = RadCorrectnessPolicy::DomeDeckFloorFor(RadCorrectnessPolicy::kDomeDeckShapes[i]);
+    }
+}
+
+void RadiationEngine::ApplyDomeVortexLayout(StormDomeLayer& a_layer)
+{
+    for (auto& state : a_layer.vortex)
+    {
+        if (!state.node) continue;
+        const auto& t = state.baseTranslate;
+        state.node->SetLocalTranslate({ t.x + _domeVortexDelta.x, t.y + _domeVortexDelta.y, t.z + _domeVortexDelta.z });
+        const float keyed = state.node->local.scale;
+        if (keyed != state.writtenScale)
+            state.baseScale = keyed;
+        state.writtenScale = state.baseScale * _domeVortexScale;
+        state.node->SetLocalScale(state.writtenScale);
+    }
 }
 
 void RadiationEngine::ResetDomeShapeMask()
@@ -361,9 +459,25 @@ void RadiationEngine::ResetDomeShapeMask()
     _domeShapeMaskDirty = false;
 }
 
+void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTimeSec)
+{
+    const float weight = RadCorrectnessPolicy::DomeDeckFloorWeight(a_seqTimeSec);
+    for (int i = 0; i < kDomeDeckCount; ++i)
+    {
+        auto& deck = a_layer.decks[i];
+        // Constraint: the shader property is read from the live geometry on every apply, never cached.
+        auto* prop = ShaderPropertyOf(deck.geom.get());
+        if (!prop) continue;
+        const float keyed = prop->alpha;
+        if (keyed != deck.writtenAlpha) deck.keyedAlpha = keyed;
+        deck.writtenAlpha = RadCorrectnessPolicy::DomeFloorAlpha(deck.keyedAlpha, deck.floorAlpha, weight);
+        if (!_domeDeckFloorOn) continue;
+        prop->alpha = deck.writtenAlpha;
+    }
+}
 void RadiationEngine::ApplyDomeShapeMask(double a_seqTimeSec)
 {
-    const std::uint64_t mask = RadCorrectnessPolicy::VisibleShapeMask(a_seqTimeSec);
+    const std::uint64_t mask = RadCorrectnessPolicy::DomeShapeVisibility(a_seqTimeSec, _domeDeckFloorOn);
     if (mask == _domeShapeMask && !_domeShapeMaskDirty) return;
     _domeShapeMask = mask;
     _domeShapeMaskDirty = false;
@@ -414,7 +528,7 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         auto* obj3d = ref->Get3D();
         if (!obj3d) continue;
         const bool recreated = layer.root && layer.root != obj3d;
-        if (layer.root != obj3d || (layer.hasManager && (!layer.hole4 || !layer.vortex2 || !layer.vortex3)))
+        if (layer.root != obj3d || !layer.resolved)
             ResolveDomeLayerNodes(layer, obj3d);
         if (!layer.hasManager) continue;
         auto* mgr = RE::NiControllerManager::GetNiControllerManager(obj3d);
@@ -475,6 +589,10 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
     SpinDomeNode(hole4, kPortalSpinDegPerSec, _domeAnimTime);
     SpinDomeNode(vortex2, -kCoreSpinDegPerSec, _domeAnimTime);
     SpinDomeNode(vortex3, kCoreSpinDegPerSec * kVortex3SpinScale, _domeAnimTime);
+    for (auto& layer : _stormDomeRefs)
+        if (layer.hasManager && layer.root) ApplyDomeVortexLayout(layer);
+    for (auto& layer : _stormDomeRefs)
+        if (layer.hasManager && layer.root) ApplyDomeDeckFloor(layer, _domeSeekSec + _domeAnimTime);
     ApplyDomeShapeMask(_domeSeekSec + _domeAnimTime);
 
     for (auto& layer : _stormDomeRefs)
@@ -493,6 +611,7 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         const bool wasActive = mgr && (mgr->flags.flags & kDomeManagerActiveFlag) != 0;
         if (mgr) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags & ~kDomeManagerActiveFlag);
         ref->Update3DPosition(true);
+        if (layer.hasManager && layer.root == obj3d) ApplyDomeVortexLayout(layer);
         if (mgr && wasActive) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags | kDomeManagerActiveFlag);
     }
 }

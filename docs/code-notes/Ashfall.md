@@ -23,6 +23,71 @@ Not verified in game. Whether the portal and the remaining cloud layers read cor
 
 Related: PR #49 (`feat/rad-storm-rad-weather-no-dome`) removes the dome entirely. It is 85 commits behind `main` and conflicts in 14 files, so this change is separate and smaller; if #49 is rebased and merged later, this change is moot.
 
+## Storm dome: portal placement, deck floor off by default, debug-menu evidence (v1.2.3 test feedback)
+
+Reference: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeVortexLayout`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeDeckFloor`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::SpawnStormDome`, `src/RadEngine_Storm_Dome.cpp:ReadDomeTunable`, `src/RadCorrectnessPolicy.h:DomeShapeVisibility`, `src/RadCorrectnessPolicy.h:DomeDeckFloorFor`, `src/RadCorrectnessPolicy.h:kDomeVortexDistance`, and `src/RadiationEngine.cpp:RadiationEngine::PollInput`.
+
+What the player saw after the first build (2026-11-06 22:57 session, `FalloutAnomaly.log`): the sky showed a dark overcast with a large pinwheel of grey radial streaks converging on a point above the crosshair. No portal and no vortex colour.
+
+Cause of the pinwheel, from the code and the log:
+
+- The outer cloud discs are authored under `Vortex0` (`OuterHigh`) and `Vortex1` (`OuterBack`, `OuterFront`), not under the portal group. The first build applied the same node shift and the x1.5 scale to all five vortex nodes, so these discs moved off the player and their radial texture centres came into view.
+- The deck floor raised `OuterHigh`, `OuterBack`, `OuterFront`, `FogSkirt` and `HorizonBand` to 0.6 to 0.8 alpha, and `DomeShapeVisibility` forced them visible from 128 to 320 s. Their authored alpha is faint, so the baked disc geometry showed at full strength.
+- The portal group (`Hole4`, `Vortex2`, `Vortex3`) was moved, but at 2600 units its shapes (136 to 312 world units) subtend about 3 degrees, so it did not read as a portal.
+- The log line `[StormFX] dome vortex placed ... node shift (-29530,-39298,-20812)` is the shift that was applied to all five nodes.
+
+Changes:
+
+- Only `Hole4`, `Vortex2` and `Vortex3` are shifted and scaled (`RadiationEngine::ResolveDomeLayerNodes` and `RadiationEngine::ApplyDomeVortexLayout`). `Vortex0` and `Vortex1` keep their authored position and scale, so the cloud decks stay centred on the player.
+- Portal placement defaults: 1800 units ahead, 900 up, scale x3.0 (`kDomeVortexDistance`, `kDomeVortexHeight`, `kDomeVortexScale`). The bearing is still fixed at spawn.
+- The deck floor is off by default. It is switched on with `[StormDome] DeckFloor=1`. When on, only `PlainHigh`, `PlainMid` and `PlainLow` are floored to 0.6 and forced visible 128 to 320 s (`DomeDeckFloorFor`, `DomeShapeVisibility(seq, deckFloorOn)`). `Outer*`, `FogSkirt` and `HorizonBand` are never floored or forced; they follow their baked windows.
+- Runtime tunables are read once at spawn from the `[StormDome]` section of `Data\F4SE\Plugins\FalloutAnomalyRadiation.ini`. Missing or out-of-range values fall back to the defaults (`ReadDomeTunable`, `DomeTunableOr`):
+
+```
+[StormDome]
+DeckFloor=0
+VortexDistance=1800
+VortexHeight=900
+VortexScale=3.0
+```
+
+- The depth flags (`ZBufferTest`, `ZBufferWrite`) are not changed. Their diagnostic logs were removed.
+
+Debug menu (Shift+F8) evidence from the same session:
+
+- `[HUD] Debug menu opened` at 22:57:48.476. `storm:0` arrived at 22:57:50.046. `[HUD] Debug menu closed` at 22:57:52.248, which is `RadHud::SetDebugMenu(false)`. Its callers are `RadHud::ResetDebugMenuForSession` (load and new game only, not at 52.2), `RadHud::OnBlockingMenuOpened` (pause or message box sink), the `close` debug command, and `RadHudLayout`. The sink logs nothing, so the exact trigger at 52.2 is not in the log.
+- Older sessions show the same open-then-close during a forced storm (2026-11-06 20:50 and 21:59, 2026-11-01 00:02). This is pre-existing and not caused by the dome change.
+- No Shift+F8 press registered after 22:57:52: there is no further `Debug menu opened` line. The PrismaUI log shows `WebInput window deactivated` at 22:58:15 and 22:58:25, and `RadiationEngine::PollInput` ignores the key unless the game window is foreground.
+- The PrismaUI compositor reuse (`present-lease-unavailable`) starts at 22:57:07.554, at view creation, about 40 seconds before the dome spawned. The dome did not cause it.
+- The session ends at 22:58:35 with the player at 705 rad, and no crash log was written.
+
+Conclusion: the debug-menu problem is not caused by the dome change. The 22:57:52.248 close matches PrismaUI `FocusMenu::Close`/`Unfocus` to the millisecond, so it was our own `SetDebugMenu(false)`. No `close` command reached `HandleDebugCommand`, and no Shift+F8 after 52.248 reached `ToggleDebugMenu`. Most likely cause: the `GameWindowForeground()` gate in `RadiationEngine::PollInput`, which the focused PrismaUI view can make false. Not proven from the log.
+
+Fix (no logging added):
+
+- `src/RadiationEngine.cpp:RadiationEngine::PollInput`: Shift+F8 is accepted while the menu is open (`GameWindowForeground() || RadHud::DebugMenuOpen()`), so an open menu always closes.
+- `src/RadHud.cpp:OnRadDebugCommand`: `close` bypasses the engine queue (which drains only inside `Update()`), calls `RadHud::RequestDebugClose`, and `RadHud::PumpDeferredDebug` applies it every frame from `PollInput`.
+- `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:closeDebugMenu`: the CLOSE button hides the panel locally, then sends `close`. Escape closes the panel when it is open.
+- `src/RadHud.cpp:SetDebugMenu`: Escape reaches the view's JS only when the view owns it. Opening the menu claims Escape through PrismaUI V9 `SetViewOwnsEscape`, and closing or a rejected focus releases it, so the pause menu works again. Without V9 Escape stays with the game.
+- `src/RadHud.cpp:SetDebugMenu`: with the DOM still loading there is no JS to hide the panel, so `SetDebugMenu(false)` still releases view focus and Escape ownership.
+- Contract: `tests/verify_debug_menu_close.py`.
+
+Log lines to look for:
+
+- `[StormFX] dome portal placed: yaw ..., eye 1800 units ahead and 900 up, scale x3.00, node shift (...) NIF units, deck floor off.`
+- `[StormFX] dome sequence milestone: approach|warning|active|aftermath begins at seq ...`
+
+Not verified in game.
+
+## God mode: plugin drains cannot kill a TGM player
+
+Status: TODO-verify. Runtime god-mode detection is not verified in game.
+
+- Drain sites: choking (`RadiationEngine.cpp:RadiationEngine::Update`) and storm HP loss (`RadEngine_Storm_FX.cpp:RadiationEngine::ApplyStormExposure`). The vomiting fit (`RadEngine_Tissue.cpp:RadiationEngine::UpdateTissueSymptoms`) is already floored at `kSymVomitFloorHp` and is unchanged.
+- Gate: `RadEngine_Storm_FX.cpp:RadiationEngine::GodModeHealthDrain` checks `[Survival] RespectGodMode` first, then `IsPlayerGodMode`, which runs only on the OG runtime. TODO-verify: the `RE::ID::PlayerCharacter::IsGodMode` address entry in `IDs.h`; NG and AE are untested.
+- Clamp: `RadCorrectnessPolicy.h:GodModeClampedDrain` keeps health at or above `kGodModeFloorHealth` (1). Heals pass through. Rads and the HUD are not clamped.
+- Config: `RadEngine_Mask.cpp:RadiationEngine::LoadFilterIni` reads `[Survival] RespectGodMode` (default 1).
+
 ## Phosphor HUD core rings
 
 - **Why arc paths.** Ultralight (PrismaUI) has no SVG masks and no `pathLength`, so a ring cannot be a dash-array circle. Each ring layer is a set of arc `<path>`s over a 64-unit viewBox (ring r=28, disc r=24.5). `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_core.js:build` writes n empty `<path d="">` elements per layer (trk, ghost, val) into the core markup, as the Phosphor reference does. `hud_core.js:ring` then sets each path's `d` for the range lo..hi (clockwise from the top) and leaves it empty when the segment is outside the range. Every core has 20 segments with a 3.2 gap; there is no small variant (the old 10-segment `sm` core was removed 2026-11-06). Setting `d` on existing elements avoids writing SVG markup at runtime, which Ultralight has not been verified to parse.

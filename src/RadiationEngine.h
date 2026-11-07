@@ -11,6 +11,8 @@
 #include <RE/B/BSSoundHandle.h>
 #include <RE/I/ImageSpaceModifierInstanceForm.h>
 #include <RE/N/NiPoint3.h>
+#include <RE/N/NiPointer.h>
+#include <RE/B/BSGeometry.h>
 
 #include "RadCorrectnessPolicy.h"
 
@@ -51,6 +53,7 @@ enum class StormPhase
                 // Appended (not inserted) so Idle/Warning/Active/Aftermath keep their int values for the HUD.
 };
 
+namespace RE { class BSShaderProperty; }
 class RadiationEngine
 {
 public:
@@ -255,8 +258,8 @@ private:
     // immune to the GameDaysPassed quirks (prewar carryover, the 2077->2287 jump not advancing it).
     double          _playSeconds      = 0.0;        // accumulated real seconds of active play
     double          _nextStormPlaySec = 0.0;        // _playSeconds value at which the next storm fires
-    double          _stormDomeBeginSec = 0.0;
-    double          _stormDomeLeadShiftSec = 0.0;
+    double          _stormPhaseStartSec = 0.0;
+    double          _stormPhaseDurSec = 0.0;
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
@@ -418,6 +421,9 @@ private:
     int   _conditionLowWarned  = 0;       // 0 none / 1 damaged(<=25) / 2 broken — reset on repair
     void  RepairMask(bool silent);       // consume one repair kit -> condition 100
     int   RepairKitCount() const;        // count of the repair kit in the player's inventory
+    // Constraint: god mode clamps plugin health drains only when [Survival] RespectGodMode=1.
+    float GodModeHealthDrain(RE::PlayerCharacter* player, RE::ActorValueInfo* healthAv, float kDamage) const;
+    bool  _respectGodMode    = true;    // [Survival] RespectGodMode
     // CHOKING system (GMW-style): breathing contaminated air without working protection damages
     // HEALTH, not just rads. Applies while exposed (not sheltered/PA/powered-shelter) in rad
     // weather: full rate with no mask worn, a reduced rate when masked but the filter is dead or
@@ -486,9 +492,26 @@ private:
         bool manualSeeded = false;
         RE::NiAVObject* root = nullptr;
         bool hasManager = false;
+        bool resolved = false;
         RE::NiAVObject* hole4 = nullptr;
         RE::NiAVObject* vortex2 = nullptr;
         RE::NiAVObject* vortex3 = nullptr;
+        struct VortexNode
+        {
+            RE::NiPointer<RE::NiAVObject> node;
+            RE::NiPoint3 baseTranslate{};
+            float baseScale = 1.0f;
+            float writtenScale = -1.0f;
+        };
+        VortexNode vortex[3];
+        struct DomeDeck
+        {
+            RE::NiPointer<RE::BSGeometry> geom;
+            float floorAlpha = 0.0f;
+            float keyedAlpha = 0.0f;
+            float writtenAlpha = -1.0f;
+        };
+        DomeDeck decks[8];
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
@@ -496,12 +519,20 @@ private:
     int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
     double _domeAnimTime = 0.0;
-    double _domeAnimLastRealS = -1.0;
+    double _domeSeqNowSec = 0.0;
+    int _domeLoggedSlot = -1;
+    RadCorrectnessPolicy::Position _domeVortexDelta{ 0.0f, 0.0f, 0.0f };
+    float _domeVortexYaw = 0.0f;
+    float _domeVortexScale = RadCorrectnessPolicy::kDomeVortexScale;
+    bool _domeDeckFloorOn = false;
     int _domeAnimLogIndex = 0;
     bool _domeAnimDriverLogged = false;
     bool _domeSpinLogged = false;
     double _domeSeekSec = 0.0;
     void AdvanceDomeClock();
+    double CurrentDomeSequenceSec();
+    void ApplyDomeVortexLayout(StormDomeLayer& a_layer);
+    void ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTimeSec);
     void DriveDomeAnimation(bool moved);
     void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
     void ApplyDomeShapeMask(double a_seqTimeSec);

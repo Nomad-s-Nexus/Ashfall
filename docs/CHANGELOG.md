@@ -1,3 +1,19 @@
+## Unreleased: god mode stops rads from killing (not runtime-verified)
+
+**With TGM god mode on, plugin health drains can no longer take you to 0 HP.** The choking drain and the storm HP loss are clamped to a 1 HP floor while `[Survival] RespectGodMode=1` (default). Rads and the HUD keep accumulating; god mode off is unchanged. Detection uses `RE::ID::PlayerCharacter::IsGodMode` and runs on the OG runtime only, because the NG/AE address entry is unverified. Notes: `docs/code-notes/Ashfall.md`.
+
+## Unreleased: storm dome regression fix (v1.2.3 test feedback; not verified in game)
+
+**The disc pinwheel is gone and the portal is placed in front.** Only the portal group (Hole4, Vortex2, Vortex3) is moved and scaled. The outer cloud discs (Vortex0, Vortex1) keep their authored place. The deck alpha floor and the forced visibility of Outer*, FogSkirt and HorizonBand are removed; Plain* is floored only when `[StormDome] DeckFloor=1`. Portal defaults: 1800 units ahead, 900 up, x3.0. Tunables are read from the `[StormDome]` section. The debug-menu close during a forced storm predates this change; a rate-limited log line now records Shift+F8 presses the game ignores. Notes: `docs/code-notes/Ashfall.md`.
+
+## Unreleased: the storm cloud decks stay visible through the portal window (not verified in game)
+
+**The cloud decks around the vortex stay on screen while the portal is up.** `Plain*`, `Outer*`, `FogSkirt` and `HorizonBand` are drawn from 128 to 320 s of the baked sequence, with their alpha raised to a floor (0.6 or 0.8) that fades at each window edge. The depth flags are logged, not changed. Notes: `docs/code-notes/Ashfall.md`.
+
+## Unreleased: the storm vortex is placed ahead of the player and plays its whole chain (not verified in game)
+
+**The vortex is in front and bigger, and the sequence runs through the storm.** The vortex group sits 2600 units ahead along the spawn bearing and 1200 up, scaled x1.5, and keeps that bearing when the player turns. Each storm phase now owns its window of the 360 s baked sequence (approach, warning, active, aftermath), so forced storms no longer skip the build-up, and the dome stays up through aftermath for the fade-out. Tunables: `kDomeVortexDistance`, `kDomeVortexHeight`, `kDomeVortexScale` in `src/RadCorrectnessPolicy.h`. Contract: `tests/correctness_policy_tests.cpp`, `tests/verify_storm_spawn_ownership.py`. Notes: `docs/code-notes/Ashfall.md`. Depth against vanilla clouds is unchanged; not verified in game.
+
 ## Unreleased: the storm portal shows again; only the vortex tube stays hidden (not verified in game)
 
 **The storm portal is back.** Hiding the tube also hid the portal ring (`PortalA`, `PortalB`, `DiskOuter`, `DiskInner`, `DiskHalo`, `PhotonRing`), so only the clouds were left. Now only the tube shapes (`CoreBack`, `CoreFront`) stay culled, and the portal follows its baked window (about 128 to 320 s). Contract: `tests/correctness_policy_tests.cpp`, `tests/verify_dome_visibility.py`. Notes: `docs/code-notes/Ashfall.md`. Not verified in game.

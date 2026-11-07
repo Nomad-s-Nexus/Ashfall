@@ -125,6 +125,12 @@ namespace
     // JS -> C++ bridge for the debug menu buttons. window.radDebug("storm:0") etc.
     void OnRadDebugCommand(const char* arg)
     {
+        // Constraint: close bypasses the engine command queue, which only drains inside Update(); the menu must close even when Update() is idle.
+        if (arg && std::string_view(arg) == "close")
+        {
+            RadHud::GetSingleton().RequestDebugClose();
+            return;
+        }
         RadiationEngine::GetSingleton().HandleDebugCommand(arg ? arg : "");
     }
 
@@ -609,11 +615,24 @@ void RadHud::ToggleDebugMenu()
             _view, _domReady.load(), _debugDesiredOpen ? "open" : "closed");
 }
 
+void RadHud::RequestDebugClose() noexcept
+{
+    _debugCloseRequested.store(true);
+}
+
 void RadHud::PumpDeferredDebug()
 {
     // Called every frame from PollInput on the verified game-main thread. Applies a toggle that arrived
     // before the view finished loading. All state here is main-thread-only; the cross-thread readiness
     // signal (_domReady) is atomic, so there is no race with the DOM-ready callback.
+    if (_debugCloseRequested.exchange(false))
+    {
+        _debugTogglePending = false;
+        _debugDesiredOpen = false;
+        _debugNextFocusRetryMs = 0;
+        SetDebugMenu(false);
+        return;
+    }
     if (!_debugTogglePending) return;
     if (!_api) { _debugTogglePending = false; return; }   // framework went away — drop the request
 
@@ -644,6 +663,16 @@ void RadHud::OnBlockingMenuOpened()
         SetDebugMenu(false);
 }
 
+namespace
+{
+    // Constraint: Escape reaches the view's JS only while the view owns it (PrismaUI V9); without V9 Escape stays with the game.
+    void SetDebugViewOwnsEscape(uint64_t view, bool owns)
+    {
+        if (auto* escape = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI9>())
+            escape->SetViewOwnsEscape(view, owns);
+    }
+}
+
 void RadHud::SetDebugMenu(bool open)
 {
     if (!_api) return;
@@ -669,6 +698,7 @@ void RadHud::SetDebugMenu(bool open)
                 _debugDesiredOpen = true;
                 _debugTogglePending = true;
                 _debugNextFocusRetryMs = ::GetTickCount64() + 150;
+                SetDebugViewOwnsEscape(_view, false);
 
                 static ULONGLONG lastFocusFailureLog = 0;
                 const auto now = ::GetTickCount64();
@@ -684,6 +714,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugOpen = true;
             _debugTogglePending = false;
             _debugNextFocusRetryMs = 0;
+            SetDebugViewOwnsEscape(_view, true);
             api->InteropCall(_view, "SetDebugMenu", "1");
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
             PushNeedsTuning(RadNeedsTuning::Json());
@@ -697,12 +728,21 @@ void RadHud::SetDebugMenu(bool open)
             SetLocalHudEditorPreview(false);
             api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
+            SetDebugViewOwnsEscape(_view, false);
             _armorPayload.clear();
         }
     }
     else
     {
         _debugOpen = open;
+        if (!open && _view != 0 && api->IsValid(_view))
+        {
+            _debugTogglePending = false;
+            _debugDesiredOpen = false;
+            _debugNextFocusRetryMs = 0;
+            api->Unfocus(_view);
+            SetDebugViewOwnsEscape(_view, false);
+        }
     }
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");

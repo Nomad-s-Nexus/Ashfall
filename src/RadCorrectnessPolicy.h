@@ -54,18 +54,51 @@ namespace RadCorrectnessPolicy
         return static_cast<float>(wrapped);
     }
 
-    // Invariant: a shortened debug lead shifts the dome sequence by (natural - actual) seconds.
-    constexpr double DomeLeadShiftSeconds(double naturalLeadSec, double actualLeadSec)
+    enum class DomePhaseSlot { kApproach, kWarning, kActive, kAftermath };
+
+    constexpr double kDomeSeqApproachEnd = 180.0;
+    constexpr double kDomeSeqWarningEnd = 200.0;
+    constexpr double kDomeSeqActiveEnd = 320.0;
+    constexpr double kDomeSeqAftermathEnd = 360.0;
+
+    // Constraint: a phase fraction that is NaN or outside [0,1] clamps to the phase edge, so no sequence time ever wraps.
+    constexpr double DomeSequenceForPhase(DomePhaseSlot a_slot, double a_fraction)
     {
-        if (!(naturalLeadSec > 0.0) || !(actualLeadSec >= 0.0)) return 0.0;
-        return naturalLeadSec > actualLeadSec ? naturalLeadSec - actualLeadSec : 0.0;
+        double lo = 0.0;
+        double hi = 0.0;
+        switch (a_slot)
+        {
+        case DomePhaseSlot::kApproach: lo = 0.0; hi = kDomeSeqApproachEnd; break;
+        case DomePhaseSlot::kWarning: lo = kDomeSeqApproachEnd; hi = kDomeSeqWarningEnd; break;
+        case DomePhaseSlot::kActive: lo = kDomeSeqWarningEnd; hi = kDomeSeqActiveEnd; break;
+        case DomePhaseSlot::kAftermath: lo = kDomeSeqActiveEnd; hi = kDomeSeqAftermathEnd; break;
+        }
+        const double f = !(a_fraction > 0.0) ? 0.0 : (a_fraction > 1.0 ? 1.0 : a_fraction);
+        return lo + (hi - lo) * f;
     }
 
-    constexpr float DomeSeekSecondsForStorm(double elapsedSec, float timelineSec, double leadShiftSec)
+    // Constraint: a tunable that is not a number, or outside its range, falls back to its default.
+    constexpr float DomeTunableOr(float raw, float lo, float hi, float fallback)
     {
-        if (!(elapsedSec > 0.0)) elapsedSec = 0.0;
-        if (!(leadShiftSec > 0.0)) leadShiftSec = 0.0;
-        return DomeSeekSeconds(elapsedSec + leadShiftSec, timelineSec);
+        return (raw >= lo && raw <= hi) ? raw : fallback;
+    }
+
+    constexpr float kDomeVortexDistance = 1800.0f;
+    constexpr float kDomeVortexHeight = 900.0f;
+    constexpr float kDomeVortexScale = 3.0f;
+    constexpr float kDomeRootScale = 0.1f;
+    constexpr Position kDomeEyeAuthoredWorld = { 1575.0f, 1725.0f, 3281.25f };
+
+    // Constraint: the vortex is moved by translating its nodes in the NIF's own space, so the shell meshes stay centred on the player.
+    inline Position VortexLocalDelta(float a_yawRad, float a_distance, float a_height)
+    {
+        const float wantX = a_distance * std::sin(a_yawRad);
+        const float wantY = a_distance * std::cos(a_yawRad);
+        return {
+            (wantX - kDomeEyeAuthoredWorld.x) / kDomeRootScale,
+            (wantY - kDomeEyeAuthoredWorld.y) / kDomeRootScale,
+            (a_height - kDomeEyeAuthoredWorld.z) / kDomeRootScale
+        };
     }
 
     constexpr float SmoothStep01(float edge0, float edge1, float x)
@@ -144,6 +177,60 @@ namespace RadCorrectnessPolicy
         return mask & kDomeShownShapes;
     }
 
+    constexpr std::string_view kDomeDeckShapes[] = {
+        "PlainHigh", "PlainMid", "PlainLow",
+    };
+    constexpr double kDomeDeckWindowStartSec = 128.0;
+    constexpr double kDomeDeckWindowEndSec = 320.0;
+    constexpr double kDomeDeckFadeSec = 12.0;
+
+    // Constraint: a deck floor only raises alpha, so an authored key above the floor passes through unchanged.
+    constexpr float DomeDeckFloorFor(std::string_view name)
+    {
+        if (name.rfind("Plain", 0) == 0) return 0.6f;
+        return 0.0f;
+    }
+
+    constexpr std::uint64_t DomeDeckShapeMask()
+    {
+        std::uint64_t mask = 0;
+        for (const auto name : kDomeDeckShapes)
+        {
+            const int i = DomeShapeIndex(name);
+            if (i >= 0) mask |= std::uint64_t{ 1 } << i;
+        }
+        return mask;
+    }
+
+    // Constraint: the deck floor weight is 0 outside the portal window and ramps smoothly over the fade at each edge.
+    constexpr float DomeDeckFloorWeight(double seqTimeSec)
+    {
+        if (!(seqTimeSec >= 0.0)) return 0.0f;
+        const float t = static_cast<float>(seqTimeSec);
+        const float rise = SmoothStep01(static_cast<float>(kDomeDeckWindowStartSec - kDomeDeckFadeSec),
+            static_cast<float>(kDomeDeckWindowStartSec), t);
+        const float fall = 1.0f - SmoothStep01(static_cast<float>(kDomeDeckWindowEndSec),
+            static_cast<float>(kDomeDeckWindowEndSec + kDomeDeckFadeSec), t);
+        return rise < fall ? rise : fall;
+    }
+
+    constexpr float DomeFloorAlpha(float keyedAlpha, float floorAlpha, float weight)
+    {
+        const float target = floorAlpha * weight;
+        return keyedAlpha > target ? keyedAlpha : target;
+    }
+
+    constexpr std::uint64_t DomeDeckWindowMask(double seqTimeSec)
+    {
+        return (seqTimeSec >= kDomeDeckWindowStartSec && seqTimeSec <= kDomeDeckWindowEndSec) ? DomeDeckShapeMask() : 0;
+    }
+
+    // Constraint: the deck shapes are forced visible through the portal window only when the deck floor is switched on.
+    constexpr std::uint64_t DomeShapeVisibility(double seqTimeSec, bool deckFloorOn)
+    {
+        if (!deckFloorOn) return VisibleShapeMask(seqTimeSec);
+        return VisibleShapeMask(seqTimeSec) | (DomeDeckWindowMask(seqTimeSec) & kDomeShownShapes);
+    }
     constexpr double WrapAngleRad(double a)
     {
         constexpr double kTau = 6.283185307179586;
@@ -156,11 +243,6 @@ namespace RadCorrectnessPolicy
     {
         constexpr double kPi = 3.141592653589793;
         return WrapAngleRad(degPerSec * seconds * kPi / 180.0);
-    }
-
-    constexpr double ClampDomeAnimDelta(double dt, double maxDt)
-    {
-        return !(dt > 0.0) ? 0.0 : (dt > maxDt ? maxDt : dt);
     }
 
     constexpr bool ShouldMoveDomeLayer(float distSq, float epsSq)
@@ -367,5 +449,18 @@ namespace RadCorrectnessPolicy
         const auto nextGeneration = loadGeneration.fetch_add(1, std::memory_order_acq_rel) + 1;
         hudWaiting.store(false, std::memory_order_release);
         return nextGeneration;
+    }
+
+    // Constraint: god mode with [Survival] RespectGodMode keeps a plugin health drain from taking health to 0; heals (kDamage >= 0) pass through.
+    constexpr float kGodModeFloorHealth = 1.0f;
+    constexpr float GodModeClampedDrain(float currentHealth, float kDamage, bool godMode, bool respectGodMode)
+    {
+        if (!godMode || !respectGodMode || !(kDamage < 0.0f))
+            return kDamage;
+        const float room = currentHealth - kGodModeFloorHealth;
+        if (!(room > 0.0f))
+            return 0.0f;
+        const float take = (-kDamage < room) ? -kDamage : room;
+        return -take;
     }
 }

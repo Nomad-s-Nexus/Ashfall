@@ -244,7 +244,8 @@ def check_source(html_path, source_path):
     assert 'EnableCloudDome' not in storm_modules
     stage_diag = storm_modules.split('void RadiationEngine::DumpQuestStageTable(RE::TESQuest* quest)', 1)[1].split('void RadiationEngine::TriggerStormFX(bool on)', 1)[0]
     assert 'InitSearchTables' not in stage_diag
-    active = storm_modules.split('case StormPhase::Active:', 1)[1].split('case StormPhase::', 1)[0]
+    storm_update = Path(source_path).with_name('RadEngine_Storm_Update.cpp').read_text(encoding='utf-8')
+    active = storm_update.split('case StormPhase::Active:', 1)[1].split('case StormPhase::', 1)[0]
     for marker in (
         '++_nukeAttempts;',
         '_stormNukeFired = SpawnDistantNuke();',

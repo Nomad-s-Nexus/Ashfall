@@ -49,6 +49,8 @@ public:
 
     void ToggleDebugMenu();
     void SetDebugMenu(bool open);
+    void RequestDebugClose() noexcept;
+    [[nodiscard]] bool DebugMenuOpen() const noexcept { return _debugOpen; }
     void OpenHudLayoutEditor();
     void ApplyLocalHudLayout(const std::string& payload);
     void SyncLocalHudLayout();
@@ -107,6 +109,7 @@ private:
     int _maskPushed = -1;
 
     bool _debugOpen = false;
+    std::atomic_bool _debugCloseRequested{ false };
     bool _debugTogglePending = false;
     bool _debugDesiredOpen = false;
 

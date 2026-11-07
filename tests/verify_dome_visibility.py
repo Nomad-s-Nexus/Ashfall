@@ -32,7 +32,8 @@ for name in shapes:
 policy = (ROOT / "src" / "RadCorrectnessPolicy.h").read_text(encoding="utf-8")
 assert "VisibleShapeMask(" in policy
 dome = (ROOT / "src" / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
-assert "VisibleShapeMask(" in dome and "SetAppCulled(" in dome
+assert "DomeShapeVisibility(" in dome and "SetAppCulled(" in dome
+assert "ApplyDomeDeckFloor(layer" in (Path(__file__).resolve().parent.parent / "src" / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
 assert dome.count("SetAppCulled(") == 1
 
 # Constraint: only the vortex tube is never drawn; see docs/code-notes/Ashfall.md.

@@ -75,9 +75,6 @@ int main()
     Require(WrapAngleRad(6.283185307179586) == 0.0);
     Require(std::abs(SpinAngleRad(180.0, 1.0) - 3.141592653589793) < 1e-9);
     Require(SpinAngleRad(12.0, 0.0) == 0.0);
-    Require(ClampDomeAnimDelta(-1.0, 0.25) == 0.0);
-    Require(ClampDomeAnimDelta(0.1, 0.25) == 0.1);
-    Require(ClampDomeAnimDelta(5.0, 0.25) == 0.25);
     Require(!ShouldMoveDomeLayer(0.0f, 1e-4f));
     Require(ShouldMoveDomeLayer(2e-4f, 1e-4f));
     Require(StormShakeStrength(0.75f, false) == 0.75f);
@@ -143,20 +140,62 @@ int main()
     Require(BlendForSequence(100.0, std::nan("")) == 0.0f);
     Require(SmoothStep01(0.0f, 1.0f, -1.0f) == 0.0f);
     Require(SmoothStep01(0.0f, 1.0f, 2.0f) == 1.0f);
-    Require(DomeLeadShiftSeconds(180.0, 180.0) == 0.0);
-    Require(DomeLeadShiftSeconds(180.0, 10.0) == 170.0);
-    Require(DomeLeadShiftSeconds(10.0, 180.0) == 0.0);
-    Require(DomeLeadShiftSeconds(0.0, 0.0) == 0.0);
-    Require(DomeLeadShiftSeconds(std::nan(""), 10.0) == 0.0);
-    Require(DomeLeadShiftSeconds(180.0, std::nan("")) == 0.0);
-    Require(DomeLeadShiftSeconds(180.0, -5.0) == 0.0);
-    Require(DomeSeekSecondsForStorm(0.5, 360.0f, 0.0) == 0.5f);
-    Require(Near(DomeSeekSecondsForStorm(0.5, 360.0f, 170.0), 170.5f, 1e-3f));
-    Require(Near(DomeSeekSecondsForStorm(200.5, 360.0f, 170.0), 10.5f, 1e-3f));
-    Require(DomeSeekSecondsForStorm(190.0, 360.0f, 170.0) == 0.0f);
-    Require(DomeSeekSecondsForStorm(std::nan(""), 360.0f, 170.0) == 170.0f);
-    Require(DomeSeekSecondsForStorm(5.0, 360.0f, std::nan("")) == 5.0f);
-    Require(DomeSeekSecondsForStorm(-3.0, 360.0f, -1.0) == 0.0f);
+    for (const float yaw : { 0.0f, 0.7f, 3.14159265f / 2.0f, -2.2f }) {
+        const Position d = VortexLocalDelta(yaw, kDomeVortexDistance, kDomeVortexHeight);
+        const float ex = kDomeEyeAuthoredWorld.x + d.x * kDomeRootScale;
+        const float ey = kDomeEyeAuthoredWorld.y + d.y * kDomeRootScale;
+        const float ez = kDomeEyeAuthoredWorld.z + d.z * kDomeRootScale;
+        Require(Near(ex, kDomeVortexDistance * std::sin(yaw), 1e-2f));
+        Require(Near(ey, kDomeVortexDistance * std::cos(yaw), 1e-2f));
+        Require(Near(ez, kDomeVortexHeight, 1e-2f));
+    }
+    Require(Near(VortexLocalDelta(0.0f, 2600.0f, 1200.0f).x, -15750.0f, 1e-2f));
+    Require(Near(VortexLocalDelta(0.0f, 2600.0f, 1200.0f).y, 8750.0f, 1e-2f));
+    Require(Near(VortexLocalDelta(0.0f, 2600.0f, 1200.0f).z, -20812.5f, 1e-1f));
+    Require(kDomeVortexScale > 1.0f);
+    Require(kDomeVortexDistance > 1000.0f && kDomeVortexDistance < 4000.0f);
+    Require(DomeDeckFloorFor("OuterHigh") == 0.0f);
+    Require(DomeDeckFloorFor("FogSkirt") == 0.0f);
+    Require(DomeDeckFloorFor("HorizonBand") == 0.0f);
+    Require(DomeTunableOr(2500.0f, 500.0f, 5000.0f, 1800.0f) == 2500.0f);
+    Require(DomeTunableOr(9000.0f, 500.0f, 5000.0f, 1800.0f) == 1800.0f);
+    Require(DomeTunableOr(std::nanf(""), 500.0f, 5000.0f, 1800.0f) == 1800.0f);
+    Require(DomeDeckFloorFor("PlainLow") == 0.6f);
+    Require(DomeDeckFloorFor("PortalA") == 0.0f);
+    Require(DomeDeckFloorWeight(100.0) == 0.0f);
+    Require(DomeDeckFloorWeight(128.0) == 1.0f);
+    Require(DomeDeckFloorWeight(200.0) == 1.0f);
+    Require(DomeDeckFloorWeight(320.0) == 1.0f);
+    Require(DomeDeckFloorWeight(332.0) == 0.0f);
+    Require(DomeDeckFloorWeight(350.0) == 0.0f);
+    Require(DomeDeckFloorWeight(122.0) > 0.0f && DomeDeckFloorWeight(122.0) < 1.0f);
+    Require(DomeFloorAlpha(0.03f, 0.6f, 1.0f) == 0.6f);
+    Require(DomeFloorAlpha(0.9f, 0.6f, 1.0f) == 0.9f);
+    Require(DomeFloorAlpha(0.03f, 0.6f, 0.0f) == 0.03f);
+    Require(DomeShapeVisibility(150.0, true) == (VisibleShapeMask(150.0) | (DomeDeckWindowMask(150.0) & kDomeShownShapes)));
+    Require(DomeShapeVisibility(150.0, false) == VisibleShapeMask(150.0));
+    Require(((DomeShapeVisibility(150.0, true) >> DomeShapeIndex("PlainHigh")) & 1u) == 1u);
+    Require(((DomeDeckShapeMask() >> DomeShapeIndex("OuterFront")) & 1u) == 0u);
+    Require((DomeShapeVisibility(150.0, true) & DomeHiddenShapeMask()) == 0u);
+    Require(DomeShapeVisibility(50.0, true) == VisibleShapeMask(50.0));
+    Require(DomeDeckShapeMask() != 0u);
+    using Slot = DomePhaseSlot;
+    Require(DomeSequenceForPhase(Slot::kApproach, 0.0) == 0.0);
+    Require(DomeSequenceForPhase(Slot::kApproach, 0.5) == 90.0);
+    Require(DomeSequenceForPhase(Slot::kApproach, 1.0) == 180.0);
+    Require(DomeSequenceForPhase(Slot::kWarning, 1.0) == 200.0);
+    Require(DomeSequenceForPhase(Slot::kActive, 0.0) == 200.0);
+    Require(DomeSequenceForPhase(Slot::kActive, 1.0) == 320.0);
+    Require(DomeSequenceForPhase(Slot::kAftermath, 0.0) == 320.0);
+    Require(DomeSequenceForPhase(Slot::kAftermath, 1.0) == 360.0);
+    Require(DomeSequenceForPhase(Slot::kActive, 2.0) == 320.0);
+    Require(DomeSequenceForPhase(Slot::kActive, -1.0) == 200.0);
+    Require(DomeSequenceForPhase(Slot::kActive, std::nan("")) == 200.0);
+    Require(DomeSequenceForPhase(Slot::kWarning, 0.0) == DomeSequenceForPhase(Slot::kApproach, 1.0));
+    Require(DomeSequenceForPhase(Slot::kActive, 0.0) == DomeSequenceForPhase(Slot::kWarning, 1.0));
+    Require(DomeSequenceForPhase(Slot::kAftermath, 0.0) == DomeSequenceForPhase(Slot::kActive, 1.0));
+    Require(DomeSequenceForPhase(Slot::kApproach, 1.0) == kDomeSeqApproachEnd);
+    Require(kDomeSeqAftermathEnd == 360.0);
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
     Require(IsConfiguredMask(false, true, true));
@@ -533,6 +572,19 @@ int main()
     // Constraint: a normal activation must never consume a bottle, even with an empty bottle held.
     Require(Decide(true, true, false, false, 1) == Decision::kNoModifier);
     Require(Decide(true, true, false, true, 0) == Decision::kNoEmptyBottle);
+
+    // Constraint: god mode + RespectGodMode clamps a health drain so health never reaches 0.
+    using RadCorrectnessPolicy::GodModeClampedDrain;
+    Require(Near(GodModeClampedDrain(50.0f, -10.0f, true, true), -10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, -10.0f, true, true), -4.0f));
+    Require(Near(GodModeClampedDrain(5.0f, -4.0f, true, true), -4.0f));
+    Require(Near(GodModeClampedDrain(1.0f, -3.0f, true, true), 0.0f));
+    Require(Near(GodModeClampedDrain(0.5f, -3.0f, true, true), 0.0f));
+    Require(Near(GodModeClampedDrain(50.0f, -10.0f, false, true), -10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, -10.0f, true, false), -10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, 10.0f, true, true), 10.0f));
+    Require(Near(GodModeClampedDrain(1.0f, 10.0f, true, true), 10.0f));
+    Require(Near(GodModeClampedDrain(5.0f, 0.0f, true, true), 0.0f));
 
     return 0;
 }

@@ -328,6 +328,20 @@ window.SetDebugMenu = function(on) {
   if (show && window.RadShowcase) window.RadShowcase.stop();
 };
 
+function debugPanelOpen() {
+  var panel = document.getElementById("debugPanel");
+  return !!(panel && panel.classList.contains("on"));
+}
+function closeDebugMenu() {
+  window.SetDebugMenu(0);
+  cmd("close");
+}
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("keydown", function(e) {
+    if ((e.key === "Escape" || e.key === "Esc") && debugPanelOpen()) closeDebugMenu();
+  });
+}
+
 var SURV_POOLS = [["hunger", "Hunger"], ["thirst", "Thirst"], ["sleepDebt", "Fatigue"]];
 var SURV_DISEASES = { 1: "FEVER", 2: "WASTING" };
 
