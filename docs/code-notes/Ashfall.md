@@ -52,6 +52,16 @@ In-game checks, by log line and by eye:
 - At the end: `[StormFX] Storm dome cleared` appears after the aftermath, not at the end of Active. The fade-out should be visible in the aftermath.
 
 Not verified in game. Nothing in this section has been run in the game.
+## Storm dome: cloud decks stay visible through the portal window
+
+Reference: `src/RadCorrectnessPolicy.h:DomeDeckFloorWeight`, `src/RadCorrectnessPolicy.h:DomeFloorAlpha`, `src/RadCorrectnessPolicy.h:DomeShapeVisibility`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeDeckFloor`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeShapeMask`.
+
+- Visibility: `PlainHigh`, `PlainMid`, `PlainLow`, `OuterHigh`, `OuterBack`, `OuterFront`, `FogSkirt` and `HorizonBand` are drawn for the whole portal window (128 to 320 s of sequence), added on top of the baked windows by `DomeShapeVisibility`. The tube shapes (`CoreBack`, `CoreFront`) stay culled.
+- Alpha: the NIF keys these decks through `BSEffectShaderPropertyFloatController` (controlled variable 5, Alpha), which writes `BSShaderProperty::alpha`. After each controller update the plugin raises that alpha to a floor, weighted by a smoothstep of 12 s at each window edge. The floors are 0.6 for `Plain*`, `FogSkirt` and `HorizonBand`, and 0.8 for `Outer*`. Outside the window the keyed value passes through unchanged, and the floor never lowers an authored key.
+- Depth: `BSShaderProperty::flags` (`ZBufferTest`, `ZBufferWrite`) are logged once on the first drive for `PortalA`, `DiskOuter`, `PlainHigh` and `OuterHigh` (`[StormFX] dome depth flags ...`). They are not changed. The portal and decks sit nearer than the sky, so the sky depth does not hide them; any occlusion by vanilla clouds comes from draw order (the sky is drawn after the ordered dome), which depth flags cannot change. Writing depth on the authored ordered alpha layers would cull the later layers in the same node.
+- Log lines: `[StormFX] dome deck floor: N of 8 deck shapes have a shader property; weight ... at seq ...`.
+
+Not verified in game. Open checks: the decks should be visible from about 128 s to 320 s; if `dome deck floor` reports 0 shaded decks, `properties[1]` is not the shader property and the floor does nothing; if the alpha in the depth log stays near 0.03, the controller writes a different property.
 ## Phosphor HUD core rings
 
 - **Why arc paths.** Ultralight (PrismaUI) has no SVG masks and no `pathLength`, so a ring cannot be a dash-array circle. Each ring layer is a set of arc `<path>`s over a 64-unit viewBox (ring r=28, disc r=24.5). `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_core.js:build` writes n empty `<path d="">` elements per layer (trk, ghost, val) into the core markup, as the Phosphor reference does. `hud_core.js:ring` then sets each path's `d` for the range lo..hi (clockwise from the top) and leaves it empty when the segment is outside the range. Every core has 20 segments with a 3.2 gap; there is no small variant (the old 10-segment `sm` core was removed 2026-11-06). Setting `d` on existing elements avoids writing SVG markup at runtime, which Ultralight has not been verified to parse.

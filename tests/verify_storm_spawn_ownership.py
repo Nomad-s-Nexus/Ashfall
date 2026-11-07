@@ -320,7 +320,7 @@ assert "seq->offset = RadCorrectnessPolicy::DomeSequenceOffset(static_cast<float
 assert "_domeSeekSec - _domeAnimTime" not in dome
 assert dome_drive.count("GetObjectByName") == 0, "node lookups must be cached per layer"
 resolve_body = dome.split("void RadiationEngine::ResolveDomeLayerNodes", 1)[1].split("void RadiationEngine::ResetDomeShapeMask", 1)[0]
-assert resolve_body.count("GetObjectByName") == 3 + 1, "3 named pointers plus one lookup in the vortex-node loop"
+assert resolve_body.count("GetObjectByName") == 3 + 1 + 1, "3 named pointers, one vortex-node loop lookup, one deck loop lookup"
 internal_src = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
 assert "kStormDomeFollowEpsilon = 64.0f;" in internal_src
 assert "kDomeDriveIntervalSec = 1.0 / 30.0;" in internal_src

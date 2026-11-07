@@ -171,6 +171,61 @@ namespace RadCorrectnessPolicy
         return mask & kDomeShownShapes;
     }
 
+    constexpr std::string_view kDomeDeckShapes[] = {
+        "PlainHigh", "PlainMid", "PlainLow", "OuterHigh", "OuterBack", "OuterFront", "FogSkirt", "HorizonBand",
+    };
+    constexpr double kDomeDeckWindowStartSec = 128.0;
+    constexpr double kDomeDeckWindowEndSec = 320.0;
+    constexpr double kDomeDeckFadeSec = 12.0;
+
+    // Constraint: a deck floor only raises alpha, so an authored key above the floor passes through unchanged.
+    constexpr float DomeDeckFloorFor(std::string_view name)
+    {
+        if (name.rfind("Outer", 0) == 0) return 0.8f;
+        if (name.rfind("Plain", 0) == 0) return 0.6f;
+        if (name == "FogSkirt" || name == "HorizonBand") return 0.6f;
+        return 0.0f;
+    }
+
+    constexpr std::uint64_t DomeDeckShapeMask()
+    {
+        std::uint64_t mask = 0;
+        for (const auto name : kDomeDeckShapes)
+        {
+            const int i = DomeShapeIndex(name);
+            if (i >= 0) mask |= std::uint64_t{ 1 } << i;
+        }
+        return mask;
+    }
+
+    // Constraint: the deck floor weight is 0 outside the portal window and ramps smoothly over the fade at each edge.
+    constexpr float DomeDeckFloorWeight(double seqTimeSec)
+    {
+        if (!(seqTimeSec >= 0.0)) return 0.0f;
+        const float t = static_cast<float>(seqTimeSec);
+        const float rise = SmoothStep01(static_cast<float>(kDomeDeckWindowStartSec - kDomeDeckFadeSec),
+            static_cast<float>(kDomeDeckWindowStartSec), t);
+        const float fall = 1.0f - SmoothStep01(static_cast<float>(kDomeDeckWindowEndSec),
+            static_cast<float>(kDomeDeckWindowEndSec + kDomeDeckFadeSec), t);
+        return rise < fall ? rise : fall;
+    }
+
+    constexpr float DomeFloorAlpha(float keyedAlpha, float floorAlpha, float weight)
+    {
+        const float target = floorAlpha * weight;
+        return keyedAlpha > target ? keyedAlpha : target;
+    }
+
+    constexpr std::uint64_t DomeDeckWindowMask(double seqTimeSec)
+    {
+        return (seqTimeSec >= kDomeDeckWindowStartSec && seqTimeSec <= kDomeDeckWindowEndSec) ? DomeDeckShapeMask() : 0;
+    }
+
+    // Constraint: outside the portal window the visible set is exactly the baked table; inside it the deck shapes are added.
+    constexpr std::uint64_t DomeShapeVisibility(double seqTimeSec)
+    {
+        return VisibleShapeMask(seqTimeSec) | (DomeDeckWindowMask(seqTimeSec) & kDomeShownShapes);
+    }
     constexpr double WrapAngleRad(double a)
     {
         constexpr double kTau = 6.283185307179586;

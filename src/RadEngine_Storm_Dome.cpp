@@ -13,8 +13,16 @@
 #include <RE/N/NiObjectNET.h>
 #include <RE/T/TESObjectCELL.h>
 #include <RE/T/TESWorldSpace.h>
+#include <RE/B/BSGeometry.h>
+#include <RE/B/BSShaderProperty.h>
 
 using namespace RadInternal;
+
+namespace
+{
+    constexpr int kDomeDeckCount = static_cast<int>(sizeof(RadCorrectnessPolicy::kDomeDeckShapes) / sizeof(RadCorrectnessPolicy::kDomeDeckShapes[0]));
+    static_assert(kDomeDeckCount <= 8, "StormDomeLayer::decks holds 8 shapes");
+}
 
 namespace
 {
@@ -87,6 +95,7 @@ void RadiationEngine::SpawnStormDome()
     _domeAnimTime = 0.0;
     _domeSeqNowSec = 0.0;
     _domeLoggedSlot = -1;
+    _domeDeckLogged = false;
     _domeAnimLogIndex = 0;
     _domeAnimDriverLogged = false;
     _domeSpinLogged = false;
@@ -394,6 +403,16 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
             state.baseTranslate = node ? node->local.translate : RE::NiPoint3{};
         }
     }
+    for (int i = 0; i < kDomeDeckCount; ++i)
+    {
+        auto* node = a_root->GetObjectByName(RE::BSFixedString(RadCorrectnessPolicy::kDomeDeckShapes[i].data()));
+        auto& deck = a_layer.decks[i];
+        if (node == deck.node) continue;
+        deck.node = node;
+        deck.writtenAlpha = -1.0f;
+        deck.floorAlpha = RadCorrectnessPolicy::DomeDeckFloorFor(RadCorrectnessPolicy::kDomeDeckShapes[i]);
+        deck.prop = node ? static_cast<RE::BSShaderProperty*>(static_cast<RE::BSGeometry*>(node)->properties[1].get()) : nullptr;
+    }
 }
 
 void RadiationEngine::ApplyDomeVortexLayout(StormDomeLayer& a_layer)
@@ -417,9 +436,42 @@ void RadiationEngine::ResetDomeShapeMask()
     _domeShapeMaskDirty = false;
 }
 
+void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTimeSec)
+{
+    const float weight = RadCorrectnessPolicy::DomeDeckFloorWeight(a_seqTimeSec);
+    for (auto& deck : a_layer.decks)
+    {
+        if (!deck.prop) continue;
+        const float keyed = deck.prop->alpha;
+        if (keyed != deck.writtenAlpha) deck.keyedAlpha = keyed;
+        deck.writtenAlpha = RadCorrectnessPolicy::DomeFloorAlpha(deck.keyedAlpha, deck.floorAlpha, weight);
+        deck.prop->alpha = deck.writtenAlpha;
+    }
+    if (_domeDeckLogged || !a_layer.root) return;
+    _domeDeckLogged = true;
+    int shaded = 0;
+    for (const auto& deck : a_layer.decks)
+        if (deck.prop) ++shaded;
+    Log()->info("[StormFX] dome deck floor: {} of {} deck shapes have a shader property; weight {:.2f} at seq {:.1f}.",
+        shaded, kDomeDeckCount, weight, a_seqTimeSec);
+    for (const char* name : { "PortalA", "DiskOuter", "PlainHigh", "OuterHigh" })
+    {
+        auto* node = a_layer.root->GetObjectByName(RE::BSFixedString(name));
+        auto* geom = node ? static_cast<RE::BSGeometry*>(node) : nullptr;
+        auto* prop = geom ? static_cast<RE::BSShaderProperty*>(geom->properties[1].get()) : nullptr;
+        if (!prop)
+        {
+            Log()->info("[StormFX] dome depth flags {}: no shader property.", name);
+            continue;
+        }
+        Log()->info("[StormFX] dome depth flags {} (before, unchanged): ZBufferTest={} ZBufferWrite={} alpha={:.2f}.",
+            name, prop->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kZBufferTest),
+            prop->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kZBufferWrite), prop->alpha);
+    }
+}
 void RadiationEngine::ApplyDomeShapeMask(double a_seqTimeSec)
 {
-    const std::uint64_t mask = RadCorrectnessPolicy::VisibleShapeMask(a_seqTimeSec);
+    const std::uint64_t mask = RadCorrectnessPolicy::DomeShapeVisibility(a_seqTimeSec);
     if (mask == _domeShapeMask && !_domeShapeMaskDirty) return;
     _domeShapeMask = mask;
     _domeShapeMaskDirty = false;
@@ -533,6 +585,8 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
     SpinDomeNode(vortex3, kCoreSpinDegPerSec * kVortex3SpinScale, _domeAnimTime);
     for (auto& layer : _stormDomeRefs)
         if (layer.hasManager && layer.root) ApplyDomeVortexLayout(layer);
+    for (auto& layer : _stormDomeRefs)
+        if (layer.hasManager && layer.root) ApplyDomeDeckFloor(layer, _domeSeekSec + _domeAnimTime);
     ApplyDomeShapeMask(_domeSeekSec + _domeAnimTime);
 
     for (auto& layer : _stormDomeRefs)

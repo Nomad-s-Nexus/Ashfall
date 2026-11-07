@@ -1,3 +1,7 @@
+## Unreleased: the storm cloud decks stay visible through the portal window (not verified in game)
+
+**The cloud decks around the vortex stay on screen while the portal is up.** `Plain*`, `Outer*`, `FogSkirt` and `HorizonBand` are drawn from 128 to 320 s of the baked sequence, with their alpha raised to a floor (0.6 or 0.8) that fades at each window edge. The depth flags are logged, not changed. Notes: `docs/code-notes/Ashfall.md`.
+
 ## Unreleased: the storm vortex is placed ahead of the player and plays its whole chain (not verified in game)
 
 **The vortex is in front and bigger, and the sequence runs through the storm.** The vortex group sits 2600 units ahead along the spawn bearing and 1200 up, scaled x1.5, and keeps that bearing when the player turns. Each storm phase now owns its window of the 360 s baked sequence (approach, warning, active, aftermath), so forced storms no longer skip the build-up, and the dome stays up through aftermath for the fade-out. Tunables: `kDomeVortexDistance`, `kDomeVortexHeight`, `kDomeVortexScale` in `src/RadCorrectnessPolicy.h`. Contract: `tests/correctness_policy_tests.cpp`, `tests/verify_storm_spawn_ownership.py`. Notes: `docs/code-notes/Ashfall.md`. Depth against vanilla clouds is unchanged; not verified in game.

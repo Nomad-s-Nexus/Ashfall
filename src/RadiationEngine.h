@@ -51,6 +51,7 @@ enum class StormPhase
                 // Appended (not inserted) so Idle/Warning/Active/Aftermath keep their int values for the HUD.
 };
 
+namespace RE { class BSShaderProperty; }
 class RadiationEngine
 {
 public:
@@ -497,6 +498,15 @@ private:
             float writtenScale = -1.0f;
         };
         VortexNode vortex[5];
+        struct DomeDeck
+        {
+            RE::NiAVObject* node = nullptr;
+            RE::BSShaderProperty* prop = nullptr;
+            float floorAlpha = 0.0f;
+            float keyedAlpha = 0.0f;
+            float writtenAlpha = -1.0f;
+        };
+        DomeDeck decks[8];
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
@@ -507,6 +517,7 @@ private:
     double _domeSeqNowSec = 0.0;
     int _domeLoggedSlot = -1;
     RadCorrectnessPolicy::Position _domeVortexDelta{ 0.0f, 0.0f, 0.0f };
+    bool _domeDeckLogged = false;                   
     float _domeVortexYaw = 0.0f;
     int _domeAnimLogIndex = 0;
     bool _domeAnimDriverLogged = false;
@@ -515,6 +526,7 @@ private:
     void AdvanceDomeClock();
     double CurrentDomeSequenceSec();
     void ApplyDomeVortexLayout(StormDomeLayer& a_layer);
+    void ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTimeSec);
     void DriveDomeAnimation(bool moved);
     void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
     void ApplyDomeShapeMask(double a_seqTimeSec);
