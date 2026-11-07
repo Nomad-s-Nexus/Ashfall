@@ -213,6 +213,8 @@ def main() -> int:
     require(sync_m is not None and "_debugPushedOpen == (_debugOpen ? 1 : 0)" in sync_m.group(1)
             and "PushDebugPanelState(_debugOpen);" in sync_m.group(1),
             "SyncDebugPanelState must re-send the native state only when it differs from the delivered state")
+    require(sync_m is not None and "if (_debugView == 0) return;" in sync_m.group(1),
+            "SyncDebugPanelState must do no work while the debug view is closed")
     require("RadHud::GetSingleton().SyncDebugPanelState();" in rad_cpp,
             "RadiationEngine::Update must run the panel sync")
     require(rad_cpp.index("RadHud::GetSingleton().SyncDebugPanelState();")
@@ -263,6 +265,9 @@ def main() -> int:
     require(resume_at >= 0 and resume_at < destroy_body.find("if (_debugView == 0) return;")
             and resume_at < destroy_body.find("api->Destroy(_debugView);"),
             "DestroyDebugView must restore frozen debug time before its early return and before the view is destroyed")
+    drain_at = destroy_body.find("RadiationEngine::GetSingleton().DrainDebugCommands();")
+    require(drain_at >= 0 and drain_at < resume_at,
+            "DestroyDebugView must drain queued debug commands before it restores frozen debug time")
     require(hud_cpp.count("RadiationEngine::GetSingleton().ResumeDebugTime();") == 1,
             "only DestroyDebugView may restore frozen debug time on close")
     require("void ResumeDebugTime();" in rad_h, "RadiationEngine must declare ResumeDebugTime()")

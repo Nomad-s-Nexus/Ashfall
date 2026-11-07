@@ -773,7 +773,8 @@ void RadHud::EnsureDebugView()
 
 void RadHud::DestroyDebugView()
 {
-    // Constraint: restores frozen debug time before the early return, so every close route runs it.
+    // Constraint: queued debug commands drain before frozen time is restored, on every close route.
+    RadiationEngine::GetSingleton().DrainDebugCommands();
     RadiationEngine::GetSingleton().ResumeDebugTime();
     if (_debugView == 0) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
@@ -812,6 +813,7 @@ void RadHud::PushDebugPanelState(bool open) noexcept
 
 void RadHud::SyncDebugPanelState() noexcept
 {
+    if (_debugView == 0) return;
     // Constraint: an unchanged state costs one integer compare, so the 4 Hz tick never re-sends the same state.
     if (_debugPushedOpen == (_debugOpen ? 1 : 0)) return;
     PushDebugPanelState(_debugOpen);

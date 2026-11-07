@@ -85,16 +85,16 @@ def main() -> int:
 
     pump = body(life, "void RadHud::PumpDomReady()")
     require("PrismaWindowOpen()" in pump, "PumpDomReady must be gated by the settle and bridge")
-    for slot in ("kDomSlotMain", "kDomSlotToxic", "kDomSlotFilter", "kDomSlotClimate", "kDomSlotNeeds"):
+    for slot in ("kDomSlotMain", "kDomSlotToxic", "kDomSlotFilter", "kDomSlotClimate", "kDomSlotNeeds", "kDomSlotDebug"):
         require(slot in pump, f"PumpDomReady must consume {slot}")
-    require(pump.count("IsLiveDomReady(") == 5, "every pending DOM-ready handle must be checked for liveness")
+    require(pump.count("IsLiveDomReady(") == 6, "every pending DOM-ready handle must be checked for liveness")
     for fin in ("FinalizeMainDomReady", "FinalizeToxicDomReady", "FinalizeFilterDomReady",
-                "FinalizeClimateDomReady", "FinalizeNeedsDomReady"):
+                "FinalizeClimateDomReady", "FinalizeNeedsDomReady", "FinalizeDebugDomReady"):
         require(fin + "(" in pump, f"PumpDomReady must call {fin}")
 
-    main_fin = body(hud_cpp, "void RadHud::FinalizeMainDomReady(uint64_t view)")
-    require(main_fin.index("RegisterJSListener") < main_fin.index("_domReady.store(true"),
-            "FinalizeMainDomReady must register the listener before publishing ready")
+    debug_fin = body(hud_cpp, "void RadHud::FinalizeDebugDomReady(uint64_t view)")
+    require(debug_fin.index("RegisterJSListener") < debug_fin.index("_debugDomReady.store(true"),
+            "FinalizeDebugDomReady must register the listener before publishing ready")
 
     create = body(hud_cpp, "void RadHud::CreateView()")
     require("!LoadSettled()" in create, "CreateView must return early inside the settle window")

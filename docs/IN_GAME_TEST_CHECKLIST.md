@@ -122,8 +122,9 @@ Expected relief amounts (computed from `PortionFor` with the 0.8 floor and 1.5 c
 
 ## Showcase tab
 - **Open the debug menu (Shift+F8), SHOWCASE tab, press a scene button.** Expected: the scene's commands fire in order (storm starts, fast-forwards to Active, ends).
-- **Press PLAY FULL TOUR.** Expected: the menu closes and every scene plays in turn with no menu visible; Shift+F8 reopens the menu and stops the tour.
+- **Press PLAY FULL TOUR.** Expected: the menu stays open and every scene plays in turn while the debug panel is open; closing the menu (CLOSE, Esc or Shift+F8) ends the tour.
 - **Press Peckish, Starving, Exhausted, Fever stage 2, Wasting stage 3, then Clear needs.** Expected: the clock freezes, the needs widget and survival tab show the scene's pool or disease stage, each scene reverts to zero after 10 seconds, and Clear needs resumes the clock.
-- **CAMERA row: God ON, Freeze time, Noon, Lock weather.** Expected: health stays full while god is on, the clock stops until Resume time, the hour jumps to the preset, and the weather holds until Release weather.
+- **CAMERA row: God ON, Freeze time, Noon, Lock weather.** Expected: health stays full while god is on, the clock stops until Resume time or the menu closes, the hour jumps to the preset, and the weather holds until Release weather.
+- **Close the debug menu, then reopen it.** Expected: after CLOSE, Esc or Shift+F8 the menu is gone and a frozen clock runs again. Shift+F8 reopens the menu, and pressing Shift+F8 twice in a row leaves the menu closed with no half-open panel. Repeat the close and reopen a few times without a restart.
 - **Resume time before saving.** A save made while time is frozen stores a time scale of 0.
 - Needs and disease scenes overwrite your real needs and disease state; do not use them on a save you want to keep, and resume time before saving.
