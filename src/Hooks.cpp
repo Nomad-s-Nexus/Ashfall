@@ -577,7 +577,7 @@ namespace Hooks
             {
                 logger->info("[Hook] Producer hook installed successfully.");
                 logger->debug("  Original function address: 0x{:X}", original_Update.address());
-                logger->debug("  Producer cadence: per-frame input + dome follow + ~4 Hz engine tick");
+                logger->debug("  Producer cadence: per-frame input + storm visuals + ~4 Hz engine tick");
                 logger->debug("  Engine execution thread: verified game-main thread {}", s_gameMainThreadId.load());
             }
             return true;

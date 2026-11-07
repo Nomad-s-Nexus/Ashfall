@@ -113,7 +113,7 @@ check("UpdatePenaltyStages(\"\")" in tick and "ReconcileDiseases()" in tick,
 
 disease_script = read(SCRIPTS / "RadSurvivalDiseases.psc")
 reconcile = disease_script.split("Function Reconcile(", 1)[1].split("Function TryRestCure", 1)[0]
-check("abActive && DiseasesEnabled" in reconcile, "the disease ability must be gated on an active layer")
+check("abActive && DiseasesOn()" in reconcile, "the disease ability must be gated on an active layer")
 check("ApplySpell(wanted)" in reconcile, "the disease reconcile must derive the ability from state")
 
 notes = read(ROOT / "docs/code-notes/Rad-Overhaul-Fallout-4.md")

@@ -7,6 +7,8 @@
 #include "RadCorrectnessPolicy.h"
 #include "RadLifecycle.h"
 #include "RadLifecycleDispatch.h"
+#include "RadNeedsTuning.h"
+#include "RadReliefConfig.h"
 #include <RE/U/UI.h>
 #include <RE/P/PlayerCharacter.h>
 #include <RE/C/ControlMap.h>
@@ -115,7 +117,7 @@ namespace
             }
         }
 
-        logger->set_level(spdlog::level::debug);
+        logger->set_level(spdlog::level::info);
         logger->flush_on(spdlog::level::info);  // flush info+ so a hard crash keeps recent lines
         spdlog::register_logger(logger);
 
@@ -518,7 +520,7 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         logger->info("Initializing plugin infrastructure...");
         logger->debug("  - Game Version: {}", GameVersionString(g_gameVersion));
         logger->debug("  - Logger: Initialized");
-        logger->debug("  - Spdlog Level: DEBUG");
+        logger->debug("  - Spdlog Level: DEBUG (only visible when the level is lowered)");
 
         auto messaging = F4SE::GetMessagingInterface();
         if (!messaging)
@@ -552,6 +554,10 @@ F4SEPlugin_Load(const F4SE::LoadInterface* a_f4se)
         {
             logger->warn("Serialization interface unavailable — storm clock will NOT persist.");
         }
+
+        // Constraint: register the relief bridge before any Papyrus script can call the native functions.
+        RadReliefConfig::InstallPapyrusBridge();
+        RadNeedsTuning::Install();
 
         logger->info("✓ Plugin loaded successfully. Awaiting game events...");
 

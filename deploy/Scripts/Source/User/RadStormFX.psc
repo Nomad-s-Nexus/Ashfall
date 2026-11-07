@@ -18,7 +18,7 @@ form Property NukeMarker Auto
 
 Float Property DomeZOffset = 6000.0 Auto
 
-Bool Property DebugNotify = true Auto
+Bool Property DebugNotify = false Auto
 
 Float Property NukeZOffset = 22000.0 Auto
 
@@ -233,7 +233,8 @@ Function _StartShake()
 	I = 0
 	If (((I < BurstSteps) as Bool))
 	EndIf
-	While ((_shaking as Bool))
+	; Constraint: stop at BurstSteps -- t goes negative past it, and the rumble timer only starts after this loop.
+	While (((_shaking as Bool) && (I < BurstSteps)))
 		t = (((BurstSteps - I) as Float) / (BurstSteps as Float))
 		mag = (BurstStrength * t)
 		Game.ShakeCamera(None, mag, 0.4)

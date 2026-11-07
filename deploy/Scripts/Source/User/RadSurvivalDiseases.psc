@@ -28,6 +28,16 @@ float Property Stage3Hours = 24.0 Auto
 float Property RestCureBaseHours = 4.0 Auto
 float Property ImmunityHours = 24.0 Auto
 bool Property DiseasesEnabled = true Auto Const
+; Constraint: Tuned() keys match RadNeedsTuningPolicy::kSpecs order.
+int Property kTuneDiseases = 7 Auto Const
+int Property kTuneBaseRisk = 8 Auto Const
+int Property kTuneRadWeather = 9 Auto Const
+int Property kTuneRain = 10 Auto Const
+int Property kTuneWound = 11 Auto Const
+int Property kTuneSwim = 12 Auto Const
+int Property kTuneTaintedFood = 13 Auto Const
+int Property kTuneTaintedWater = 14 Auto Const
+int Property kTuneContaminated = 15 Auto Const
 bool Property ShowNotifications = true Auto Const
 int Property CurrentStateVersion = 2 Auto Const
 string Property DiseasePlugin = "RadSurvival.esp" Auto Const
@@ -90,9 +100,52 @@ Form[] RadWeatherForms
 ; entry points - RadSurvivalQuest must be the only caller (it owns the events)
 ; -----------------------------------------------------------------------------
 
+; Constraint: RadNatives.TuningOverride encodes an override as value + 1.0 and unset as 0.0, so a missing native reads as unset.
+float Function Tuned(int aiKey, float afDefault)
+    float raw = RadNatives.TuningOverride(aiKey)
+    if raw > 0.0
+        return raw - 1.0
+    endif
+    return afDefault
+EndFunction
+
+bool Function DiseasesOn()
+    return DiseasesEnabled && Tuned(kTuneDiseases, 1.0) >= 0.5
+EndFunction
+
 Function Tick(float afHours, bool abActive, int aiHungerStage, int aiThirstStage, int aiSleepStage)
     AccrueRisk(afHours, abActive, aiHungerStage, aiThirstStage, aiSleepStage)
     AdvanceDisease(afHours, abActive)
+EndFunction
+
+; Constraint: showcase entry, called only by RadSurvivalQuest.DebugSetNeeds; disease 0 clears without granting immunity.
+Function DebugSetDisease(int aiDisease, int aiStage, bool abActive)
+    if aiDisease < 0 || aiDisease > 2
+        return
+    endif
+    DiseaseId = aiDisease
+    DiseaseStage = 0
+    DiseaseProgress = 0.0
+    if aiDisease > 0
+        DiseaseStage = aiStage
+        if DiseaseStage < 0
+            DiseaseStage = 0
+        elseif DiseaseStage > 3
+            DiseaseStage = 3
+        endif
+        ; Constraint: progress sits at the stage's entry hour so AdvanceDisease neither skips nor undoes it.
+        if DiseaseStage == 1
+            DiseaseProgress = IncubationHours
+        elseif DiseaseStage == 2
+            DiseaseProgress = Stage2Hours
+        elseif DiseaseStage == 3
+            DiseaseProgress = Stage3Hours
+        endif
+    endif
+    RiskDebt = 0.0
+    Reconcile(abActive)
+    MirrorRisk()
+    MirrorDisease()
 EndFunction
 
 Function Resync(bool abActive)
@@ -121,7 +174,7 @@ EndFunction
 
 Function Reconcile(bool abActive)
     Spell wanted = None
-    if abActive && DiseasesEnabled && DiseaseId > 0 && DiseaseStage > 0
+    if abActive && DiseasesOn() && DiseaseId > 0 && DiseaseStage > 0
         wanted = DiseaseSpellFor(DiseaseId, DiseaseStage)
     endif
     Perk wantedPerk = None
@@ -148,18 +201,18 @@ EndFunction
 ; -----------------------------------------------------------------------------
 
 Function AccrueRisk(float afHours, bool abActive, int aiHungerStage, int aiThirstStage, int aiSleepStage)
-    if !abActive || !DiseasesEnabled || DiseaseId > 0 || afHours <= 0.0
+    if !abActive || !DiseasesOn() || DiseaseId > 0 || afHours <= 0.0
         return
     endif
 
     if IsImmune()
         ; Constraint: immunity drains the pool instead of pausing it.
-        RiskDebt = Clamp01(RiskDebt - HourlyRisk * afHours)
+        RiskDebt = Clamp01(RiskDebt - Tuned(kTuneBaseRisk, HourlyRisk) * afHours)
         MirrorRisk()
         return
     endif
 
-    float hourly = HourlyRisk + RiskPerWeakStage * ((aiHungerStage + aiThirstStage + aiSleepStage) as float)
+    float hourly = Tuned(kTuneBaseRisk, HourlyRisk) + RiskPerWeakStage * ((aiHungerStage + aiThirstStage + aiSleepStage) as float)
     RiskDebt = Clamp01(RiskDebt + hourly * afHours)
     MirrorRisk()
     if RiskDebt >= 1.0
@@ -191,7 +244,7 @@ Function ExposureHit(bool abActive)
         return
     endif
     LastHitRealTime = now
-    AddRisk(RiskPerHit, abActive)
+    AddRisk(Tuned(kTuneWound, RiskPerHit), abActive)
 EndFunction
 
 Function ExposureSwim(bool abActive)
@@ -201,12 +254,12 @@ Function ExposureSwim(bool abActive)
         return
     endif
     NextSwimAllowed = now + SwimIntervalGameDays
-    AddRisk(RiskPerSwim, abActive)
+    AddRisk(Tuned(kTuneSwim, RiskPerSwim), abActive)
 EndFunction
 
 Function ExposureWeather(float afHours, bool abActive)
     ; Constraint: the sky is sampled on the pool tick, so an interval that never elapsed adds nothing.
-    if afHours <= 0.0 || !abActive || !DiseasesEnabled || DiseaseId > 0
+    if afHours <= 0.0 || !abActive || !DiseasesOn() || DiseaseId > 0
         return
     endif
     Actor player = Game.GetPlayer()
@@ -218,12 +271,12 @@ Function ExposureWeather(float afHours, bool abActive)
         return
     endif
     if IsRadWeather(sky)
-        AddRisk(RiskPerRadHour * afHours, abActive)
+        AddRisk(Tuned(kTuneRadWeather, RiskPerRadHour) * afHours, abActive)
         return
     endif
     Weather current = sky as Weather
     if current && current.GetClassification() >= RainClassification
-        AddRisk(RiskPerRainHour * afHours, abActive)
+        AddRisk(Tuned(kTuneRain, RiskPerRainHour) * afHours, abActive)
     endif
 EndFunction
 
@@ -289,17 +342,17 @@ EndFunction
 
 float Function CategoryRisk(int aiCategory)
     if aiCategory == 1
-        return RiskPerTaintedFood
+        return Tuned(kTuneTaintedFood, RiskPerTaintedFood)
     elseif aiCategory == 2
-        return RiskPerTaintedWater
+        return Tuned(kTuneTaintedWater, RiskPerTaintedWater)
     elseif aiCategory == 3
-        return RiskPerContaminated
+        return Tuned(kTuneContaminated, RiskPerContaminated)
     endif
     return 0.0
 EndFunction
 
 Function ExposureConsume(Form akItem, int aiCount, bool abActive)
-    if aiCount <= 0 || !abActive || !DiseasesEnabled || DiseaseId > 0
+    if aiCount <= 0 || !abActive || !DiseasesOn() || DiseaseId > 0
         return
     endif
     int category = ExposureCategory(akItem)
@@ -361,7 +414,7 @@ EndFunction
 
 Function AddRisk(float afAmount, bool abActive)
     ; Constraint: exposure is one rule, shared, and never runs while the layer is suspended.
-    if afAmount <= 0.0 || !abActive || !DiseasesEnabled || DiseaseId > 0
+    if afAmount <= 0.0 || !abActive || !DiseasesOn() || DiseaseId > 0
         return
     endif
     if IsImmune()
@@ -411,7 +464,7 @@ Function StartDisease(bool abActive)
 EndFunction
 
 Function AdvanceDisease(float afHours, bool abActive)
-    if !abActive || !DiseasesEnabled || DiseaseId <= 0 || afHours <= 0.0
+    if !abActive || !DiseasesOn() || DiseaseId <= 0 || afHours <= 0.0
         return
     endif
 

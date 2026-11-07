@@ -34,12 +34,14 @@ window.updateFilter = function(json) {
 };
 
 var MASK_ON_DELAY = 0.0;
+// Constraint: the 3D RadMaskView.nif replaces the PNG visor for now; flip this back to restore gasmask_overlay.png.
+var MASK_PNG_ENABLED = false;
 window.setMask = function(json) {
   try {
     var d = (typeof json === "string") ? JSON.parse(json) : json;
     var el = document.getElementById("maskOverlay");
     if (!el) return;
-    if (d.on) {
+    if (d.on && MASK_PNG_ENABLED) {
       el.style.transitionDelay = MASK_ON_DELAY + "s";
       el.classList.add("on");
     } else {
@@ -91,6 +93,8 @@ window.stormPhase = function(json) {
 
 function cmd(action) { try { if (window.radDebug) window.radDebug(action); } catch (e) {} }
 
+window.setTheme = function() {};
+
 function setGhoulChanceLabel(value) {
   var n = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
   var output = document.getElementById("ghoulChanceValue");
@@ -127,6 +131,107 @@ function setGhoulSettings(state) {
   } catch (e) {}
 }
 
+
+var TUNING = [
+  ["SURVIVAL RATES", [
+    ["RateMultiplier", "NEEDS RATE", 0.05, "x"], ["HourlyHunger", "HUNGER /H", 0.005, "%"],
+    ["HourlyThirst", "THIRST /H", 0.005, "%"], ["HourlySleepDebt", "FATIGUE /H", 0.005, "%"],
+    ["FoodScale", "FOOD RELIEF", 0.01, "%"], ["DrinkScale", "DRINK RELIEF", 0.01, "%"],
+    ["SleepRecovery", "REST /H", 0.005, "%"]]],
+  ["DISEASES", [
+    ["DiseasesEnabled", "DISEASES"], ["DiseaseBaseRisk", "BASE RISK /H", 0.002, "%"],
+    ["RiskRadWeather", "RAD WEATHER", 0.01, "%"], ["RiskRain", "RAIN", 0.005, "%"],
+    ["RiskWound", "WOUNDS", 0.005, "%"], ["RiskSwim", "SWIMMING", 0.005, "%"],
+    ["RiskTaintedFood", "TAINTED FOOD", 0.01, "%"], ["RiskTaintedWater", "TAINTED WATER", 0.01, "%"],
+    ["RiskContaminated", "CONTAMINATED", 0.01, "%"]]],
+  ["GAS MASK AND FILTER", [
+    ["FilterEnabled", "FILTERS"], ["FilterDuration", "FILTER LIFE", 30, "n", " s"],
+    ["FilterChokeRads", "CHOKE RADS", 0.5, "n", " rad/s"], ["FilterAutoReplace", "AUTO-SWAP FILTER"],
+    ["ConditionEnabled", "MASK WEAR"], ["ConditionDamage", "WEAR / HIT", 0.5, "n"],
+    ["ConditionAutoRepair", "AUTO-REPAIR"],
+    ["AutoEquipMask", "AUTO-EQUIP MASK"], ["AutoEquipInCombat", "EQUIP IN COMBAT"]]],
+  ["CHOKING", [
+    ["ChokingEnabled", "CHOKING"], ["ChokeHealthPerSec", "HP DRAIN /S", 0.1, "n"],
+    ["ChokeFailedFactor", "FAILED FILTER", 0.05, "x"], ["ChokeSounds", "COUGH SOUNDS"]]],
+  ["AMBIENT AND STORMS", [
+    ["AmbientEnabled", "AMBIENT"], ["AmbientVolume", "AMBIENT VOL", 1, "n", "%"],
+    ["StormVolume", "STORM VOL", 1, "n", "%"], ["StormsEnabled", "RAD STORMS"],
+    ["StormMinMinutes", "STORM MIN", 1, "n", " min"], ["StormMaxMinutes", "STORM MAX", 1, "n", " min"]]],
+  ["TEMPERATURE AND WETNESS", [
+    ["TemperatureEnabled", "TEMPERATURE"], ["ColdIntensity", "COLD", 0.05, "x"],
+    ["WetnessEnabled", "WETNESS"], ["WetnessSoakRate", "SOAK RATE", 0.05, "x"],
+    ["WetnessDryRate", "DRY RATE", 0.05, "x"]]],
+  ["HUD", [["AlwaysShowNeeds", "ALWAYS SHOW NEEDS"]]],
+  ["WATER BOTTLES", [["WaterRequireSneak", "SNEAK TO FILL"]]]
+];
+
+function tuneText(row, value) {
+  var v = Number(value);
+  if (row[3] === "x") return "x" + v.toFixed(2);
+  if (row[3] === "%") return (v * 100).toFixed(1) + "%";
+  return v.toFixed(row[2] < 1 ? 1 : 0) + (row[4] || "");
+}
+
+function tuneCommand(key, value) { cmd("tune:" + key + ":" + Number(value).toFixed(4)); }
+
+function tuneRows() {
+  var host = document.getElementById("tuneRows");
+  if (!host || host.firstChild) return host;
+  TUNING.forEach(function(group) {
+    var head = document.createElement("div");
+    head.className = "dbg-sec";
+    head.textContent = group[0];
+    host.appendChild(head);
+    group[1].forEach(function(row) {
+      var key = row[0];
+      var line = document.createElement("div");
+      if (row.length === 2) {
+        line.className = "ghoul-range tune-range tune-toggle";
+        line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
+          '<input id="tune-' + key + '" type="checkbox"><output id="tuneval-' + key + '"></output>';
+        var box = line.querySelector("input");
+        box.onchange = function() {
+          document.getElementById("tuneval-" + key).textContent = box.checked ? "ON" : "OFF";
+          tuneCommand(key, box.checked ? 1 : 0);
+        };
+      } else {
+        line.className = "ghoul-range tune-range";
+        line.innerHTML = '<label for="tune-' + key + '">' + row[1] + '</label>' +
+          '<input id="tune-' + key + '" type="range" step="' + row[2] + '"><output id="tuneval-' + key + '"></output>';
+        var input = line.querySelector("input");
+        input.oninput = function() { document.getElementById("tuneval-" + key).textContent = tuneText(row, input.value); };
+        input.onchange = function() { tuneCommand(key, input.value); };
+      }
+      host.appendChild(line);
+    });
+  });
+  return host;
+}
+
+window.setNeedsTuning = function(json) {
+  try {
+    var d = (typeof json === "string") ? JSON.parse(json) : json;
+    tuneRows();
+    TUNING.forEach(function(group) {
+      group[1].forEach(function(row) {
+        var entry = d && d[row[0]];
+        var input = document.getElementById("tune-" + row[0]);
+        var output = document.getElementById("tuneval-" + row[0]);
+        if (!entry || !input || !output) return;
+        if (row.length === 2) {
+          input.checked = entry.v >= 0.5;
+          output.textContent = input.checked ? "ON" : "OFF";
+        } else {
+          input.min = entry.min;
+          input.max = entry.max;
+          input.value = entry.v;
+          output.textContent = tuneText(row, entry.v);
+        }
+        output.classList.toggle("tuned", !!entry.o);
+      });
+    });
+  } catch (e) {}
+};
 
 window.setArmorInfo = function(json) {
   try {
@@ -220,6 +325,7 @@ window.SetDebugMenu = function(on) {
   if (panel) {
     if (show) panel.classList.add("on"); else panel.classList.remove("on");
   }
+  if (show && window.RadShowcase) window.RadShowcase.stop();
 };
 
 var SURV_POOLS = [["hunger", "Hunger"], ["thirst", "Thirst"], ["sleepDebt", "Fatigue"]];
@@ -254,7 +360,7 @@ window.updateSurvival = function(json) {
 };
 
 function showTab(which) {
-  var tabs = ["rad", "wthr", "ghouls", "armor", "survival", "hud"];
+  var tabs = ["rad", "wthr", "ghouls", "armor", "survival", "showcase", "hud"];
   for (var i = 0; i < tabs.length; i++) {
     var pane = document.getElementById("tab-" + tabs[i]);
     var btn  = document.getElementById("tabbtn-" + tabs[i]);
@@ -268,3 +374,96 @@ function showTab(which) {
     panel.scrollTop = 0;
   }
 }
+
+function needsScene(id, label, apply, revert) {
+  return {
+    id: id,
+    label: label,
+    steps: [[0, "time:freeze"], [0, apply], [10, revert], [0, "time:resume"]],
+    abort: [revert, "time:resume"]
+  };
+}
+
+var SHOWCASE_SCENES = [
+  { id: "ash",      label: "Ash storm",   steps: [[0, "storm:0"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "fire",     label: "Firestorm",   steps: [[0, "storm:1"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "sulfur",   label: "Sulfur",      steps: [[0, "storm:2"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "acid",     label: "Acid storm",  steps: [[0, "storm:3"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "dust",     label: "Dust storm",  steps: [[0, "storm:4"], [4, "skipwarn"], [50, "endstorm"]] },
+  { id: "rain",     label: "Rain",        steps: [[0, "forceweather:Fallout4.esm|1CA7E4"], [30, "weather:clear"]] },
+  { id: "acidrain", label: "Acid rain",   steps: [[0, "forceweather:RadiationOverhaul.esp|000843"], [30, "weather:clear"]] },
+  { id: "mask",     label: "Mask and filter", steps: [[0, "mask:on"], [0, "filter:full"], [8, "filter:low"], [8, "filter:dead"], [8, "filter:replace"], [6, "mask:auto"]] },
+  { id: "rads",     label: "Radiation",   steps: [[0, "rads:200"], [6, "tissue:150"], [8, "rads:600"], [10, "heal"], [2, "clear"]] },
+  needsScene("peckish", "Peckish", "needs:0.5:-1:-1:-1:0", "needs:0:-1:-1:-1:0"),
+  needsScene("starving", "Starving", "needs:0.95:-1:-1:-1:0", "needs:0:-1:-1:-1:0"),
+  needsScene("exhausted", "Exhausted", "needs:-1:-1:0.95:-1:0", "needs:-1:-1:0:-1:0"),
+  needsScene("fever", "Fever stage 2", "needs:-1:-1:-1:1:2", "needs:-1:-1:-1:0:0"),
+  needsScene("wasting", "Wasting stage 3", "needs:-1:-1:-1:2:3", "needs:-1:-1:-1:0:0"),
+  { id: "needsclear", label: "Clear needs", steps: [[0, "needs:0:0:0:0:0"], [0, "time:resume"]] }
+];
+
+var RadShowcase = window.RadShowcase = (function() {
+  var timers = [];
+  var pendingAbort = null;
+  var scenes = SHOWCASE_SCENES;
+  function status(text) { var el = document.getElementById("showcaseStatus"); if (el) el.textContent = text; }
+  function later(fn, seconds) { timers.push(setTimeout(fn, seconds * 1000)); }
+  function sceneLength(scene) {
+    var total = 0;
+    for (var i = 0; i < scene.steps.length; i++) total += scene.steps[i][0];
+    return total + 4;
+  }
+  function schedule(scene, offset) {
+    var at = offset;
+    var last = scene.steps.length - 1;
+    if (scene.abort) later(function() { pendingAbort = scene.abort; }, offset);
+    for (var i = 0; i < scene.steps.length; i++) {
+      at += scene.steps[i][0];
+      (function(command, isLast) {
+        later(function() {
+          cmd(command);
+          if (isLast && scene.abort) pendingAbort = null;
+        }, at);
+      })(scene.steps[i][1], i === last);
+    }
+    return offset + sceneLength(scene);
+  }
+  function stop() {
+    for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
+    timers = [];
+    if (pendingAbort) {
+      for (var j = 0; j < pendingAbort.length; j++) cmd(pendingAbort[j]);
+      pendingAbort = null;
+    }
+    status("Idle.");
+  }
+  function run(id) {
+    stop();
+    for (var i = 0; i < scenes.length; i++) {
+      if (scenes[i].id === id) { schedule(scenes[i], 0); status("Playing " + scenes[i].label + "."); return; }
+    }
+  }
+  function startTour() {
+    stop();
+    cmd("god:on");
+    var at = 2;
+    for (var i = 0; i < scenes.length; i++) {
+      (function(scene, when) { later(function() { status("Tour: " + scene.label + "."); }, when); })(scenes[i], at);
+      at = schedule(scenes[i], at);
+    }
+    later(function() { status("Tour finished."); }, at);
+    cmd("close");
+  }
+  function build() {
+    var row = document.getElementById("showcaseScenes");
+    if (!row) return;
+    for (var i = 0; i < scenes.length; i++) {
+      var b = document.createElement("button");
+      b.textContent = scenes[i].label;
+      (function(id) { b.onclick = function() { run(id); }; })(scenes[i].id);
+      row.appendChild(b);
+    }
+  }
+  build();
+  return { scenes: scenes, run: run, startTour: startTour, stop: stop };
+})();

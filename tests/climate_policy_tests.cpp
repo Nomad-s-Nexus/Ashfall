@@ -333,5 +333,35 @@ int main()
     Require(std::isfinite(hugeJump.state.wetness01));
     Require(hugeJump.state.coreC >= kMinimumCoreC && hugeJump.state.coreC <= kMaximumCoreC);
 
+    // Constraint: only a listed roofless interior with open sky may use the exterior precipitation.
+    Require(Near(PrecipitationFor(false, false, false, 0.7f), 0.7f));
+    Require(Near(PrecipitationFor(false, true, true, 0.7f), 0.7f));
+    Require(Near(PrecipitationFor(true, false, false, 0.7f), 0.0f));
+    Require(Near(PrecipitationFor(true, true, false, 0.7f), 0.7f));
+    Require(Near(PrecipitationFor(true, true, true, 0.7f), 0.0f));
+    Require(Near(PrecipitationFor(true, true, false, 0.0f), 0.0f));
+    // Constraint: an unresolved roofless entry is not listed, so its interior stays dry.
+    Require(Near(PrecipitationFor(true, false, false, 1.0f), 0.0f));
+
+    EnvironmentSample rooflessOpen{};
+    rooflessOpen.indoors = true;
+    rooflessOpen.rooflessInterior = true;
+    rooflessOpen.precipitation01 = 1.0f;
+    rooflessOpen.precipitationShelter01 = 0.0f;
+    Require(NextWetness(0.0f, rooflessOpen, 5.0f) > 0.0f);
+    EnvironmentSample rooflessRoofed = rooflessOpen;
+    rooflessRoofed.precipitation01 = 0.0f;
+    rooflessRoofed.precipitationShelter01 = 1.0f;
+    Require(Near(NextWetness(0.0f, rooflessRoofed, 5.0f), 0.0f));
+    EnvironmentSample unlistedInterior = rooflessOpen;
+    unlistedInterior.rooflessInterior = false;
+    Require(Near(NextWetness(0.0f, unlistedInterior, 5.0f), 0.0f));
+
+    // Constraint: a listed roofless interior keeps indoor thermal shelter but its rain cover comes from the raycast.
+    const auto roofedFactors = RadClimateShelterPolicy::FromRooflessInterior(true);
+    Require(Near(roofedFactors.thermal01, 1.0f) && Near(roofedFactors.precipitation01, 1.0f));
+    const auto openFactors = RadClimateShelterPolicy::FromRooflessInterior(false);
+    Require(Near(openFactors.thermal01, 1.0f) && Near(openFactors.precipitation01, 0.0f));
+
     return 0;
 }

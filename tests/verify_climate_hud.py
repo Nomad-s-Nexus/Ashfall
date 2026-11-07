@@ -22,7 +22,7 @@ for token in (
     "Interface/FalloutAnomaly/hud_climate.html",
     'constexpr const char* kClimateWidgetId = "rad_climate";',
     "api->CreateView(kClimateViewPath",
-    "hudApi->RegisterWidget(_climateView, kClimateDesc);",
+    "hudApi->RegisterWidget(_climateView, CompanionPlaced(kClimateDesc));",
     "hudApi->ApplyLayout(_climateView);",
     'api->InteropCall(_climateView, "updateClimate", payload.c_str());',
     "if (payload == _climatePayload)",

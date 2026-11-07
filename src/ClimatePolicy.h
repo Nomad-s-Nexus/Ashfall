@@ -31,6 +31,7 @@ namespace RadClimatePolicy
         float precipitation01{ 0.0f };
         bool submerged{ false };
         bool indoors{ false };
+        bool rooflessInterior{ false };
         float shelter01{ 0.0f };
         float precipitationShelter01{ 0.0f };
         float heat01{ 0.0f };
@@ -59,6 +60,13 @@ namespace RadClimatePolicy
         std::int8_t strengthDelta{ 0 };
         std::int8_t enduranceDelta{ 0 };
         std::int8_t agilityDelta{ 0 };
+    };
+
+    struct Tuning
+    {
+        float coolingScale{ 1.0f };
+        float wetnessGainScale{ 1.0f };
+        float wetnessDryScale{ 1.0f };
     };
 
     struct StepResult
@@ -133,10 +141,26 @@ namespace RadClimatePolicy
         return state;
     }
 
+    // Constraint: an interior is dry unless it is a listed roofless cell whose roof raycast finds open sky.
+    [[nodiscard]] inline float PrecipitationFor(
+        bool a_interior,
+        bool a_listedRoofless,
+        bool a_roofed,
+        float a_exterior01) noexcept
+    {
+        const float exterior = Clamp01(a_exterior01);
+        if (!a_interior)
+            return exterior;
+        if (!a_listedRoofless || a_roofed)
+            return 0.0f;
+        return exterior;
+    }
+
     [[nodiscard]] inline float NextWetness(
         float currentWetness01,
         const EnvironmentSample& environment,
-        float deltaSeconds) noexcept
+        float deltaSeconds,
+        const Tuning& tuning = {}) noexcept
     {
         const float dt = std::clamp(
             std::isfinite(deltaSeconds) ? deltaSeconds : 0.0f,
@@ -145,16 +169,16 @@ namespace RadClimatePolicy
         float wetness = Clamp01(currentWetness01);
 
         if (environment.submerged)
-            return Clamp01(wetness + 0.50f * dt);
+            return Clamp01(wetness + 0.50f * tuning.wetnessGainScale * dt);
 
-        const float precipitationShelter = environment.indoors
+        const float precipitationShelter = environment.indoors && !environment.rooflessInterior
             ? 1.0f
             : Clamp01(environment.precipitationShelter01);
         const float rainExposure =
             Clamp01(environment.precipitation01) * (1.0f - precipitationShelter);
-        const float rainGainPerSecond = 0.0045f * rainExposure;
+        const float rainGainPerSecond = 0.0045f * tuning.wetnessGainScale * rainExposure;
         const float dryPerSecond =
-            0.0012f *
+            0.0012f * tuning.wetnessDryScale *
             (environment.indoors ? 2.5f : 1.0f) *
             (1.0f + 4.0f * Clamp01(environment.heat01)) *
             (1.0f + 0.5f * Clamp01(environment.activity01));
@@ -166,7 +190,8 @@ namespace RadClimatePolicy
         ClimateState state,
         const EnvironmentSample& environment,
         const ProtectionSample& protection,
-        float deltaSeconds) noexcept
+        float deltaSeconds,
+        const Tuning& tuning = {}) noexcept
     {
         state = SanitizeState(state);
         const float dt = std::clamp(
@@ -174,7 +199,7 @@ namespace RadClimatePolicy
             0.0f,
             kMaximumStepSeconds);
 
-        const float wetness = NextWetness(state.wetness01, environment, dt);
+        const float wetness = NextWetness(state.wetness01, environment, dt, tuning);
         const float shelter = environment.indoors ? 1.0f : Clamp01(environment.shelter01);
         const float insulation = EffectiveInsulation(protection);
         const float ambientC = std::isfinite(environment.ambientC) ? environment.ambientC : kNeutralAmbientC;
@@ -187,6 +212,7 @@ namespace RadClimatePolicy
         const float shelterFactor = std::max(0.20f, 1.0f - 0.70f * shelter);
         const float coolingCPerSecond =
             0.0040f *
+            tuning.coolingScale *
             coldSeverity *
             windFactor *
             wetnessFactor *
@@ -222,7 +248,8 @@ namespace RadClimatePolicy
         const EnvironmentSample& environment,
         const ProtectionSample& protection,
         float totalSeconds,
-        float substepSeconds = kMaximumStepSeconds) noexcept
+        float substepSeconds = kMaximumStepSeconds,
+        const Tuning& tuning = {}) noexcept
     {
         state = SanitizeState(state);
         const float maxDuration = kMaximumTimeJumpHours * 3600.0f;
@@ -239,7 +266,7 @@ namespace RadClimatePolicy
         while (remaining > 0.0f)
         {
             const float stepDt = std::min(remaining, dt);
-            current = Step(current.state, environment, protection, stepDt);
+            current = Step(current.state, environment, protection, stepDt, tuning);
             remaining -= stepDt;
         }
         return current;

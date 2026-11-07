@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <limits>
+#include <span>
 
 namespace
 {
@@ -63,6 +64,40 @@ int main()
 	Require(ClassifyFilterCandidates({ wornFilter, fullFilter }) == FilterCandidateDisposition::kAmbiguous);
 	Require(ClassifyFilterCandidates({ legacyEffective, FilterState{ 35.0f, 100.0f } }) == FilterCandidateDisposition::kRestore);
 	Require(ClassifyFilterCandidates({ legacyEffective, wornFilter }) == FilterCandidateDisposition::kAmbiguous);
+
+	const PenaltyState wasted{ 84.0f, 31.5f, 4.0f, 12.0f };
+	const PenaltyState none{ 0.0f, 0.0f, 0.0f, 0.0f };
+	Require(IsValidPenaltyState(wasted));
+	Require(IsValidPenaltyState(none));
+	Require(!IsValidPenaltyState({ -1.0f, 0.0f, 0.0f, 0.0f }));
+	Require(!IsValidPenaltyState({ 0.0f, 0.0f, 0.0f, kMaxPersistedPenalty + 1.0f }));
+	Require(!IsValidPenaltyState({ std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f, 0.0f }));
+	Require(!IsValidPenaltyState({ 0.0f, std::numeric_limits<float>::infinity(), 0.0f, 0.0f }));
+	const PenaltyState pair[] = { wasted, wasted };
+	const PenaltyState mixed[] = { wasted, none };
+	Require(!PenaltyCandidatesAgree({}));
+	Require(PenaltyCandidatesAgree(std::span<const PenaltyState>{ pair }));
+	Require(!PenaltyCandidatesAgree(std::span<const PenaltyState>{ mixed }));
+
+	Require(IsValidPenaltyState({ 0.0f, 31.5f, 0.0f, 0.0f }) && IsValidPenaltyState({ 0.0f, 0.0f, 4.0f, kMaxPersistedPenalty }));
+	Require(!IsValidPenaltyState({ 0.0f, -0.5f, 0.0f, 0.0f }) && !IsValidPenaltyState({ 0.0f, 0.0f, -0.5f, 0.0f }));
+	Require(!IsValidPenaltyState({ 0.0f, 0.0f, kMaxPersistedPenalty + 1.0f, 0.0f }));
+	for (int field = 0; field < 4; ++field) {
+		PenaltyState other = wasted;
+		(field == 0 ? other.carry : field == 1 ? other.heal : field == 2 ? other.speed : other.ap) += 1.0f;
+		const PenaltyState diff[] = { wasted, other };
+		Require(!PenaltyCandidatesAgree(std::span<const PenaltyState>{ diff }));
+	}
+	Require(RestoredCarryPenaltyHeld(0.0f, 250.0f, 250.0f));
+	Require(RestoredCarryPenaltyHeld(84.0f, 166.0f, 250.0f));
+	Require(!RestoredCarryPenaltyHeld(84.0f, 250.0f, 250.0f));
+	Require(!RestoredCarryPenaltyHeld(84.0f, std::numeric_limits<float>::quiet_NaN(), 250.0f));
+	Require(CarryLeakRepairDelta(-92.0f, 250.0f) == 342.0f);
+	Require(CarryLeakRepairDelta(std::numeric_limits<float>::infinity(), 250.0f) == 0.0f);
+	Require(CarryLeakRepairDelta(0.0f, 250.0f) == 0.0f);
+	Require(CarryLeakRepairDelta(180.0f, 250.0f) == 0.0f);
+	Require(CarryLeakRepairDelta(-92.0f, 0.0f) == 0.0f);
+	Require(CarryLeakRepairDelta(std::numeric_limits<float>::quiet_NaN(), 250.0f) == 0.0f);
 
 	using RadMaskOwnership::Entry;
 	const std::vector<Entry> ownedMasks{ { 0x14, 0x800 }, { 0x1234, 0x801 } };

@@ -171,11 +171,12 @@ for marker in (
         raise SystemExit(f"missing temporary NPC mask ownership contract: {marker}")
 
 for marker in (
-    "event.changeType != RE::ActorEquipManagerEvent::Type::kUnequip",
+    "event.changeType == RE::ActorEquipManagerEvent::Type::kUnequip",
+    "g_pendingUnequip[actorID] = NowMs();",
     "const auto actorID = event.actorAffected->GetFormID();",
     "const auto maskID = event.itemAffected->object->GetFormID();",
-    "it->second.maskFormID == maskID",
-    "!it->second.IsTemporary()",
+    "it->second.maskFormID != maskID",
+    "it->second.IsTemporary()",
 ):
     if marker not in ownership_source:
         raise SystemExit(f"missing manual-unequip ownership release contract: {marker}")

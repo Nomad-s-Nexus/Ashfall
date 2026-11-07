@@ -22,6 +22,16 @@ namespace RadiationSerialization
 		float condition;
 	};
 
+	struct PenaltyState
+	{
+		float carry;
+		float heal;
+		float speed;
+		float ap;
+	};
+
+	inline constexpr float kMaxPersistedPenalty = 10000.0f;
+
 	enum class StormClockCandidateDisposition
 	{
 		kRestore,
@@ -53,6 +63,47 @@ namespace RadiationSerialization
 	{
 		return std::isfinite(a_state.charge) && a_state.charge >= 0.0f && a_state.charge <= 100.0f &&
 		       std::isfinite(a_state.condition) && a_state.condition >= 0.0f && a_state.condition <= 100.0f;
+	}
+
+	[[nodiscard]] inline bool IsValidPenaltyState(const PenaltyState& a_state)
+	{
+		const auto ok = [](float a_value) {
+			return std::isfinite(a_value) && a_value >= 0.0f && a_value <= kMaxPersistedPenalty;
+		};
+		return ok(a_state.carry) && ok(a_state.heal) && ok(a_state.speed) && ok(a_state.ap);
+	}
+
+	[[nodiscard]] inline bool RestoredCarryPenaltyHeld(float a_restoredCarryPen, float a_total, float a_permanent)
+	{
+		if (a_restoredCarryPen <= 0.0f) {
+			return true;
+		}
+		if (!std::isfinite(a_total) || !std::isfinite(a_permanent)) {
+			return false;
+		}
+		return (a_permanent - a_total) >= a_restoredCarryPen * 0.5f;
+	}
+
+	[[nodiscard]] inline float CarryLeakRepairDelta(float a_total, float a_permanent)
+	{
+		if (!std::isfinite(a_total) || !std::isfinite(a_permanent) || a_permanent <= 0.0f || a_total >= 0.0f) {
+			return 0.0f;
+		}
+		return a_permanent - a_total;
+	}
+
+	[[nodiscard]] inline bool PenaltyCandidatesAgree(std::span<const PenaltyState> a_candidates)
+	{
+		if (a_candidates.empty()) {
+			return false;
+		}
+		for (const auto& candidate : a_candidates) {
+			if (candidate.carry != a_candidates.front().carry || candidate.heal != a_candidates.front().heal ||
+				candidate.speed != a_candidates.front().speed || candidate.ap != a_candidates.front().ap) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	[[nodiscard]] inline StormClockCandidateDisposition ClassifyStormClockCandidates(

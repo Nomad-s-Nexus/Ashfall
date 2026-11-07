@@ -2,6 +2,8 @@
 #include "ClimateShelterPolicy.h"
 
 #include <RE/B/BSTEvent.h>
+#include <RE/C/CameraStates.h>
+#include <RE/P/PlayerCamera.h>
 #include <RE/T/TESObjectLoadedEvent.h>
 
 #include <atomic>
@@ -180,4 +182,11 @@ bool RadiationEngine::IsPlayerSheltered() const
     if (IsPlayerInPoweredShelter()) return true;
     if (_playerEnclosed) return true;
     return false;
+}
+
+bool RadiationEngine::PlayerInFirstPersonView() const
+{
+    auto* camera = RE::PlayerCamera::GetSingleton();
+    if (!camera) return true;
+    return camera->QCameraEquals(RE::CameraStates::kFirstPerson) || camera->QCameraEquals(RE::CameraStates::kIronSights);
 }

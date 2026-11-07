@@ -40,7 +40,7 @@ def check_fallback_queue():
           "if (s_mainTasks.size() >= kMaxQueuedMainTasks)" in queue and "return false;" in queue)
 
 
-def check_dome_follow_producer():
+def check_storm_visuals_producer():
     hooks = read("Hooks.cpp")
     follow = read("Hooks_StormVisuals.cpp")
     header = read("Hooks.h")
@@ -159,7 +159,7 @@ def check_generation_behavior():
         return
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        for name in ("RadLifecycleDispatch.cpp", "RadLifecycleDispatch.h", "RadCorrectnessPolicy.h"):
+        for name in ("RadLifecycleDispatch.cpp", "RadLifecycleDispatch.h", "RadCorrectnessPolicy.h", "RadIniParse.h"):
             shutil.copy(SRC / name, tmp / name)
         (tmp / "pch.h").write_text(STUB_PCH, encoding="utf-8")
         (tmp / "Hooks.h").write_text(STUB_HOOKS, encoding="utf-8")
@@ -196,7 +196,7 @@ def check_storm_layout():
     check("Firestorm Papyrus route stops stages",
           len(firestorm) == 2 and "_stormFXQuest->SetStage(20);" in firestorm[1].split("else", 1)[0])
     policy = read("RadCorrectnessPolicy.h")
-    check("ShouldReturnToClear policy survives the dome removal",
+    check("ShouldReturnToClear policy is still present",
           "ShouldReturnToClear(bool managedStorm, bool vanillaRadstorm)" in policy)
     internal = read("RadEngine_Internal.h")
     weather_storm = read("RadEngine_Storm_Weather.cpp")
@@ -238,7 +238,7 @@ def check_ghoul_ownership():
 
 def main():
     check_fallback_queue()
-    check_dome_follow_producer()
+    check_storm_visuals_producer()
     check_generation_guards()
     check_generation_behavior()
     check_storm_layout()

@@ -128,7 +128,10 @@ def check_source(html_path, source_path):
         '_filterView == 0 || !api->IsValid(_filterView)',
         'CreateView();',
         'StartPrismaViewRetry();',
-        'const bool fallback = !_toxicWidgetRegistered.load();',
+        'const bool fallback = !companion && !_toxicWidgetRegistered.load();',
+        'const bool companion = IsCompanionMode();',
+        'PushFilterKeys(_filterView);',
+        'PushTheme(v);',
         "constexpr int kHudViewOrder = 1'000'000;",
         'api->SetOrder(view, kHudViewOrder);',
         'setHudViewOrder(_toxicView);',
@@ -138,6 +141,18 @@ def check_source(html_path, source_path):
             raise SystemExit(f"missing HUD fallback implementation: {marker}")
     if 'setHudViewOrder(_view);' in source:
         raise SystemExit('fullscreen radiation overlay must not use the PrismaHUD compositor order')
+
+    companion = Path(source_path).with_name('RadHudCompanion.cpp').read_text(encoding='utf-8')
+    for marker in (
+        'bool RadHud::IsCompanionMode()',
+        'GetPrivateProfileStringA("Hud", "Mode", "auto"',
+        'GetModuleHandleW(L"PhosphorHUD.dll")',
+        'std::filesystem::exists("Data/F4SE/Plugins/PhosphorHUD.dll", ec)',
+        'InteropCall(view, "setTheme"',
+        'InteropCall(view, "setKeys", keys.c_str());',
+    ):
+        if marker not in companion:
+            raise SystemExit(f"missing HUD companion-mode contract: {marker}")
 
     # PrismaHUD must be available to a fast DOM-ready callback before asynchronous view creation starts.
     hud_api_idx = source.index('_hudApi = PRISMA_HUD_API::RequestPluginAPI();')

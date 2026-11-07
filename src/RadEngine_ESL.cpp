@@ -150,7 +150,6 @@ void RadiationEngine::EnsureEslLoaded()
             _nukeExplosionForm ? "resolved" : "MISSING");
     }
 
-
     {
         RE::TESForm* pForm = dh->LookupForm(kStormRadSkyWeatherPrimary, "Fallout4.esm");
         RE::TESForm* fForm = dh->LookupForm(kStormRadSkyWeatherFallback, "Fallout4.esm");

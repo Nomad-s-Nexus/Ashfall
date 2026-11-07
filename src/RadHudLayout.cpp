@@ -19,10 +19,10 @@ namespace
 
     struct LayoutState
     {
-        WidgetLayout toxic{ 30.0f / 1920.0f, 882.0f / 1080.0f, 1.0f, 0.0f, false };
-        WidgetLayout filter{ 22.0f / 1920.0f, 1014.0f / 1080.0f, 1.0f, 0.0f, false };
-        WidgetLayout needs{ 22.0f / 1920.0f, 812.0f / 1080.0f, 1.0f, 0.0f, false };
-        WidgetLayout climate{ 22.0f / 1920.0f, 944.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout toxic{ 22.0f / 1920.0f, 638.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout filter{ 22.0f / 1920.0f, 962.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout needs{ 22.0f / 1920.0f, 746.0f / 1080.0f, 1.0f, 0.0f, false };
+        WidgetLayout climate{ 22.0f / 1920.0f, 854.0f / 1080.0f, 1.0f, 0.0f, false };
         bool fahrenheit{ false };
         bool loaded{ false };
         bool preview{ false };
@@ -114,6 +114,10 @@ namespace
     {
         if (g_layout.loaded) return;
         g_layout.loaded = true;
+        CompanionWidgetDefault("rad_toxic", g_layout.toxic.x, g_layout.toxic.y);
+        CompanionWidgetDefault("rad_filter", g_layout.filter.x, g_layout.filter.y);
+        CompanionWidgetDefault("rad_needs", g_layout.needs.x, g_layout.needs.y);
+        CompanionWidgetDefault("rad_climate", g_layout.climate.x, g_layout.climate.y);
 
         const auto path = LayoutPath();
         if (path.empty()) return;

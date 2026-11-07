@@ -1,5 +1,6 @@
 #include "RadEngine_Internal.h"
 #include "Hooks.h"
+#include "SerializationPolicy.h"
 
 using namespace RadInternal;
 
@@ -196,7 +197,7 @@ void RadiationEngine::CheckActiveCures(float currentRads, float currentHP, bool 
         // different save's game clock or mask state can never be mistaken for elapsed gameplay.
         const bool reseed = !s_filterJumpInit || _prevRads < 0.0f || _prevHP < 0.0f || nowDays <= 0.0f;
         if (!reseed && !deltaValid && nowDays > s_prevFilterGameDays &&
-            _filterItem && s_prevFilterMasked && s_prevFilterExposed)
+            _filterItem && _filterEnabled && s_prevFilterMasked && s_prevFilterExposed)
         {
             const float gameHours = (nowDays - s_prevFilterGameDays) * 24.0f;
             float timeScale = 0.0f;
@@ -425,6 +426,18 @@ void RadiationEngine::ApplyTrackedAV(RE::PlayerCharacter* player, RE::ActorValue
 }
 
 
+void RadiationEngine::WantedTissuePenalties(float (&a_out)[4]) const
+{
+    const float t   = std::clamp(_tissueDamage / kTissueMax, 0.0f, 1.0f);
+    const float spd = (t > kTissueSpeedFrom) ? (t - kTissueSpeedFrom) / (1.0f - kTissueSpeedFrom) : 0.0f;
+    const float fat = (t > kTissueApFrom)    ? (t - kTissueApFrom)    / (1.0f - kTissueApFrom)    : 0.0f;
+    a_out[0] = kTissueCarryMax * t;
+    a_out[1] = kTissueHealMax  * t;
+    a_out[2] = kTissueSpeedMax * spd;
+    a_out[3] = kTissueApMax    * fat;
+}
+
+
 // Chronic tissue damage now has real teeth. Called every tick.
 void RadiationEngine::ApplyTissueEffects()
 {
@@ -435,14 +448,13 @@ void RadiationEngine::ApplyTissueEffects()
     const float t = std::clamp(_tissueDamage / kTissueMax, 0.0f, 1.0f);
 
     // LAYER 1 — chronic wasting. Floors at the permanent scar automatically (tissue can't heal below it).
-    ApplyTrackedAV(player, av->carryWeight,  kTissueCarryMax * t, _appliedCarryPen);
-    ApplyTrackedAV(player, av->healRateMult, kTissueHealMax  * t, _appliedHealPen);
-
     // Sluggishness and fatigue only bite once you are genuinely sick (ramp from their thresholds).
-    const float spd = (t > kTissueSpeedFrom) ? (t - kTissueSpeedFrom) / (1.0f - kTissueSpeedFrom) : 0.0f;
-    const float fat = (t > kTissueApFrom)    ? (t - kTissueApFrom)    / (1.0f - kTissueApFrom)    : 0.0f;
-    ApplyTrackedAV(player, av->speedMult,    kTissueSpeedMax * spd, _appliedSpeedPen);
-    ApplyTrackedAV(player, av->actionPoints, kTissueApMax    * fat, _appliedApPen);
+    float want[4];
+    WantedTissuePenalties(want);
+    ApplyTrackedAV(player, av->carryWeight,  want[0], _appliedCarryPen);
+    ApplyTrackedAV(player, av->healRateMult, want[1], _appliedHealPen);
+    ApplyTrackedAV(player, av->speedMult,    want[2], _appliedSpeedPen);
+    ApplyTrackedAV(player, av->actionPoints, want[3], _appliedApPen);
 
     // LAYER 2 — visceral symptoms.
     UpdateTissueSymptoms(t);
@@ -542,6 +554,48 @@ void RadiationEngine::RemoveStatModification()
         player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kTemporary, *actorValue->strength, static_cast<float>(_appliedStrPenalty));
         _appliedStrPenalty = 0;
     }
+}
+
+
+void RadiationEngine::RepairLeakedCarryWeight()
+{
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* av     = RE::ActorValue::GetSingleton();
+    if (!player || !av || !av->carryWeight) return;
+
+    const float total     = player->GetActorValue(*av->carryWeight);
+    const float permanent = player->GetPermanentActorValue(*av->carryWeight);
+
+    if (!RadiationSerialization::RestoredCarryPenaltyHeld(_appliedCarryPen, total, permanent))
+    {
+        Log()->warn("[Load] Restored carry penalty {:.1f} but the game holds none (total {:.1f}, base {:.1f}) - dropping restored penalties.",
+            _appliedCarryPen, total, permanent);
+        _appliedCarryPen = _appliedHealPen = _appliedSpeedPen = _appliedApPen = 0.0f;
+    }
+
+    if (!_penaltiesFromSave)
+    {
+        float want[4];
+        WantedTissuePenalties(want);
+        want[0] = std::min(want[0], permanent);
+        if (want[0] >= 0.5f && std::isfinite(total) && permanent - total >= want[0])
+        {
+            _appliedCarryPen = want[0];
+            _appliedHealPen  = want[1];
+            _appliedSpeedPen = want[2];
+            _appliedApPen    = want[3];
+            Log()->info("[Load] No penalty record in save; inferred penalties from tissue (carry {:.1f}, heal {:.1f}, speed {:.1f}, AP {:.1f}).",
+                want[0], want[1], want[2], want[3]);
+        }
+    }
+
+    const float delta = RadiationSerialization::CarryLeakRepairDelta(total, permanent);
+    if (delta <= 0.0f) return;
+
+    _appliedCarryPen = 0.0f;
+    player->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kTemporary, *av->carryWeight, delta);
+    Log()->warn("[RepairCarry] carry weight was negative; raised by {:.0f} to the permanent base.", delta);
+    Notify("Restored leaked negative carry weight.", false);
 }
 
 

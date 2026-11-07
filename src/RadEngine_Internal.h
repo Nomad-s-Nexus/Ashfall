@@ -50,8 +50,6 @@
 #include <RE/B/BSScriptUtil.h>
 #include <RE/B/BSScript_IStackCallbackFunctor.h>
 #include <RE/B/BSScript_IObjectHandlePolicy.h>
-// Needed to read/write a bound script's PROPERTIES (storm dome enable). A locked data access on the
-// script object, NOT a VM dispatch — see EnsureQuestRunning.
 #include <RE/B/BSScript_Object.h>
 #include <RE/B/BSScript_Variable.h>
 #include <RE/B/BSScript_Internal_VirtualMachine.h>
@@ -210,8 +208,6 @@ namespace RadInternal
     // visible — we let it run instead of double-shocking the player.
     constexpr float kRadstormVetoMaxPct = 0.10f;
 
-    // Storm onset sequence: the cloud dome fades in overhead first, THEN the siren goes up. This is the
-
     // Custom storm audio. WAV/XWM only — engine does not play MP3.
     // Vanilla-radstorm soft warning cue. Repointed off the old loose "My Audio.wav" (a stereo PCM wav,
     // which FO4's file-based audio silently fails to play — see the loose-wav gotcha) to a proper xwm.
@@ -295,13 +291,7 @@ namespace RadInternal
     constexpr std::uint16_t kRadstormCueFalloffMs   = 2000;  // short fall-off when the storm ends/passes
     constexpr std::uint16_t kRadstormCueAttenuation = 1200;
 
-    // Storm fog is set at runtime (EnsureEslLoaded) per storm type from kStormTypes[].fog* — see the
-    // table below. Each storm gets its own visibility wall (Dust Storm = densest); keeping the near
-    // distance >= ~900 avoids the old camera-centred "fog sphere" dome. Vanilla radstorm is near=1200
-    // far=8500 for reference.
     constexpr int      kNukeRollInTicks      = 12 * 4; // firestorm: nuke detonates, then ~12 s later
-                                                       // the fog/fire/IMAD + dome + exposure roll in
-                                                       // (the shockwave sweeping in from the horizon)
     // Firestorm nuke: SpawnDistantNuke can fail transiently (player 3D/worldspace not up, target cell
     // not yet streamed, engine returns a null handle). Count actual native submissions separately from
     // the absolute Active-phase wait so shelter cannot spend the attempt budget and no invalid state can
@@ -429,7 +419,7 @@ namespace RadInternal
         { 0x841, "Rad Firestorm",      1,     true,   14.0f, 4.0f, 20 * 4,  100 * 4,  30 * 4, 15,  1200.0f, 4500.0f, 0.60f, 128.0f,  2000.0f, 0.25f, kBedFirestorm   },  // 2.5 min
         { 0x842, "Toxic Sulfur Storm", 2,     false,  4.0f,  0.5f, 15 * 4,  180 * 4,  20 * 4, 35,  1000.0f, 3200.0f, 0.55f, 128.0f,  2000.0f, 0.20f, kBedSulfurStorm },  // 3.6 min
         { 0x843, "Acid Rain",          3,     false,  3.0f,  0.8f, 15 * 4,  180 * 4,  20 * 4, 35,  1400.0f, 6000.0f, 0.65f, 128.0f,  2000.0f, 0.45f, kBedAcidRain    },  // 3.6 min
-        { 0x844, "Dust Storm",         5,     false,  3.0f,  0.3f, 15 * 4,  150 * 4,  25 * 4, 30,   150.0f,  5000.0f, 0.30f,  64.0f,  3000.0f, 0.90f, kBedDustStorm   },  // 3.2 min — thick ground brownout (near=150, hiDens 0.90) that THINS above ~3000 (hRange) so the rotating dome (z+3800) is visible overhead; far=5000 so the dome isn't radially fogged out. + camera-dust VE, no IMAD
+        { 0x844, "Dust Storm",         5,     false,  3.0f,  0.3f, 15 * 4,  150 * 4,  25 * 4, 30,   150.0f,  5000.0f, 0.30f,  64.0f,  3000.0f, 0.90f, kBedDustStorm   },  // 3.2 min — thick ground brownout (near=150, hiDens 0.90) that THINS above ~3000 (hRange); far=5000. + camera-dust VE, no IMAD
     };
     constexpr int kStormTypeTableSize = static_cast<int>(std::size(kStormTypes));
 
@@ -495,7 +485,6 @@ namespace RadInternal
     // structure. The fan (vs a single up-ray) tolerates roof edges/gaps; this also lets a real
     // overhang count as shelter, which is physically correct for sky radiation. Interior-cell and
     // Pulowski checks run first, so this only fires for outdoor (incl. player-built) cover.
-    // -----------------------------------------------------------------------
     // -----------------------------------------------------------------------
     // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
     //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)

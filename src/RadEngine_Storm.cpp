@@ -1,5 +1,6 @@
 #include "RadEngine_Internal.h"
 #include "RadCorrectnessPolicy.h"
+#include "RadNeedsTuning.h"
 #include <RE/P/PlayerCamera.h>   // RE::ShakeCamera (commonlib_NonVR camera-shake native)
 #include <RE/N/NiControllerManager.h>
 #include <RE/N/NiControllerSequence.h>
@@ -13,12 +14,21 @@ using namespace RadInternal;
 // RadEngine_Internal.h; the class itself is declared in RadiationEngine.h.
 
 
+void RadiationEngine::EffectiveStormGap(float& a_min, float& a_max) const
+{
+    a_min = std::max(1.0f, RadNeedsTuning::Value(RadNeedsTuningPolicy::kStormMinMinutes, _stormMinRealMin));
+    a_max = std::max(a_min, RadNeedsTuning::Value(RadNeedsTuningPolicy::kStormMaxMinutes, _stormMaxRealMin));
+}
+
+
 void RadiationEngine::ScheduleNextStorm()
 {
     static std::mt19937 rng{ std::random_device{}() };
     // Gap comes from the INI ([Storm] MinMinutes/MaxMinutes) so players can dial storm frequency down
     // without a rebuild — "storms happen too much" is the most common complaint.
-    std::uniform_real_distribution<float> mins(_stormMinRealMin, _stormMaxRealMin);
+    float lo = 0.0f, hi = 0.0f;
+    EffectiveStormGap(lo, hi);
+    std::uniform_real_distribution<float> mins(lo, hi);
     const float realMin = mins(rng);
 
     // Schedule by REAL minutes of actual play (the 4Hz hook only ticks during active gameplay), NOT
@@ -49,7 +59,6 @@ void RadiationEngine::BeginStorm(int typeIndex)
     _debugSkipToActive = false;  // clear any leftover debug fast-forward from a prior storm
     const StormType& st = kStormTypes[typeIndex];
 
-    // A debug-forced storm may shorten the silent lead (_forcedLeadTicks); consume it here so the
     const bool debugForced = _forcedStormType >= 0;
     const int leadTicks = (debugForced && _forcedLeadTicks >= 0) ? _forcedLeadTicks : _stormLeadTicks;
     _forcedLeadTicks = -1;

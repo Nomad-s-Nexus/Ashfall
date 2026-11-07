@@ -253,6 +253,9 @@ begin_storm = storm.split("void RadiationEngine::BeginStorm(int typeIndex)", 1)[
 assert "_stormRollInTicks  = 0;" in begin_storm
 assert "_fleeTick          = 0;" in begin_storm
 assert "const bool debugForced = _forcedStormType >= 0;" in begin_storm
+_main_src = (SRC / "main.cpp").read_text(encoding="utf-8")
+assert "logger->set_level(spdlog::level::info);" in _main_src, "default log level must be info"
+assert "set_level(spdlog::level::debug)" not in _main_src
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
@@ -344,14 +347,14 @@ for body, action in (
     (engine_queue, "RadiationEngine::GetSingleton().Update();"),
 ):
     assert "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();" in body
-    assert "[generation]()" in body
+    assert "[generation" in body
     assert "RadLifecycleDispatch::PlayerUpdatesReady(generation)" in body
     assert body.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < body.find(action)
 
 visuals_queue = visuals_hooks.split("void QueueStormVisuals()", 1)[1]
 for token in (
     "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();",
-    "[generation]()",
+    "[generation, runImadFade]",
     "RadLifecycleDispatch::PlayerUpdatesReady(generation)",
 ):
     assert token in visuals_queue, f"storm visuals producer generation guard is missing: {token}"
@@ -454,4 +457,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, first-tick transient isolation, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, first-tick transient isolation, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, and HUD guards verified")

@@ -15,7 +15,13 @@ float RadiationEngine::GameDays() const
 
 void RadiationEngine::RevertState()
 {
-    _playSeconds      = 0.0;
+    // Constraint: LoadState runs after this and before OnPostLoad, so the restored penalties must survive OnPostLoad.
+    _appliedCarryPen  = 0.0f;
+    _appliedHealPen   = 0.0f;
+    _appliedSpeedPen  = 0.0f;
+    _appliedApPen     = 0.0f;
+    _penaltiesFromSave = false;
+    _playSeconds     = 0.0;
     _nextStormPlaySec = 0.0;
     _lastRadstormSec  = -1.0e30;
     _lastRadWeatherFormID = 0;
@@ -41,6 +47,7 @@ void RadiationEngine::Notify(const char* message, bool warning) const
 void RadiationEngine::OnNewGame()
 {
     _forceClearOnEntry = true;
+    _appliedCarryPen = _appliedHealPen = _appliedSpeedPen = _appliedApPen = 0.0f;
 }
 
 
@@ -69,6 +76,9 @@ void RadiationEngine::OnPostLoad()
     _chokeNotified = false;
 
     _wasInRadWeather = -1;
+    _wasRadExposed = -1;
+    _radExposedCandidate = -1;
+    _radExposedStreak = 0;
     _lastRadWeatherFormID = 0;
     _autoMaskEquipped = false;
     _npcMaskScanTick = 0;
@@ -82,7 +92,10 @@ void RadiationEngine::OnPostLoad()
         for (const auto& entry : ownership)
         {
             if (playerID != 0 && entry.actorFormID == playerID)
+            {
                 _autoMaskEquipped = true;
+                _wasRadExposed = 1;   // Constraint: a mask we auto-donned before the save is still ours to remove.
+            }
             else
                 _autoMaskedNpcs.insert(entry.actorFormID);
         }
@@ -90,14 +103,11 @@ void RadiationEngine::OnPostLoad()
 
     _appliedEndPenalty = 0;
     _appliedStrPenalty = 0;
-    _appliedCarryPen = 0.0f;
-    _appliedHealPen  = 0.0f;
-    _appliedSpeedPen = 0.0f;
-    _appliedApPen    = 0.0f;
     _symptomTick     = 0;
     _symptomWarned   = 0;
 
     DispelNegativeSpecials();
+    RepairLeakedCarryWeight();
 
 
     if (_stormScheduled && _playSeconds >= _nextStormPlaySec)

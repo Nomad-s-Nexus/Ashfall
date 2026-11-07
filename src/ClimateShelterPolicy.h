@@ -22,6 +22,12 @@ namespace RadClimateShelterPolicy
         return {};
     }
 
+    // Constraint: a listed roofless interior keeps indoor thermal shelter; its rain cover comes from the roof raycast.
+    [[nodiscard]] constexpr Factors FromRooflessInterior(bool roofed) noexcept
+    {
+        return { 1.0f, roofed ? 1.0f : 0.0f };
+    }
+
     [[nodiscard]] constexpr bool ShouldProbe(
         bool sampleKnown,
         std::uint32_t currentCellID,
