@@ -68,6 +68,8 @@ Fix (no logging added):
 - `src/RadiationEngine.cpp:RadiationEngine::PollInput`: Shift+F8 is accepted while the menu is open (`GameWindowForeground() || RadHud::DebugMenuOpen()`), so an open menu always closes.
 - `src/RadHud.cpp:OnRadDebugCommand`: `close` bypasses the engine queue (which drains only inside `Update()`), calls `RadHud::RequestDebugClose`, and `RadHud::PumpDeferredDebug` applies it every frame from `PollInput`.
 - `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:closeDebugMenu`: the CLOSE button hides the panel locally, then sends `close`. Escape closes the panel when it is open.
+- `src/RadHud.cpp:SetDebugMenu`: Escape reaches the view's JS only when the view owns it. Opening the menu claims Escape through PrismaUI V9 `SetViewOwnsEscape`, and closing or a rejected focus releases it, so the pause menu works again. Without V9 Escape stays with the game.
+- `src/RadHud.cpp:SetDebugMenu`: with the DOM still loading there is no JS to hide the panel, so `SetDebugMenu(false)` still releases view focus and Escape ownership.
 - Contract: `tests/verify_debug_menu_close.py`.
 
 Log lines to look for:

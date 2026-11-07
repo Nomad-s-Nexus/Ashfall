@@ -63,6 +63,13 @@ def main() -> int:
             "Shift+F8 edge must use debugToggleAllowed")
     require("bool DebugMenuOpen() const noexcept" in hud_h, "RadHud must expose DebugMenuOpen()")
 
+    require("SetDebugViewOwnsEscape(_view, true);" in hud_cpp, "open must claim Escape for the debug view")
+    require("SetDebugViewOwnsEscape(_view, false);" in hud_cpp, "close must release Escape ownership")
+    require("IVPrismaUI9" in hud_cpp and "SetViewOwnsEscape(view, owns)" in hud_cpp,
+            "Escape ownership must use the PrismaUI V9 SetViewOwnsEscape call")
+    require("if (!open && _view != 0 && api->IsValid(_view))" in hud_cpp,
+            "SetDebugMenu(false) must release focus when the DOM is not ready")
+
     print("verify_debug_menu_close: OK")
     return 0
 

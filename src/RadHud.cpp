@@ -698,6 +698,7 @@ void RadHud::SetDebugMenu(bool open)
                 _debugDesiredOpen = true;
                 _debugTogglePending = true;
                 _debugNextFocusRetryMs = ::GetTickCount64() + 150;
+                SetDebugViewOwnsEscape(_view, false);
 
                 static ULONGLONG lastFocusFailureLog = 0;
                 const auto now = ::GetTickCount64();
@@ -713,6 +714,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugOpen = true;
             _debugTogglePending = false;
             _debugNextFocusRetryMs = 0;
+            SetDebugViewOwnsEscape(_view, true);
             api->InteropCall(_view, "SetDebugMenu", "1");
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
             PushNeedsTuning(RadNeedsTuning::Json());
@@ -726,12 +728,21 @@ void RadHud::SetDebugMenu(bool open)
             SetLocalHudEditorPreview(false);
             api->InteropCall(_view, "SetDebugMenu", "0");
             api->Unfocus(_view);
+            SetDebugViewOwnsEscape(_view, false);
             _armorPayload.clear();
         }
     }
     else
     {
         _debugOpen = open;
+        if (!open && _view != 0 && api->IsValid(_view))
+        {
+            _debugTogglePending = false;
+            _debugDesiredOpen = false;
+            _debugNextFocusRetryMs = 0;
+            api->Unfocus(_view);
+            SetDebugViewOwnsEscape(_view, false);
+        }
     }
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");
