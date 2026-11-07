@@ -519,7 +519,6 @@ private:
     double _domeSeqNowSec = 0.0;
     int _domeLoggedSlot = -1;
     RadCorrectnessPolicy::Position _domeVortexDelta{ 0.0f, 0.0f, 0.0f };
-    bool _domeDeckLogged = false;                   
     float _domeVortexYaw = 0.0f;
     float _domeVortexScale = RadCorrectnessPolicy::kDomeVortexScale;
     bool _domeDeckFloorOn = false;

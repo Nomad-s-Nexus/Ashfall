@@ -116,7 +116,6 @@ void RadiationEngine::SpawnStormDome()
     _domeAnimTime = 0.0;
     _domeSeqNowSec = 0.0;
     _domeLoggedSlot = -1;
-    _domeDeckLogged = false;
     _domeAnimLogIndex = 0;
     _domeAnimDriverLogged = false;
     _domeSpinLogged = false;
@@ -463,50 +462,17 @@ void RadiationEngine::ResetDomeShapeMask()
 void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTimeSec)
 {
     const float weight = RadCorrectnessPolicy::DomeDeckFloorWeight(a_seqTimeSec);
-    const bool logFirst = !_domeDeckLogged && a_layer.root;
-    int shaded = 0;
-    int sampleIndex = -1;
-    float sampleBefore = 0.0f;
-    float sampleAfter = 0.0f;
     for (int i = 0; i < kDomeDeckCount; ++i)
     {
         auto& deck = a_layer.decks[i];
         // Constraint: the shader property is read from the live geometry on every apply, never cached.
         auto* prop = ShaderPropertyOf(deck.geom.get());
         if (!prop) continue;
-        ++shaded;
         const float keyed = prop->alpha;
         if (keyed != deck.writtenAlpha) deck.keyedAlpha = keyed;
         deck.writtenAlpha = RadCorrectnessPolicy::DomeFloorAlpha(deck.keyedAlpha, deck.floorAlpha, weight);
         if (!_domeDeckFloorOn) continue;
-        if (logFirst && sampleIndex < 0)
-        {
-            sampleIndex = i;
-            sampleBefore = keyed;
-            sampleAfter = deck.writtenAlpha;
-        }
         prop->alpha = deck.writtenAlpha;
-    }
-    if (!logFirst) return;
-    _domeDeckLogged = true;
-    Log()->info("[StormFX] dome deck floor: {} of {} deck shapes shaded; weight {:.2f} at seq {:.1f}.",
-        shaded, kDomeDeckCount, weight, a_seqTimeSec);
-    if (sampleIndex >= 0)
-        Log()->info("[StormFX] dome deck floor sample {}: alpha {:.3f} -> {:.3f}.",
-            RadCorrectnessPolicy::kDomeDeckShapes[sampleIndex], sampleBefore, sampleAfter);
-    for (const char* name : { "PortalA", "DiskOuter", "PlainHigh", "OuterHigh" })
-    {
-        auto* node = a_layer.root->GetObjectByName(RE::BSFixedString(name));
-        auto* geometry = node ? node->IsGeometry() : nullptr;
-        auto* prop = ShaderPropertyOf(geometry);
-        if (!prop)
-        {
-            Log()->info("[StormFX] dome depth flags {}: no shader property.", name);
-            continue;
-        }
-        Log()->info("[StormFX] dome depth flags {} (before, unchanged): ZBufferTest={} ZBufferWrite={} alpha={:.2f}.",
-            name, prop->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kZBufferTest),
-            prop->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kZBufferWrite), prop->alpha);
     }
 }
 void RadiationEngine::ApplyDomeShapeMask(double a_seqTimeSec)
