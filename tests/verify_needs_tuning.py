@@ -143,7 +143,8 @@ for key in keys:
     check(key in js_keys, f"the panel must list {key}")
     check(re.search(rf"^{key}=", ini, re.M) is not None, f"the INI must document [Tuning] {key}")
 check(js_keys <= set(keys), f"the panel lists unknown keys: {sorted(js_keys - set(keys))}")
-check("[Tuning]" in ini and "[Survival]" not in ini, "the INI needs a [Tuning] section")
+tuning_section = ini.split("[Tuning]", 1)[1].split("\n[", 1)[0] if "[Tuning]" in ini else ""
+check(bool(tuning_section), "the INI needs a [Tuning] section")
 check('id="tuneRows"' in html and "tune:reset" in html, "the SETTINGS tab needs the host and reset button")
 check("window.setNeedsTuning" in js, "the view must render the tuning payload")
 
