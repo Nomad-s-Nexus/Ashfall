@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const viewDir = path.join(__dirname, '../deploy/PrismaUI_F4/views/Interface/FalloutAnomaly');
-const html = fs.readFileSync(path.join(viewDir, 'radhud.html'), 'utf8');
+const html = fs.readFileSync(path.join(viewDir, 'rad_debug.html'), 'utf8');
 
 const elements = {};
 const timers = [];
@@ -53,7 +53,7 @@ const context = {
 };
 context.window = context;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(viewDir, 'radhud.js'), 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(viewDir, 'rad_debug.js'), 'utf8'), context);
 
 function nextLiveTimerIndex(untilMs) {
   let best = -1;
@@ -184,17 +184,17 @@ for (const scene of showcase.scenes.filter((s) => s.steps.some(([, c]) => c.star
 
 resetSent();
 showcase.startTour();
-assert.deepEqual(sentCommands, ['god:on', 'close'], 'tour turns god mode on and closes the menu first');
+assert.deepEqual(sentCommands, ['god:on'], 'tour turns god mode on and does not close the menu');
 
 showcase.stop();
 advanceSeconds(1000);
-assert.equal(sentCommands.length, 2, 'stop cancels everything still scheduled');
+assert.equal(sentCommands.length, 1, 'stop cancels everything still scheduled');
 
 resetSent();
 showcase.startTour();
 context.SetDebugMenu(1);
 advanceSeconds(1000);
-assert.equal(sentCommands.length, 2, 'reopening the menu stops the tour');
+assert.equal(sentCommands.length, 1, 'reopening the menu stops the tour');
 
 resetSent();
 showcase.startTour();
@@ -230,7 +230,7 @@ assert.equal(elements.showcaseStatus.textContent, 'Tour finished.');
   };
   loadContext.window = loadContext;
   vm.createContext(loadContext);
-  vm.runInContext(fs.readFileSync(path.join(viewDir, 'radhud.js'), 'utf8'), loadContext);
+  vm.runInContext(fs.readFileSync(path.join(viewDir, 'rad_debug.js'), 'utf8'), loadContext);
   loadListeners.forEach((fn) => fn());
   assert.ok(!loadElements.debugPanel.classes.has('on'), 'debug panel must not self-open on load');
 }

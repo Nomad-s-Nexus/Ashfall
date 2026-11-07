@@ -599,38 +599,6 @@ int main()
     Require(SanitizeUiText("\xED\xA0\x80") == "???");
     Require(SanitizeUiText("") == "");
 
-    // Constraint: the debug-view refresh arms only on a close that followed an open, waits 100 ms, destroys, creates, then idles.
-    using RefreshPhase = DebugViewRefreshState::Phase;
-    using RefreshAction = DebugViewRefreshAction;
-    const DebugViewRefreshState refreshIdle{};
-    Require(DebugViewRefreshArm(refreshIdle, false, 1000).phase == RefreshPhase::kIdle);
-    Require(DebugViewRefreshStep(DebugViewRefreshArm(refreshIdle, false, 1000), 999999, false).action == RefreshAction::kNone);
-    const auto armed = DebugViewRefreshArm(refreshIdle, true, 1000);
-    Require(armed.phase == RefreshPhase::kArmed && armed.dueMs == 1000 + kDebugViewRefreshDelayMs);
-    Require(armed.dueMs == 1100);
-    Require(DebugViewRefreshArm(armed, true, 1050).dueMs == 1100);
-    auto step = DebugViewRefreshStep(armed, 1099, false);
-    Require(step.action == RefreshAction::kWait && step.state.phase == RefreshPhase::kArmed && step.state.dueMs == 1100);
-    step = DebugViewRefreshStep(armed, 1100, false);
-    Require(step.action == RefreshAction::kDestroy && step.state.phase == RefreshPhase::kDestroyed);
-    step = DebugViewRefreshStep(step.state, 1101, false);
-    Require(step.action == RefreshAction::kCreate && step.state.phase == RefreshPhase::kIdle);
-    step = DebugViewRefreshStep(step.state, 5000, false);
-    Require(step.action == RefreshAction::kNone && step.state.phase == RefreshPhase::kIdle);
-    step = DebugViewRefreshStep(armed, 1050, true);
-    Require(step.action == RefreshAction::kNone && step.state.phase == RefreshPhase::kIdle);
-    step = DebugViewRefreshStep(armed, 1100, true);
-    Require(step.action == RefreshAction::kNone && step.state.phase == RefreshPhase::kIdle);
-    step = DebugViewRefreshStep(DebugViewRefreshState{ RefreshPhase::kDestroyed, 0 }, 0, true);
-    Require(step.action == RefreshAction::kCreate && step.state.phase == RefreshPhase::kIdle);
-    step = DebugViewRefreshStep(refreshIdle, 1200, false);
-    Require(step.action == RefreshAction::kNone);
-    const auto armedAgain = DebugViewRefreshArm(refreshIdle, true, 2000);
-    Require(armedAgain.dueMs == 2100);
-    Require(DebugViewRefreshStep(armedAgain, 2100, false).action == RefreshAction::kDestroy);
-    Require(DebugViewRefreshArm(DebugViewRefreshState{ RefreshPhase::kDestroyed, 0 }, true, 1).phase == RefreshPhase::kDestroyed);
-    Require(DebugViewRefreshArm(refreshIdle, true, 0xFFFFFFFFull).dueMs == 0xFFFFFFFFull + 100);
-
     // Constraint: the load settle window is closed for exactly 3 s after load and reopens on the 12th 4 Hz tick.
     Require(!LoadSettleElapsed(0, 0, kLoadSettleMs));
     Require(!LoadSettleElapsed(2999, 0, kLoadSettleMs));

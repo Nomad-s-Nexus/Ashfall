@@ -171,5 +171,7 @@ void RadHud::PumpDomReady()
     if (RadCorrectnessPolicy::IsLiveDomReady(pendingClimate, _climateView)) FinalizeClimateDomReady(pendingClimate);
     const auto pendingNeeds = _domPending[kDomSlotNeeds].exchange(0, std::memory_order_acq_rel);
     if (RadCorrectnessPolicy::IsLiveDomReady(pendingNeeds, _needsView)) FinalizeNeedsDomReady(pendingNeeds);
+    const auto pendingDebug = _domPending[kDomSlotDebug].exchange(0, std::memory_order_acq_rel);
+    if (RadCorrectnessPolicy::IsLiveDomReady(pendingDebug, _debugView)) FinalizeDebugDomReady(pendingDebug);
     if (_widgetReapplyPending.exchange(false)) ReapplyWidgetRegistrations();
 }

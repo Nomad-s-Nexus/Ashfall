@@ -222,10 +222,10 @@ void RadHud::SyncLocalHudLayout()
 
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
 
-    if (_view != 0 && _domReady.load() && api->IsValid(_view) && g_layout.listenerView != _view)
+    if (_debugView != 0 && _debugDomReady.load() && api->IsValid(_debugView) && g_layout.listenerView != _debugView)
     {
-        api->RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand);
-        g_layout.listenerView = _view;
+        api->RegisterJSListener(_debugView, "radHudLayout", OnRadHudLayoutCommand);
+        g_layout.listenerView = _debugView;
     }
 
     const bool climateReady = _climateView != 0 && _climateDomReady.load() && api->IsValid(_climateView);
@@ -266,8 +266,8 @@ void RadHud::SyncLocalHudLayout()
         if (g_layout.preview)
         {
             g_layout.preview = false;
-            if (_view != 0 && _domReady.load() && api->IsValid(_view))
-                api->InteropCall(_view, "CloseLocalHudEditor", "");
+            if (_debugView != 0 && _debugDomReady.load() && api->IsValid(_debugView))
+                api->InteropCall(_debugView, "CloseLocalHudEditor", "");
         }
         return;
     }
@@ -328,13 +328,8 @@ void RadHud::SetLocalHudEditorPreview(bool on)
     if (_needsView != 0 && _needsReadyView.load() == _needsView && api->IsValid(_needsView))
         api->InteropCall(_needsView, "setEditorPreview", value);
 
-    if (!g_layout.preview && _view != 0 && _domReady.load() && api->IsValid(_view))
-        api->InteropCall(_view, "CloseLocalHudEditor", "");
-}
-
-bool RadHud::LocalHudEditorPreviewOn() const noexcept
-{
-    return g_layout.preview;
+    if (!g_layout.preview && _debugView != 0 && _debugDomReady.load() && api->IsValid(_debugView))
+        api->InteropCall(_debugView, "CloseLocalHudEditor", "");
 }
 
 void RadHud::ApplyLocalHudLayout(const std::string& payload)
@@ -407,14 +402,14 @@ void RadHud::OpenHudLayoutEditor()
         return;
     }
 
-    if (!_api || _view == 0 || !_domReady.load()) return;
+    if (!_api || _debugView == 0 || !_debugDomReady.load()) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
-    if (!api->IsValid(_view)) return;
+    if (!api->IsValid(_debugView)) return;
 
     EnsureLoaded();
     SyncLocalHudLayout();
     SetLocalHudEditorPreview(true);
     const auto layout = FullJson().dump();
-    api->InteropCall(_view, "OpenLocalHudEditor", layout.c_str());
+    api->InteropCall(_debugView, "OpenLocalHudEditor", layout.c_str());
     if (logger) logger->info("[HUD] Opened built-in temporary Rad HUD layout editor.");
 }

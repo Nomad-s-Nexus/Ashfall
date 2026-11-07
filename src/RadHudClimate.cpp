@@ -143,7 +143,7 @@ void RadHud::PushClimate(const RadClimatePolicy::ClimateState& state,
     if (payload == _climatePayload) return;
     _climatePayload = payload;
     api->InteropCall(_climateView, "updateClimate", payload.c_str());
-    if (_debugOpen && _view && _domReady && api->IsValid(_view))
-        api->InteropCall(_view, "updateClimateInfo", payload.c_str());
+    if (_debugOpen && _debugView && _debugDomReady && api->IsValid(_debugView))
+        api->InteropCall(_debugView, "updateClimateInfo", payload.c_str());
     api->Show(_climateView);
 }

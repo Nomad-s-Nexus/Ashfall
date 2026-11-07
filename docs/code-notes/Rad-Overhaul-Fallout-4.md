@@ -87,7 +87,7 @@ Every one of the 36 shapes in `CloudArena01_4.nif` is invisible by its static al
 ### Armor skin exclusion and diagnostic provenance
 
 - `src/ClimateProtectionRuntime.cpp:ClimateProtectionRuntime::Scan`: the 2026-09-09 live armor log included `Fallout4.esm|0xD64` as torso equipment. Read-only record inspection identified `SkinNaked`, with NakedTorso/NakedHands addons and no display name. Exclude the actor race and NPC skin references before both insulation accumulation and diagnostic records; do not hide arbitrary unnamed equipment. Remaining unnamed equipment includes its runtime form ID.
-- `src/ClimateInsulationPolicy.h:PieceWarmth` and `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:window.setArmorInfo`: the shared fallback is 45%, with exact/keyword configuration overrides. The active configuration had no overrides. SOURCE now distinguishes DEFAULT from OVERRIDE; accessories without covered regions show no applicable warmth. These are model estimates, not measured material ratings. The displayed 49% follows from incorrectly layering skin over the 40.5% jumpsuit; excluding skin leaves 40.5%. No material ratings or thermal constants were invented.
+- `src/ClimateInsulationPolicy.h:PieceWarmth` and `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_debug.js:window.setArmorInfo`: the shared fallback is 45%, with exact/keyword configuration overrides. The active configuration had no overrides. SOURCE now distinguishes DEFAULT from OVERRIDE; accessories without covered regions show no applicable warmth. These are model estimates, not measured material ratings. The displayed 49% follows from incorrectly layering skin over the 40.5% jumpsuit; excluding skin leaves 40.5%. No material ratings or thermal constants were invented.
 - `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:.armor-records-scroll`: a visible scrollbar, keyboard-focusable region and viewport-relative height keep long equipment lists bounded. Outer panel scrolling remains available on short screens.
 
 ### Firestorm dome follow cadence
@@ -139,7 +139,7 @@ The nuke policy supplies only distant X/Y and facing. The runtime resolves the l
 
 ## Storm-ghoul controls
 
-References: `src/RadEngine_Debug.cpp:RadiationEngine::DispatchDebugCommand`, `src/RadEngine_Storm_Actors.cpp:RadiationEngine::SpawnStormGhouls`, and `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.html`.
+References: `src/RadEngine_Debug.cpp:RadiationEngine::DispatchDebugCommand`, `src/RadEngine_Storm_Actors.cpp:RadiationEngine::SpawnStormGhouls`, and `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_debug.html`.
 
 The GHOULS debug tab adjusts the chance used by future managed or accepted vanilla radstorms, enables or disables future packs, and can clear the current pack. `RadiationEngine::PushGhoulSettingsToHud` sends the native enabled/chance state to `RadHud::PushGhoulSettings` when the menu opens and after each command, so the persistent status line does not rely on button-side JavaScript state. These controls are session-local and default to enabled with a 40% chance after restart; the spawn roll uses `>=` so a configured 0% chance cannot spawn a pack.
 
@@ -149,7 +149,7 @@ The GHOULS debug tab adjusts the chance used by future managed or accepted vanil
 
 `src/RadEngine_Storm_Actors.cpp:RadiationEngine::RetryPendingStormGhouls` retries activation handles on the main update path, activates actors after streaming resolves them, and promotes them into the live pack. `RadiationEngine::RetryStormGhoulCleanup` owns unresolved deletion handles without blocking new packs, while `RadiationEngine::RetireUnresolvedStormGhouls` bounds unresolved live-pack ownership. `RadiationEngine::ResetStormGhoulStateForLoad` drops all prior-world handle bookkeeping at serialization/load boundaries so stale refs cannot deadlock a new save.
 
-`src/PrismaUI_F4_API.h:PRISMA_UI_API::IVPrismaUI2::InteropCall` accepts its payload as `const char*`. Existing JSON callbacks such as `radhud.js:window.stormPhase`, `radhud.js:window.updateFilter`, and `radhud.js:window.showSpecialInfo` therefore accept both JSON text and object input. `radhud.js:setGhoulSettings` follows the same string-or-object parsing contract so native `InteropCall` state remains authoritative for both enabled state and chance.
+`src/PrismaUI_F4_API.h:PRISMA_UI_API::IVPrismaUI2::InteropCall` accepts its payload as `const char*`. Existing JSON callbacks such as `radhud.js:window.stormPhase`, `radhud.js:window.updateFilter`, and `rad_debug.js:window.showSpecialInfo` therefore accept both JSON text and object input. `rad_debug.js:setGhoulSettings` follows the same string-or-object parsing contract so native `InteropCall` state remains authoritative for both enabled state and chance.
 
 ## Transition and queue hardening
 
@@ -965,7 +965,7 @@ Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_status.css` (t
 - `hud_toxic.html:renderToxic` hides the health, AP and rads fallback chips under Phosphor. The tissue ring is tissue/1000 and the scarring arc is permanentTissue/1000 on a second outer circle. The amber (150) and rad (600) thresholds match classic.
 - `hud_filter.html:renderFilter` draws rings for filter and mask. The 25 and 60 thresholds match classic.
 - `hud_filter.html:setKeys` accepts a JSON string or an object. `replace` fills the filter hint (`[F6]`) and `repair` fills the mask hint (`[F7]`). An empty key hides its hint. This applies in both themes, and the hints stay hidden until native code supplies keys.
-- `hud_climate.html:setTheme` and `radhud.js:setTheme` only toggle the class. Climate chips and the storm banner are styled by CSS. The visor overlay and fog rules are not touched.
+- `hud_climate.html:setTheme` only toggles the class; `radhud.js:setTheme` and `rad_debug.js:setTheme` are no-op stubs. Climate chips and the storm banner are styled by CSS. The visor overlay and fog rules are not touched.
 - Each of the three ring-drawing views carries its own one-line `ring` helper. The views load only inline scripts, so a shared file would need a new loader path.
 - Verified by the node harness only. No browser or in-game render was run, so the ring geometry and the Ultralight rendering are unconfirmed.
 
@@ -1128,9 +1128,9 @@ Not yet included (separate follow-up): the storm sky roll-in at the Warning phas
 
 ## Showcase tab: scene buttons, auto tour and debug state (2026-11-01)
 
-Reference: `src/RadEngine_Debug.cpp:DispatchDebugCommand` (the showcase buttons and the tour call it).
+Reference: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_debug.js:RadShowcase` (the scene buttons and the tour send their commands through `cmd`) and `src/RadEngine_Debug.cpp:DispatchDebugCommand`.
 
-The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed list of debug commands, and the auto tour plays every scene in turn with the menu closed. Both only use the existing debug command path (`DispatchDebugCommand`); no new gameplay logic runs outside it.
+The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed list of debug commands, and the auto tour plays every scene in turn with the menu open. The tour does not close the menu, and closing the menu ends the tour. Both only use the existing debug command path (`DispatchDebugCommand`); no new gameplay logic runs outside it.
 
 **God mode.** `god:on` sets `_debugGod`, and `KeepPlayerAlive` restores health damage on every Update tick (4 Hz). A burst larger than the current health inside one tick can still kill the player. Rads still reduce max health, so god mode does not stop radiation sickness.
 
@@ -1140,9 +1140,17 @@ The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed l
 
 **Save state.** The mask scene's `filter:replace` step removes a real filter item from the inventory. The rads, tissue and heal steps change save state. Do not save in the middle of a showcase run.
 
-**Cancelling the tour.** Shift+F8 only cancels the remaining tour steps. A running storm, forced weather or mask state stays in place and must be cleared with the normal clear and release buttons. The exception is a needs or disease scene caught mid-play: stopping, starting another scene, or reopening the menu then sends that scene's revert command and `time:resume` before anything else, so the clock never stays frozen.
+**Cancelling the tour.** Shift+F8, CLOSE and Esc close the menu. Closing destroys the menu's view, which ends the tour (`deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_debug.js:closeDebugMenu`, `src/RadHud.cpp:RadHud::DestroyDebugView`). A running storm, forced weather or mask state stays in place and must be cleared with the normal clear and release buttons. Stopping the tour or starting another scene first sends a needs or disease scene's revert command and `time:resume`, so the clock does not stay frozen. CLOSE and Esc now stop a running scene first: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/rad_debug.js:closeDebugMenu` calls `RadShowcase.stop()` before `cmd("close")`, so a needs or disease scene caught mid-play still sends its revert and `time:resume` while the page is alive. The native close routes (Shift+F8, session reset, the focus give-up) destroy the page first, so they cannot send them. For those, `src/RadHud.cpp:RadHud::DestroyDebugView` drains the queued commands and then calls `src/RadEngine_Debug.cpp:RadiationEngine::ResumeDebugTime` before its early return, so a frozen clock is restored on every route. This is a behaviour change: a manual Freeze used to survive a close. A native close does not run the scene's revert, so its needs values stay until Clear needs or another needs scene (not tested in game). A freeze still queued when a native close runs is applied by that drain before the restore, see the next section. NEEDS NOMAD: a new decision, separate from the old tour-cancel question. Should a native close also replay the abort list, for example by calling `RadShowcase.stop()` from the `window.SetDebugMenu` close branch? That works only if PrismaUI runs the InteropCall before Destroy, which is not verified.
 
 **Showcase needs and disease scenes.** The Peckish, Starving, Exhausted, Fever stage 2 and Wasting stage 3 scenes run `time:freeze`, a `needs:<hunger>:<thirst>:<sleep>:<disease>:<stage>` command, a revert after 10 seconds, and `time:resume`. The `needs:` command calls the `RadShowcase.Apply` Papyrus entry point. The revert does not restore the player's real values: it sets the touched pools and the disease to 0. These scenes therefore overwrite the real needs and disease state of the loaded save and are destructive on a save you want to keep. Use them only on a disposable save, and resume time before saving. Clear needs sets every pool and the disease to 0 and resumes the clock. The `needs:` dispatch is fire and forget: `DebugApplyNeeds` passes no callback, because the Papyrus side logs its own result.
+## Debug view close: freeze ordering and panel sync (2026-11-07)
+
+Reference: `src/RadHud.cpp:RadHud::DestroyDebugView`, `src/RadHud.cpp:RadHud::SyncDebugPanelState` and `src/RadEngine_Debug.cpp:RadiationEngine::DrainDebugCommands`.
+
+**Freeze ordering.** Debug commands queue on the Ultralight thread and run on the main thread in `RadiationEngine::Update`, so a `time:freeze` sent just before a close is still queued when the view is destroyed. `DestroyDebugView` now drains the queue before it restores frozen time, so the restore undoes that freeze and the clock runs once the menu is gone. The drain swaps the queue out under the lock before it dispatches, so a `close` dispatched from inside a drain cannot run the outer batch twice. `DrainDebugCommands` is public for this call. Enqueueing `time:resume` instead was rejected: `DebugTime("resume")` calls `Notify` with `[DEBUG] Time resumed.`, which would fire on every close.
+
+**Panel sync with no view.** `SyncDebugPanelState` returns while `_debugView` is 0. `PushDebugPanelState` already returned in that state without changing `_debugPushedOpen`, so the early return changes no state. The open path is unaffected: `EnsureDebugView` creates the view before any push and resets `_debugPushedOpen` to -1 on create.
+
 ## Relief, water fill and mask view notes
 
 Reference: `src/RadiationEngine.h`, `src/RadEngine_Audio.cpp`. These replace trailing comments that were removed from the declarations.

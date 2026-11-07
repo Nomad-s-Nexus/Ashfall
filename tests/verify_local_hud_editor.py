@@ -14,7 +14,7 @@ radiation_engine = (root / "src" / "RadiationEngine.cpp").read_text(encoding="ut
 editor_js = (views / "rad_hud_local_editor.js").read_text(encoding="utf-8")
 toxic = (views / "hud_toxic.html").read_text(encoding="utf-8")
 filter_html = (views / "hud_filter.html").read_text(encoding="utf-8")
-main_html = (views / "radhud.html").read_text(encoding="utf-8")
+main_html = (views / "rad_debug.html").read_text(encoding="utf-8")
 
 assert 'BindGameThreadUIEvent' not in rad_hud
 assert 'api->RegisterJSListener(view, "radDebug", OnRadDebugCommand)' in rad_hud
@@ -109,13 +109,13 @@ assert session_gate < mask_reset < swap
 assert session_gate < shelter_reset < swap
 
 assert rad_layout.count('void RadHud::OpenHudLayoutEditor()') == 1
-assert 'RegisterJSListener(_view, "radHudLayout", OnRadHudLayoutCommand)' in rad_layout
+assert 'RegisterJSListener(_debugView, "radHudLayout", OnRadHudLayoutCommand)' in rad_layout
 assert 'RadiationEngine::GetSingleton().HandleDebugCommand(command.c_str())' in rad_layout
 assert 'if (action == "sync")' in rad_layout
 assert 'if (_hudApi)' in rad_layout
 assert '_hudEditorApi = PRISMA_HUD_API::RequestEditorAPI();' in rad_layout
 assert 'editor->OpenEditor();' in rad_layout
-assert 'api->InteropCall(_view, "OpenLocalHudEditor", layout.c_str())' in rad_layout
+assert 'api->InteropCall(_debugView, "OpenLocalHudEditor", layout.c_str())' in rad_layout
 assert 'api->InteropCall(_toxicView, "setLocalHUDLayout", payload.c_str())' in rad_layout
 assert 'api->InteropCall(_filterView, "setLocalHUDLayout", payload.c_str())' in rad_layout
 assert 'api->InteropCall(_toxicView, "releaseLocalHUDLayout", "")' in rad_layout

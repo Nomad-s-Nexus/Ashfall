@@ -126,6 +126,8 @@ public:
     void PushGhoulSettingsToHud();
     void DebugHeal();                                 // full heal the player
     void DebugTime(const std::string& arg);
+    void ResumeDebugTime();
+    void DrainDebugCommands();
     void DebugApplyNeeds(const std::string& arg);
     void DebugLockWeather();
     void KeepPlayerAlive();
@@ -162,7 +164,6 @@ private:
     void DispatchDebugCommand(const std::string& action);
     std::mutex               _debugCmdMutex;
     std::vector<std::string> _pendingDebugCmds;
-    void DrainDebugCommands();
 
     RadiationConfig* _config = nullptr;
     uint32_t _currentStageLevel = 0;  // Track current stage for debuff changes
