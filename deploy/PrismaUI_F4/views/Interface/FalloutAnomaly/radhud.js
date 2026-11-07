@@ -847,7 +847,6 @@ if (typeof window !== "undefined" && window.addEventListener) {
         if (!window.radDebug) {
       if (window.location && window.location.hash) {
         if (window.location.hash.indexOf("skipboot=1") !== -1) {
-          window.suppressBootAnimation = true;
           var bootEl = document.getElementById("robcoBootOverlay");
           if (bootEl) bootEl.classList.add("boot-hidden");
         }
