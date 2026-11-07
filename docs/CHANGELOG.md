@@ -1,3 +1,7 @@
+## Unreleased: storm dome regression fix (v1.2.3 test feedback; not verified in game)
+
+**The disc pinwheel is gone and the portal is placed in front.** Only the portal group (Hole4, Vortex2, Vortex3) is moved and scaled. The outer cloud discs (Vortex0, Vortex1) keep their authored place. The deck alpha floor and the forced visibility of Outer*, FogSkirt and HorizonBand are removed; Plain* is floored only when `[StormDome] DeckFloor=1`. Portal defaults: 1800 units ahead, 900 up, x3.0. Tunables are read from the `[StormDome]` section. The debug-menu close during a forced storm predates this change; a rate-limited log line now records Shift+F8 presses the game ignores. Notes: `docs/code-notes/Ashfall.md`.
+
 ## Unreleased: the storm cloud decks stay visible through the portal window (not verified in game)
 
 **The cloud decks around the vortex stay on screen while the portal is up.** `Plain*`, `Outer*`, `FogSkirt` and `HorizonBand` are drawn from 128 to 320 s of the baked sequence, with their alpha raised to a floor (0.6 or 0.8) that fades at each window edge. The depth flags are logged, not changed. Notes: `docs/code-notes/Ashfall.md`.

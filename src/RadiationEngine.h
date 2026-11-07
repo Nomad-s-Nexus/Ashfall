@@ -500,7 +500,7 @@ private:
             float baseScale = 1.0f;
             float writtenScale = -1.0f;
         };
-        VortexNode vortex[5];
+        VortexNode vortex[3];
         struct DomeDeck
         {
             RE::NiPointer<RE::BSGeometry> geom;
@@ -521,6 +521,8 @@ private:
     RadCorrectnessPolicy::Position _domeVortexDelta{ 0.0f, 0.0f, 0.0f };
     bool _domeDeckLogged = false;                   
     float _domeVortexYaw = 0.0f;
+    float _domeVortexScale = RadCorrectnessPolicy::kDomeVortexScale;
+    bool _domeDeckFloorOn = false;
     int _domeAnimLogIndex = 0;
     bool _domeAnimDriverLogged = false;
     bool _domeSpinLogged = false;

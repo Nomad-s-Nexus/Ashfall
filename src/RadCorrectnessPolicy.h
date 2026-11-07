@@ -77,9 +77,15 @@ namespace RadCorrectnessPolicy
         return lo + (hi - lo) * f;
     }
 
-    constexpr float kDomeVortexDistance = 2600.0f;
-    constexpr float kDomeVortexHeight = 1200.0f;
-    constexpr float kDomeVortexScale = 1.5f;
+    // Constraint: a tunable that is not a number, or outside its range, falls back to its default.
+    constexpr float DomeTunableOr(float raw, float lo, float hi, float fallback)
+    {
+        return (raw >= lo && raw <= hi) ? raw : fallback;
+    }
+
+    constexpr float kDomeVortexDistance = 1800.0f;
+    constexpr float kDomeVortexHeight = 900.0f;
+    constexpr float kDomeVortexScale = 3.0f;
     constexpr float kDomeRootScale = 0.1f;
     constexpr Position kDomeEyeAuthoredWorld = { 1575.0f, 1725.0f, 3281.25f };
 
@@ -172,7 +178,7 @@ namespace RadCorrectnessPolicy
     }
 
     constexpr std::string_view kDomeDeckShapes[] = {
-        "PlainHigh", "PlainMid", "PlainLow", "OuterHigh", "OuterBack", "OuterFront", "FogSkirt", "HorizonBand",
+        "PlainHigh", "PlainMid", "PlainLow",
     };
     constexpr double kDomeDeckWindowStartSec = 128.0;
     constexpr double kDomeDeckWindowEndSec = 320.0;
@@ -181,9 +187,7 @@ namespace RadCorrectnessPolicy
     // Constraint: a deck floor only raises alpha, so an authored key above the floor passes through unchanged.
     constexpr float DomeDeckFloorFor(std::string_view name)
     {
-        if (name.rfind("Outer", 0) == 0) return 0.8f;
         if (name.rfind("Plain", 0) == 0) return 0.6f;
-        if (name == "FogSkirt" || name == "HorizonBand") return 0.6f;
         return 0.0f;
     }
 
@@ -221,9 +225,10 @@ namespace RadCorrectnessPolicy
         return (seqTimeSec >= kDomeDeckWindowStartSec && seqTimeSec <= kDomeDeckWindowEndSec) ? DomeDeckShapeMask() : 0;
     }
 
-    // Constraint: outside the portal window the visible set is exactly the baked table; inside it the deck shapes are added.
-    constexpr std::uint64_t DomeShapeVisibility(double seqTimeSec)
+    // Constraint: the deck shapes are forced visible through the portal window only when the deck floor is switched on.
+    constexpr std::uint64_t DomeShapeVisibility(double seqTimeSec, bool deckFloorOn)
     {
+        if (!deckFloorOn) return VisibleShapeMask(seqTimeSec);
         return VisibleShapeMask(seqTimeSec) | (DomeDeckWindowMask(seqTimeSec) & kDomeShownShapes);
     }
     constexpr double WrapAngleRad(double a)

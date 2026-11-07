@@ -23,46 +23,55 @@ Not verified in game. Whether the portal and the remaining cloud layers read cor
 
 Related: PR #49 (`feat/rad-storm-rad-weather-no-dome`) removes the dome entirely. It is 85 commits behind `main` and conflicts in 14 files, so this change is separate and smaller; if #49 is rebased and merged later, this change is moot.
 
-## Storm dome: the vortex is placed ahead of the player and the sequence runs the whole storm
+## Storm dome: portal placement, deck floor off by default, debug-menu evidence (v1.2.3 test feedback)
 
-Reference: `src/RadCorrectnessPolicy.h:DomeSequenceForPhase`, `src/RadCorrectnessPolicy.h:VortexLocalDelta`, `src/RadCorrectnessPolicy.h:kDomeVortexDistance`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::CurrentDomeSequenceSec`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeVortexLayout`, and `src/RadEngine_Storm_Update.cpp:RadiationEngine::UpdateStorm`.
+Reference: `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeVortexLayout`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeDeckFloor`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::SpawnStormDome`, `src/RadEngine_Storm_Dome.cpp:ReadDomeTunable`, `src/RadCorrectnessPolicy.h:DomeShapeVisibility`, `src/RadCorrectnessPolicy.h:DomeDeckFloorFor`, `src/RadCorrectnessPolicy.h:kDomeVortexDistance`, and `src/RadiationEngine.cpp:RadiationEngine::PollInput`.
 
-Causes, from v1.2.3:
+What the player saw after the first build (2026-11-06 22:57 session, `FalloutAnomaly.log`): the sky showed a dark overcast with a large pinwheel of grey radial streaks converging on a point above the crosshair. No portal and no vortex colour.
 
-- Placement: the dome root spawns at the player with no yaw. The eye (`Hole4`, about 4028 units away at a fixed NIF bearing and 54 degrees elevation) therefore stays on one compass bearing, so it swings across the view as the player turns, and it reads as small.
-- Chain: a forced storm shifted the sequence by (natural lead minus actual lead), so a 10 s debug lead began at sequence 170 s and skipped the build-up. `ClearStormDome` ran at the end of Active (sequence 320 s), so the aftermath fade (320-360 s) never played.
-- The NIF keys node scales: `Vortex0` to `Vortex3` go from 0.72 to 1.0 around 135-180 s, and `Hole4` goes from 0.002 to 1.0 by about 170 s, then 0.47 at 300 s and 0.002 at 360 s. The portal therefore grows through the approach and closes in the aftermath.
+Cause of the pinwheel, from the code and the log:
 
-Design:
+- The outer cloud discs are authored under `Vortex0` (`OuterHigh`) and `Vortex1` (`OuterBack`, `OuterFront`), not under the portal group. The first build applied the same node shift and the x1.5 scale to all five vortex nodes, so these discs moved off the player and their radial texture centres came into view.
+- The deck floor raised `OuterHigh`, `OuterBack`, `OuterFront`, `FogSkirt` and `HorizonBand` to 0.6 to 0.8 alpha, and `DomeShapeVisibility` forced them visible from 128 to 320 s. Their authored alpha is faint, so the baked disc geometry showed at full strength.
+- The portal group (`Hole4`, `Vortex2`, `Vortex3`) was moved, but at 2600 units its shapes (136 to 312 world units) subtend about 3 degrees, so it did not read as a portal.
+- The log line `[StormFX] dome vortex placed ... node shift (-29530,-39298,-20812)` is the shift that was applied to all five nodes.
 
-- Chain: each storm phase owns its authored window of the 360 s sequence: Approach 0-180 s, Warning 180-200 s, Active 200-320 s, Aftermath 320-360 s. Each window is mapped linearly over that phase's real duration (`_stormPhaseStartSec` and `_stormPhaseDurSec`, recorded in `EnterStormPhase`). A natural storm is close to 1:1. A forced storm is compressed into its shorter phases, so every window plays in order. The dome is cleared when aftermath ends.
-- Placement: the vortex group (`Vortex0` to `Vortex3` and `Hole4`) is shifted in the NIF's own space, so the eye lands `kDomeVortexDistance` = 2600 units ahead along the spawn yaw and `kDomeVortexHeight` = 1200 units above the feet. The root and the shell meshes stay centred on the player. The bearing is fixed at spawn: the dome follows the player's position only, not the camera yaw.
-- Size: `kDomeVortexScale` = 1.5 multiplies the keyed node scale on every update. The base is re-read from the keyed value only when the controller has written a fresh one, so the multiplier cannot compound.
-- Fog: the closer eye sits in less of the storm fog.
+Changes:
 
-Not changed, and why:
+- Only `Hole4`, `Vortex2` and `Vortex3` are shifted and scaled (`RadiationEngine::ResolveDomeLayerNodes` and `RadiationEngine::ApplyDomeVortexLayout`). `Vortex0` and `Vortex1` keep their authored position and scale, so the cloud decks stay centred on the player.
+- Portal placement defaults: 1800 units ahead, 900 up, scale x3.0 (`kDomeVortexDistance`, `kDomeVortexHeight`, `kDomeVortexScale`). The bearing is still fixed at spawn.
+- The deck floor is off by default. It is switched on with `[StormDome] DeckFloor=1`. When on, only `PlainHigh`, `PlainMid` and `PlainLow` are floored to 0.6 and forced visible 128 to 320 s (`DomeDeckFloorFor`, `DomeShapeVisibility(seq, deckFloorOn)`). `Outer*`, `FogSkirt` and `HorizonBand` are never floored or forced; they follow their baked windows.
+- Runtime tunables are read once at spawn from the `[StormDome]` section of `Data\F4SE\Plugins\FalloutAnomalyRadiation.ini`. Missing or out-of-range values fall back to the defaults (`ReadDomeTunable`, `DomeTunableOr`):
 
-- Depth and draw order against the vanilla clouds were not changed. The depth flags cannot be verified without the game. The existing vanilla cloud fade in `src/Hooks_SkyClouds.cpp` is still the mechanism for that.
-- The `Plain*` and `Outer*` decks: per the baked alpha keys (read from the NIF, not re-measured here), `Plain*` is near zero in the portal window. Culling them differently would not make them visible. That needs alpha authoring, not visibility.
+```
+[StormDome]
+DeckFloor=0
+VortexDistance=1800
+VortexHeight=900
+VortexScale=3.0
+```
 
-In-game checks, by log line and by eye:
+- The depth flags (`ZBufferTest`, `ZBufferWrite`) are still logged, not changed.
 
-- At spawn: `[StormFX] dome vortex placed: yaw ... eye ... units ahead and ... up, scale x1.50`. The vortex should be large and ahead of the player, and keep that bearing when the player turns.
-- Through the storm: `[StormFX] dome sequence milestone: approach|warning|active|aftermath begins at seq ...`, then `[StormFX] dome anim t=...`. The portal should grow during the approach.
-- At the end: `[StormFX] Storm dome cleared` appears after the aftermath, not at the end of Active. The fade-out should be visible in the aftermath.
+Debug menu (Shift+F8) evidence from the same session:
 
-Not verified in game. Nothing in this section has been run in the game.
-## Storm dome: cloud decks stay visible through the portal window
+- `[HUD] Debug menu opened` at 22:57:48.476. `storm:0` arrived at 22:57:50.046. `[HUD] Debug menu closed` at 22:57:52.248, which is `RadHud::SetDebugMenu(false)`. Its callers are `RadHud::ResetDebugMenuForSession` (load and new game only, not at 52.2), `RadHud::OnBlockingMenuOpened` (pause or message box sink), the `close` debug command, and `RadHudLayout`. The sink logs nothing, so the exact trigger at 52.2 is not in the log.
+- Older sessions show the same open-then-close during a forced storm (2026-11-06 20:50 and 21:59, 2026-11-01 00:02). This is pre-existing and not caused by the dome change.
+- No Shift+F8 press registered after 22:57:52: there is no further `Debug menu opened` line. The PrismaUI log shows `WebInput window deactivated` at 22:58:15 and 22:58:25, and `RadiationEngine::PollInput` ignores the key unless the game window is foreground.
+- The PrismaUI compositor reuse (`present-lease-unavailable`) starts at 22:57:07.554, at view creation, about 40 seconds before the dome spawned. The dome did not cause it.
+- The session ends at 22:58:35 with the player at 705 rad, and no crash log was written.
 
-Reference: `src/RadCorrectnessPolicy.h:DomeDeckFloorWeight`, `src/RadCorrectnessPolicy.h:DomeFloorAlpha`, `src/RadCorrectnessPolicy.h:DomeShapeVisibility`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeDeckFloor`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeShapeMask`.
+Conclusion: the debug-menu problem is not caused by the dome change. It is not reproduced from the log. `PollInput` now logs `[Input] Shift+F8 ignored: game window is not the foreground window.` (rate-limited to once per 5 s), so the next test shows whether the presses reach the game.
 
-- Visibility: `PlainHigh`, `PlainMid`, `PlainLow`, `OuterHigh`, `OuterBack`, `OuterFront`, `FogSkirt` and `HorizonBand` are drawn for the whole portal window (128 to 320 s of sequence), added on top of the baked windows by `DomeShapeVisibility`. The tube shapes (`CoreBack`, `CoreFront`) stay culled.
-- Alpha: the NIF keys these decks through `BSEffectShaderPropertyFloatController` (controlled variable 5, Alpha), which writes `BSShaderProperty::alpha`. After each controller update the plugin raises that alpha to a floor, weighted by a smoothstep of 12 s at each window edge. The floors are 0.6 for `Plain*`, `FogSkirt` and `HorizonBand`, and 0.8 for `Outer*`. Outside the window the keyed value passes through unchanged, and the floor never lowers an authored key.
-- Depth: `BSShaderProperty::flags` (`ZBufferTest`, `ZBufferWrite`) are logged once on the first drive for `PortalA`, `DiskOuter`, `PlainHigh` and `OuterHigh` (`[StormFX] dome depth flags ...`). They are not changed. The portal and decks sit nearer than the sky, so the sky depth does not hide them; any occlusion by vanilla clouds comes from draw order (the sky is drawn after the ordered dome), which depth flags cannot change. Writing depth on the authored ordered alpha layers would cull the later layers in the same node.
-- Node caching: the vortex nodes and deck geometry are held in `NiPointer`, so the cache cannot dangle. The deck shader property is read from the live geometry on every apply and never cached. Nodes are resolved only when the 3D root changes (`StormDomeLayer::resolved`), so a missing `Hole4`, `Vortex2` or `Vortex3` is not searched again every tick. Deck geometry is kept only when `IsGeometry()` is non-null.
-- Log lines: `[StormFX] dome deck floor: N of 8 deck shapes shaded; weight ... at seq ...`, then `[StormFX] dome deck floor sample <shape>: alpha <before> -> <after>.` (first drive only).
+Log lines to look for:
 
-Not verified in game. Open checks: the decks should be visible from about 128 s to 320 s; if `dome deck floor` reports 0 shaded decks, `properties[1]` is not the shader property and the floor does nothing; if the alpha in the depth log stays near 0.03, the controller writes a different property.
+- `[StormFX] dome portal placed: yaw ..., eye 1800 units ahead and 900 up, scale x3.00, node shift (...) NIF units, deck floor off.`
+- `[StormFX] dome deck floor: 3 of 3 deck shapes shaded; weight ... at seq ...` (first drive). With the floor off, the sample line shows alpha unchanged.
+- `[StormFX] dome depth flags PortalA (before, unchanged): ...`
+- `[StormFX] dome sequence milestone: approach|warning|active|aftermath begins at seq ...`
+- `[Input] Shift+F8 ignored: game window is not the foreground window.`
+
+Not verified in game.
 ## Phosphor HUD core rings
 
 - **Why arc paths.** Ultralight (PrismaUI) has no SVG masks and no `pathLength`, so a ring cannot be a dash-array circle. Each ring layer is a set of arc `<path>`s over a 64-unit viewBox (ring r=28, disc r=24.5). `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_core.js:build` writes n empty `<path d="">` elements per layer (trk, ghost, val) into the core markup, as the Phosphor reference does. `hud_core.js:ring` then sets each path's `d` for the range lo..hi (clockwise from the top) and leaves it empty when the segment is outside the range. Every core has 20 segments with a 3.2 gap; there is no small variant (the old 10-segment `sm` core was removed 2026-11-06). Setting `d` on existing elements avoids writing SVG markup at runtime, which Ultralight has not been verified to parse.

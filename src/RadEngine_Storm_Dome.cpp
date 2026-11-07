@@ -16,6 +16,7 @@
 #include <RE/B/BSGeometry.h>
 #include <RE/B/BSShaderProperty.h>
 #include <RE/N/NiRTTI.h>
+#include <cstdlib>
 
 using namespace RadInternal;
 
@@ -23,6 +24,19 @@ namespace
 {
     constexpr int kDomeDeckCount = static_cast<int>(sizeof(RadCorrectnessPolicy::kDomeDeckShapes) / sizeof(RadCorrectnessPolicy::kDomeDeckShapes[0]));
     static_assert(kDomeDeckCount <= 8, "StormDomeLayer::decks holds 8 shapes");
+
+    constexpr const char* kDomeIniPath = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+
+    float ReadDomeTunable(const char* a_key, float a_lo, float a_hi, float a_fallback)
+    {
+        char buf[32] = {};
+        ::GetPrivateProfileStringA("StormDome", a_key, "", buf, sizeof(buf), kDomeIniPath);
+        if (buf[0] == '\0') return a_fallback;
+        char* end = nullptr;
+        const float raw = std::strtof(buf, &end);
+        if (end == buf) return a_fallback;
+        return RadCorrectnessPolicy::DomeTunableOr(raw, a_lo, a_hi, a_fallback);
+    }
 
     // Constraint: properties[1] is cast to BSShaderProperty only after its runtime type is confirmed.
     RE::BSShaderProperty* ShaderPropertyOf(RE::BSGeometry* a_geom)
@@ -111,13 +125,15 @@ void RadiationEngine::SpawnStormDome()
     _stormDomeStatsLogged = false;
     ResetDomeShapeMask();
     _domeVortexYaw = player->data.angle.z;
-    _domeVortexDelta = RadCorrectnessPolicy::VortexLocalDelta(
-        _domeVortexYaw, RadCorrectnessPolicy::kDomeVortexDistance, RadCorrectnessPolicy::kDomeVortexHeight);
-    Log()->info("[StormFX] dome vortex placed: yaw {:.1f} deg, eye {:.0f} units ahead and {:.0f} up, scale x{:.2f}, "
-                "node shift ({:.0f},{:.0f},{:.0f}) NIF units.",
-        _domeVortexYaw * 180.0f / 3.14159265f, RadCorrectnessPolicy::kDomeVortexDistance,
-        RadCorrectnessPolicy::kDomeVortexHeight, RadCorrectnessPolicy::kDomeVortexScale,
-        _domeVortexDelta.x, _domeVortexDelta.y, _domeVortexDelta.z);
+    const float distance = ReadDomeTunable("VortexDistance", 500.0f, 5000.0f, RadCorrectnessPolicy::kDomeVortexDistance);
+    const float height = ReadDomeTunable("VortexHeight", 100.0f, 3000.0f, RadCorrectnessPolicy::kDomeVortexHeight);
+    _domeVortexScale = ReadDomeTunable("VortexScale", 0.5f, 6.0f, RadCorrectnessPolicy::kDomeVortexScale);
+    _domeDeckFloorOn = ::GetPrivateProfileIntA("StormDome", "DeckFloor", 0, kDomeIniPath) != 0;
+    _domeVortexDelta = RadCorrectnessPolicy::VortexLocalDelta(_domeVortexYaw, distance, height);
+    Log()->info("[StormFX] dome portal placed: yaw {:.1f} deg, eye {:.0f} units ahead and {:.0f} up, scale x{:.2f}, "
+                "node shift ({:.0f},{:.0f},{:.0f}) NIF units, deck floor {}.",
+        _domeVortexYaw * 180.0f / 3.14159265f, distance, height, _domeVortexScale,
+        _domeVortexDelta.x, _domeVortexDelta.y, _domeVortexDelta.z, _domeDeckFloorOn ? "on" : "off");
 
     bool lit = false, flare = false;
     if (placed > 0 && !interiorCell)
@@ -399,8 +415,8 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
     a_layer.vortex2 = a_root->GetObjectByName(RE::BSFixedString("Vortex2"));
     a_layer.vortex3 = a_root->GetObjectByName(RE::BSFixedString("Vortex3"));
     // Constraint: the authored translation is captured only when a node pointer first appears, so a re-resolve never compounds the shift.
-    static constexpr const char* kVortexNodeNames[] = { "Vortex0", "Vortex1", "Vortex2", "Vortex3", "Hole4" };
-    for (int i = 0; i < 5; ++i)
+    static constexpr const char* kVortexNodeNames[] = { "Vortex2", "Vortex3", "Hole4" };
+    for (int i = 0; i < 3; ++i)
     {
         auto* node = a_root->GetObjectByName(RE::BSFixedString(kVortexNodeNames[i]));
         auto& state = a_layer.vortex[i];
@@ -433,7 +449,7 @@ void RadiationEngine::ApplyDomeVortexLayout(StormDomeLayer& a_layer)
         const float keyed = state.node->local.scale;
         if (keyed != state.writtenScale)
             state.baseScale = keyed;
-        state.writtenScale = state.baseScale * RadCorrectnessPolicy::kDomeVortexScale;
+        state.writtenScale = state.baseScale * _domeVortexScale;
         state.node->SetLocalScale(state.writtenScale);
     }
 }
@@ -462,6 +478,7 @@ void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTi
         const float keyed = prop->alpha;
         if (keyed != deck.writtenAlpha) deck.keyedAlpha = keyed;
         deck.writtenAlpha = RadCorrectnessPolicy::DomeFloorAlpha(deck.keyedAlpha, deck.floorAlpha, weight);
+        if (!_domeDeckFloorOn) continue;
         if (logFirst && sampleIndex < 0)
         {
             sampleIndex = i;
@@ -494,7 +511,7 @@ void RadiationEngine::ApplyDomeDeckFloor(StormDomeLayer& a_layer, double a_seqTi
 }
 void RadiationEngine::ApplyDomeShapeMask(double a_seqTimeSec)
 {
-    const std::uint64_t mask = RadCorrectnessPolicy::DomeShapeVisibility(a_seqTimeSec);
+    const std::uint64_t mask = RadCorrectnessPolicy::DomeShapeVisibility(a_seqTimeSec, _domeDeckFloorOn);
     if (mask == _domeShapeMask && !_domeShapeMaskDirty) return;
     _domeShapeMask = mask;
     _domeShapeMaskDirty = false;

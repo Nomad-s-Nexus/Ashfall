@@ -636,6 +636,17 @@ void RadiationEngine::PollInput()
         ReloadHotkeysFromIni();
         RadHud::GetSingleton().ToggleDebugMenu();
     }
+    else if (dbgKeyDown && !_f8WasDown && lshift)
+    {
+        static ULONGLONG lastIgnoredLog = 0;
+        const ULONGLONG now = ::GetTickCount64();
+        if (now - lastIgnoredLog >= 5000)
+        {
+            lastIgnoredLog = now;
+            if (auto logger = spdlog::get("FalloutAnomaly"))
+                logger->info("[Input] Shift+F8 ignored: game window is not the foreground window.");
+        }
+    }
     _f8WasDown = dbgKeyDown;
 
     // Apply a debug-menu toggle that arrived while the HUD view was still loading its DOM (the first
