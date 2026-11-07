@@ -267,6 +267,8 @@ void RadHud::CreateView()
         g_domReadyFlag.store(&_domReady, std::memory_order_release);
         // Constraint: a freshly created view starts with the native debug menu closed, matching its hidden panel.
         _debugOpen = false;
+        // Constraint: a new view has received no debug state yet, so the first sync pushes the native state.
+        _debugPushedOpen = -1;
 
         _view = api->CreateView(kViewPath, [](PrismaView v) {
             auto* a = g_apiForCb.load(std::memory_order_acquire);
@@ -572,7 +574,9 @@ void RadHud::PushArmor(
 void RadHud::ResetDebugMenuForSession()
 {
     g_inWorld.store(false);
+    RadiationEngine::GetSingleton().ResetDebugKeyBaseline();
     _debugOpen = false;
+    _debugCloseRequested.store(false);
     _debugTogglePending = false;
     _debugDesiredOpen = false;
     _armorPayload.clear();
@@ -746,6 +750,23 @@ void RadHud::ReleaseStaleDebugFocus() noexcept
     SetDebugViewOwnsEscape(_view, false);
 }
 
+void RadHud::PushDebugPanelState(bool open) noexcept
+{
+    // Constraint: every native debug-state change reaches the page through this helper, so the page's panel cannot drift from _debugOpen.
+    if (_api == nullptr || _view == 0 || !_domReady.load()) return;
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    if (!api->IsValid(_view)) return;
+    api->InteropCall(_view, "SetDebugMenu", open ? "1" : "0");
+    _debugPushedOpen = open ? 1 : 0;
+}
+
+void RadHud::SyncDebugPanelState() noexcept
+{
+    // Constraint: an unchanged state costs one integer compare, so the 4 Hz tick never re-sends the same state.
+    if (_debugPushedOpen == (_debugOpen ? 1 : 0)) return;
+    PushDebugPanelState(_debugOpen);
+}
+
 void RadHud::SetDebugMenu(bool open)
 {
     if (!_api) return;
@@ -767,7 +788,7 @@ void RadHud::SetDebugMenu(bool open)
             if (!focusAccepted)
             {
                 _debugOpen = false;
-                api->InteropCall(_view, "SetDebugMenu", "0");
+                PushDebugPanelState(false);
                 api->Unfocus(_view);
                 SetDebugViewOwnsEscape(_view, false);
                 SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);
@@ -806,7 +827,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugFocusFailedSinceMs = 0;
             SetDebugViewOwnsEscape(_view, true);
             SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kPanel);
-            api->InteropCall(_view, "SetDebugMenu", "1");
+            PushDebugPanelState(true);
             RadiationEngine::GetSingleton().PushGhoulSettingsToHud();
             PushNeedsTuning(RadNeedsTuning::Json());
         }
@@ -818,7 +839,7 @@ void RadHud::SetDebugMenu(bool open)
             _debugNextFocusRetryMs = 0;
             _debugFocusFailedSinceMs = 0;
             SetLocalHudEditorPreview(false);
-            api->InteropCall(_view, "SetDebugMenu", "0");
+            PushDebugPanelState(false);
             api->Unfocus(_view);
             SetDebugViewOwnsEscape(_view, false);
             SetDebugViewRole(_view, PRISMA_UI_API::ViewRole::kWidget);
@@ -827,7 +848,9 @@ void RadHud::SetDebugMenu(bool open)
     }
     else
     {
-        _debugOpen = open;
+        // Constraint: without a DOM-ready view there is no panel to show, so an open request is dropped rather than latched.
+        if (open) return;
+        _debugOpen = false;
         if (!open && _view != 0 && api->IsValid(_view))
         {
             _debugTogglePending = false;

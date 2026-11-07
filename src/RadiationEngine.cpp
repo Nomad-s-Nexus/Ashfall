@@ -145,6 +145,8 @@ void RadiationEngine::Update()
 {
     auto logger = Log();
     // Constraint: runs before the player checks so a stalled close cannot leave the view focused.
+    // Constraint: the page is re-synced to the native debug state before the stale-focus check runs.
+    RadHud::GetSingleton().SyncDebugPanelState();
     RadHud::GetSingleton().ReleaseStaleDebugFocus();
 
     try
@@ -638,6 +640,12 @@ std::uint32_t RadiationEngine::ReadInputBits() const noexcept
     return bits;
 }
 
+
+void RadiationEngine::ResetDebugKeyBaseline() noexcept
+{
+    // Constraint: the baseline is the key state at load time, so only a Shift+F8 press after load can open the menu.
+    _f8WasDown = (ReadInputBits() & 1u) != 0;
+}
 
 void RadiationEngine::PollInput()
 {

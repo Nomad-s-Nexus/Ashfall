@@ -143,6 +143,8 @@ public:
     // Constraint: producer and consumer compare this bit mask of F8, LShift, ReplaceKey and RepairKey down states.
     [[nodiscard]] std::uint32_t ReadInputBits() const noexcept;
     [[nodiscard]] std::uint32_t PolledInputBits() const noexcept { return _polledInputBits.load(); }
+    // Constraint: after load or new game the Shift+F8 state already held is the edge baseline, so a key held across load cannot toggle the debug menu.
+    void ResetDebugKeyBaseline() noexcept;
 
     // Called by the gas-mask hit sink (main thread) when the player is struck: damages the worn mask.
     void OnPlayerHit();

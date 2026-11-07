@@ -59,6 +59,8 @@ public:
     void ResetDebugMenuForSession();
     void PumpDeferredDebug();
     void ReleaseStaleDebugFocus() noexcept;
+    // Constraint: the 4 Hz tick re-sends the native debug state to the page only when it differs from the last delivered state.
+    void SyncDebugPanelState() noexcept;
     void OnBlockingMenuOpened();
     // Constraint: read from the PlayerCharacter::Update worker, so pending state is atomic.
     [[nodiscard]] bool DebugWorkPending() const noexcept { return _debugCloseRequested.load() || _debugTogglePending.load(); }
@@ -118,6 +120,9 @@ private:
     int _maskPushed = -1;
 
     bool _debugOpen = false;
+    // Constraint: last SetDebugMenu value delivered to the page (1 open, 0 closed, -1 unknown for a new view); game thread only.
+    int _debugPushedOpen = -1;
+    void PushDebugPanelState(bool open) noexcept;
     std::atomic_bool _debugCloseRequested{ false };
     std::atomic_bool _debugTogglePending{ false };
     bool _debugDesiredOpen = false;

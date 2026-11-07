@@ -176,6 +176,42 @@ def main() -> int:
     require("_filterReplaceKey.load()" in mask_cpp and "_conditionRepairKey.load()" in mask_cpp,
             "hotkey log line must load the atomic keys")
 
+    # Constraint: every native debug-state change reaches the page through PushDebugPanelState, and the 4 Hz tick re-syncs it.
+    set_m = re.search(r"void RadHud::SetDebugMenu\(bool open\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(set_m is not None, "SetDebugMenu body not found")
+    require('InteropCall(_view, "SetDebugMenu"' not in set_m.group(1),
+            "SetDebugMenu must push the page state only through PushDebugPanelState")
+    require(set_m.group(1).count("PushDebugPanelState(") == 3,
+            "SetDebugMenu must push on open, close and focus give-up")
+    require("if (open) return;" in set_m.group(1),
+            "SetDebugMenu must drop an open request when the DOM is not ready")
+    push_m = re.search(r"void RadHud::PushDebugPanelState\(bool open\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(push_m is not None and 'InteropCall(_view, "SetDebugMenu", open ? "1" : "0");' in push_m.group(1)
+            and "_debugPushedOpen = open ? 1 : 0;" in push_m.group(1),
+            "PushDebugPanelState must send the state and record what the page received")
+    sync_m = re.search(r"void RadHud::SyncDebugPanelState\(\) noexcept\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(sync_m is not None and "_debugPushedOpen == (_debugOpen ? 1 : 0)" in sync_m.group(1)
+            and "PushDebugPanelState(_debugOpen);" in sync_m.group(1),
+            "SyncDebugPanelState must re-send the native state only when it differs from the delivered state")
+    require("RadHud::GetSingleton().SyncDebugPanelState();" in rad_cpp,
+            "RadiationEngine::Update must run the panel sync")
+    require(rad_cpp.index("RadHud::GetSingleton().SyncDebugPanelState();")
+            < rad_cpp.index("RadHud::GetSingleton().ReleaseStaleDebugFocus();"),
+            "the panel sync must run before the stale-focus check")
+    require("void SyncDebugPanelState() noexcept;" in hud_h and "void PushDebugPanelState(bool open) noexcept;" in hud_h,
+            "RadHud must declare the sync and push helpers")
+    require(create_body.count("_debugPushedOpen = -1;") == 1,
+            "CreateView must reset the delivered debug state for a new view")
+
+    # Constraint: load and new game clear pending close requests and re-baseline the Shift+F8 edge from the held key state.
+    reset_m = re.search(r"void RadHud::ResetDebugMenuForSession\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(reset_m is not None and "_debugCloseRequested.store(false);" in reset_m.group(1)
+            and "RadiationEngine::GetSingleton().ResetDebugKeyBaseline();" in reset_m.group(1),
+            "ResetDebugMenuForSession must clear the pending close and re-baseline Shift+F8")
+    require("void ResetDebugKeyBaseline() noexcept;" in rad_h, "RadiationEngine must declare ResetDebugKeyBaseline()")
+    require("_f8WasDown = (ReadInputBits() & 1u) != 0;" in rad_cpp,
+            "ResetDebugKeyBaseline must capture the held Shift+F8 state")
+
     print("verify_debug_menu_close: OK")
     return 0
 
