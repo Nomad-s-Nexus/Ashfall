@@ -94,6 +94,7 @@ void RadiationEngine::CheckRadstormWarning()
         _radstormWarned = false;   // armed again for the next storm
         return;
     }
+    if (_stormPhase != StormPhase::Idle) return;
     if (_radstormWarned) return;   // same storm we already accepted — let it run its course
 
     // A NEW vanilla radstorm just rolled in. Veto it if EITHER:

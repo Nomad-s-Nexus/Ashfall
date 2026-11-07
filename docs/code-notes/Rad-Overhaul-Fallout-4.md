@@ -1,5 +1,7 @@
 # Rad Overhaul code notes
 
+**History.** The storm dome (`src/RadEngine_Storm_Dome.cpp`, `src/Hooks_SkyClouds.cpp` and `src/RadDomeVisibilityTable.h`) was removed in PR #49. The dome sections below describe that removed code and are kept as history only. The storm visuals that remain are `src/RadEngine_Storm_Effects.cpp:NativeShakeCamera` and `src/Hooks_StormVisuals.cpp:QueueStormVisuals`.
+
 ## PrismaUI HUD creation handoff
 
 Reference: `src/RadHud.cpp:RadHud::RequestAPI` and `src/RadHud.cpp:RadHud::CreateView`.
@@ -1102,7 +1104,65 @@ confirmed use per item (the equip/removal pairing rewrite (`RadSurvivalQuest.psc
 replaced the old count-drop path), the notification placement, and the actual HUD stage change. The
 checklist section below is the in-game check.
 
-## Dome animation clock, mesh and follow (unreleased)
+## Storm dome removed; Ash and Sulfur use the vanilla Glowing Sea radstorm sky (2026-11-01)
+
+Reference: `src/RadEngine_ESL.cpp` (vanilla resolution), `src/RadEngine_Storm_Weather.cpp:StormSkyWeather`,
+`src/RadCorrectnessPolicy.h:UsesVanillaRadstormSky`, `src/RadEngine_Weather.cpp:CheckRadstormWarning`,
+`src/RadiationEngine.cpp` (rad-weather gate and ghoul gate), `src/RadEngine_Audio.cpp` (storm bed).
+
+Removed: the native dome (spawn, clear, reset, lifecycle, follow, animation and the four dome policy helpers), the dome
+form resolution, the dome members and constants, and the dome calls on the storm start, warning, active, aftermath, shelter,
+load and debug paths. Kept: `NativeShakeCamera`, `UpdateStormShake` and `UpdateDustMotes`, which stay in
+`RadEngine_Storm_Effects.cpp` (renamed from `RadEngine_Storm_Dome.cpp`). The visual producer keeps its 33 ms cadence and generation guard
+as `QueueStormVisuals`, which drives only the IMAD fade (the file is `Hooks_StormVisuals.cpp`, renamed from `Hooks_DomeFollow.cpp`). The INI key
+`DomeLeadMinutes` is now `StormLeadMinutes`; the legacy key is read only when the new one is absent.
+
+The sky swap:
+- `kStormRadSkyWeatherPrimary` is form ID `0x24A3C0` and `kStormRadSkyWeatherFallback` is `0x1C3D5E` (both
+  `RadEngine_Internal.h`). The vanilla pointer is resolved in `RadEngine_ESL.cpp` before the loop that tunes the custom
+  storm weathers, and stored in `_stormSkyVanilla`. That loop never sees the vanilla record.
+- `UsesVanillaRadstormSky(type)` is true only for type indices 0 (Ash Fallout) and 2 (Toxic Sulfur Storm). Acid Rain (3),
+  Rad Firestorm (1) and Dust Storm (4) are excluded.
+- `StormSkyWeather(type)` returns the vanilla weather for those types, and the type's own custom weather otherwise.
+  Unresolved vanilla forms fall back to the custom weather.
+
+Facts about the weather records. Source: `Fallout4.esm`, read by parsing the master's records with Python in this session.
+- The custom storm weathers (form IDs `0x840` Ash, `0x841` Firestorm, `0x842` Sulfur, `0x844` Dust) already carry the
+  RadStormSpell form ID `0x1C5E7B` (magnitude 5.0) and the spell form ID `0x23EC91` in their UNAM lists. Acid Rain
+  (`0x843`) carries no weather spell.
+- Vanilla `0x24A3C0` carries no RadStormSpell. Its UNAM lists only `0x23EC91`, whose effect (form ID `0x18EFF5`) has
+  magnitude 6.0. Ash and Sulfur therefore see equal or lower weather-spell dosing than before.
+- Vanilla `0x1C3D5E` is overridden by `RadiationOverhaul.esp` with an orange, silent palette, so it is not the primary.
+- The `RadWeatherList` form list in `RadiationOverhaul.esp` includes `0x24A3C0` (checked by parsing the plugin), so mask,
+  choke and rad-weather membership still apply while the vanilla sky is up.
+- The Papyrus rad-weather list (`RadSurvivalDiseases`), per the research report, lists `0x1C3D5E` and `0x840` to `0x844`
+  but not `0x24A3C0`. While the vanilla sky is current, disease exposure accrual from the weather does not count. This
+  cannot be fixed without a Papyrus recompile. Not re-verified in this change.
+- Acid Rain is excluded because it has real rain precipitation and carries no weather spell; the vanilla sky would add
+  the 6.0 spell dosing and lose the rain.
+
+Double-apply guards (one managed storm must start its siren, ghoul pack and storm bed once):
+- `CheckRadstormWarning` returns early while a managed storm is in progress. A vanilla radstorm that is our own sky
+  therefore does not start a second siren, a second ghoul pack or a cooldown record.
+- The rad-weather entry that spawns ghouls (`RadiationEngine.cpp`) now also requires the Active phase when the sky is the
+  vanilla radstorm. During Warning, rad-weather membership is held false for those types, so the entry happens once, at
+  the Active hit.
+- The storm bed is picked from `_activeStormType` in Active when the sky is the vanilla weather, because the vanilla form
+  ID matches no storm type's weather ID. It is held until Active, like the rad-weather membership.
+
+Warning roll-in. `EnterWarningPhase` starts the vanilla sky roll-in for types 0 and 2 (capturing the return target
+first). `DebugForceStorm` releases the forced sky only when `_weatherForced` is true; otherwise it runs
+`ResetStormWeatherLatches`, which the release also runs. `UpdateStorm` logs `[RollDiag]` every 8 ticks in Warning and
+Active. The approach lead is now silent dead time before the siren and the roll-in; only the INI key changed.
+
+Risks, all not verified in game:
+- Ash and Sulfur show the vanilla green palette and aurora; our IMAD layers apply over the vanilla green image spaces.
+- The roll-in duration depends on the vanilla record's transition speed (the research report gives about 54 s at the
+  vanilla value). That value is not changed here.
+- The Papyrus disease-accrual gap above.
+- Acid Rain loses nothing, since it is unchanged, but the silent lead is now dead time for the custom-weather storms.
+
+## Dome animation clock, mesh and follow (history, removed in PR #49)
 
 What changed:
 - The dome drives each layer's controller manager with a clock from the steady clock, clamped to 0.25 s per step and reset on each spawn.
@@ -1142,6 +1202,7 @@ The debug menu (Shift+F8) has a SHOWCASE tab. Each scene button queues a fixed l
 **Cancelling the tour.** Shift+F8 only cancels the remaining tour steps. A running storm, forced weather or mask state stays in place and must be cleared with the normal clear and release buttons. The exception is a needs or disease scene caught mid-play: stopping, starting another scene, or reopening the menu then sends that scene's revert command and `time:resume` before anything else, so the clock never stays frozen.
 
 **Showcase needs and disease scenes.** The Peckish, Starving, Exhausted, Fever stage 2 and Wasting stage 3 scenes run `time:freeze`, a `needs:<hunger>:<thirst>:<sleep>:<disease>:<stage>` command, a revert after 10 seconds, and `time:resume`. The `needs:` command calls the `RadShowcase.Apply` Papyrus entry point. The revert does not restore the player's real values: it sets the touched pools and the disease to 0. These scenes therefore overwrite the real needs and disease state of the loaded save and are destructive on a save you want to keep. Use them only on a disposable save, and resume time before saving. Clear needs sets every pool and the disease to 0 and resumes the clock. The `needs:` dispatch is fire and forget: `DebugApplyNeeds` passes no callback, because the Papyrus side logs its own result.
+
 ## Relief, water fill and mask view notes
 
 Reference: `src/RadiationEngine.h`, `src/RadEngine_Audio.cpp`. These replace trailing comments that were removed from the declarations.
@@ -1154,6 +1215,7 @@ Reference: `src/RadiationEngine.h`, `src/RadEngine_Audio.cpp`. These replace tra
 - `RadiationEngine.h:_filterEnabled` mirrors `[Tuning] FilterEnabled`; false means the filter never drains or fails. `:ApplyTuning` overlays the live `[Tuning]` overrides on the INI-loaded members; `:ReloadHotkeysFromIni` re-reads and revalidates the two keybinds without a restart while the debug menu is open.
 - `RadiationEngine.h:_chokeTicks` counts consecutive choking ticks (grace: no VO or notification for `kChokeGraceTicks`).
 - `RadiationEngine.h:_penaltiesFromSave` is true when `LoadState` restored the four penalty counters.
+
 ## Papyrus natives live in a global script (RadNatives)
 
 Reference: `deploy/Scripts/Source/User/RadNatives.psc`, `src/RadNeedsTuning.cpp:RegisterPapyrusFunctions`, `src/RadReliefConfig.cpp:RegisterPapyrusFunctions`, `tests/verify_needs_tuning.py`.
@@ -1162,3 +1224,19 @@ Reference: `deploy/Scripts/Source/User/RadNatives.psc`, `src/RadNeedsTuning.cpp:
 - The plugin binds them with `BindNativeMethod("RadNatives", ...)` and `std::monostate` in the self slot, the CommonLib marker for a global function. `TuningOverride` is registered once and shared by `RadSurvivalQuest` and `RadSurvivalDiseases`; `GetReliefFlags` is registered by the relief bridge.
 - Behaviour is unchanged. `TuningOverride` still returns override + 1.0, or 0.0 when unset, and an unbound native also reads 0.0, so a missing DLL keeps the script defaults. `GetReliefFlags` still returns 0 for unlisted items.
 - The static-native binding is build-verified only. In game, the Papyrus log must show no unbound or missing native for `RadNatives`, and the plugin log must show `[Tuning] Papyrus bridge registered` and `[Relief] Papyrus bridge registered`. The Tuning line (`src/RadNeedsTuning.cpp:RegisterPapyrusFunctions`) carries the `RadNatives` identification, the Relief line (`src/RadReliefConfig.cpp:RegisterPapyrusFunctions`) keeps its original text; both lines only prove the registration function ran, because the log is printed without checking the bind result.
+
+## Source comments moved out of code (storm dome removal merge, 2026-11-07)
+
+These explanations were removed from source so the code keeps only constraint comments. The code they describe is unchanged.
+
+- `src/RadEngine_Debug.cpp:RadiationEngine::DebugForceStorm`: the previous storm's FX (fire ring, ghoul pack, IMAD, shake) is cleared before a forced storm starts, so a force-storm during a firestorm does not leak the old FX into the new storm.
+- `src/RadEngine_Debug.cpp:RadiationEngine::DebugForceStorm`: a debug-forced storm uses the real warning timings instead of a compressed 10 s window, so the onset can be judged the way it plays in game. The old short warning made the debug storm a poor stand-in for the real one.
+- `src/RadEngine_Internal.h`, include block before `BSScript_Object.h`: reading and writing a bound script's properties is a locked data access on the script object, not a VM dispatch. See `src/RadEngine_Storm_FX.cpp:RadiationEngine::EnsureQuestRunning`.
+- `src/RadEngine_Internal.h:kStormTypes`: storm fog is set at runtime (EnsureEslLoaded) per storm type from the fog fields. The near distance stays at or above about 900 so the visibility wall does not become the old camera-centred fog sphere of the removed dome. Vanilla radstorm uses near=1200 and far=8500 for reference.
+- `src/RadEngine_Internal.h:kNukeRollInTicks`: the firestorm fog, fire, IMAD and exposure roll-in starts about 12 s after the nuke detonates, with the shockwave sweeping in from the horizon.
+- `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`: a debug-forced storm may shorten the silent lead (_forcedLeadTicks). It is consumed here so the next natural storm uses the configured StormLeadMinutes.
+- `src/RadEngine_Debug.cpp:RadiationEngine::DebugForceStorm`: the first line of the lead comment was dropped in the dome removal merge, and its last three lines were left behind as an orphan. The orphan is deleted and its meaning is kept here. Original text: "Debug storms cut the silent dome-only lead to kDebugLeadTicks. The full DomeLeadMinutes lead is correct for real gameplay but made every test a ~4.5 min wait (lead + warning), which is why the siren at the end of the lead went unobserved for weeks. Warning/Active/Aftermath below still run at real timings — only the lead is shortened."
+- `src/RadEngine_Debug.cpp:kDebugLeadTicks`: the constant is unchanged. Its comment was dropped in the dome removal merge. Original text: "Silent dome-only lead used by DEBUG-forced storms only (10 s at 4 Hz). Real gameplay storms keep the full [Storm] DomeLeadMinutes. Long enough to see the dome come up alone before the siren."
+- `src/RadiationEngine.h:_forcedLeadTicks`: the first line of its comment was dropped in the dome removal merge, and the second line was left behind as an orphan. The orphan is deleted. The lead field is `_stormLeadTicks` on this branch. Original text: "Debug-only lead override, consumed by the next BeginStorm. -1 = use _domeLeadTicks. A forced storm shortens ONLY the silent lead; warningTicks and everything after stay at real timings."
+- `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`: the STAGED ONSET comment was dropped in the dome removal merge. Original text: "STAGED ONSET (R.'s spec): dome-using storms begin with a silent visual lead; Firestorm begins silently without a dome. The lead has NO siren, NO alert, and NO weather change. Only when it elapses does EnterWarningPhase() fire the alarm and begin the dust-sky roll-in + the rest of the storm. A debug-forced storm may shorten the silent lead (_forcedLeadTicks); consume it here so the NEXT natural storm is back to the configured DomeLeadMinutes."
+- `src/RadEngine_Storm.cpp:RadiationEngine::EnterWarningPhase`: the Option B comment sat above the vanilla radstorm sky block, which was inserted between it and the dust block. The comment is removed from there and belongs to the dust block (`if (_activeStormType == kDustStormIndex)`). Original text: "Dust Storm horizon build-up (Option B) begins HERE (with the alarm), via the engine's own smooth transition — no snap, no purple flash. Gameplay stays gated to Active (inRadWeather suppressed during the build-up). Non-dust storms snap their sky at the Active hit instead."

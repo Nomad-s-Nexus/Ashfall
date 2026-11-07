@@ -47,7 +47,7 @@ enum class StormPhase
     Warning,    // siren + sky shift; (lethal) player has time to seek shelter
     Active,     // the storm itself — lethal types harm exposed players; ambient tick mild effects
     Aftermath,  // sky clearing, effects fading, then reschedule
-    Approach    // dome-only SILENT lead ("something's coming") before Warning — no siren/alert/weather yet.
+    Approach    // SILENT lead ("something's coming") before Warning — no siren/alert/weather yet.
                 // Appended (not inserted) so Idle/Warning/Active/Aftermath keep their int values for the HUD.
 };
 
@@ -64,7 +64,6 @@ public:
     void Update();
     // Called EVERY frame (not the 4Hz tick) so hotkeys are never missed between ticks.
     void PollInput();
-    void UpdateStormDomeFollow();
     void UpdateStormIMADFade();
     void ApplyDebuffs(uint32_t radLevel);
 
@@ -194,7 +193,7 @@ private:
 
     RE::TESQuest* _stormFXQuest = nullptr;
     void TriggerStormFX(bool on);            // start (per storm type) / stop the storm FX
-    int  _sirenDelayTicks = 0;               // >0: ticks until the incoming-storm siren starts (dome fades in first)
+    int  _sirenDelayTicks = 0;               // >0: ticks until the incoming-storm siren starts
     // StartGameEnabled only auto-runs a quest on a NEW game; a quest added to the ESP after a
     // save was made stays dormant and SetStage() silently fails. Force-start via the Papyrus VM
     // (Quest.Start()) so SetStage works on existing saves. Idempotent — safe to call repeatedly.
@@ -236,6 +235,10 @@ private:
     // gameplay (the update hook stops ticking in menus).
     static constexpr int kStormTypeCount = 5;
     RE::TESWeather* _stormWeathers[kStormTypeCount] = {};  // forced skies (0x840..0x844)
+    RE::TESWeather* _stormSkyVanilla = nullptr;
+    RE::TESWeather* StormSkyWeather(int typeIndex) const;
+    void ResetStormWeatherLatches();
+    int             _stormRollDiagTick = 0;
     RE::TESGlobal*  _nextEmissionGlobal = nullptr;  // persists next storm game-time (0x852)
     RE::TESGlobal*  _forceStormGlobal = nullptr;    // console debug trigger (0x853)
     StormPhase      _stormPhase = StormPhase::Idle;
@@ -255,8 +258,6 @@ private:
     // immune to the GameDaysPassed quirks (prewar carryover, the 2077->2287 jump not advancing it).
     double          _playSeconds      = 0.0;        // accumulated real seconds of active play
     double          _nextStormPlaySec = 0.0;        // _playSeconds value at which the next storm fires
-    double          _stormDomeBeginSec = 0.0;
-    double          _stormDomeLeadShiftSec = 0.0;
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
@@ -270,7 +271,7 @@ private:
     int             _stormPeakTick = 0;             // tick index at which the lethal NPC burst fires
     bool            _stormPeakFired = false;        // guards the one-time peak burst per storm
     int             _stormRollInTicks = 0;          // firestorm: ticks until fog/fire/IMAD roll in after the nuke
-    bool            _stormFXVisible = false;        // dome/IMAD currently shown (exterior-only; toggled by shelter)
+    bool            _stormFXVisible = false;        // IMAD currently shown (exterior-only; toggled by shelter)
     bool            _stormNukeFired = false;        // firestorm nuke SUCCESSFULLY detonated once this storm (latched on success only)
     bool            _firestormAwaitingNuke = false; // firestorm Active: holding the atmosphere roll-in until the nuke resolves
     int             _nukeAttempts = 0;              // actual firestorm-nuke native submissions this storm
@@ -297,9 +298,7 @@ private:
     std::uint16_t   _stormBedApplied   = 0xFFFF;
     std::uint16_t   _ambientBedApplied = 0xFFFF;
     double          _vanillaRadstormGapSec = 60.0 * 60.0;  // [Storm] VanillaRadstormGapMinutes
-    int             _domeLeadTicks     = 3 * 60 * 4; // [Storm] DomeLeadMinutes — silent dome-only lead before the alarm (default 3 min)
-    // Debug-only lead override, consumed by the next BeginStorm. -1 = use _domeLeadTicks. A forced
-    // storm shortens ONLY the silent lead; warningTicks and everything after stay at real timings.
+    int             _stormLeadTicks    = 3 * 60 * 4;
     int             _forcedLeadTicks   = -1;
     int             _activeLeadTicks   = 0;         // lead the in-flight storm actually used (for logging)
     // Post-load storm-FX stop: OnPostLoad runs BEFORE the lazy EnsureEslLoaded, so its
@@ -333,7 +332,7 @@ private:
     void UpdateDustFogRoll();          // per-tick: watches the smooth transition, fires the wall-arrival burst on arrival
     void PlayStormCue();               // start the incoming-storm siren (managed + vanilla radstorm)
     void StopStormCue(std::uint16_t fadeMs);  // fade the incoming-storm siren out (short fall-off)
-    void BeginStorm(int typeIndex);    // start the dome-only APPROACH lead for a storm type
+    void BeginStorm(int typeIndex);    // start the APPROACH lead for a storm type
     void EnterWarningPhase();          // APPROACH lead elapsed -> alarm + alert + dust roll-in + Warning
     void EnterStormPhase(StormPhase phase, int durationTicks);
     void EffectiveStormGap(float& a_min, float& a_max) const;
@@ -449,7 +448,7 @@ private:
     void UpdateAmbientAudio();         // per-tick: storm bed (by current weather) + general exterior bed
     void EnsureBed(RE::BSSoundHandle& handle, const char*& curPath,
                    const char* wantPath, std::uint16_t atten, std::uint16_t& applied);
-    void UpdateStormFXVisibility();    // show/hide the storm dome + IMAD by player shelter state (no fog indoors)
+    void UpdateStormFXVisibility();    // show/hide the storm FX and IMAD by player shelter state (no fog indoors)
     void ApplyStormPeakToNPCs();       // storm peak: heal exterior ghoul NPCs, protect all others
     bool IsGhoulActor(RE::Actor* a) const;  // true if the actor's race carries ActorTypeGhoul
     void MakeNearbyNPCsFlee();         // lethal storms: panic nearby non-ghoul NPCs (engine flee)
@@ -468,58 +467,6 @@ private:
     void SpawnFireRing();                           // place a ring of fire hazards around player
     void ClearFireRefs();                           // disable + release all live fire refs
 
-    // STORM DOME (KORs CloudArena, bundled) — spawned NATIVELY, not via the RadStormFX Papyrus quest.
-    // SetStage()/OnStageSet historically proved unreliable (returned false, the Papyrus event never fired
-    // even with the stage table rebuilt), so the dome is placed the same way the fire ring is —
-    // TESDataHandler::CreateReferenceAtLocation. The whole engine tick now runs on the verified game-main
-    // thread (marshaled by Hooks.cpp); the rotating cloud animation is baked into the NIFs, so a placed
-    // ref just plays it.
-    RE::TESForm* _stormDomeForms[4] = {};          // FARO_StormDome01..04 (scriptless ACTI copies)
-    RE::TESBoundObject* _stormDomeLight = nullptr; // FARO_StormDomeLight (TopLightNode) — the cloud shapes are
-                                                   // effect-LIT, so this light IS the glowing-vortex look.
-    RE::TESBoundObject* _stormDomeFlare = nullptr; // FARO_StormDomeFlare (LensFlareNode) — the bright eye/glare
-    struct StormDomeLayer
-    {
-        RE::ObjectRefHandle handle;
-        float zOffset;
-        bool animStarted = false;
-        bool manualSeeded = false;
-        RE::NiAVObject* root = nullptr;
-        bool hasManager = false;
-        RE::NiAVObject* hole4 = nullptr;
-        RE::NiAVObject* vortex2 = nullptr;
-        RE::NiAVObject* vortex3 = nullptr;
-    };
-    std::vector<StormDomeLayer> _stormDomeRefs;
-    RE::TESObjectCELL* _stormDomeCell = nullptr;
-    RE::TESWorldSpace* _stormDomeWorld = nullptr;
-    int _stormDomeRespawnRetryTicks = 0;
-    bool _stormDomeUp = false;
-    double _domeAnimTime = 0.0;
-    double _domeAnimLastRealS = -1.0;
-    int _domeAnimLogIndex = 0;
-    bool _domeAnimDriverLogged = false;
-    bool _domeSpinLogged = false;
-    double _domeSeekSec = 0.0;
-    void AdvanceDomeClock();
-    void DriveDomeAnimation(bool moved);
-    void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
-    void ApplyDomeShapeMask(double a_seqTimeSec);
-    void ResetDomeShapeMask();
-    std::uint64_t _domeShapeMask = RadCorrectnessPolicy::kAllDomeShapesVisible;
-    bool _domeShapeMaskDirty = false;
-    double _domeDriveLastSec = -1.0e9;
-    float  _stormDomeBlend = 0.0f;
-    double _stormDomeBlendSec = 0.0;
-    double _stormDomeSpawnSec = 0.0;
-    bool _stormDomeStatsLogged = false;
-    bool _stormDomeAnimStarted = false;             // native-placed ACTI refs don't auto-start their
-                                                    // NiController animation (KORs' STATIC records do), so
-                                                    // UpdateDomeAnimation force-activates it once 3D loads
-    void SpawnStormDome();
-    void ClearStormDome();                          // disable + release the dome layers
-    void UpdateStormDomeLifecycle();                // 4 Hz spawn/retry/worldspace ownership only
-    void UpdateDomeAnimation();                     // start the cloud rotation/shader animation post-3D-load
     // Native camera shake (replaces the RadStormFX Papyrus shake, which never fired — SetStage
     // returned false every time). -1 = inactive for both counters.
     int  _shakeBurstStep  = -1;                     // >=0: decaying burst step in progress
@@ -564,7 +511,6 @@ private:
     void RetryStormGhoulCleanup();
     void RetireUnresolvedStormGhouls();
     void ResetStormGhoulStateForLoad();
-    void ResetStormDomeForLoad();
     void SpawnStormGhouls();   // % chance to unleash a 5-20 strong persistent hunter pack (lethal storms)
     void ClearStormGhouls();   // disable + delete all spawned ghoul refs
     void CheckGhoulPackCleanup();  // despawn the pack once the player leaves the area

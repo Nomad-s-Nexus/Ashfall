@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <functional>
 
 namespace Hooks
@@ -14,13 +13,8 @@ namespace Hooks
     // and a verified main-thread dispatcher is live.
     bool InstallUpdateHook();
     bool InstallInputHandler();
-    void SetDomeFollowActive(bool active) noexcept;
     void SetStormIMADFadeActive(bool active) noexcept;
-    void QueueDomeFollow();
-
-    void SetStormDomeBlend(float blend) noexcept;
-    bool InstallSkyCloudHook();
-    void GetSkyCloudStats(std::uint32_t& passes, std::uint32_t& scaled) noexcept;
+    void QueueStormVisuals();
 
     // Queue work for the verified game-main thread. Calls made from the main thread run inline.
     // Returns false when PrismaUI is present but its dispatcher is not ready yet, or when the

@@ -1,3 +1,15 @@
+# Rad Overhaul Unreleased
+
+Not released. Nothing in this section has been tested in game.
+
+## What is new since v1.2.3
+
+1. **The native storm dome is removed.** Storms no longer spawn, follow or animate the dome. Camera shake, dust motes and the storm IMAD fade are kept. The ESP, meshes, textures and RadStormFX script are unchanged, so the old dome records and files still ship.
+2. **Ash Fallout and Toxic Sulfur storms use the vanilla Glowing Sea radstorm sky.** The sky starts rolling in at the warning phase instead of when the storm is active. Acid Rain, Rad Firestorm and Dust Storm keep their custom weather. Acid Rain is excluded from the vanilla sky because it has real rain and no weather spell.
+3. **The storm lead key is now `StormLeadMinutes`.** The legacy `DomeLeadMinutes` is read only when the new key is absent, so an existing INI keeps its lead time.
+
+Known limits: the silent lead before the siren is now dead time. The storm IMAD layers over the vanilla green look. The Papyrus rad-weather list in RadSurvivalDiseases does not include the vanilla sky (form 0x24A3C0).
+
 # Rad Overhaul v1.2.3
 
 Release of Rad Overhaul (Fallout Anomaly Radiation) for Fallout 4, on top of v1.2.2. The

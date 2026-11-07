@@ -71,7 +71,17 @@ namespace
 
 
 
-void RadiationEngine::ReleaseStormWeather()
+RE::TESWeather* RadiationEngine::StormSkyWeather(int typeIndex) const
+{
+    if (typeIndex >= 0 && typeIndex < kStormTypeTableSize &&
+        RadCorrectnessPolicy::UsesVanillaRadstormSky(typeIndex) && _stormSkyVanilla)
+        return _stormSkyVanilla;
+    if (typeIndex < 0 || typeIndex >= kStormTypeCount)
+        return nullptr;
+    return _stormWeathers[typeIndex];
+}
+
+void RadiationEngine::ResetStormWeatherLatches()
 {
     _dustBuildupActive = false;
     _dustFogRollTick = 0;
@@ -87,6 +97,11 @@ void RadiationEngine::ReleaseStormWeather()
 
     _sirenDelayTicks = 0;
     StopStormCue(kRadstormCueFalloffMs);
+}
+
+void RadiationEngine::ReleaseStormWeather()
+{
+    ResetStormWeatherLatches();
 
     auto* sky = RE::Sky::GetSingleton();
     if (!sky)

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "RadDomeVisibilityTable.h"
 #include "RadIniParse.h"
 
 #include <atomic>
@@ -19,11 +18,6 @@ namespace RadCorrectnessPolicy
         auto operator==(const Position&) const -> bool = default;
     };
 
-    constexpr Position DomePosition(Position player, float zOffset)
-    {
-        return { player.x, player.y, player.z + zOffset };
-    }
-
     struct NukePlacement
     {
         Position strike;
@@ -40,134 +34,6 @@ namespace RadCorrectnessPolicy
         return { strike, std::atan2(player.x - strike.x, player.y - strike.y) };
     }
 
-    constexpr bool StormUsesDome(int theme)
-    {
-        return theme != 1;
-    }
-
-    constexpr float DomeSeekSeconds(double elapsedSec, float timelineSec)
-    {
-        if (!(elapsedSec > 0.0) || !(timelineSec > 1.0f)) return 0.0f;
-        const double period = static_cast<double>(timelineSec);
-        const double wrapped = elapsedSec - period * static_cast<double>(static_cast<long long>(elapsedSec / period));
-        if (!(wrapped > 0.0) || !(wrapped < period)) return 0.0f;
-        return static_cast<float>(wrapped);
-    }
-
-    // Invariant: a shortened debug lead shifts the dome sequence by (natural - actual) seconds.
-    constexpr double DomeLeadShiftSeconds(double naturalLeadSec, double actualLeadSec)
-    {
-        if (!(naturalLeadSec > 0.0) || !(actualLeadSec >= 0.0)) return 0.0;
-        return naturalLeadSec > actualLeadSec ? naturalLeadSec - actualLeadSec : 0.0;
-    }
-
-    constexpr float DomeSeekSecondsForStorm(double elapsedSec, float timelineSec, double leadShiftSec)
-    {
-        if (!(elapsedSec > 0.0)) elapsedSec = 0.0;
-        if (!(leadShiftSec > 0.0)) leadShiftSec = 0.0;
-        return DomeSeekSeconds(elapsedSec + leadShiftSec, timelineSec);
-    }
-
-    constexpr float SmoothStep01(float edge0, float edge1, float x)
-    {
-        if (!(edge1 > edge0)) return x >= edge1 ? 1.0f : 0.0f;
-        const float t = x <= edge0 ? 0.0f : (x >= edge1 ? 1.0f : (x - edge0) / (edge1 - edge0));
-        return t * t * (3.0f - 2.0f * t);
-    }
-
-    constexpr float kDomeBlendRiseStartSec = 20.0f;
-    constexpr float kDomeBlendRiseEndSec = 70.0f;
-    constexpr float kDomeBlendFallSec = 30.0f;
-
-    // Invariant: vanilla clouds fade out only as the dome cloud layers fade in on the baked sequence clock.
-    constexpr float BlendForSequence(double seqTimeSec, float timelineSec)
-    {
-        if (!(seqTimeSec > 0.0) || !(timelineSec > kDomeBlendRiseEndSec + kDomeBlendFallSec)) return 0.0f;
-        const float t = DomeSeekSeconds(seqTimeSec, timelineSec);
-        const float rise = SmoothStep01(kDomeBlendRiseStartSec, kDomeBlendRiseEndSec, t);
-        const float fall = 1.0f - SmoothStep01(timelineSec - kDomeBlendFallSec, timelineSec, t);
-        return rise < fall ? rise : fall;
-    }
-
-    // Invariant: sequence time is animTime + offset, so the offset that lands on the seek is the seek itself.
-    constexpr float DomeSequenceOffset(float seekSec)
-    {
-        return (seekSec >= 0.0f && seekSec < 1.0e9f) ? seekSec : 0.0f;
-    }
-
-    constexpr int DomeShapeIndex(std::string_view name)
-    {
-        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
-            if (name == RadDomeVisibility::kShapeNames[i]) return i;
-        return -1;
-    }
-
-    constexpr std::uint64_t kAllDomeShapesVisible = (std::uint64_t{ 1 } << RadDomeVisibility::kShapeCount) - 1;
-
-    constexpr std::string_view kDomeHiddenShapes[] = {
-        "CoreBack", "CoreFront",
-    };
-
-    // Constraint: the vortex tube shapes are never drawn; see docs/code-notes/Ashfall.md.
-    constexpr std::uint64_t DomeHiddenShapeMask()
-    {
-        std::uint64_t mask = 0;
-        for (const auto name : kDomeHiddenShapes)
-        {
-            const int i = DomeShapeIndex(name);
-            if (i >= 0) mask |= std::uint64_t{ 1 } << i;
-        }
-        return mask;
-    }
-
-    constexpr std::uint64_t kDomeShownShapes = kAllDomeShapesVisible & ~DomeHiddenShapeMask();
-
-    // Invariant: a non-finite, negative or absurd sequence time yields every non-hidden shape, never a wider cull.
-    constexpr std::uint64_t VisibleShapeMask(double seqTimeSec)
-    {
-        if (!(seqTimeSec >= 0.0) || seqTimeSec > 1.0e12) return kDomeShownShapes;
-        const double period = static_cast<double>(RadDomeVisibility::kCycleSec);
-        const double t = seqTimeSec - period * static_cast<double>(static_cast<long long>(seqTimeSec / period));
-        std::uint64_t mask = 0;
-        for (int i = 0; i < RadDomeVisibility::kShapeCount; ++i)
-        {
-            for (int w = RadDomeVisibility::kWindowBegin[i]; w < RadDomeVisibility::kWindowBegin[i + 1]; ++w)
-            {
-                const auto& win = RadDomeVisibility::kWindows[w];
-                if (t >= static_cast<double>(win.start) && t <= static_cast<double>(win.end))
-                {
-                    mask |= std::uint64_t{ 1 } << i;
-                    break;
-                }
-            }
-        }
-        return mask & kDomeShownShapes;
-    }
-
-    constexpr double WrapAngleRad(double a)
-    {
-        constexpr double kTau = 6.283185307179586;
-        const double r = a - kTau * static_cast<double>(static_cast<long long>(a / kTau));
-        const double w = r < 0.0 ? r + kTau : r;
-        return w >= kTau ? 0.0 : w;
-    }
-
-    constexpr double SpinAngleRad(double degPerSec, double seconds)
-    {
-        constexpr double kPi = 3.141592653589793;
-        return WrapAngleRad(degPerSec * seconds * kPi / 180.0);
-    }
-
-    constexpr double ClampDomeAnimDelta(double dt, double maxDt)
-    {
-        return !(dt > 0.0) ? 0.0 : (dt > maxDt ? maxDt : dt);
-    }
-
-    constexpr bool ShouldMoveDomeLayer(float distSq, float epsSq)
-    {
-        return distSq > epsSq;
-    }
-
     constexpr float StormShakeStrength(float base, bool interior)
     {
         return interior ? base * 0.35f : base;
@@ -178,17 +44,9 @@ namespace RadCorrectnessPolicy
         return managedStorm || vanillaRadstorm;
     }
 
-    constexpr bool ShouldRecreateDomeForOwner(bool domeUp, [[maybe_unused]] bool sameCell, bool sameWorld)
+    constexpr bool UsesVanillaRadstormSky(int typeIndex)
     {
-        // Exterior parent-cell changes are normal streaming while the player moves through one
-        // worldspace. Recreating every layer on those boundaries causes the visible dome snap/jitter.
-        // Only a real worldspace ownership change requires destructive recreation.
-        return domeUp && !sameWorld;
-    }
-
-    constexpr bool ShouldRetryDomeSpawn(bool domePhase, bool exposed, bool domeUp, int retryTicks)
-    {
-        return domePhase && exposed && !domeUp && retryTicks >= 4;
+        return typeIndex == 0 || typeIndex == 2;
     }
 
     constexpr bool IsGasMask(bool fillsMouth, bool hasKeyword)

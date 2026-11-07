@@ -15,24 +15,20 @@ using namespace RadInternal;
 // DEBUG controls (hotkeys + PrismaUI debug menu).
 // ---------------------------------------------------------------------------
 
-// Silent dome-only lead used by DEBUG-forced storms only (10 s at 4 Hz). Real gameplay storms keep
-// the full [Storm] DomeLeadMinutes. Long enough to see the dome come up alone before the siren.
 constexpr int kDebugLeadTicks = 10 * 4;
 
 void RadiationEngine::DebugForceStorm(int typeIndex)
 {
     Log()->warn("[DIAG] DebugForceStorm entry typeIndex={}.", typeIndex);
     if (typeIndex < 0 || typeIndex >= kStormTypeTableSize) return;
-    // Fully tear down any in-progress storm first (fire ring, ghoul pack, IMAD, shake/dome) so a
-    // force-storm mid-firestorm can't leak the previous storm's FX into the new one.
     ClearFireRefs();
     ClearStormGhouls();
     ClearStormIMAD();
     TriggerStormFX(false);
-    ClearStormDome();
     _stormFXVisible = false;
     _stormNukeFired = false;
-    ReleaseStormWeather();                  // drop any in-progress storm's forced sky
+    if (_weatherForced) ReleaseStormWeather();
+    else ResetStormWeatherLatches();
     _stormPhase      = StormPhase::Idle;
     // Direct phase reset bypasses EnterStormPhase, so disarm the shake counters here too — otherwise a
     // storm force-started mid-shake leaves them armed and the next Active phase drives phantom rumble.
@@ -46,16 +42,7 @@ void RadiationEngine::DebugForceStorm(int typeIndex)
     _activeStormType = -1;
     _forcedStormType   = typeIndex;
     _forceStormNow     = true;              // next UpdateStorm Idle tick begins it
-    // Debug storms cut the silent dome-only lead to kDebugLeadTicks. The full DomeLeadMinutes lead
-    // is correct for real gameplay but made every test a ~4.5 min wait (lead + warning), which is
-    // why the siren at the end of the lead went unobserved for weeks. Warning/Active/Aftermath below
-    // still run at real timings — only the lead is shortened.
     _forcedLeadTicks   = kDebugLeadTicks;
-    // A debug-forced storm now runs the REAL timings — the full warning, so the onset actually plays
-    // out the way it does in-game (dome fades in overhead -> siren goes up -> the storm hits) instead
-    // of a compressed 10 s window that made the sequence impossible to judge. It used to force a short
-    // warning purely so it was quick to test; that made the debug storm a poor stand-in for the thing
-    // it was meant to be testing.
     Log()->warn("[DEBUG] Force storm '{}' — lead {} s (debug-shortened) + warning {} s = {} s to impact.",
         kStormTypes[typeIndex].name, kDebugLeadTicks / 4,
         kStormTypes[typeIndex].warningTicks / 4,
@@ -69,7 +56,6 @@ void RadiationEngine::DebugEndStorm()
     ClearStormGhouls();
     ClearStormIMAD();
     TriggerStormFX(false);  // stop shake when a storm is force-ended
-    ClearStormDome();       // despawn the native cloud dome
     ForceClearAndSilence(); // silence all storm audio + force Commonwealth clear sky
     _stormPhase       = StormPhase::Idle;
     _shakeBurstStep   = -1;   // disarm shake (direct reset bypasses EnterStormPhase teardown)
@@ -507,7 +493,7 @@ void RadiationEngine::DebugPreviewWeather(int idx)
     auto dlog = Log();
     dlog->warn("[DIAG] DebugPreviewWeather idx={} (count={}).", idx, kStormTypeCount);
     if (idx < 0 || idx >= kStormTypeCount) { dlog->warn("[DIAG]   rejected (out of range)."); return; }
-    RE::TESWeather* w = _stormWeathers[idx];
+    RE::TESWeather* w = StormSkyWeather(idx);
     auto* sky = RE::Sky::GetSingleton();
     dlog->warn("[DIAG]   weather={} sky={}.", w ? "ok" : "NULL", sky ? "ok" : "NULL");
     if (w && sky)

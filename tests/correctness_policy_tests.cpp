@@ -39,7 +39,6 @@ int main()
     using namespace RadCorrectnessPolicy;
     using namespace RadWaterFillPolicy;
 
-    Require(DomePosition({ 10.0f, 20.0f, 30.0f }, 6000.0f) == Position{ 10.0f, 20.0f, 6030.0f });
     const auto nuke = DistantNukePlacementXY({ 123.0f, 456.0f, 789.0f }, 0.0f, 4250.0f);
     Require(nuke.strike.x == 123.0f);
     Require(nuke.strike.y == 4706.0f);
@@ -47,116 +46,15 @@ int main()
     Require(ShouldReturnToClear(true, false));
     Require(ShouldReturnToClear(false, true));
     Require(!ShouldReturnToClear(false, false));
-    Require(!ShouldRecreateDomeForOwner(false, false, false));
-    Require(!ShouldRecreateDomeForOwner(true, true, true));
-    // Exterior parent-cell changes are normal streaming inside one worldspace. Keep the existing
-    // dome references alive so the follow path moves them without a destructive clear/respawn snap.
-    Require(!ShouldRecreateDomeForOwner(true, false, true));
-    Require(ShouldRecreateDomeForOwner(true, true, false));
-    Require(ShouldRecreateDomeForOwner(true, false, false));
-    Require(!ShouldRetryDomeSpawn(false, true, false, 4));
-    Require(!ShouldRetryDomeSpawn(true, false, false, 4));
-    Require(!ShouldRetryDomeSpawn(true, true, true, 4));
-    Require(!ShouldRetryDomeSpawn(true, true, false, 3));
-    Require(ShouldRetryDomeSpawn(true, true, false, 4));
-    Require(!StormUsesDome(1));
-    Require(StormUsesDome(0));
-    Require(StormUsesDome(2));
-    Require(StormUsesDome(5));
-    Require(DomeSeekSeconds(0.0, 360.0f) == 0.0f);
-    Require(DomeSeekSeconds(-5.0, 360.0f) == 0.0f);
-    Require(DomeSeekSeconds(95.5, 360.0f) == 95.5f);
-    Require(DomeSeekSeconds(360.0, 360.0f) == 0.0f);
-    Require(DomeSeekSeconds(361.0, 360.0f) == 1.0f);
-    Require(DomeSeekSeconds(900.0, 360.0f) == 180.0f);
-    Require(DomeSeekSeconds(720.0, 360.0f) == 0.0f);
-    Require(WrapAngleRad(0.0) == 0.0);
-    Require(std::abs(WrapAngleRad(-1.0) - (6.283185307179586 - 1.0)) < 1e-9);
-    Require(WrapAngleRad(6.283185307179586) == 0.0);
-    Require(std::abs(SpinAngleRad(180.0, 1.0) - 3.141592653589793) < 1e-9);
-    Require(SpinAngleRad(12.0, 0.0) == 0.0);
-    Require(ClampDomeAnimDelta(-1.0, 0.25) == 0.0);
-    Require(ClampDomeAnimDelta(0.1, 0.25) == 0.1);
-    Require(ClampDomeAnimDelta(5.0, 0.25) == 0.25);
-    Require(!ShouldMoveDomeLayer(0.0f, 1e-4f));
-    Require(ShouldMoveDomeLayer(2e-4f, 1e-4f));
+    Require(UsesVanillaRadstormSky(0));
+    Require(!UsesVanillaRadstormSky(1));
+    Require(UsesVanillaRadstormSky(2));
+    Require(!UsesVanillaRadstormSky(3));
+    Require(!UsesVanillaRadstormSky(4));
+    Require(!UsesVanillaRadstormSky(-1));
+    Require(!UsesVanillaRadstormSky(5));
     Require(StormShakeStrength(0.75f, false) == 0.75f);
     Require(std::abs(StormShakeStrength(0.75f, true) - 0.2625f) < 1e-6f);
-    Require(DomeSeekSeconds(10.0, 0.5f) == 0.0f);
-    Require(DomeSeekSeconds(std::nan(""), 360.0f) == 0.0f);
-    Require(RadDomeVisibility::kShapeCount == 36);
-    Require(kAllDomeShapesVisible == 0xFFFFFFFFFull);
-    Require(DomeShapeIndex("PortalA") >= 0 && DomeShapeIndex("Core Missing") == -1);
-    {
-        const auto early = VisibleShapeMask(10.0);
-        Require(early == (std::uint64_t{ 1 } << DomeShapeIndex("PlainHigh")));
-        const auto mid = VisibleShapeMask(200.0);
-        for (const char* n : { "EyeGlow", "Overcast", "OuterHigh" })
-            Require((mid >> DomeShapeIndex(n)) & 1u);
-        for (const char* n : { "PortalA", "PortalB", "DiskOuter", "DiskInner", "DiskHalo", "PhotonRing" })
-            Require((mid >> DomeShapeIndex(n)) & 1u);
-        for (const char* n : { "CoreBack", "CoreFront" })
-            Require(((mid >> DomeShapeIndex(n)) & 1u) == 0u);
-        Require(VisibleShapeMask(0.0) == (std::uint64_t{ 1 } << DomeShapeIndex("Overcast")));
-        Require(VisibleShapeMask(360.0) == VisibleShapeMask(0.0));
-        Require(VisibleShapeMask(365.0) == VisibleShapeMask(5.0));
-        Require(VisibleShapeMask(560.0) == VisibleShapeMask(200.0));
-        {
-            int hidden = 0;
-            for (std::uint64_t m = DomeHiddenShapeMask(); m; m &= m - 1) ++hidden;
-            Require(hidden == 2);
-        }
-        Require(kDomeShownShapes == (kAllDomeShapesVisible & ~DomeHiddenShapeMask()));
-        Require(VisibleShapeMask(std::nan("")) == kDomeShownShapes);
-        Require(VisibleShapeMask(-1.0) == kDomeShownShapes);
-        Require(VisibleShapeMask(std::numeric_limits<double>::infinity()) == kDomeShownShapes);
-        for (double t = 0.0; t < 720.0; t += 0.5)
-            Require((VisibleShapeMask(t) & DomeHiddenShapeMask()) == 0u);
-        Require((VisibleShapeMask(355.0) >> DomeShapeIndex("EyeGlow") & 1u) == 0u);
-        Require((VisibleShapeMask(100.0) >> DomeShapeIndex("PortalA") & 1u) == 0u);
-        Require((VisibleShapeMask(200.0) >> DomeShapeIndex("PortalA") & 1u) == 1u);
-        Require((VisibleShapeMask(330.0) >> DomeShapeIndex("PortalA") & 1u) == 0u);
-        Require((VisibleShapeMask(200.0) & DomeHiddenShapeMask()) == 0u);
-    }
-    Require(DomeSequenceOffset(170.5f) == 170.5f);
-    Require(DomeSequenceOffset(0.0f) == 0.0f);
-    Require(DomeSequenceOffset(-3.0f) == 0.0f);
-    Require(DomeSequenceOffset(std::nanf("")) == 0.0f);
-    Require(DomeSequenceOffset(std::numeric_limits<float>::infinity()) == 0.0f);
-    for (const double animTime : { 0.0, 100.0 })
-        Require(Near(static_cast<float>(animTime) + DomeSequenceOffset(170.5f), 170.5f + static_cast<float>(animTime), 1e-3f));
-    Require(BlendForSequence(0.0, 360.0f) == 0.0f);
-    Require(BlendForSequence(10.0, 360.0f) == 0.0f);
-    Require(BlendForSequence(20.0, 360.0f) == 0.0f);
-    Require(Near(BlendForSequence(45.0, 360.0f), 0.5f));
-    Require(BlendForSequence(70.0, 360.0f) == 1.0f);
-    Require(BlendForSequence(200.0, 360.0f) == 1.0f);
-    Require(BlendForSequence(329.0, 360.0f) == 1.0f);
-    Require(Near(BlendForSequence(345.0, 360.0f), 0.5f));
-    Require(BlendForSequence(359.999, 360.0f) < 0.001f);
-    Require(BlendForSequence(360.0, 360.0f) == 0.0f);
-    Require(Near(BlendForSequence(405.0, 360.0f), 0.5f));
-    Require(BlendForSequence(560.0, 360.0f) == 1.0f);
-    Require(BlendForSequence(-1.0, 360.0f) == 0.0f);
-    Require(BlendForSequence(std::nan(""), 360.0f) == 0.0f);
-    Require(BlendForSequence(100.0, 0.0f) == 0.0f);
-    Require(BlendForSequence(100.0, std::nan("")) == 0.0f);
-    Require(SmoothStep01(0.0f, 1.0f, -1.0f) == 0.0f);
-    Require(SmoothStep01(0.0f, 1.0f, 2.0f) == 1.0f);
-    Require(DomeLeadShiftSeconds(180.0, 180.0) == 0.0);
-    Require(DomeLeadShiftSeconds(180.0, 10.0) == 170.0);
-    Require(DomeLeadShiftSeconds(10.0, 180.0) == 0.0);
-    Require(DomeLeadShiftSeconds(0.0, 0.0) == 0.0);
-    Require(DomeLeadShiftSeconds(std::nan(""), 10.0) == 0.0);
-    Require(DomeLeadShiftSeconds(180.0, std::nan("")) == 0.0);
-    Require(DomeLeadShiftSeconds(180.0, -5.0) == 0.0);
-    Require(DomeSeekSecondsForStorm(0.5, 360.0f, 0.0) == 0.5f);
-    Require(Near(DomeSeekSecondsForStorm(0.5, 360.0f, 170.0), 170.5f, 1e-3f));
-    Require(Near(DomeSeekSecondsForStorm(200.5, 360.0f, 170.0), 10.5f, 1e-3f));
-    Require(DomeSeekSecondsForStorm(190.0, 360.0f, 170.0) == 0.0f);
-    Require(DomeSeekSecondsForStorm(std::nan(""), 360.0f, 170.0) == 170.0f);
-    Require(DomeSeekSecondsForStorm(5.0, 360.0f, std::nan("")) == 5.0f);
-    Require(DomeSeekSecondsForStorm(-3.0, 360.0f, -1.0) == 0.0f);
     Require(IsGasMask(true, true));
     Require(!IsGasMask(true, false));
     Require(IsConfiguredMask(false, true, true));

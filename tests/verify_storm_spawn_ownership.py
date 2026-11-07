@@ -6,13 +6,13 @@ SRC = ROOT / "src"
 actors = (SRC / "RadEngine_Storm_Actors.cpp").read_text(encoding="utf-8")
 weather = (SRC / "RadEngine_Storm_Weather.cpp").read_text(encoding="utf-8")
 weather_core = (SRC / "RadEngine_Weather.cpp").read_text(encoding="utf-8")
-dome = (SRC / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
+effects = (SRC / "RadEngine_Storm_Effects.cpp").read_text(encoding="utf-8")
 storm = (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8")
 storm_update = (SRC / "RadEngine_Storm_Update.cpp").read_text(encoding="utf-8")
 mask = (SRC / "RadEngine_Mask.cpp").read_text(encoding="utf-8")
 debug = (SRC / "RadEngine_Debug.cpp").read_text(encoding="utf-8")
 hooks = (SRC / "Hooks.cpp").read_text(encoding="utf-8")
-dome_hooks = (SRC / "Hooks_DomeFollow.cpp").read_text(encoding="utf-8")
+visuals_hooks = (SRC / "Hooks_StormVisuals.cpp").read_text(encoding="utf-8")
 lifecycle_dispatch = (SRC / "RadLifecycleDispatch.cpp").read_text(encoding="utf-8")
 main = (SRC / "main.cpp").read_text(encoding="utf-8")
 # Constraint: the revert and post-load bodies live in the session module.
@@ -141,14 +141,8 @@ for token in (
 assert load_reset.index("ClearStormGhouls();") < load_reset.index("_stormGhoulCleanupRefs.clear();"), \
     "a load must retire the hunters before it drops the handles that name them"
 
-dome_for_load = dome.split("void RadiationEngine::ResetStormDomeForLoad()", 1)[1].split(
-    "void RadiationEngine::UpdateStormDomeLifecycle()", 1
-)[0]
-for token in ("_stormDomeRefs.clear();", "_stormDomeUp = false;", "_stormDomeCell = nullptr;",
-              "Hooks::SetDomeFollowActive(false);"):
-    assert token in dome_for_load, f"storm dome load reset is missing: {token}"
-assert "->Disable()" not in dome_for_load and "SetDelete" not in dome_for_load, \
-    "the dome load reset must not dereference handles the load already killed"
+assert "ResetStormDomeForLoad" not in radiation_engine and "ResetStormDomeForLoad" not in effects, \
+    "the storm dome load reset was removed with the dome"
 
 update_body = radiation_engine.split("void RadiationEngine::Update()", 1)[1].split(
     "void RadiationEngine::PollInput()", 1
@@ -262,18 +256,7 @@ assert "const bool debugForced = _forcedStormType >= 0;" in begin_storm
 _main_src = (SRC / "main.cpp").read_text(encoding="utf-8")
 assert "logger->set_level(spdlog::level::info);" in _main_src, "default log level must be info"
 assert "set_level(spdlog::level::debug)" not in _main_src
-for _line in ("dome anim driver", "dome anim t=", "dome spin"):
-    _hit = [l for l in dome.splitlines() if _line in l]
-    assert _hit, _line
-assert "Log()->info(\"[StormFX] dome anim driver" in dome
-assert "Log()->info(\"[StormFX] dome anim t=" in dome
-assert "Log()->info(\"[StormFX] dome spin" in dome
-assert "BlendForSequence(_domeSeekSec + _domeAnimTime" in dome
-assert "Hooks::GetSkyCloudStats(passes, scaled);" in dome
-assert "sky cloud hook stats at spawn+" in dome
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
-assert "_stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(" in begin_storm
-assert "DomeSeekSecondsForStorm(" in dome and "_stormDomeLeadShiftSec" in dome
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
     "if (!_nextEmissionGlobal) return;", 1
@@ -286,40 +269,10 @@ assert startup_release != -1
 assert startup_force != -1
 assert startup_release < startup_force
 
-dome_lifecycle = dome.split("void RadiationEngine::UpdateStormDomeLifecycle()", 1)[1].split(
-    "void RadiationEngine::UpdateStormDomeFollow()", 1
-)[0]
-unresolved_owner = dome_lifecycle.split(
-    "if (!IsValidDomeOwner(player, playerCell, playerWorld))", 1
-)[1].split("if (!_stormDomeUp)", 1)[0]
-assert "ClearStormDome();" not in unresolved_owner
-assert "return;" in unresolved_owner
-
-dome_drive = dome.split("void RadiationEngine::DriveDomeAnimation(bool moved)", 1)[1].split("void RadiationEngine::UpdateStormDomeFollow()", 1)[0]
-dome_follow = dome.split("void RadiationEngine::UpdateStormDomeFollow()", 1)[1].split(
-    "void RadiationEngine::UpdateDustMotes()", 1
-)[0]
-assert "if (!IsValidDomeReference(ref, _stormDomeWorld) || !ref->Get3D())" in dome_follow
-assert "RadCorrectnessPolicy::ShouldMoveDomeLayer(" in dome_follow
-assert "kStormDomeFollowEpsilon" in dome_follow
-assert "ref->Update3DPosition(true);" in dome_follow or "ref->Update3DPosition(true);" in dome_drive
-assert "kStormDomeFollowDistanceThreshold" not in dome_follow
-assert "DriveDomeAnimation(moved);" in dome_follow
-assert "kDomeDriveIntervalSec" in dome_drive and "_domeDriveLastSec" in dome_drive
-assert "layer.hasManager" in dome_drive and "ResolveDomeLayerNodes(layer, obj3d)" in dome_drive
-assert "layer.root != obj3d" in dome_drive
-assert "const bool recreated = layer.root && layer.root != obj3d;" in dome_drive
-recreate_block = dome_drive.split("if (recreated)", 1)[1].split("const std::uint16_t flagsBefore", 1)[0]
-assert "seq->Activate(0, true, 1.0f, 0.0f, nullptr, false);" in recreate_block
-assert "layer.manualSeeded = false;" in recreate_block and "_domeShapeMaskDirty = true;" in recreate_block
-assert "seq->offset = RadCorrectnessPolicy::DomeSequenceOffset(static_cast<float>(_domeSeekSec));" in dome_drive
-assert "_domeSeekSec - _domeAnimTime" not in dome
-assert dome_drive.count("GetObjectByName") == 0, "node lookups must be cached per layer"
-resolve_body = dome.split("void RadiationEngine::ResolveDomeLayerNodes", 1)[1].split("void RadiationEngine::ResetDomeShapeMask", 1)[0]
-assert resolve_body.count("GetObjectByName") == 3
-internal_src = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
-assert "kStormDomeFollowEpsilon = 64.0f;" in internal_src
-assert "kDomeDriveIntervalSec = 1.0 / 30.0;" in internal_src
+for token in ("UpdateStormDomeLifecycle", "UpdateStormDomeFollow", "SpawnStormDome", "ClearStormDome",
+              "IsValidDomeOwner", "IsValidDomeReference", "_stormDomeRefs", "_stormDomeUp"):
+    assert token not in effects and token not in storm_update and token not in storm, \
+        f"dome lifecycle token must not remain: {token}"
 
 warning_phase = storm_update.split("case StormPhase::Warning:", 1)[1].split(
     "case StormPhase::Active:", 1
@@ -398,16 +351,17 @@ for body, action in (
     assert "RadLifecycleDispatch::PlayerUpdatesReady(generation)" in body
     assert body.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < body.find(action)
 
-dome_queue = dome_hooks.split("void QueueDomeFollow()", 1)[1]
+visuals_queue = visuals_hooks.split("void QueueStormVisuals()", 1)[1]
 for token in (
     "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();",
-    "[generation, runImadFade]",
+    "[generation]",
     "RadLifecycleDispatch::PlayerUpdatesReady(generation)",
 ):
-    assert token in dome_queue, f"dome producer generation guard is missing: {token}"
-assert dome_queue.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < dome_queue.find(
-    "RadiationEngine::GetSingleton().UpdateStormDomeFollow();"
+    assert token in visuals_queue, f"storm visuals producer generation guard is missing: {token}"
+assert visuals_queue.find("RadLifecycleDispatch::PlayerUpdatesReady(generation)") < visuals_queue.find(
+    "RadiationEngine::GetSingleton().UpdateStormIMADFade();"
 )
+assert "SetDomeFollowActive" not in visuals_hooks and "QueueDomeFollow" not in visuals_hooks
 
 for token in (
     "g_playerUpdateGeneration{ 0 }",
@@ -503,4 +457,4 @@ for token in (
 ):
     assert token in hud_wait, f"HUD readiness probe is not coalesced: {token}"
 
-print("storm ownership, handoff, same-current weather ownership, load-audio teardown, first-tick transient isolation, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, dome-streaming, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, dome-follow, and HUD guards verified")
+print("storm ownership, handoff, same-current weather ownership, load-audio teardown, first-tick transient isolation, shelter-cache isolation, new-game load isolation, forced-lead isolation, new-game-clear, lifecycle, queued-generation, mask-hit generation, hud-dom-ready validity, nuke-audio, nuke-wave, flee-reset, roll-in-reset, and HUD guards verified")

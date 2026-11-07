@@ -1,3 +1,26 @@
+# Fallout Anomaly – Radiation Overhaul — Changelog
+
+## 2026-11-07: storm dome removed; Ash and Sulfur use the vanilla Glowing Sea radstorm sky
+
+**The native storm dome is removed.** It placed a set of cloud layers around the player and never reached a stable
+visual. The storm sky is now the only storm visual. Ash Fallout and Toxic Sulfur Storm show the vanilla Glowing Sea
+radstorm weather (form ID `0x24A3C0`, falling back to `0x1C3D5E`) instead of their custom weather records. Acid Rain,
+Rad Firestorm and Dust Storm keep their custom weather and behaviour. The vanilla weather is read from the master and
+never modified. The sky rolls in at the warning phase. The silent lead before the siren is unchanged, and its INI key is
+now `StormLeadMinutes` (the legacy `DomeLeadMinutes` is still read when the new key is absent). **Not verified in game.**
+
+## Unreleased: Papyrus natives moved into a global RadNatives script (build-verified only)
+
+**`GetReliefFlags` and `TuningOverride` are now global natives on a new `RadNatives` script.** Bethesda's PapyrusCompiler refused the member natives declared in `RadSurvivalQuest` and `RadSurvivalDiseases` because those scripts are not flagged native. `RadNatives` is `native hidden` and the plugin binds both functions on it, once each, as global (static) natives; both quests call `RadNatives.TuningOverride` and the relief path calls `RadNatives.GetReliefFlags`. Behaviour is unchanged, including a missing DLL keeping the script defaults. The Papyrus bytecode is rebuilt and restamped. Not verified in game: the static binding.
+
+## Unreleased: sneak-to-fill toggle and AUTO mask chip (build-verified only)
+
+**New `WaterRequireSneak` toggle** in the debug-menu SETTINGS tab (WATER BOTTLES). Off fills a bottle on a plain
+activation, so water can be collected without sneaking; it overrides `[Water] RequireModifier` live and an empty value
+keeps the INI. **New AUTO chip** in the breathing-protection widget shows whether the auto-equip mask is OFF, ON or HELD
+for combat, so a mask that stays off is explained on screen. Contracts: `tests/status_hud_tests.js`,
+`tests/needs_tuning_policy_tests.cpp`, `tests/verify_needs_tuning.py`. Not yet compiled or tested in game.
+
 ## Unreleased: the storm portal shows again; only the vortex tube stays hidden (not verified in game)
 
 **The storm portal is back.** Hiding the tube also hid the portal ring (`PortalA`, `PortalB`, `DiskOuter`, `DiskInner`, `DiskHalo`, `PhotonRing`), so only the clouds were left. Now only the tube shapes (`CoreBack`, `CoreFront`) stay culled, and the portal follows its baked window (about 128 to 320 s). Contract: `tests/correctness_policy_tests.cpp`, `tests/verify_dome_visibility.py`. Notes: `docs/code-notes/Ashfall.md`. Not verified in game.
@@ -21,20 +44,6 @@
 ## Unreleased: dome animation clock, collision-free mesh and per-frame follow
 
 **The storm dome now animates.** The controller manager's active bit (0x0008) is set by the plugin, which the engine never does for a placed reference, so the dome clock advances. Portal and core nodes spin in code, the mesh is collision-free (players are not blocked at the dome edge), and the Storm sequence loops so the dome does not go dark after 360 s. The follow runs every frame and moves all layers together. The storm shake is kept outdoors and reduced to 35 percent indoors. Not tested in game.
-
-# Fallout Anomaly – Radiation Overhaul — Changelog
-
-## Unreleased: Papyrus natives moved into a global RadNatives script (build-verified only)
-
-**`GetReliefFlags` and `TuningOverride` are now global natives on a new `RadNatives` script.** Bethesda's PapyrusCompiler refused the member natives declared in `RadSurvivalQuest` and `RadSurvivalDiseases` because those scripts are not flagged native. `RadNatives` is `native hidden` and the plugin binds both functions on it, once each, as global (static) natives; both quests call `RadNatives.TuningOverride` and the relief path calls `RadNatives.GetReliefFlags`. Behaviour is unchanged, including a missing DLL keeping the script defaults. The Papyrus bytecode is rebuilt and restamped. Not verified in game: the static binding.
-
-## Unreleased: sneak-to-fill toggle and AUTO mask chip (build-verified only)
-
-**New `WaterRequireSneak` toggle** in the debug-menu SETTINGS tab (WATER BOTTLES). Off fills a bottle on a plain
-activation, so water can be collected without sneaking; it overrides `[Water] RequireModifier` live and an empty value
-keeps the INI. **New AUTO chip** in the breathing-protection widget shows whether the auto-equip mask is OFF, ON or HELD
-for combat, so a mask that stays off is explained on screen. Contracts: `tests/status_hud_tests.js`,
-`tests/needs_tuning_policy_tests.cpp`, `tests/verify_needs_tuning.py`. Not yet compiled or tested in game.
 
 ## 2026-10-30: food/drink relief is no longer trivial
 

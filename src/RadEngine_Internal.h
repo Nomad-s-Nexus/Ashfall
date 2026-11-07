@@ -50,8 +50,6 @@
 #include <RE/B/BSScriptUtil.h>
 #include <RE/B/BSScript_IStackCallbackFunctor.h>
 #include <RE/B/BSScript_IObjectHandlePolicy.h>
-// Needed to read/write a bound script's PROPERTIES (storm dome enable). A locked data access on the
-// script object, NOT a VM dispatch — see EnsureQuestRunning.
 #include <RE/B/BSScript_Object.h>
 #include <RE/B/BSScript_Variable.h>
 #include <RE/B/BSScript_Internal_VirtualMachine.h>
@@ -185,6 +183,8 @@ namespace RadInternal
     // Vanilla radstorm weather FormIDs (Fallout4.esm). When one of these becomes the
     // active weather we play the warning sound once.
     constexpr uint32_t kRadstormWeathers[] = { 0x1C3D5E, 0x2392A3, 0x222394, 0x24A3C0 };
+    constexpr uint32_t kStormRadSkyWeatherPrimary  = 0x24A3C0;
+    constexpr uint32_t kStormRadSkyWeatherFallback = 0x1C3D5E;
 
     inline bool IsRadstormWeather(uint32_t formID)
     {
@@ -207,11 +207,6 @@ namespace RadInternal
     // visibly blended in yet). Above this the radstorm is already on-screen, so a cut would be
     // visible — we let it run instead of double-shocking the player.
     constexpr float kRadstormVetoMaxPct = 0.10f;
-
-    // Storm onset sequence: the cloud dome fades in overhead first, THEN the siren goes up. This is the
-    // gap between the two (4 Hz ticks) — long enough for the dome's engine fade-in to actually read on
-    // screen before the alarm starts, so the storm builds instead of everything landing at once.
-    constexpr int kSirenAfterDomeTicks = 8 * 4;   // ~8 s
 
     // Custom storm audio. WAV/XWM only — engine does not play MP3.
     // Vanilla-radstorm soft warning cue. Repointed off the old loose "My Audio.wav" (a stereo PCM wav,
@@ -296,13 +291,7 @@ namespace RadInternal
     constexpr std::uint16_t kRadstormCueFalloffMs   = 2000;  // short fall-off when the storm ends/passes
     constexpr std::uint16_t kRadstormCueAttenuation = 1200;
 
-    // Storm fog is set at runtime (EnsureEslLoaded) per storm type from kStormTypes[].fog* — see the
-    // table below. Each storm gets its own visibility wall (Dust Storm = densest); keeping the near
-    // distance >= ~900 avoids the old camera-centred "fog sphere" dome. Vanilla radstorm is near=1200
-    // far=8500 for reference.
     constexpr int      kNukeRollInTicks      = 12 * 4; // firestorm: nuke detonates, then ~12 s later
-                                                       // the fog/fire/IMAD + dome + exposure roll in
-                                                       // (the shockwave sweeping in from the horizon)
     // Firestorm nuke: SpawnDistantNuke can fail transiently (player 3D/worldspace not up, target cell
     // not yet streamed, engine returns a null handle). Count actual native submissions separately from
     // the absolute Active-phase wait so shelter cannot spend the attempt budget and no invalid state can
@@ -430,7 +419,7 @@ namespace RadInternal
         { 0x841, "Rad Firestorm",      1,     true,   14.0f, 4.0f, 20 * 4,  100 * 4,  30 * 4, 15,  1200.0f, 4500.0f, 0.60f, 128.0f,  2000.0f, 0.25f, kBedFirestorm   },  // 2.5 min
         { 0x842, "Toxic Sulfur Storm", 2,     false,  4.0f,  0.5f, 15 * 4,  180 * 4,  20 * 4, 35,  1000.0f, 3200.0f, 0.55f, 128.0f,  2000.0f, 0.20f, kBedSulfurStorm },  // 3.6 min
         { 0x843, "Acid Rain",          3,     false,  3.0f,  0.8f, 15 * 4,  180 * 4,  20 * 4, 35,  1400.0f, 6000.0f, 0.65f, 128.0f,  2000.0f, 0.45f, kBedAcidRain    },  // 3.6 min
-        { 0x844, "Dust Storm",         5,     false,  3.0f,  0.3f, 15 * 4,  150 * 4,  25 * 4, 30,   150.0f,  5000.0f, 0.30f,  64.0f,  3000.0f, 0.90f, kBedDustStorm   },  // 3.2 min — thick ground brownout (near=150, hiDens 0.90) that THINS above ~3000 (hRange) so the rotating dome (z+3800) is visible overhead; far=5000 so the dome isn't radially fogged out. + camera-dust VE, no IMAD
+        { 0x844, "Dust Storm",         5,     false,  3.0f,  0.3f, 15 * 4,  150 * 4,  25 * 4, 30,   150.0f,  5000.0f, 0.30f,  64.0f,  3000.0f, 0.90f, kBedDustStorm   },  // 3.2 min — thick ground brownout (near=150, hiDens 0.90) that THINS above ~3000 (hRange); far=5000. + camera-dust VE, no IMAD
     };
     constexpr int kStormTypeTableSize = static_cast<int>(std::size(kStormTypes));
 
@@ -497,28 +486,6 @@ namespace RadInternal
     // overhang count as shelter, which is physically correct for sky radiation. Interior-cell and
     // Pulowski checks run first, so this only fires for outdoor (incl. player-built) cover.
     // -----------------------------------------------------------------------
-    // Storm dome Z offset from the player. MUST be ~0: the CloudArena mesh's ORIGIN IS AT ITS BOTTOM and
-    // it extends ~11000 units UPWARD (authored ObjectBounds z = -1042 .. +11040; the NIF's TopLightNode
-    // sits at local z+10000, near the mesh top). So any positive offset lifts the whole dome — at the old
-    // 3800/6000 the bottom RIM floated above the player's head and only a grazing upper band was visible
-    // (read as "too high / too large / blurry"). At 0 the rim sits at player-1042 (below the feet, hidden
-    // by terrain) and the dome arches over the entire sky as authored. Those old offsets were ours, not
-    // KORs' — the stripped plugin has no placed refs and no script places it, so there was never an
-    // original offset to copy.
-    constexpr float kStormDomeZOffset     = 0.0f;
-    constexpr double kDomeAnimMaxDeltaSec = 0.25;
-    constexpr std::uint16_t kDomeManagerActiveFlag = 0x0008;
-    constexpr float kStormDomeFollowEpsilon = 64.0f;
-    constexpr double kDomeDriveIntervalSec = 1.0 / 30.0;
-    constexpr double kPortalSpinDegPerSec = 12.0;
-    constexpr double kCoreSpinDegPerSec = 4.0;
-    constexpr double kVortex3SpinScale = 0.7;
-    constexpr double kDomeAnimLogSeconds[] = { 1.0, 5.0, 15.0, 30.0, 60.0, 120.0, 240.0, 300.0 };
-    constexpr int kDomeAnimLogCount = static_cast<int>(std::size(kDomeAnimLogSeconds));
-    constexpr float kStormDomeBlendRampSec = 20.0f;
-    constexpr float kStormDomeTimelineSec = 360.0f;
-    constexpr double kStormDomeStatsLogSec = 30.0;
-    // -----------------------------------------------------------------------
     // Native camera shake and explosion-detonation RE now live in the authority, commonlib_NonVR:
     //   RE::ShakeCamera(strength, pos, duration, distanceMult=1.0)      (RE/P/PlayerCamera.h)
     //   TESDataHandler::CreateExplosionAtLocation(base, pos, rot, cell, world)  (RE/T/TESDataHandler.h)
@@ -535,14 +502,6 @@ namespace RadInternal
     // transiently invalid (streaming), retry the step up to this many ticks, then abandon the burst and
     // hand over to the sustained rumble (which self-retries safely) so the burst can't spin forever.
     constexpr int   kStormShakeBurstMaxRetries   = 20;     // ~5 s at 4 Hz
-    // Arena lights for the effect-LIT cloud shapes. KORs' script does PlaceAtNode on two nodes in the dome
-    // NIF; we mirror BOTH at their authored local heights. The glowing-vortex look IS this lighting: the
-    // clouds are lit brightest at the eye and fall off outward. (Do NOT bake the clouds self-emissive to
-    // "fix" darkness — that flattens the gradient and makes the light a no-op.)
-    // Both nodes carry translation only (identity rotation), so PlaceAtNode applies NO rotation — place
-    // these unrotated. An earlier pitch-down guess was wrong.
-    constexpr float kStormDomeLightNodeZ  = 10000.0f;  // TopLightNode  -> ArenaLight01 (radius 20000)
-    constexpr float kStormDomeLensFlareZ  = 7800.0f;   // LensFlareNode -> ArenaLight02 (lens flare/glow)
 
     // Continuous camera dust (Dust Storm). Re-apply the dust ArtObject to the camera slightly faster
     // than it expires so it overlaps into a steady blowing-dust effect rather than pulsing.
