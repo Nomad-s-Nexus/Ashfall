@@ -45,7 +45,7 @@
       }
       var ovTemp = document.getElementById("ov-val-temp");
       if (ovTemp) ovTemp.textContent = number(d.core, 1) + " °C";
-      var ovWet = document.getElementById("ov-val-wet");
+      var ovWet = document.getElementById("ov-val-wetness");
       if (ovWet) ovWet.textContent = Math.round(+d.wetness || 0) + "%";
       var minTemp = document.getElementById("t-min-temp");
       if (minTemp) minTemp.textContent = number(d.core, 1) + "°C (" + (net > 0 ? "WARM" : net < 0 ? "COLD" : "NOM") + ")";
