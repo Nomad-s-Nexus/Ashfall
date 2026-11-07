@@ -223,8 +223,60 @@ int main()
     Require(Near(indoorShelter.thermal01, 1.0f));
     Require(Near(indoorShelter.precipitation01, 1.0f));
     const auto roofShelter = FromState(false, true, false);
-    Require(Near(roofShelter.thermal01, 0.25f));
+    Require(Near(roofShelter.thermal01, 0.5f));
     Require(Near(roofShelter.precipitation01, 1.0f));
+    Require(Near(roofShelter.windShelter01, 0.75f));
+    Require(Near(roofShelter.enclosed01, 0.0f));
+    const auto enclosedShelter = FromLevel(Level::kEnclosed);
+    Require(Near(enclosedShelter.thermal01, 1.0f) && Near(enclosedShelter.precipitation01, 1.0f));
+    Require(Near(enclosedShelter.enclosed01, 1.0f) && Near(enclosedShelter.windShelter01, 1.0f));
+    const auto openShelter = FromState(false, false, false);
+    Require(Near(openShelter.thermal01, 0.0f) && Near(openShelter.precipitation01, 0.0f));
+    Require(Near(openShelter.windShelter01, 0.0f));
+    const auto unresolvedShelter = FromState(false, false, true);
+    Require(Near(unresolvedShelter.thermal01, 1.0f) && Near(unresolvedShelter.enclosed01, 0.0f));
+    Require(Near(FromState(true, false, false).enclosed01, 1.0f));
+
+    Require(!RoofCover(true, 2));
+    Require(!RoofCover(false, 2));
+    Require(!RoofCover(false, 3));
+    Require(RoofCover(true, 3));
+    Require(!RoofCover(true, 1));
+    Require(Classify(true, 5, true).enclosed);
+    Require(Classify(true, 5, true).walled);
+    Require(!Classify(true, 4, true).walled);
+    Require(Classify(true, 4, true).roofed && !Classify(true, 4, true).enclosed);
+    Require(!Classify(false, 8, true).enclosed);
+    Require(!Classify(true, 8, false).enclosed && Classify(true, 8, false).roofed);
+    Require(LevelFor(Classify(true, 5, true)) == Level::kEnclosed);
+    Require(LevelFor(Classify(true, 0, true)) == Level::kRoofed);
+    Require(LevelFor(Classify(false, 0, true)) == Level::kOpen);
+
+    Settled settled{};
+    settled = Observe(settled, Level::kOpen);
+    Require(settled.value == Level::kOpen && settled.known);
+    settled = Observe(settled, Level::kEnclosed);
+    Require(settled.value == Level::kOpen && settled.pending);
+    settled = Observe(settled, Level::kOpen);
+    Require(settled.value == Level::kOpen && !settled.pending);
+    settled = Observe(settled, Level::kEnclosed);
+    settled = Observe(settled, Level::kEnclosed);
+    Require(settled.value == Level::kEnclosed && !settled.pending);
+    settled = Observe(settled, Level::kOpen);
+    settled = Observe(settled, Level::kEnclosed);
+    Require(settled.value == Level::kEnclosed);
+    settled = Observe(settled, Level::kRoofed);
+    settled = Observe(settled, Level::kRoofed);
+    Require(settled.value == Level::kRoofed);
+
+    Require(ShouldReprobeTimed(Settled{ Level::kOpen }, 1.6f));
+    Require(!ShouldReprobeTimed(Settled{ Level::kOpen }, 1.4f));
+    Require(!ShouldReprobeTimed(Settled{ Level::kEnclosed }, 2.9f));
+    Require(ShouldReprobeTimed(Settled{ Level::kEnclosed }, 3.1f));
+    Require(ShouldReprobeTimed(Settled{ Level::kEnclosed, Level::kOpen, true, true }, 1.6f));
+    Require(ShouldReprobeTimed(Settled{ Level::kRoofed }, 1.6f));
+    Require(ShouldReprobeTimed(Settled{ Level::kOpen }, -1.0f));
+    Require(ShouldReprobeTimed(Settled{ Level::kOpen }, std::numeric_limits<float>::quiet_NaN()));
     Require(ShouldProbe(false, 10, 10, 0.0f, 0.0f, 0.0f));
     Require(ShouldProbe(true, 11, 10, 0.0f, 0.0f, 0.0f));
     Require(!ShouldProbe(true, 10, 10, kProbeMoveDistance - 1.0f, 0.0f, 0.0f));
@@ -360,8 +412,10 @@ int main()
     // Constraint: a listed roofless interior keeps indoor thermal shelter but its rain cover comes from the raycast.
     const auto roofedFactors = RadClimateShelterPolicy::FromRooflessInterior(true);
     Require(Near(roofedFactors.thermal01, 1.0f) && Near(roofedFactors.precipitation01, 1.0f));
+    Require(Near(roofedFactors.enclosed01, 1.0f));
     const auto openFactors = RadClimateShelterPolicy::FromRooflessInterior(false);
     Require(Near(openFactors.thermal01, 1.0f) && Near(openFactors.precipitation01, 0.0f));
+    Require(Near(openFactors.enclosed01, 0.0f));
 
     return 0;
 }

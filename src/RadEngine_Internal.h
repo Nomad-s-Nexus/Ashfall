@@ -568,15 +568,13 @@ namespace RadInternal
     // IsActorInPowerArmor) — it seals the player's breathing, so a helmet-less frame is not protection.
     constexpr std::size_t kPowerArmorFullPieces = 6;
 
-    // Fire one ray against the cell's physics; true if it hits anything. TESObjectCELL::Pick is the
-    // game's own activation-pick, called by the engine with GAME-WORLD coordinates (it handles the
-    // Havok scaling internally), so we pass raw game coords — NOT pre-scaled — and use the default
-    // collision filter the ctor sets (the same one the game's crosshair pick uses, which hits statics).
+    // Constraint: allowFailedPicks off so the engine's per-frame pick budget cannot drop shelter rays.
     inline bool RayHitsStructure(RE::TESObjectCELL* cell, const RE::NiPoint3& from, const RE::NiPoint3& to)
     {
         if (!cell) return false;
         RE::bhkPickData pick;
         pick.SetStartEnd(from, to);
+        pick.allowFailedPicks = false;
         return cell->Pick(pick) != nullptr || pick.HasHit();
     }
 }

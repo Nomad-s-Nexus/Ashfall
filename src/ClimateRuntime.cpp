@@ -4,7 +4,9 @@
 #include "ClimateStagePolicy.h"
 #include "RadHud.h"
 #include "RadNeedsTuning.h"
+#include "RadNeedsTuningPolicy.h"
 
+#include <Windows.h>
 #include <chrono>
 #include <RE/B/BSSpinLock.h>
 #include <RE/C/Calendar.h>
@@ -72,6 +74,31 @@ namespace
         }
     }
 
+    struct ClimateIni
+    {
+        float enclosedFloorC{ RadClimateEnvironmentPolicy::kEnclosedAmbientFloorC };
+        bool enclosureEnabled{ true };
+    };
+
+    ClimateIni ReadClimateIni() noexcept
+    {
+        constexpr const char* kIni = ".\\Data\\F4SE\\Plugins\\FalloutAnomalyRadiation.ini";
+        constexpr const char* kSection = "Climate";
+        ClimateIni ini{};
+        char buffer[64]{};
+        float parsed = 0.0f;
+
+        ::GetPrivateProfileStringA(kSection, "EnclosedAmbientFloorC", "", buffer, sizeof(buffer), kIni);
+        if (RadNeedsTuningPolicy::ParseValue(buffer, parsed))
+            ini.enclosedFloorC = RadClimateEnvironmentPolicy::SanitizeEnclosedFloorC(parsed);
+
+        buffer[0] = '\0';
+        ::GetPrivateProfileStringA(kSection, "EnclosedShelterEnabled", "", buffer, sizeof(buffer), kIni);
+        if (RadNeedsTuningPolicy::ParseValue(buffer, parsed))
+            ini.enclosureEnabled = parsed >= 0.5f;
+        return ini;
+    }
+
     struct PauseInfo
     {
         bool isPaused{ false };
@@ -119,6 +146,13 @@ void ClimateRuntime::Update()
         _weatherConfig.Load("Data/F4SE/Plugins/FalloutAnomaly/climate_weather.json");
         _weatherConfigLoaded = true;
     }
+    if (!_climateIniLoaded)
+    {
+        const auto ini = ReadClimateIni();
+        _enclosedFloorC = ini.enclosedFloorC;
+        _shelter.SetEnclosureEnabled(ini.enclosureEnabled);
+        _climateIniLoaded = true;
+    }
 
     auto* sky = RE::Sky::GetSingleton();
     auto* weather = sky ? sky->currentWeather : nullptr;
@@ -142,6 +176,7 @@ void ClimateRuntime::Update()
     environment.rooflessInterior = rooflessInterior;
     environment.shelter01 = shelter.thermal01;
     environment.precipitationShelter01 = shelter.precipitation01;
+    environment.windShelter01 = shelter.windShelter01;
     float exteriorPrecipitation01 = RadClimateEnvironmentPolicy::PrecipitationIntensity01(exteriorWeatherClass);
     if (weatherOverride && weatherOverride->precipitation01)
         exteriorPrecipitation01 = *weatherOverride->precipitation01;
@@ -152,6 +187,7 @@ void ClimateRuntime::Update()
     environment.ambientC = RadClimateEnvironmentPolicy::AmbientTemperatureC(indoors, weatherClass, GameDays(), gameMonth);
     if (weatherOverride)
         environment.ambientC += weatherOverride->temperatureOffsetC;
+    environment.ambientC = RadClimateEnvironmentPolicy::ShelteredAmbientC(environment.ambientC, shelter.enclosed01, _enclosedFloorC);
     environment.heat01 = _heat.Sample(player);
     environment.activity01 = player->DoGetSprinting() ? 1.0f : 0.0f;
 
