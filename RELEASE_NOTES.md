@@ -110,10 +110,8 @@ Everything below shipped in v1.2.0 and is still in this archive.
   power-armor helmet hides the visor. An AUTO chip shows whether auto-equip is OFF, ON or HELD
   for combat. Filter life is 20 minutes, **F6** replaces a filter and **F7** repairs a broken
   mask out of the box.
-- **First-person mask view.** The M50 mask interior (`RadMaskView.nif` with `RadMaskM50*`
-  materials and textures, shipped with `RadOverhaul_MaskFX.esp`) is the first-person visor and
-  the flat PNG visor is off. The M50 model and textures are the repository owner's own Blender
-  work.
+- **First-person mask view.** The flat PNG gas-mask visor is the first-person visor. The 3D M50
+  mask interior is not shipped yet; it is kept in `wip/m50-mask/` in the repository.
 - **Phosphor HUD companion mode.** With PhosphorHUD present (`[Hud] Mode=auto`, or force
   `phosphor`) the status HUD drops the duplicate vitals and uses companion default positions.
   Every status widget uses the Phosphor HUD core look; there is no classic look. Status icons are larger and brighter,
@@ -168,8 +166,7 @@ Vortex and enable the included ESPs, or extract it into the Fallout 4 `Data` fol
 archive places `F4SE/`, `Meshes/`, `textures/`, `materials/`, `Sound/`, `Scripts/`,
 `PrismaUI_F4/` and the ESPs at its root.
 
-`RadOverhaul_MaskFX.esp` carries the first-person mask view and `RadOutbreak.esp` is the
-optional outbreak probe. `RadOverhaulSurPatch.esp` is an optional patch for **Survival Mode
+`RadOutbreak.esp` is the optional outbreak probe. `RadOverhaulSurPatch.esp` is an optional patch for **Survival Mode
 Overhaul**: leave it disabled unless that mod is installed and enabled in the same profile.
 
 ## Known limits
@@ -193,8 +190,6 @@ Overhaul**: leave it disabled unless that mod is installed and enabled in the sa
 - The Papyrus bytecode (`.pex`) was compiled with FO4IDE's built-in engine, not the Creation
   Kit compiler.
 - The `RadNatives` static native binding is unverified in game.
-- The M50 mask view (23 shapes, about 279k triangles) is unverified for NIF load, material
-  paths and draw cost.
 - Survival difficulty (`iDifficulty=6`) suspends the Papyrus needs layer, because vanilla
   survival owns the pools there. Use Very Hard or below to play the Rad Overhaul layers.
 - Hypothermia penalties, companion exhaustion and doctor cures are not implemented.

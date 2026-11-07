@@ -1033,7 +1033,7 @@ Tester report: carry weight keeps dropping, now -92, while the radiation stage h
 - It matches the two items `WaterBottleFill.cpp:FillOneBottle` hands out, WaterDirty (0x366BF) and WaterPurified (0x366C0), and gives back one `BottleEmpty01` (0xDF221) per drink. The original bottle type is not recorded on the water item, so the returned bottle is always that one.
 - Any WaterDirty or WaterPurified drunk returns a bottle, including looted, bought or purifier-made water, because the filled item carries no origin tag. Pairing is by form within `PairWindowSeconds`, so a drop and a drink of the same water inside that window can credit one bottle.
 
-### M50 first-person mask view deployed, PNG visor disabled
+### M50 first-person mask view (superseded: shelved in wip/m50-mask, PNG visor back via `radhud.js:setMask`)
 
 - `deploy/Meshes/RadiationOverhaul/Overlay/RadMaskView.nif` is now build g23 of the M50 interior, 23 shapes, 278788 tris. It references five new `RadMaskM50*.bgsm` under `deploy/materials/RadiationOverhaul/Mask` and their `RadMaskM50*` textures; the glass and refraction `.BGEM` files and the vanilla cubemaps are unchanged. The old `RadMask*.bgsm` and `RadMask_*.dds` remain in `deploy/` but the NIF no longer uses them.
 - `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:setMask` is gated by `MASK_PNG_ENABLED = false`, so `gasmask_overlay.png` never shows while the 3D view is the visor. Flip it to true to restore the PNG. `tests/status_hud_tests.js` pins the flag.
