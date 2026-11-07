@@ -195,3 +195,11 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - `.armor-figure` uses `mix-blend-mode: screen`, so its backdrop `.armor-schematic` is solid (`#07130a`, `isolation: isolate`); a one-line Constraint comment sits above `.armor-figure`: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:armor-figure`.
 - `#debugBackdrop` stays translucent by design, and the HUD layout tab has no CSS transparency dependency: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:debugBackdrop`.
 - Not verified in game (no visual check in Ultralight): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:armor-schematic`.
+
+## Debug panel starts closed; JS never self-opens it
+
+- Root cause (in-game symptom: the diagnostics console shows at start, and Esc, CLOSE and Shift+F8 do not close it): the DOMContentLoaded handler in `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:window` ran `SetDebugMenu(1)` whenever `window.radDebug` was undefined. Native registers `radDebug` with `RegisterJSListener` from the DOM-ready callback in `src/RadHud.cpp:RadHud::CreateView`, which runs after the page's DOMContentLoaded, so the guard was always true in game. The panel opened with native `_debugOpen` false and the view unfocused, so Esc and clicks went to the game. The same block also pushed mock vitals, survival, armor and tuning data into the live HUD.
+- Fix: that block now runs only behind an explicit `#preview=1` hash (standalone preview). Every load calls `window.SetDebugMenu(0)` first, so the panel is hidden until native `SetDebugMenu(true)` opens and focuses it.
+- Native side: the DOM-ready callback in `src/RadHud.cpp:RadHud::CreateView` pushes `SetDebugMenu("0")`, and a newly created view resets `_debugOpen` to false, so native and page state agree on every (re)created view.
+- Contract guards: `tests/verify_debug_menu_close.py` (hidden first paint, single `SetDebugMenu(1)` gate, DOM-ready push) and `tests/showcase_tests.js` (DOMContentLoaded leaves the panel closed with no native bridge).
+- Not verified in game: the in-game open, Esc, CLOSE and Shift+F8 sequence after this change.

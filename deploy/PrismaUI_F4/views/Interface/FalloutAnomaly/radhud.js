@@ -844,19 +844,19 @@ try {
 } catch(e) {}
 if (typeof window !== "undefined" && window.addEventListener) {
   window.addEventListener("DOMContentLoaded", function() {
-        if (!window.radDebug) {
-      if (window.location && window.location.hash) {
-        if (window.location.hash.indexOf("skipboot=1") !== -1) {
-          var bootEl = document.getElementById("robcoBootOverlay");
-          if (bootEl) bootEl.classList.add("boot-hidden");
-        }
+    // Constraint: the debug panel never self-opens on load; native SetDebugMenu(true) is the only open path.
+    // Constraint: native registers window.radDebug only after this handler runs, so the standalone preview is gated on an explicit #preview=1 hash.
+    if (window.SetDebugMenu) window.SetDebugMenu(0);
+    var previewHash = (window.location && window.location.hash) || "";
+    if (!window.radDebug && previewHash.indexOf("preview=1") !== -1) {
+      if (previewHash.indexOf("skipboot=1") !== -1) {
+        var bootEl = document.getElementById("robcoBootOverlay");
+        if (bootEl) bootEl.classList.add("boot-hidden");
       }
       if (window.SetDebugMenu) window.SetDebugMenu(1);
       var initialTab = "overview";
-      if (window.location && window.location.hash) {
-        var m = window.location.hash.match(/tab=([a-z0-9_-]+)/i);
-        if (m) initialTab = m[1];
-      }
+      var tabMatch = previewHash.match(/tab=([a-z0-9_-]+)/i);
+      if (tabMatch) initialTab = tabMatch[1];
       if (window.showTab) window.showTab(initialTab);
       function loadMockPreview() {
         if (window.updateClimateInfo) {

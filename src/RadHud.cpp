@@ -265,12 +265,16 @@ void RadHud::CreateView()
     {
         _domReady = false;
         g_domReadyFlag.store(&_domReady, std::memory_order_release);
+        // Constraint: a freshly created view starts with the native debug menu closed, matching its hidden panel.
+        _debugOpen = false;
 
         _view = api->CreateView(kViewPath, [](PrismaView v) {
             auto* a = g_apiForCb.load(std::memory_order_acquire);
             if (!a || !a->IsValid(v)) return;
             a->RegisterJSListener(v, "radDebug", OnRadDebugCommand);
             a->Show(v);
+            // Constraint: DOM-ready pushes the closed state so the page's debug panel matches native _debugOpen (false here).
+            a->InteropCall(v, "SetDebugMenu", "0");
             RadHud::GetSingleton().PushTheme(v);
             // Flag LAST: a Push seeing _domReady=true must find the listener already registered.
             if (auto* flag = g_domReadyFlag.load(std::memory_order_acquire))

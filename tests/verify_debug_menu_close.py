@@ -109,6 +109,34 @@ def main() -> int:
     create_body = hud_cpp.split("void RadHud::CreateView()", 1)[1].split("\nvoid RadHud::", 1)[0]
     require("kPanel" not in create_body, "view creation must not declare kPanel")
 
+    # Constraint: the panel is hidden in the first paint (no 'on' class in markup, display:none in CSS).
+    css = text(VIEW / "radhud.css")
+    require('<div id="debugPanel">' in html, "#debugPanel must start without the 'on' class")
+    require(re.search(r"#debugPanel\s*\{[^}]*display:\s*none;", css, re.S) is not None,
+            "#debugPanel must default to display:none")
+    require(re.search(r"#debugPanel\.on\s*\{\s*display:\s*flex;", css) is not None,
+            "#debugPanel.on must be the only display:flex state")
+
+    # Constraint: JS never self-opens the panel; the only SetDebugMenu(1) call sits behind the #preview=1 gate.
+    require(js.count("SetDebugMenu(1)") == 1, "radhud.js must call SetDebugMenu(1) exactly once (preview gate)")
+    require(js.count('panel.classList.add("on")') == 1, "only SetDebugMenu may add the 'on' class to #debugPanel")
+    dom_idx = js.index('window.addEventListener("DOMContentLoaded", function() {')
+    dom_body = js[dom_idx:js.index("window.showRadDeck", dom_idx)]
+    require("window.SetDebugMenu(0)" in dom_body, "DOMContentLoaded must hide the panel on load")
+    require(dom_body.index('preview=1') < dom_body.index("SetDebugMenu(1)"),
+            "SetDebugMenu(1) on load must sit behind the explicit preview=1 hash gate")
+    require(dom_body.index('preview=1') < dom_body.index("showTab(initialTab)"),
+            "tab selection on load must sit behind the preview=1 hash gate")
+    require(re.search(r"\bstartTour\(\)", js) is not None and js.count("startTour()") == 1,
+            "the showcase tour must start only from its button")
+    require(html.count("RadShowcase.startTour()") == 1, "the showcase tour must start only from its button")
+
+    # Constraint: native pushes the closed state on DOM-ready and a fresh view starts with native open state false.
+    require('a->InteropCall(v, "SetDebugMenu", "0");' in hud_cpp, "DOM-ready must push the closed debug state")
+    require(create_body.count("_debugOpen = false;") >= 1, "CreateView must reset native open state for a new view")
+    require(hud_cpp.index('a->InteropCall(v, "SetDebugMenu", "0");') < hud_cpp.index("flag->store(true"),
+            "DOM-ready closed-state push must happen before the DOM-ready flag is published")
+
     rad_h = text(ROOT / "src" / "RadiationEngine.h")
     mask_cpp = text(ROOT / "src" / "RadEngine_Mask.cpp")
     debug_cpp = text(ROOT / "src" / "RadEngine_Debug.cpp")
