@@ -68,9 +68,6 @@ void RadiationEngine::BeginStorm(int typeIndex)
     const int leadTicks = (debugForced && _forcedLeadTicks >= 0) ? _forcedLeadTicks : _domeLeadTicks;
     _forcedLeadTicks = -1;
     _activeLeadTicks = leadTicks;
-    _stormDomeBeginSec = _playSeconds;
-    _stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(
-        static_cast<double>(_domeLeadTicks) / 4.0, static_cast<double>(leadTicks) / 4.0);
     logger->warn("========== STORM APPROACHING: {} ({}) — silent lead {} s ==========",
         st.name, st.lethal ? "LETHAL" : "ambient", leadTicks / 4);
     _sirenDelayTicks = 0;
@@ -157,6 +154,8 @@ void RadiationEngine::EnterStormPhase(StormPhase phase, int durationTicks)
         _debugSkipToActive = false;
 
     _stormTicksLeft = durationTicks;
+    _stormPhaseStartSec = _playSeconds;
+    _stormPhaseDurSec   = static_cast<double>(durationTicks) / 4.0;
 
     // Leaving Active ends the shake and the firestorm nuke wait. The native shake decays on its own once
     // we stop re-triggering it, so disarming the counters is the whole teardown.

@@ -506,7 +506,6 @@ namespace RadInternal
     // KORs' — the stripped plugin has no placed refs and no script places it, so there was never an
     // original offset to copy.
     constexpr float kStormDomeZOffset     = 0.0f;
-    constexpr double kDomeAnimMaxDeltaSec = 0.25;
     constexpr std::uint16_t kDomeManagerActiveFlag = 0x0008;
     constexpr float kStormDomeFollowEpsilon = 64.0f;
     constexpr double kDomeDriveIntervalSec = 1.0 / 30.0;

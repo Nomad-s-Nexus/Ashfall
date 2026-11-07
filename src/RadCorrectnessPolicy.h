@@ -54,18 +54,45 @@ namespace RadCorrectnessPolicy
         return static_cast<float>(wrapped);
     }
 
-    // Invariant: a shortened debug lead shifts the dome sequence by (natural - actual) seconds.
-    constexpr double DomeLeadShiftSeconds(double naturalLeadSec, double actualLeadSec)
+    enum class DomePhaseSlot { kApproach, kWarning, kActive, kAftermath };
+
+    constexpr double kDomeSeqApproachEnd = 180.0;
+    constexpr double kDomeSeqWarningEnd = 200.0;
+    constexpr double kDomeSeqActiveEnd = 320.0;
+    constexpr double kDomeSeqAftermathEnd = 360.0;
+
+    // Constraint: a phase fraction that is NaN or outside [0,1] clamps to the phase edge, so no sequence time ever wraps.
+    constexpr double DomeSequenceForPhase(DomePhaseSlot a_slot, double a_fraction)
     {
-        if (!(naturalLeadSec > 0.0) || !(actualLeadSec >= 0.0)) return 0.0;
-        return naturalLeadSec > actualLeadSec ? naturalLeadSec - actualLeadSec : 0.0;
+        double lo = 0.0;
+        double hi = 0.0;
+        switch (a_slot)
+        {
+        case DomePhaseSlot::kApproach: lo = 0.0; hi = kDomeSeqApproachEnd; break;
+        case DomePhaseSlot::kWarning: lo = kDomeSeqApproachEnd; hi = kDomeSeqWarningEnd; break;
+        case DomePhaseSlot::kActive: lo = kDomeSeqWarningEnd; hi = kDomeSeqActiveEnd; break;
+        case DomePhaseSlot::kAftermath: lo = kDomeSeqActiveEnd; hi = kDomeSeqAftermathEnd; break;
+        }
+        const double f = !(a_fraction > 0.0) ? 0.0 : (a_fraction > 1.0 ? 1.0 : a_fraction);
+        return lo + (hi - lo) * f;
     }
 
-    constexpr float DomeSeekSecondsForStorm(double elapsedSec, float timelineSec, double leadShiftSec)
+    constexpr float kDomeVortexDistance = 2600.0f;
+    constexpr float kDomeVortexHeight = 1200.0f;
+    constexpr float kDomeVortexScale = 1.5f;
+    constexpr float kDomeRootScale = 0.1f;
+    constexpr Position kDomeEyeAuthoredWorld = { 1575.0f, 1725.0f, 3281.25f };
+
+    // Constraint: the vortex is moved by translating its nodes in the NIF's own space, so the shell meshes stay centred on the player.
+    inline Position VortexLocalDelta(float a_yawRad, float a_distance, float a_height)
     {
-        if (!(elapsedSec > 0.0)) elapsedSec = 0.0;
-        if (!(leadShiftSec > 0.0)) leadShiftSec = 0.0;
-        return DomeSeekSeconds(elapsedSec + leadShiftSec, timelineSec);
+        const float wantX = a_distance * std::sin(a_yawRad);
+        const float wantY = a_distance * std::cos(a_yawRad);
+        return {
+            (wantX - kDomeEyeAuthoredWorld.x) / kDomeRootScale,
+            (wantY - kDomeEyeAuthoredWorld.y) / kDomeRootScale,
+            (a_height - kDomeEyeAuthoredWorld.z) / kDomeRootScale
+        };
     }
 
     constexpr float SmoothStep01(float edge0, float edge1, float x)
@@ -156,11 +183,6 @@ namespace RadCorrectnessPolicy
     {
         constexpr double kPi = 3.141592653589793;
         return WrapAngleRad(degPerSec * seconds * kPi / 180.0);
-    }
-
-    constexpr double ClampDomeAnimDelta(double dt, double maxDt)
-    {
-        return !(dt > 0.0) ? 0.0 : (dt > maxDt ? maxDt : dt);
     }
 
     constexpr bool ShouldMoveDomeLayer(float distSq, float epsSq)

@@ -85,7 +85,8 @@ void RadiationEngine::SpawnStormDome()
     }
     _stormDomeAnimStarted = false;
     _domeAnimTime = 0.0;
-    _domeAnimLastRealS = -1.0;
+    _domeSeqNowSec = 0.0;
+    _domeLoggedSlot = -1;
     _domeAnimLogIndex = 0;
     _domeAnimDriverLogged = false;
     _domeSpinLogged = false;
@@ -93,6 +94,14 @@ void RadiationEngine::SpawnStormDome()
     _domeDriveLastSec = -1.0e9;
     _stormDomeStatsLogged = false;
     ResetDomeShapeMask();
+    _domeVortexYaw = player->data.angle.z;
+    _domeVortexDelta = RadCorrectnessPolicy::VortexLocalDelta(
+        _domeVortexYaw, RadCorrectnessPolicy::kDomeVortexDistance, RadCorrectnessPolicy::kDomeVortexHeight);
+    Log()->info("[StormFX] dome vortex placed: yaw {:.1f} deg, eye {:.0f} units ahead and {:.0f} up, scale x{:.2f}, "
+                "node shift ({:.0f},{:.0f},{:.0f}) NIF units.",
+        _domeVortexYaw * 180.0f / 3.14159265f, RadCorrectnessPolicy::kDomeVortexDistance,
+        RadCorrectnessPolicy::kDomeVortexHeight, RadCorrectnessPolicy::kDomeVortexScale,
+        _domeVortexDelta.x, _domeVortexDelta.y, _domeVortexDelta.z);
 
     bool lit = false, flare = false;
     if (placed > 0 && !interiorCell)
@@ -207,11 +216,9 @@ void RadiationEngine::UpdateDomeAnimation()
     if (pending == 0)
     {
         _stormDomeAnimStarted = true;
-        _domeSeekSec = RadCorrectnessPolicy::DomeSeekSecondsForStorm(
-            _playSeconds - _stormDomeBeginSec, kStormDomeTimelineSec, _stormDomeLeadShiftSec);
+        _domeSeekSec = CurrentDomeSequenceSec();
         _domeAnimTime = 0.0;
         _domeDriveLastSec = -1.0e9;
-        _domeAnimLastRealS = -1.0;
         _domeAnimLogIndex = 0;
         _domeAnimDriverLogged = false;
         _domeSpinLogged = false;
@@ -324,12 +331,33 @@ void RadiationEngine::UpdateStormDomeLifecycle()
 
 }
 
+double RadiationEngine::CurrentDomeSequenceSec()
+{
+    using Slot = RadCorrectnessPolicy::DomePhaseSlot;
+    Slot slot = Slot::kApproach;
+    switch (_stormPhase)
+    {
+    case StormPhase::Approach: slot = Slot::kApproach; break;
+    case StormPhase::Warning:  slot = Slot::kWarning;  break;
+    case StormPhase::Active:   slot = Slot::kActive;   break;
+    case StormPhase::Aftermath: slot = Slot::kAftermath; break;
+    default: return _domeSeqNowSec;
+    }
+    const double frac = _stormPhaseDurSec > 0.0 ? (_playSeconds - _stormPhaseStartSec) / _stormPhaseDurSec : 1.0;
+    _domeSeqNowSec = RadCorrectnessPolicy::DomeSequenceForPhase(slot, frac);
+    if (static_cast<int>(slot) != _domeLoggedSlot)
+    {
+        _domeLoggedSlot = static_cast<int>(slot);
+        static constexpr const char* kSlotNames[] = { "approach", "warning", "active", "aftermath" };
+        Log()->info("[StormFX] dome sequence milestone: {} begins at seq {:.0f} s (spawn+{:.0f} s).",
+            kSlotNames[_domeLoggedSlot], _domeSeqNowSec, _playSeconds - _stormDomeSpawnSec);
+    }
+    return _domeSeqNowSec;
+}
+
 void RadiationEngine::AdvanceDomeClock()
 {
-    const double nowS = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    const bool first = _domeAnimLastRealS < 0.0;
-    _domeAnimTime += RadCorrectnessPolicy::ClampDomeAnimDelta(first ? 0.0 : nowS - _domeAnimLastRealS, kDomeAnimMaxDeltaSec);
-    _domeAnimLastRealS = nowS;
+    _domeAnimTime = std::max(0.0, CurrentDomeSequenceSec() - _domeSeekSec);
 }
 
 static void SpinDomeNode(RE::NiAVObject* a_node, double a_degPerSec, double a_seconds)
@@ -353,6 +381,34 @@ void RadiationEngine::ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObj
     a_layer.hole4 = a_root->GetObjectByName(RE::BSFixedString("Hole4"));
     a_layer.vortex2 = a_root->GetObjectByName(RE::BSFixedString("Vortex2"));
     a_layer.vortex3 = a_root->GetObjectByName(RE::BSFixedString("Vortex3"));
+    // Constraint: the authored translation is captured only when a node pointer first appears, so a re-resolve never compounds the shift.
+    static constexpr const char* kVortexNodeNames[] = { "Vortex0", "Vortex1", "Vortex2", "Vortex3", "Hole4" };
+    for (int i = 0; i < 5; ++i)
+    {
+        auto* node = a_root->GetObjectByName(RE::BSFixedString(kVortexNodeNames[i]));
+        auto& state = a_layer.vortex[i];
+        if (node != state.node)
+        {
+            state.node = node;
+            state.writtenScale = -1.0f;
+            state.baseTranslate = node ? node->local.translate : RE::NiPoint3{};
+        }
+    }
+}
+
+void RadiationEngine::ApplyDomeVortexLayout(StormDomeLayer& a_layer)
+{
+    for (auto& state : a_layer.vortex)
+    {
+        if (!state.node) continue;
+        const auto& t = state.baseTranslate;
+        state.node->SetLocalTranslate({ t.x + _domeVortexDelta.x, t.y + _domeVortexDelta.y, t.z + _domeVortexDelta.z });
+        const float keyed = state.node->local.scale;
+        if (keyed != state.writtenScale)
+            state.baseScale = keyed;
+        state.writtenScale = state.baseScale * RadCorrectnessPolicy::kDomeVortexScale;
+        state.node->SetLocalScale(state.writtenScale);
+    }
 }
 
 void RadiationEngine::ResetDomeShapeMask()
@@ -475,6 +531,8 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
     SpinDomeNode(hole4, kPortalSpinDegPerSec, _domeAnimTime);
     SpinDomeNode(vortex2, -kCoreSpinDegPerSec, _domeAnimTime);
     SpinDomeNode(vortex3, kCoreSpinDegPerSec * kVortex3SpinScale, _domeAnimTime);
+    for (auto& layer : _stormDomeRefs)
+        if (layer.hasManager && layer.root) ApplyDomeVortexLayout(layer);
     ApplyDomeShapeMask(_domeSeekSec + _domeAnimTime);
 
     for (auto& layer : _stormDomeRefs)
@@ -493,6 +551,7 @@ void RadiationEngine::DriveDomeAnimation(bool moved)
         const bool wasActive = mgr && (mgr->flags.flags & kDomeManagerActiveFlag) != 0;
         if (mgr) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags & ~kDomeManagerActiveFlag);
         ref->Update3DPosition(true);
+        if (layer.hasManager && layer.root == obj3d) ApplyDomeVortexLayout(layer);
         if (mgr && wasActive) mgr->flags.flags = static_cast<std::uint16_t>(mgr->flags.flags | kDomeManagerActiveFlag);
     }
 }

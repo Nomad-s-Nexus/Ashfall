@@ -255,8 +255,8 @@ private:
     // immune to the GameDaysPassed quirks (prewar carryover, the 2077->2287 jump not advancing it).
     double          _playSeconds      = 0.0;        // accumulated real seconds of active play
     double          _nextStormPlaySec = 0.0;        // _playSeconds value at which the next storm fires
-    double          _stormDomeBeginSec = 0.0;
-    double          _stormDomeLeadShiftSec = 0.0;
+    double          _stormPhaseStartSec = 0.0;
+    double          _stormPhaseDurSec = 0.0;
     int             _stormTicksLeft = 0;            // ticks remaining in the current phase
     int             _stormExposedTicks = 0;         // consecutive ticks the player has been exposed
     bool            _weatherForced = false;         // we currently hold a weather override
@@ -489,6 +489,14 @@ private:
         RE::NiAVObject* hole4 = nullptr;
         RE::NiAVObject* vortex2 = nullptr;
         RE::NiAVObject* vortex3 = nullptr;
+        struct VortexNode
+        {
+            RE::NiAVObject* node = nullptr;
+            RE::NiPoint3 baseTranslate{};
+            float baseScale = 1.0f;
+            float writtenScale = -1.0f;
+        };
+        VortexNode vortex[5];
     };
     std::vector<StormDomeLayer> _stormDomeRefs;
     RE::TESObjectCELL* _stormDomeCell = nullptr;
@@ -496,12 +504,17 @@ private:
     int _stormDomeRespawnRetryTicks = 0;
     bool _stormDomeUp = false;
     double _domeAnimTime = 0.0;
-    double _domeAnimLastRealS = -1.0;
+    double _domeSeqNowSec = 0.0;
+    int _domeLoggedSlot = -1;
+    RadCorrectnessPolicy::Position _domeVortexDelta{ 0.0f, 0.0f, 0.0f };
+    float _domeVortexYaw = 0.0f;
     int _domeAnimLogIndex = 0;
     bool _domeAnimDriverLogged = false;
     bool _domeSpinLogged = false;
     double _domeSeekSec = 0.0;
     void AdvanceDomeClock();
+    double CurrentDomeSequenceSec();
+    void ApplyDomeVortexLayout(StormDomeLayer& a_layer);
     void DriveDomeAnimation(bool moved);
     void ResolveDomeLayerNodes(StormDomeLayer& a_layer, RE::NiAVObject* a_root);
     void ApplyDomeShapeMask(double a_seqTimeSec);

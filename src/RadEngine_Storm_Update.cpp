@@ -309,7 +309,6 @@ void RadiationEngine::UpdateStorm()
             ClearFireRefs();        // remove any spawned fire hazards
             FadeOutStormIMAD(3.0f);
             TriggerStormFX(false);  // stop shake (Papyrus, if it ever works)
-            ClearStormDome();       // despawn the native cloud dome
             _stormFXVisible = false;
             EnterStormPhase(StormPhase::Aftermath, st.aftermathTicks);
             ReleaseStormWeather();  // hand the sky back to the vanilla system
@@ -322,6 +321,7 @@ void RadiationEngine::UpdateStorm()
         if (--_stormTicksLeft <= 0)
         {
             logger->info("[Storm] Storm over. Rescheduling.");
+            ClearStormDome();
             Notify("The radiation storm has cleared.", false);
             _activeStormType = -1;
             EnterStormPhase(StormPhase::Idle, 0);

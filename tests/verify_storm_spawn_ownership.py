@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -272,8 +273,11 @@ assert "BlendForSequence(_domeSeekSec + _domeAnimTime" in dome
 assert "Hooks::GetSkyCloudStats(passes, scaled);" in dome
 assert "sky cloud hook stats at spawn+" in dome
 assert "(debugForced && _forcedLeadTicks >= 0)" in begin_storm
-assert "_stormDomeLeadShiftSec = RadCorrectnessPolicy::DomeLeadShiftSeconds(" in begin_storm
-assert "DomeSeekSecondsForStorm(" in dome and "_stormDomeLeadShiftSec" in dome
+assert "DomeLeadShiftSeconds" not in begin_storm and "_stormDomeLeadShiftSec" not in begin_storm
+assert re.search(r"_stormPhaseDurSec\s*=\s*static_cast<double>\(durationTicks\)\s*/\s*4\.0;", (SRC / "RadEngine_Storm.cpp").read_text(encoding="utf-8"))
+assert "_domeSeekSec = CurrentDomeSequenceSec();" in dome and "DomeSeekSecondsForStorm" not in dome
+assert "_stormDomeBeginSec" not in dome and "_domeAnimLastRealS" not in dome
+assert "ApplyDomeVortexLayout(layer);" in dome.split("void RadiationEngine::DriveDomeAnimation(bool moved)", 1)[1]
 
 new_game_clear = storm_update.split("if (_forceClearOnEntry)", 1)[1].split(
     "if (!_nextEmissionGlobal) return;", 1
@@ -316,7 +320,7 @@ assert "seq->offset = RadCorrectnessPolicy::DomeSequenceOffset(static_cast<float
 assert "_domeSeekSec - _domeAnimTime" not in dome
 assert dome_drive.count("GetObjectByName") == 0, "node lookups must be cached per layer"
 resolve_body = dome.split("void RadiationEngine::ResolveDomeLayerNodes", 1)[1].split("void RadiationEngine::ResetDomeShapeMask", 1)[0]
-assert resolve_body.count("GetObjectByName") == 3
+assert resolve_body.count("GetObjectByName") == 3 + 1, "3 named pointers plus one lookup in the vortex-node loop"
 internal_src = (SRC / "RadEngine_Internal.h").read_text(encoding="utf-8")
 assert "kStormDomeFollowEpsilon = 64.0f;" in internal_src
 assert "kDomeDriveIntervalSec = 1.0 / 30.0;" in internal_src

@@ -56,9 +56,9 @@ The vanilla cloud blend target is `BlendForSequence(_domeSeekSec + _domeAnimTime
 
 ### Debug storm dome phase
 
-Reference: `src/RadCorrectnessPolicy.h:DomeLeadShiftSeconds`, `src/RadCorrectnessPolicy.h:DomeSeekSecondsForStorm`, `src/RadEngine_Storm.cpp:RadiationEngine::BeginStorm`, and `src/RadEngine_Storm_Dome.cpp:RadiationEngine::UpdateDomeAnimation`.
+Reference: `src/RadCorrectnessPolicy.h:DomeSequenceForPhase`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::CurrentDomeSequenceSec` (superseded: the lead-shift seek was replaced by the phase mapping in Ashfall.md, storm dome section).
 
-The baked `Storm` sequence is nearly invisible for its first 40 s (every shape alpha is 0 at the start and the vortex shapes first exceed 0.05 at 132 to 151 s). A natural storm hides this because the 180 s dome lead plus the 20 s warning brings the warning to about sequence second 200. A debug forced storm uses a 10 s lead, so the dome used to start at sequence 0. `BeginStorm` now stores `_stormDomeLeadShiftSec = naturalLead - actualLead` (0 for natural storms) and the dome seek is `DomeSeekSecondsForStorm(elapsed, 360, shift)`, so a 10 s debug lead starts the dome near sequence 170 s. Natural storms use a zero shift and are unchanged.
+The baked `Storm` sequence is nearly invisible for its first 40 s (every shape alpha is 0 at the start and the vortex shapes first exceed 0.05 at 132 to 151 s). A natural storm hides this because the 180 s dome lead plus the 20 s warning brings the warning to about sequence second 200. A debug forced storm uses a 10 s lead, so the dome used to start at sequence 0. `BeginStorm` used to store `_stormDomeLeadShiftSec = naturalLead - actualLead` (0 for natural storms) and the seek used `DomeSeekSecondsForStorm`. Superseded: the sequence now follows the storm phases (see docs/code-notes/Ashfall.md, storm dome section), so a forced storm plays the whole chain.
 
 ### Dome animation clock, mesh and follow
 

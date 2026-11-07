@@ -23,6 +23,35 @@ Not verified in game. Whether the portal and the remaining cloud layers read cor
 
 Related: PR #49 (`feat/rad-storm-rad-weather-no-dome`) removes the dome entirely. It is 85 commits behind `main` and conflicts in 14 files, so this change is separate and smaller; if #49 is rebased and merged later, this change is moot.
 
+## Storm dome: the vortex is placed ahead of the player and the sequence runs the whole storm
+
+Reference: `src/RadCorrectnessPolicy.h:DomeSequenceForPhase`, `src/RadCorrectnessPolicy.h:VortexLocalDelta`, `src/RadCorrectnessPolicy.h:kDomeVortexDistance`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::CurrentDomeSequenceSec`, `src/RadEngine_Storm_Dome.cpp:RadiationEngine::ApplyDomeVortexLayout`, and `src/RadEngine_Storm_Update.cpp:RadiationEngine::UpdateStorm`.
+
+Causes, from v1.2.3:
+
+- Placement: the dome root spawns at the player with no yaw. The eye (`Hole4`, about 4028 units away at a fixed NIF bearing and 54 degrees elevation) therefore stays on one compass bearing, so it swings across the view as the player turns, and it reads as small.
+- Chain: a forced storm shifted the sequence by (natural lead minus actual lead), so a 10 s debug lead began at sequence 170 s and skipped the build-up. `ClearStormDome` ran at the end of Active (sequence 320 s), so the aftermath fade (320-360 s) never played.
+- The NIF keys node scales: `Vortex0` to `Vortex3` go from 0.72 to 1.0 around 135-180 s, and `Hole4` goes from 0.002 to 1.0 by about 170 s, then 0.47 at 300 s and 0.002 at 360 s. The portal therefore grows through the approach and closes in the aftermath.
+
+Design:
+
+- Chain: each storm phase owns its authored window of the 360 s sequence: Approach 0-180 s, Warning 180-200 s, Active 200-320 s, Aftermath 320-360 s. Each window is mapped linearly over that phase's real duration (`_stormPhaseStartSec` and `_stormPhaseDurSec`, recorded in `EnterStormPhase`). A natural storm is close to 1:1. A forced storm is compressed into its shorter phases, so every window plays in order. The dome is cleared when aftermath ends.
+- Placement: the vortex group (`Vortex0` to `Vortex3` and `Hole4`) is shifted in the NIF's own space, so the eye lands `kDomeVortexDistance` = 2600 units ahead along the spawn yaw and `kDomeVortexHeight` = 1200 units above the feet. The root and the shell meshes stay centred on the player. The bearing is fixed at spawn: the dome follows the player's position only, not the camera yaw.
+- Size: `kDomeVortexScale` = 1.5 multiplies the keyed node scale on every update. The base is re-read from the keyed value only when the controller has written a fresh one, so the multiplier cannot compound.
+- Fog: the closer eye sits in less of the storm fog.
+
+Not changed, and why:
+
+- Depth and draw order against the vanilla clouds were not changed. The depth flags cannot be verified without the game. The existing vanilla cloud fade in `src/Hooks_SkyClouds.cpp` is still the mechanism for that.
+- The `Plain*` and `Outer*` decks: per the baked alpha keys (read from the NIF, not re-measured here), `Plain*` is near zero in the portal window. Culling them differently would not make them visible. That needs alpha authoring, not visibility.
+
+In-game checks, by log line and by eye:
+
+- At spawn: `[StormFX] dome vortex placed: yaw ... eye ... units ahead and ... up, scale x1.50`. The vortex should be large and ahead of the player, and keep that bearing when the player turns.
+- Through the storm: `[StormFX] dome sequence milestone: approach|warning|active|aftermath begins at seq ...`, then `[StormFX] dome anim t=...`. The portal should grow during the approach.
+- At the end: `[StormFX] Storm dome cleared` appears after the aftermath, not at the end of Active. The fade-out should be visible in the aftermath.
+
+Not verified in game. Nothing in this section has been run in the game.
 ## Phosphor HUD core rings
 
 - **Why arc paths.** Ultralight (PrismaUI) has no SVG masks and no `pathLength`, so a ring cannot be a dash-array circle. Each ring layer is a set of arc `<path>`s over a 64-unit viewBox (ring r=28, disc r=24.5). `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/hud_core.js:build` writes n empty `<path d="">` elements per layer (trk, ghost, val) into the core markup, as the Phosphor reference does. `hud_core.js:ring` then sets each path's `d` for the range lo..hi (clockwise from the top) and leaves it empty when the segment is outside the range. Every core has 20 segments with a 3.2 gap; there is no small variant (the old 10-segment `sm` core was removed 2026-11-06). Setting `d` on existing elements avoids writing SVG markup at runtime, which Ultralight has not been verified to parse.
