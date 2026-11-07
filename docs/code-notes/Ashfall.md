@@ -51,7 +51,7 @@ VortexHeight=900
 VortexScale=3.0
 ```
 
-- The depth flags (`ZBufferTest`, `ZBufferWrite`) are still logged, not changed.
+- The depth flags (`ZBufferTest`, `ZBufferWrite`) are not changed. Their diagnostic logs were removed.
 
 Debug menu (Shift+F8) evidence from the same session:
 
@@ -61,15 +61,19 @@ Debug menu (Shift+F8) evidence from the same session:
 - The PrismaUI compositor reuse (`present-lease-unavailable`) starts at 22:57:07.554, at view creation, about 40 seconds before the dome spawned. The dome did not cause it.
 - The session ends at 22:58:35 with the player at 705 rad, and no crash log was written.
 
-Conclusion: the debug-menu problem is not caused by the dome change. It is not reproduced from the log. `PollInput` now logs `[Input] Shift+F8 ignored: game window is not the foreground window.` (rate-limited to once per 5 s), so the next test shows whether the presses reach the game.
+Conclusion: the debug-menu problem is not caused by the dome change. The 22:57:52.248 close matches PrismaUI `FocusMenu::Close`/`Unfocus` to the millisecond, so it was our own `SetDebugMenu(false)`. No `close` command reached `HandleDebugCommand`, and no Shift+F8 after 52.248 reached `ToggleDebugMenu`. Most likely cause: the `GameWindowForeground()` gate in `RadiationEngine::PollInput`, which the focused PrismaUI view can make false. Not proven from the log.
+
+Fix (no logging added):
+
+- `src/RadiationEngine.cpp:RadiationEngine::PollInput`: Shift+F8 is accepted while the menu is open (`GameWindowForeground() || RadHud::DebugMenuOpen()`), so an open menu always closes.
+- `src/RadHud.cpp:OnRadDebugCommand`: `close` bypasses the engine queue (which drains only inside `Update()`), calls `RadHud::RequestDebugClose`, and `RadHud::PumpDeferredDebug` applies it every frame from `PollInput`.
+- `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.js:closeDebugMenu`: the CLOSE button hides the panel locally, then sends `close`. Escape closes the panel when it is open.
+- Contract: `tests/verify_debug_menu_close.py`.
 
 Log lines to look for:
 
 - `[StormFX] dome portal placed: yaw ..., eye 1800 units ahead and 900 up, scale x3.00, node shift (...) NIF units, deck floor off.`
-- `[StormFX] dome deck floor: 3 of 3 deck shapes shaded; weight ... at seq ...` (first drive). With the floor off, the sample line shows alpha unchanged.
-- `[StormFX] dome depth flags PortalA (before, unchanged): ...`
 - `[StormFX] dome sequence milestone: approach|warning|active|aftermath begins at seq ...`
-- `[Input] Shift+F8 ignored: game window is not the foreground window.`
 
 Not verified in game.
 ## Phosphor HUD core rings

@@ -630,7 +630,9 @@ void RadiationEngine::PollInput()
     // DEBUG menu: Left Shift + F8, edge-detected from the reliable key-DOWN bit (0x8000).
     const bool dbgKeyDown = (GetAsyncKeyState(kDebugMenuKey) & 0x8000) != 0;
     const bool lshift     = (GetAsyncKeyState(VK_LSHIFT)     & 0x8000) != 0;
-    if (dbgKeyDown && !_f8WasDown && lshift && GameWindowForeground())
+    // Constraint: an open menu always accepts Shift+F8 as close.
+    const bool debugToggleAllowed = GameWindowForeground() || RadHud::GetSingleton().DebugMenuOpen();
+    if (dbgKeyDown && !_f8WasDown && lshift && debugToggleAllowed)
     {
         // Constraint: the debug menu is the reload point for the two mask keybinds, so an INI edit needs no restart.
         ReloadHotkeysFromIni();

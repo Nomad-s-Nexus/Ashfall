@@ -125,6 +125,12 @@ namespace
     // JS -> C++ bridge for the debug menu buttons. window.radDebug("storm:0") etc.
     void OnRadDebugCommand(const char* arg)
     {
+        // Constraint: close bypasses the engine command queue, which only drains inside Update(); the menu must close even when Update() is idle.
+        if (arg && std::string_view(arg) == "close")
+        {
+            RadHud::GetSingleton().RequestDebugClose();
+            return;
+        }
         RadiationEngine::GetSingleton().HandleDebugCommand(arg ? arg : "");
     }
 
@@ -609,11 +615,24 @@ void RadHud::ToggleDebugMenu()
             _view, _domReady.load(), _debugDesiredOpen ? "open" : "closed");
 }
 
+void RadHud::RequestDebugClose() noexcept
+{
+    _debugCloseRequested.store(true);
+}
+
 void RadHud::PumpDeferredDebug()
 {
     // Called every frame from PollInput on the verified game-main thread. Applies a toggle that arrived
     // before the view finished loading. All state here is main-thread-only; the cross-thread readiness
     // signal (_domReady) is atomic, so there is no race with the DOM-ready callback.
+    if (_debugCloseRequested.exchange(false))
+    {
+        _debugTogglePending = false;
+        _debugDesiredOpen = false;
+        _debugNextFocusRetryMs = 0;
+        SetDebugMenu(false);
+        return;
+    }
     if (!_debugTogglePending) return;
     if (!_api) { _debugTogglePending = false; return; }   // framework went away — drop the request
 
@@ -642,6 +661,16 @@ void RadHud::OnBlockingMenuOpened()
     _debugNextFocusRetryMs = 0;
     if (_debugOpen)
         SetDebugMenu(false);
+}
+
+namespace
+{
+    // Constraint: Escape reaches the view's JS only while the view owns it (PrismaUI V9); without V9 Escape stays with the game.
+    void SetDebugViewOwnsEscape(uint64_t view, bool owns)
+    {
+        if (auto* escape = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI9>())
+            escape->SetViewOwnsEscape(view, owns);
+    }
 }
 
 void RadHud::SetDebugMenu(bool open)
