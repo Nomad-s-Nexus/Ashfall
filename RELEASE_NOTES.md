@@ -1,31 +1,47 @@
-# Rad Overhaul v1.2.2
+# Rad Overhaul v1.2.3
 
-Release of Rad Overhaul (Fallout Anomaly Radiation) for Fallout 4, on top of v1.2.1. The
+Release of Rad Overhaul (Fallout Anomaly Radiation) for Fallout 4, on top of v1.2.2. The
 attached archive is a ready-to-install mod: the complete `deploy/` tree plus a freshly built
 `FalloutAnomalyRadiation.dll`.
 
 **Nothing in this release was tested in game by the owner before publishing, and the frame rate
 was not measured.** It is validated by contract tests and a green build only. See Known limits.
 
-## What is new in v1.2.2
+## What is new in v1.2.3
 
-1. **The floating glass tube is gone from storms.** During Ash Fallout and other storms the
-   baked dome drew a glassy tube with a glowing ring hanging about 4000 units away in the sky.
-   The plugin now never draws the two vortex-core shapes (the tube); the portal shapes show again. The
-   cloud decks, lightning and the sky fade are unchanged. Whether the remaining cloud layers
-   read as ash was not checked in game.
-2. **Every status icon is a Phosphor HUD style core.** Hunger, thirst, fatigue, warmth,
-   wetness, temperature, wind, breath, filter, mask, auto mask and tissue now draw as a dark
-   disc with a segmented ring and the icon inside, matching the Phosphor HUD design. When
-   PhosphorHUD is not installed the mod draws its own health, AP and rads in the same style.
-   The core drawing code and styling follow Phosphor HUD (MIT licence, credited in
-   `THIRD_PARTY_NOTICES.md`).
-3. **There is no classic HUD look any more.** `[Hud] Mode` accepts only `auto` or `phosphor` and
-   only decides whether the mod drops its own vitals when PhosphorHUD is installed. An old
-   `Mode=classic` line logs a warning and is treated as `auto`.
-4. **Visible HUD changes.** The needs cores show a word (SATED, THIRSTY, EXHAUSTED) with the
-   percentage in the tooltip, and the permanent-scar arc around the tissue core is gone (the
-   scar number is in its tooltip).
+1. **Every status core is one size larger, and the HUD rows line up.** Each status core is now
+   64 px in the same 84 x 98 cell, with 8 px gaps, so the rings, icons and the bigger label
+   (11 px) and value (12 px) text fit without crowding. The four HUD rows (toxic, needs, climate
+   and filter) share one left edge and an even 108 px pitch. The defaults for those four rows
+   moved together in each widget, the layout editor, `RadHudLayout.cpp` and the companion table.
+   A saved `hud_layout.json` still wins, so an old saved layout keeps its old positions. With
+   PhosphorHUD companion mode the rows moved up and right to x=396, y=538-960, because the old
+   bottom band could not hold four rows without overlap. Not verified in game.
+2. **The storm portal shows again.** v1.2.2 hid all eight vortex and portal shapes. Now only the
+   two tube shapes, `CoreBack` and `CoreFront`, stay hidden. The six portal shapes (`PortalA`,
+   `PortalB`, `DiskOuter`, `DiskInner`, `DiskHalo`, `PhotonRing`) follow their baked windows,
+   about 128 to 320 s into the storm. The cloud decks, lightning and the sky fade are unchanged.
+   Not verified in game.
+
+## Included from v1.2.2
+
+Everything below shipped in v1.2.2 and is still in this archive, except the storm portal, which
+v1.2.3 restores (see above).
+
+- **The floating glass tube is gone from storms.** The baked dome drew a glassy tube with a
+  glowing ring about 4000 units away in the sky. v1.2.2 stopped drawing the tube and, as a side
+  effect, the portal too. The tube (`CoreBack`, `CoreFront`) stays hidden.
+- **Every status icon is a Phosphor HUD style core.** Hunger, thirst, fatigue, warmth, wetness,
+  temperature, wind, breath, filter, mask, auto mask and tissue draw as a dark disc with a
+  segmented ring and the icon inside. When PhosphorHUD is not installed the mod draws its own
+  health, AP and rads in the same style. The styling follows Phosphor HUD (MIT licence, credited
+  in `THIRD_PARTY_NOTICES.md`).
+- **There is no classic HUD look.** `[Hud] Mode` accepts only `auto` or `phosphor` and only
+  decides whether the mod drops its own vitals when PhosphorHUD is installed. An old
+  `Mode=classic` line logs a warning and is treated as `auto`.
+- **Visible HUD changes.** The needs cores show a word (SATED, THIRSTY, EXHAUSTED) with the
+  percentage in the tooltip. The permanent-scar arc around the tissue core is gone; the scar
+  number is in its tooltip.
 
 ## Included from v1.2.1
 
@@ -35,8 +51,8 @@ All six changes concern the baked storm dome (`CloudArena01_4.nif`) added in v1.
    empty for its first 40 s, and a debug forced storm (Shift+F8, SHOWCASE, a storm button) only
    has a 10 s silent lead, so the dome used to start at sequence second 0 and show almost
    nothing. A forced storm now starts the dome at the phase a natural storm would have reached:
-   about 170 s for a 10 s lead. Natural storms are unchanged. (v1.2.2 stops drawing the vortex
-   core and portal group; see above.)
+   about 170 s for a 10 s lead. Natural storms are unchanged. (The vortex tube is never drawn;
+   the portal follows its baked window, see v1.2.3 above.)
 2. **The vanilla cloud fade follows the dome.** The vanilla cloud layers used to fade on a 20 s
    wall-clock ramp. They now follow the dome's own sequence clock: zero until the animation
    runs, a smoothstep up over sequence 20 to 70 s, full through the middle, and down over the
@@ -59,8 +75,8 @@ All six changes concern the baked storm dome (`CloudArena01_4.nif`) added in v1.
    `[StormFX] dome layer 3D recreated; sequences reactivated and reseeded.`
 
 Baked timing of the vortex layers: they would appear from about storm timeline 132 s to 314 s
-of the 360 s sequence. v1.2.2 never draws them; the timing is kept here only as a record of the
-baked mesh.
+of the 360 s sequence. The tube (`CoreBack`, `CoreFront`) is never drawn; the portal shapes are
+drawn only inside their baked window, about 128 to 320 s, as described in v1.2.3.
 
 ## Included from v1.2.0
 
@@ -147,7 +163,7 @@ Everything below shipped in v1.2.0 and is still in this archive.
 
 ## Install
 
-Install the attached `RadiationOverhaul-rad-overhaul-v1.2.2.zip` with Mod Organizer 2 or
+Install the attached `RadiationOverhaul-rad-overhaul-v1.2.3.zip` with Mod Organizer 2 or
 Vortex and enable the included ESPs, or extract it into the Fallout 4 `Data` folder. The
 archive places `F4SE/`, `Meshes/`, `textures/`, `materials/`, `Sound/`, `Scripts/`,
 `PrismaUI_F4/` and the ESPs at its root.
