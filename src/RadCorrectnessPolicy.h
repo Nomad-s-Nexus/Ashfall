@@ -525,4 +525,50 @@ namespace RadCorrectnessPolicy
         }
         return out;
     }
+
+    // Constraint: the debug-menu close refresh destroys and re-creates the overlay view 100 ms after close, pumped by the 4 Hz tick.
+    constexpr std::uint64_t kDebugViewRefreshDelayMs = 100;
+
+    struct DebugViewRefreshState
+    {
+        enum class Phase : std::uint8_t { kIdle, kArmed, kDestroyed };
+        Phase phase = Phase::kIdle;
+        std::uint64_t dueMs = 0;
+    };
+
+    enum class DebugViewRefreshAction : std::uint8_t { kNone, kWait, kDestroy, kCreate };
+
+    struct DebugViewRefreshResult
+    {
+        DebugViewRefreshState state;
+        DebugViewRefreshAction action;
+    };
+
+    // Constraint: only a close that follows an open arms the refresh, so a never-opened focus give-up does not.
+    constexpr DebugViewRefreshState DebugViewRefreshArm(DebugViewRefreshState state, bool wasOpen, std::uint64_t nowMs)
+    {
+        if (!wasOpen || state.phase != DebugViewRefreshState::Phase::kIdle)
+            return state;
+        return { DebugViewRefreshState::Phase::kArmed, nowMs + kDebugViewRefreshDelayMs };
+    }
+
+    // Constraint: an open request cancels an armed refresh, and a destroyed view is always re-created.
+    constexpr DebugViewRefreshResult DebugViewRefreshStep(DebugViewRefreshState state, std::uint64_t nowMs, bool openRequested)
+    {
+        using Phase = DebugViewRefreshState::Phase;
+        switch (state.phase)
+        {
+        case Phase::kArmed:
+            if (openRequested)
+                return { DebugViewRefreshState{}, DebugViewRefreshAction::kNone };
+            if (nowMs < state.dueMs)
+                return { state, DebugViewRefreshAction::kWait };
+            return { DebugViewRefreshState{ Phase::kDestroyed, 0 }, DebugViewRefreshAction::kDestroy };
+        case Phase::kDestroyed:
+            return { DebugViewRefreshState{}, DebugViewRefreshAction::kCreate };
+        case Phase::kIdle:
+        default:
+            return { state, DebugViewRefreshAction::kNone };
+        }
+    }
 }

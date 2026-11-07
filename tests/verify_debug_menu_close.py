@@ -211,6 +211,59 @@ def main() -> int:
     require("void ResetDebugKeyBaseline() noexcept;" in rad_h, "RadiationEngine must declare ResetDebugKeyBaseline()")
     require("_f8WasDown = (ReadInputBits() & 1u) != 0;" in rad_cpp,
             "ResetDebugKeyBaseline must capture the held Shift+F8 state")
+    require("_debugRefresh = {};" in reset_m.group(1),
+            "ResetDebugMenuForSession must cancel a pending close refresh (no refresh during load)")
+
+    # Constraint: every close of an open menu arms one overlay refresh; the focus give-up path (open=true) never arms.
+    require("const bool wasOpen = _debugOpen;" in set_m.group(1),
+            "SetDebugMenu must capture whether the menu was open before the change")
+    require(set_m.group(1).count("RadCorrectnessPolicy::DebugViewRefreshArm(") == 1
+            and "if (!open)" in set_m.group(1)
+            and "DebugViewRefreshArm(_debugRefresh, wasOpen," in set_m.group(1),
+            "only a close (open=false) of a previously open menu may arm the refresh")
+    block_close = re.search(r"void RadHud::OnBlockingMenuOpened\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(block_close is not None and "SetDebugMenu(false);" in block_close.group(1),
+            "blocking-menu close must route through SetDebugMenu(false), which arms the refresh")
+    require("SetDebugMenu(!_debugOpen);" in hud_cpp and hud_cpp.count("SetDebugMenu(false);") >= 3,
+            "Shift+F8 toggle, CLOSE/Esc deferred close and the blocking-menu sink must all reach SetDebugMenu")
+
+    # Constraint: the refresh destroys then re-creates only the main overlay view, on the 4 Hz tick, never while the menu is open.
+    pump_m = re.search(r"void RadHud::PumpDebugViewRefresh\(\)\s*\{(.*?)\n\}", hud_cpp, re.S)
+    require(pump_m is not None, "PumpDebugViewRefresh body not found")
+    pb = pump_m.group(1)
+    require("_debugOpen || (_debugTogglePending.load() && _debugDesiredOpen)" in pb,
+            "refresh must treat an open request, shown or pending, as a cancel")
+    require("RadCorrectnessPolicy::DebugViewRefreshStep(" in pb and "kDestroy" in pb,
+            "refresh must be driven by the pure DebugViewRefreshStep state machine")
+    require("api->Destroy(_view);" in pb and "_view = 0;" in pb,
+            "refresh must destroy the main overlay view before re-creating it")
+    require(pb.index("api->Destroy(_view);") < pb.index("CreateView();"),
+            "refresh must destroy before it re-creates the view")
+    require("InvalidateLocalHudLayoutViews();" in pb,
+            "refresh must reset the layout listener tracking for the new view")
+    require("SetDebugMenu(" not in pb, "the refresh must not re-enter SetDebugMenu, so it cannot re-arm itself")
+    require("_domReady.load()" in pb and "api->IsValid(_view)" in pb,
+            "refresh must only recycle a live, DOM-ready view")
+    require(hud_cpp.count("api->Destroy(_view);") == 1, "only the close refresh may destroy the main overlay view")
+    require("Destroy(_toxicView)" not in hud_cpp and "Destroy(_filterView)" not in hud_cpp,
+            "the toxicity and filter widget views must stay untouched by the refresh")
+    require(hud_cpp.count("DebugViewRefreshArm(") == 1, "only SetDebugMenu(false) may arm the refresh")
+    require("RadHud::GetSingleton().PumpDebugViewRefresh();" in rad_cpp,
+            "RadiationEngine::Update must pump the close refresh")
+    require(rad_cpp.index("RadHud::GetSingleton().ReleaseStaleDebugFocus();")
+            < rad_cpp.index("RadHud::GetSingleton().PumpDebugViewRefresh();"),
+            "the close refresh must run after the stale-focus release")
+
+    # Constraint: a re-created view repeats first-creation state: hidden until DOM-ready, caches reset, debug state closed.
+    for token in ("api->Hide(_view);", "_maskPushed = -1;", "_stormPayload.clear();", "_filterMainPayload.clear();",
+                  "_keysReplaceSent = -2;", "_debugPushedOpen = -1;", "_debugOpen = false;"):
+        require(token in create_body, f"CreateView (used by the refresh) must contain {token}")
+    require("SetDebugMenu(" not in create_body and "DebugViewRefreshArm(" not in create_body,
+            "CreateView must not arm or re-enter the debug menu, so re-creation cannot loop")
+    require("DebugViewRefreshStep" in rad_h or "RadCorrectnessPolicy.h" in hud_h,
+            "RadHud must include the refresh policy")
+    require("DebugViewRefreshState _debugRefresh" in hud_h and "void PumpDebugViewRefresh();" in hud_h,
+            "RadHud must declare the refresh state and pump")
 
     print("verify_debug_menu_close: OK")
     return 0

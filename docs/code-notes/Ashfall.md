@@ -212,3 +212,15 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Load and new game call `src/RadiationEngine.cpp:RadiationEngine::ResetDebugKeyBaseline`, which sets the Shift+F8 edge baseline to the key state held at load time. `src/RadHud.cpp:RadHud::ResetDebugMenuForSession` also clears a pending close request.
 - Contract guards: `tests/verify_debug_menu_close.py:main`.
 - Not verified in game: whether the Ultralight compositor repaints the hidden panel after a native-initiated close. The PrismaUI log shows `committed-frame reuse` with `contentChanged=0` after the 27.691 close, which could mean a stale frame on screen. This is not proven and a page-state fix does not address it.
+
+## Debug menu close destroys and re-creates the overlay view
+
+- Symptom: after the debug menu closed, the compositor kept the last frame of overlay view 5 (radhud.html). The DOM hid the panel, but the pixels stayed.
+- Arming: `src/RadHud.cpp:RadHud::SetDebugMenu` arms the refresh only when a close follows an open (`wasOpen`). The focus give-up path never opened, so it does not arm.
+- Pump: `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` runs from `src/RadiationEngine.cpp:RadiationEngine::Update` (4 Hz). It waits 100 ms, destroys view 5, and re-creates it through `src/RadHud.cpp:RadHud::CreateView` in the same pass. The re-created view is hidden until its DOM is ready and resets its caches.
+- State machine: `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::DebugViewRefreshStep`. An open request cancels an armed refresh. Tests: `tests/correctness_policy_tests.cpp:main`.
+- Test cases in `tests/correctness_policy_tests.cpp:main`: never-opened close and time alone do not refresh; a close after open arms at exactly 100 ms; a second close while armed keeps the first due time; an open while armed, or at the due time, cancels; a destroyed view is always re-created; idle is terminal; a second cycle re-arms from its own close; timing stays correct past 32 bits.
+- Load and new game: `src/RadHud.cpp:RadHud::ResetDebugMenuForSession` cancels a pending refresh.
+- Trade-off: view 5 also hosts the gas-mask overlay and storm banner, so they blink off for the DOM reload after each close. Toxicity and filter widget views are untouched.
+- Contract guards: `tests/verify_debug_menu_close.py:main`.
+- Not verified in game: whether destroy and re-create clears the stale frame, and how long the blink lasts.

@@ -2,6 +2,7 @@
 
 #include "ClimateProtectionRuntime.h"
 #include "NeedsPolicy.h"
+#include "RadCorrectnessPolicy.h"
 
 #include <atomic>
 #include <cstdint>
@@ -58,6 +59,8 @@ public:
     void InvalidateLocalHudLayoutViews();
     void ResetDebugMenuForSession();
     void PumpDeferredDebug();
+    // Constraint: the close refresh runs only from the 4 Hz tick, on the game thread, and never while the menu is open.
+    void PumpDebugViewRefresh();
     void ReleaseStaleDebugFocus() noexcept;
     // Constraint: the 4 Hz tick re-sends the native debug state to the page only when it differs from the last delivered state.
     void SyncDebugPanelState() noexcept;
@@ -129,4 +132,6 @@ private:
 
     std::uint64_t _debugNextFocusRetryMs = 0;
     std::uint64_t _debugFocusFailedSinceMs = 0;
+    // Constraint: game thread only; armed by a close that followed an open, cleared by ResetDebugMenuForSession.
+    RadCorrectnessPolicy::DebugViewRefreshState _debugRefresh{};
 };

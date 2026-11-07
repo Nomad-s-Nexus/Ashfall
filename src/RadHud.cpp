@@ -583,6 +583,8 @@ void RadHud::ResetDebugMenuForSession()
     _debugNextFocusRetryMs = 0;
     SetLocalHudEditorPreview(false);
     SetDebugMenu(false);
+    // Constraint: load and new game never refresh the view, so a pending close refresh is dropped here.
+    _debugRefresh = {};
     _survivalPayload.clear();
     HideNeeds();
 }
@@ -704,6 +706,35 @@ void RadHud::PumpDeferredDebug()
     }
 }
 
+void RadHud::PumpDebugViewRefresh()
+{
+    // Constraint: an idle refresh costs one enum compare, so the 4 Hz tick adds no work while nothing is armed.
+    using Phase = RadCorrectnessPolicy::DebugViewRefreshState::Phase;
+    if (_debugRefresh.phase == Phase::kIdle) return;
+    if (_api == nullptr) { _debugRefresh = {}; return; }
+
+    auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    // Constraint: a refresh only recycles a live, DOM-ready overlay view; otherwise the normal creation path owns it.
+    if (_view == 0 || !_domReady.load() || !api->IsValid(_view)) { _debugRefresh = {}; return; }
+
+    const auto nowMs = static_cast<std::uint64_t>(::GetTickCount64());
+    const bool openRequested = _debugOpen || (_debugTogglePending.load() && _debugDesiredOpen);
+    const auto step = RadCorrectnessPolicy::DebugViewRefreshStep(_debugRefresh, nowMs, openRequested);
+    _debugRefresh = step.state;
+    if (step.action != RadCorrectnessPolicy::DebugViewRefreshAction::kDestroy) return;
+
+    // Constraint: destroy and re-create run in one game-thread pass, so no other tick observes _view == 0.
+    api->Destroy(_view);
+    _view = 0;
+    _domReady = false;
+    _viewsReady.store(false);
+    InvalidateLocalHudLayoutViews();
+    const auto create = RadCorrectnessPolicy::DebugViewRefreshStep(_debugRefresh, nowMs, openRequested);
+    _debugRefresh = create.state;
+    // Constraint: the re-created view starts hidden until its DOM is ready and holds no debug state, exactly as on first creation.
+    CreateView();
+}
+
 void RadHud::OnBlockingMenuOpened()
 {
     _debugTogglePending = false;
@@ -771,6 +802,8 @@ void RadHud::SetDebugMenu(bool open)
 {
     if (!_api) return;
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
+    // Constraint: only a close of a menu that was open arms the overlay refresh; the focus give-up path never opened.
+    const bool wasOpen = _debugOpen;
 
     if (_view != 0 && _domReady && api->IsValid(_view))
     {
@@ -860,6 +893,10 @@ void RadHud::SetDebugMenu(bool open)
             SetDebugViewOwnsEscape(_view, false);
         }
     }
+
+    if (!open)
+        _debugRefresh = RadCorrectnessPolicy::DebugViewRefreshArm(_debugRefresh, wasOpen,
+            static_cast<std::uint64_t>(::GetTickCount64()));
 
     spdlog::get("FalloutAnomaly")->info("[HUD] Debug menu {}.", open ? "opened" : "closed");
 }

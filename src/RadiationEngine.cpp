@@ -148,6 +148,8 @@ void RadiationEngine::Update()
     // Constraint: the page is re-synced to the native debug state before the stale-focus check runs.
     RadHud::GetSingleton().SyncDebugPanelState();
     RadHud::GetSingleton().ReleaseStaleDebugFocus();
+    // Constraint: the close refresh runs after the focus release, so the destroyed view never holds focus.
+    RadHud::GetSingleton().PumpDebugViewRefresh();
 
     try
     {
