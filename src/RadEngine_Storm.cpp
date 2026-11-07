@@ -94,9 +94,6 @@ void RadiationEngine::EnterWarningPhase()
     Notify(msg, true);
     logger->info("[StormSeq] WARNING begin: alarm + alert fired.");
 
-    // Dust Storm horizon build-up (Option B) begins HERE (with the alarm), via the engine's own smooth
-    // transition — no snap, no purple flash. Gameplay stays gated to Active (inRadWeather suppressed
-    // during the build-up). Non-dust storms snap their sky at the Active hit instead.
     if (RadCorrectnessPolicy::UsesVanillaRadstormSky(_activeStormType))
     {
         if (auto* sky = RE::Sky::GetSingleton())

@@ -1,6 +1,6 @@
 # Fallout Anomaly – Radiation Overhaul — Changelog
 
-## 2026-11-01: storm dome removed; Ash and Sulfur use the vanilla Glowing Sea radstorm sky
+## 2026-11-07: storm dome removed; Ash and Sulfur use the vanilla Glowing Sea radstorm sky
 
 **The native storm dome is removed.** It placed a set of cloud layers around the player and never reached a stable
 visual. The storm sky is now the only storm visual. Ash Fallout and Toxic Sulfur Storm show the vanilla Glowing Sea

@@ -42,9 +42,6 @@ void RadiationEngine::DebugForceStorm(int typeIndex)
     _activeStormType = -1;
     _forcedStormType   = typeIndex;
     _forceStormNow     = true;              // next UpdateStorm Idle tick begins it
-    // is correct for real gameplay but made every test a ~4.5 min wait (lead + warning), which is
-    // why the siren at the end of the lead went unobserved for weeks. Warning/Active/Aftermath below
-    // still run at real timings — only the lead is shortened.
     _forcedLeadTicks   = kDebugLeadTicks;
     Log()->warn("[DEBUG] Force storm '{}' — lead {} s (debug-shortened) + warning {} s = {} s to impact.",
         kStormTypes[typeIndex].name, kDebugLeadTicks / 4,

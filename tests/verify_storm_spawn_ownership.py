@@ -354,7 +354,7 @@ for body, action in (
 visuals_queue = visuals_hooks.split("void QueueStormVisuals()", 1)[1]
 for token in (
     "const auto generation = RadLifecycleDispatch::ReadyPlayerUpdateGeneration();",
-    "[generation, runImadFade]",
+    "[generation]",
     "RadLifecycleDispatch::PlayerUpdatesReady(generation)",
 ):
     assert token in visuals_queue, f"storm visuals producer generation guard is missing: {token}"

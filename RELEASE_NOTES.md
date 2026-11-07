@@ -1,3 +1,15 @@
+# Rad Overhaul Unreleased
+
+Not released. Nothing in this section has been tested in game.
+
+## What is new since v1.2.3
+
+1. **The native storm dome is removed.** Storms no longer spawn, follow or animate the dome. Camera shake, dust motes and the storm IMAD fade are kept. The ESP, meshes, textures and RadStormFX script are unchanged, so the old dome records and files still ship.
+2. **Ash Fallout and Toxic Sulfur storms use the vanilla Glowing Sea radstorm sky.** The sky starts rolling in at the warning phase instead of when the storm is active. Acid Rain, Rad Firestorm and Dust Storm keep their custom weather. Acid Rain is excluded from the vanilla sky because it has real rain and no weather spell.
+3. **The storm lead key is now `StormLeadMinutes`.** The legacy `DomeLeadMinutes` is read only when the new key is absent, so an existing INI keeps its lead time.
+
+Known limits: the silent lead before the siren is now dead time. The storm IMAD layers over the vanilla green look. The Papyrus rad-weather list in RadSurvivalDiseases does not include the vanilla sky (form 0x24A3C0).
+
 # Rad Overhaul v1.2.3
 
 Release of Rad Overhaul (Fallout Anomaly Radiation) for Fallout 4, on top of v1.2.2. The
@@ -17,16 +29,16 @@ was not measured.** It is validated by contract tests and a green build only. Se
    A saved `hud_layout.json` still wins, so an old saved layout keeps its old positions. With
    PhosphorHUD companion mode the rows moved up and right to x=396, y=538-960, because the old
    bottom band could not hold four rows without overlap. Not verified in game.
-2. **The native storm dome is removed.** The baked dome (`CloudArena01_4.nif`) placed cloud layers around the
-   player and never reached a stable visual, so the dome, its follow, animation and cloud fade are gone. The
-   storm sky is the only storm visual. Ash Fallout and Toxic Sulfur Storm show the vanilla Glowing Sea radstorm
-   weather instead of their custom weather records. The `DomeLeadMinutes` INI key is now `StormLeadMinutes`; the
-   old key is still read when the new one is absent. Not verified in game.
+2. **The storm portal shows again.** v1.2.2 hid all eight vortex and portal shapes. Now only the
+   two tube shapes, `CoreBack` and `CoreFront`, stay hidden. The six portal shapes (`PortalA`,
+   `PortalB`, `DiskOuter`, `DiskInner`, `DiskHalo`, `PhotonRing`) follow their baked windows,
+   about 128 to 320 s into the storm. The cloud decks, lightning and the sky fade are unchanged.
+   Not verified in game.
 
 ## Included from v1.2.2
 
-Everything below shipped in v1.2.2 and is still in this archive, except the storm dome, which
-v1.2.3 removes (see above).
+Everything below shipped in v1.2.2 and is still in this archive, except the storm portal, which
+v1.2.3 restores (see above).
 
 - **The floating glass tube is gone from storms.** The baked dome drew a glassy tube with a
   glowing ring about 4000 units away in the sky. v1.2.2 stopped drawing the tube and, as a side
@@ -146,17 +158,12 @@ Everything below shipped in v1.2.0 and is still in this archive.
   **Rad Cure Compound**; vanilla **RadAway** also cures.
 - **Third-party gas masks.** The `[Masks]` section of `FalloutAnomalyRadiation.ini` takes
   keywords or armor records from other plugins, and by default any mouth-slot armor with
-  radiation resistance counts as a mask, so another mask mod needs no configuration. Verified
-  against **Gasmask Overhaul** (Nexus 108845) and its PPM-88 at the contract level only.
-- **Readable HUD and a SURVIVAL tab.** Status icons are larger and brighter; the debug
-  panel gained a SURVIVAL pane showing pools, stages, exposure and illness, and its detail
-  text is scaled up so vitals and armor values read at a glance.
-- **Storm weather handoff.** Managed weather returns smoothly without handing control back
-  to a captured vanilla radstorm; the storm sky rolls in at the warning phase; the fallback dispatch queue and the storm visuals producer are bounded;
-  distant firestorm strikes are placed only in a loaded exterior worldspace, on terrain,
-  facing the player.
-- **Mask defaults that do not strand you.** Filter life is 20 minutes, **F6** replaces a
-  filter and **F7** repairs a broken mask out of the box.
+  radiation resistance counts as a mask. Verified against **Gasmask Overhaul** (Nexus 108845)
+  and its PPM-88 at the contract level only.
+- **Storm weather handoff.** Managed weather returns smoothly without handing control back to a
+  captured vanilla radstorm, the storm dome follows the player across cell and worldspace
+  transitions, and distant firestorm strikes are placed only in a loaded exterior worldspace,
+  on terrain, facing the player.
 
 ## Requirements
 
@@ -186,7 +193,15 @@ Overhaul**: leave it disabled unless that mod is installed and enabled in the sa
   are unchecked. The HUD page test script was not run locally; GitHub CI is the only run.
 - **Frame rate was not measured.** The per-frame cost cuts are reasoned from the mesh and the
   per-frame code only.
-- Not in this release: the Firestorm art previews.
+- Whether lowering the sky property's alpha visibly removes the vanilla cloud layers is
+  untested. The hook slot and offsets were verified against the 1.10.163 engine, and the hook
+  scaled cloud passes in a 2026-10-31 log, but the visible result was not checked.
+- That culling a dome shape keeps its alpha controllers running is engine-checked but has not
+  been run.
+- The reseed path needs a cell reload during a storm to exercise, and has not been.
+- The dome textures were not halved and the arena light was not delayed: neither is in this
+  release.
+- Not in this release: the Firestorm art previews and the no-dome alternative.
 - The Papyrus bytecode (`.pex`) was compiled with FO4IDE's built-in engine, not the Creation
   Kit compiler.
 - The `RadNatives` static native binding is unverified in game.
@@ -203,6 +218,11 @@ Overhaul**: leave it disabled unless that mod is installed and enabled in the sa
 
 In `FalloutAnomaly.log` look for:
 
+- `Dome animation activated ... storm seek 170.x s` in a debug forced storm, or about `0.5 s`
+  in a natural storm.
+- `[StormFX] dome anim driver`, `dome anim t=` (the time should advance) and
+  `dome spin: Hole4=found Vortex2=found Vortex3=found`.
+- The `sky cloud hook stats at spawn+30s` line: you want `passes` above 0 and `scaled` above 0.
 - `[Tuning] Papyrus bridge registered (RadNatives.TuningOverride, global).` and
   `[Relief] Papyrus bridge registered (GetReliefFlags).`
 - No `[Shelter] roof-fan` lines by default.
@@ -214,10 +234,12 @@ function` lines for `RadNatives`.
 
 - The tag workflow runs the Python contract suites (CI deployment isolation, masks, HUD, ghoul
   contract, storm spawn ownership, serialization, stack integration, survival, consumption,
-  roofless climate, diseases, menu, needs globals, AV ownership, Papyrus
+  roofless climate, diseases, menu, needs globals, AV ownership, dome visibility, Papyrus
   bytecode) and the C++ correctness-policy and serialization-policy executables before the
   archive is built.
 - `verify_papyrus_pex.py` enforces the compiled Papyrus bytecode shipped in the archive.
+- `verify_dome_visibility.py` checks the dome visibility table against the shape names in the
+  shipped `CloudArena01_4.nif` and against a fresh bake.
 - The Windows MSVC build produces the DLL packaged here; the archive is assembled from the
   repository's `deploy/` tree plus that DLL, so source and package cannot drift.
 - ESP structural validation (`tests/plugin_reader.py`) covers the survival records and the

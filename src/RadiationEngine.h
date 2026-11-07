@@ -299,7 +299,6 @@ private:
     std::uint16_t   _ambientBedApplied = 0xFFFF;
     double          _vanillaRadstormGapSec = 60.0 * 60.0;  // [Storm] VanillaRadstormGapMinutes
     int             _stormLeadTicks    = 3 * 60 * 4;
-    // storm shortens ONLY the silent lead; warningTicks and everything after stay at real timings.
     int             _forcedLeadTicks   = -1;
     int             _activeLeadTicks   = 0;         // lead the in-flight storm actually used (for logging)
     // Post-load storm-FX stop: OnPostLoad runs BEFORE the lazy EnsureEslLoaded, so its
