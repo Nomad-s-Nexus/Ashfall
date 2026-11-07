@@ -187,3 +187,11 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - D, `src/Hooks_DomeFollow.cpp:Hooks::QueueDomeFollow`: the skip threshold is `RadInternal::kStormDomeFollowEpsilon` (64 units, `src/RadEngine_Internal.h`). `lastFollowPos` is stamped inside the main-thread task only after `PlayerUpdatesReady` passes; if the task bails, `followPosValid` is cleared so the next call moves the layer.
 - Debug queue, intentional: `src/RadEngine_Debug.cpp:RadiationEngine::DrainDebugCommands` no longer clears `_pendingDebugCmds` on load or not-ready ticks. The queue stays bounded at 32 (`kMaxPendingDebugCmds`, oldest dropped). Commands such as `storm:N` queued before the first tick therefore run later, on purpose.
 - Not verified in game.
+
+## Diagnostics console opacity (armor figure see-through fix)
+
+- Panel, card and control backgrounds were 0.4-0.7 alpha, so the world showed through the armor figure and limb cards; raised to 0.92-0.96 (`deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:pip-card-bg`).
+- Console chrome is opaque now (`#debugPanel` gradient alpha 1, header and footer 0.96): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:debugPanel`.
+- `.armor-figure` uses `mix-blend-mode: screen`, so its backdrop `.armor-schematic` is solid (`#07130a`, `isolation: isolate`); a one-line Constraint comment sits above `.armor-figure`: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:armor-figure`.
+- `#debugBackdrop` stays translucent by design, and the HUD layout tab has no CSS transparency dependency: `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:debugBackdrop`.
+- Not verified in game (no visual check in Ultralight): `deploy/PrismaUI_F4/views/Interface/FalloutAnomaly/radhud.css:armor-schematic`.
