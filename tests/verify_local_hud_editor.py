@@ -17,7 +17,7 @@ filter_html = (views / "hud_filter.html").read_text(encoding="utf-8")
 main_html = (views / "radhud.html").read_text(encoding="utf-8")
 
 assert 'BindGameThreadUIEvent' not in rad_hud
-assert 'RegisterJSListener(v, "radDebug", OnRadDebugCommand)' in rad_hud
+assert 'api->RegisterJSListener(view, "radDebug", OnRadDebugCommand)' in rad_hud
 assert '_toxicWidgetRegistered.store(_hudApi != nullptr);' in rad_hud
 assert 'const bool fallback = !companion && !_toxicWidgetRegistered.load();' in rad_hud
 assert rad_hud.count('SyncLocalHudLayout();') >= 2

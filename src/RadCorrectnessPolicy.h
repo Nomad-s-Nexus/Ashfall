@@ -572,7 +572,7 @@ namespace RadCorrectnessPolicy
         }
     }
 
-    // Constraint: the 4 Hz engine tick is 250 ms of game time, so tick counts convert to the settle clock exactly.
+    // Constraint: the 4 Hz engine tick is a 250 ms wall-clock throttle, so tick counts map to the settle clock at this nominal period.
     inline constexpr std::uint64_t kEngineTickMs = 250;
     // Constraint: after PostLoad/NewGame, no Prisma view is created, finalized, ordered or registered for 3 s (12 ticks).
     inline constexpr std::uint64_t kLoadSettleMs = 3000;

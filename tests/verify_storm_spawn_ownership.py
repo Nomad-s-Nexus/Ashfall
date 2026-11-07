@@ -370,15 +370,14 @@ assert player_hit.rfind("RadLifecycleDispatch::PlayerUpdatesReady(generation)") 
     "_maskCondition = std::max"
 )
 
-assert radhud.count("if (!a || !a->IsValid(v)) return;") == 3
-for view_assignment, ready_flag in (
-    ("_view = api->CreateView(kViewPath", "g_domReadyFlag.load"),
-    ("_toxicView = api->CreateView(kToxicViewPath", "g_toxicDomReadyFlag.load"),
-    ("_filterView = api->CreateView(kFilterViewPath", "g_filterDomReadyFlag.load"),
+for finalize, ready_store in (
+    ("void RadHud::FinalizeMainDomReady(uint64_t view)", "_domReady.store(true"),
+    ("void RadHud::FinalizeToxicDomReady(uint64_t view)", "_toxicDomReady.store(true"),
+    ("void RadHud::FinalizeFilterDomReady(uint64_t view)", "_filterDomReady.store(true"),
 ):
-    callback = radhud.split(view_assignment, 1)[1].split("});", 1)[0]
-    validity = callback.find("if (!a || !a->IsValid(v)) return;")
-    ready = callback.find(ready_flag)
+    finalizer = radhud.split(finalize, 1)[1].split("\n}\n", 1)[0]
+    validity = finalizer.find("if (!api->IsValid(view)) return;")
+    ready = finalizer.find(ready_store)
     assert validity != -1 and ready != -1 and validity < ready
 
 producer = hooks.split("void PlayerCharacter_Update_Hook", 1)[1].split(

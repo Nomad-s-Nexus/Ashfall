@@ -225,6 +225,7 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Contract guards: `tests/verify_debug_menu_close.py:main`.
 - Deferred while the built-in HUD editor is open or a pause or message menu is up: `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` checks `src/RadHudLayout.cpp:RadHud::LocalHudEditorPreviewOn` and `RE::UI::GetMenuOpen` before it destroys view 5. The armed refresh stays pending and runs when they close. The editor lives in view 5, so a destroy during the editor would leave `g_layout.preview` true.
 - Not verified in game: whether destroy and re-create clears the stale frame, and how long the blink lasts.
+
 ## Load settle, deferred DOM-ready and the PhosphorHUD companion gate
 
 - Why: a save load froze once with PhosphorHUD 0.9.25 enabled; it did not freeze with PhosphorHUD off (Nomad, 2026-11-07). PhosphorHUD destroys and re-creates its own view several times per load and calls Prisma from F4SE task threads. This change keeps our views out of that window. It does not fix PhosphorHUD.
@@ -234,4 +235,5 @@ Not verified in game: whether FocusOverlay accepts where Focus does not, and whe
 - Stale callbacks: `RadHud::_domLive` holds each slot's live view. A late callback from a destroyed view is dropped by `src/RadCorrectnessPolicy.h:RadCorrectnessPolicy::IsLiveDomReady`.
 - Companion gate: `src/RadHudLifecycle.cpp:RadHud::BridgeReady` waits, in companion mode only, until `src/RadHudLifecycle.cpp:RadHud::ScanPhosphorViews` sees a PhosphorHUD view through EnumerateViews, or 40 ticks (10 s) pass (`RadCorrectnessPolicy::CompanionBridgeReady`). Outside companion mode it never waits.
 - Tests: `tests/correctness_policy_tests.cpp:main` (predicates), `tests/verify_load_settle.py:main` (wiring contract).
+- Widget, refresh and create guards: `src/RadHud.cpp:RadHud::ReapplyWidgetRegistrations` re-registers the toxicity and filter views only after their DOM-ready finalize, `src/RadHud.cpp:RadHud::PumpDebugViewRefresh` waits on `src/RadHudLifecycle.cpp:RadHud::BridgeReady` before it destroys view 5 and keeps the refresh armed, and `src/RadHud.cpp:RadHud::CreateView` clears `_viewsReady` only after the settle check.
 - Not verified in game.

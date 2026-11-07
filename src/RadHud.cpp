@@ -203,9 +203,9 @@ bool RadHud::ViewsExist() const
 void RadHud::CreateView()
 {
     auto logger = spdlog::get("FalloutAnomaly");
-    _viewsReady.store(false);
     // Constraint: no view is created inside the load settle window; the retry worker and the tick re-attempt it afterwards.
     if (!_api || !LoadSettled()) return;
+    _viewsReady.store(false);
 
     // Re-evaluate the in-world gate for each loaded game / new game.
     g_inWorld.store(false);
@@ -359,12 +359,12 @@ void RadHud::ReapplyWidgetRegistrations()
     auto* api = static_cast<PRISMA_UI_API::IVPrismaUI2*>(_api);
     auto* hud = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
     // Constraint: a re-registration re-applies the saved PrismaHUD layout to an existing widget view.
-    if (_toxicView != 0 && api->IsValid(_toxicView))
+    if (_toxicView != 0 && _toxicDomReady.load() && api->IsValid(_toxicView))
     {
         hud->RegisterWidget(_toxicView, CompanionPlaced(kToxicDesc));
         _toxicWidgetRegistered.store(true);
     }
-    if (_filterView != 0 && api->IsValid(_filterView))
+    if (_filterView != 0 && _filterDomReady.load() && api->IsValid(_filterView))
         hud->RegisterWidget(_filterView, CompanionPlaced(kFilterDesc));
 }
 
@@ -741,6 +741,7 @@ void RadHud::PumpDebugViewRefresh()
     auto* ui = RE::UI::GetSingleton();
     if (LocalHudEditorPreviewOn() || (ui && (ui->GetMenuOpen<RE::PauseMenu>() || ui->GetMenuOpen<RE::MessageBoxMenu>())))
         return;
+    if (!BridgeReady()) return;
     _debugRefresh = step.state;
 
     // Constraint: destroy and re-create run in one game-thread pass, so no other tick observes _view == 0.

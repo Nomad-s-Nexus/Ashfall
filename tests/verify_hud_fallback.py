@@ -122,8 +122,8 @@ def check_source(html_path, source_path):
         'apMax = EffectiveActorValueMax(*player, *values->actionPoints);',
         'rads = std::clamp(player->GetActorValue(*values->rads), 0.0f, 1000.0f);',
         r'\"rads\":%.1f,\"radsMax\":1000.0',
-        'std::atomic<PRISMA_UI_API::IVPrismaUI2*> g_apiForCb',
-        'std::atomic<PRISMA_HUD_API::IVPrismaHUD1*> g_hudApiForCb',
+        '_domLive[kDomSlotMain].store(0);',
+        '_domLive[kDomSlotMain].store(_view);',
         'api->IsValid(_toxicView)',
         '_filterView == 0 || !api->IsValid(_filterView)',
         'CreateView();',
@@ -131,7 +131,7 @@ def check_source(html_path, source_path):
         'const bool fallback = !companion && !_toxicWidgetRegistered.load();',
         'const bool companion = IsCompanionMode();',
         'PushFilterKeys(_filterView);',
-        'PushTheme(v);',
+        'PushTheme(view);',
         "constexpr int kHudViewOrder = 1'000'000;",
         'api->SetOrder(view, kHudViewOrder);',
         'setHudViewOrder(_toxicView);',
@@ -159,14 +159,16 @@ def check_source(html_path, source_path):
     retry_idx = source.index('StartPrismaViewRetry();')
     if hud_api_idx > retry_idx:
         raise SystemExit('PrismaHUD API must be resolved before asynchronous PrismaUI view creation')
+    lifecycle = Path(source_path).with_name('RadHudLifecycle.cpp').read_text(encoding='utf-8')
     for marker in (
-        'g_apiForCb.load(std::memory_order_acquire)',
-        'g_hudApiForCb.load(std::memory_order_acquire)',
-        'g_domReadyFlag.load(std::memory_order_acquire)',
-        'g_toxicDomReadyFlag.load(std::memory_order_acquire)',
-        'g_filterDomReadyFlag.load(std::memory_order_acquire)',
+        'RadHud::NoteDomReady(kDomSlotMain, v)',
+        'RadHud::NoteDomReady(kDomSlotToxic, v)',
+        'RadHud::NoteDomReady(kDomSlotFilter, v)',
+        '_domPending[slot].store(view, std::memory_order_release)',
+        '_domLive[slot].load(std::memory_order_acquire)',
+        '_domPending[kDomSlotMain].exchange(0, std::memory_order_acq_rel)',
     ):
-        if marker not in source:
+        if marker not in source + lifecycle:
             raise SystemExit(f'cross-thread HUD callback bridge must use atomic publication: {marker}')
 
     storm_source = '\n'.join(
