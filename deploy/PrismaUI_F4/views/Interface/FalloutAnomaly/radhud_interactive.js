@@ -366,43 +366,6 @@ window.triggerScenario = function(name) {
   }
   if (window.pipAudio) window.pipAudio.alert();
 };
-window.toggleTelemetryMatrix = function() {
-  var grid = document.getElementById("telemetryGrid");
-  var compact = document.getElementById("telemetryCompactBar");
-  var btn = document.getElementById("toggleTelemetryBtn");
-  var footnote = document.getElementById("telemetryFootnote");
-  if (!grid || !compact || !btn) return;
-  var isMinimized = grid.style.display === "none";
-  if (isMinimized) {
-    grid.style.display = "grid";
-    compact.style.display = "none";
-    if (footnote) footnote.style.display = "block";
-    btn.textContent = "[-] MINIMIZE MATRIX";
-  } else {
-    grid.style.display = "none";
-    compact.style.display = "flex";
-    if (footnote) footnote.style.display = "none";
-    btn.textContent = "[+] EXPAND MATRIX";
-  }
-  try { localStorage.setItem("rad_telemetry_minimized", !isMinimized ? "1" : "0"); } catch(e) {}
-  if (window.pipAudio) window.pipAudio.click();
-};
-window.filterRadOps = function(cat) {
-  var cards = document.querySelectorAll(".rad-ops-grid .pip-card");
-  var pills = document.querySelectorAll(".rad-filter-pill");
-  pills.forEach(function(p) {
-    p.classList.toggle("active", p.getAttribute("data-filter") === cat);
-  });
-  cards.forEach(function(card) {
-    var cardCat = card.getAttribute("data-ops-cat");
-    if (cat === "all" || cardCat === cat) {
-      card.classList.remove("ops-card-hidden");
-    } else {
-      card.classList.add("ops-card-hidden");
-    }
-  });
-  if (window.pipAudio) window.pipAudio.click();
-};
 window.initArmorInspector = function() {
   var regions = ["head", "torso", "leftArm", "rightArm", "leftLeg", "rightLeg"];
   regions.forEach(function(r) {
@@ -439,10 +402,5 @@ if (typeof window !== "undefined" && window.addEventListener) {
   window.addEventListener("DOMContentLoaded", function() {
     if (window.initDialScrubbers) window.initDialScrubbers();
     if (window.initArmorInspector) window.initArmorInspector();
-    try {
-      if (localStorage.getItem("rad_telemetry_minimized") === "1") {
-        window.toggleTelemetryMatrix();
-      }
-    } catch(e) {}
   });
 }

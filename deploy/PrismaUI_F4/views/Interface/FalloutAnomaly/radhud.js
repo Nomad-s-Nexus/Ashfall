@@ -802,30 +802,6 @@ window.updatePipDial = function(type, pct, valText, subText) {
     }
   }
 };
-window.copyTelemetrySnapshot = function() {
-  var snapshot = {
-    timestamp: new Date().toISOString(),
-    climate: document.getElementById("climateReadout") ? document.getElementById("climateReadout").innerText : "",
-    air: document.getElementById("airReadout") ? document.getElementById("airReadout").innerText : "",
-    vitals: document.getElementById("vitalsReadout") ? document.getElementById("vitalsReadout").innerText : "",
-    armor: {
-      insulation: document.getElementById("armorInsulation") ? document.getElementById("armorInsulation").innerText : "",
-      power: document.getElementById("armorPower") ? document.getElementById("armorPower").innerText : ""
-    }
-  };
-  var text = JSON.stringify(snapshot, null, 2);
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(function() {
-      var btn = document.querySelector(".pip-btn-copy");
-      if (btn) {
-        var prev = btn.textContent;
-        btn.textContent = "COPIED!";
-        setTimeout(function() { btn.textContent = prev; }, 1500);
-      }
-    });
-  }
-  if (window.pipAudio) window.pipAudio.click();
-};
 if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("keydown", function(e) {
   var p = document.getElementById("debugPanel");
   if (!p || !p.classList.contains("on")) return;

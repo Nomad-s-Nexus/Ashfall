@@ -42,7 +42,6 @@
       
       if (window.updatePipDial) {
         window.updatePipDial("warmth", warmth, warmth + "%", number(d.core, 1) + " °C CORE");
-        window.updatePipDial("wetness", Math.round(+d.wetness || 0), Math.round(+d.wetness || 0) + "%", (d.indoors ? "SHELTERED" : "EXPOSED"));
       }
       var ovTemp = document.getElementById("ov-val-temp");
       if (ovTemp) ovTemp.textContent = number(d.core, 1) + " °C";
