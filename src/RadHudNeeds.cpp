@@ -51,7 +51,7 @@ void RadHud::PushNeeds(const RadNeedsPolicy::NeedsSnapshot& snapshot)
     {
         auto* hud = static_cast<PRISMA_HUD_API::IVPrismaHUD1*>(_hudApi);
         hud->RegisterWidget(_needsView, CompanionPlaced({ "rad_needs", "Needs", 22.0f / 1920.0f,
-            812.0f / 1080.0f, 176.0f / 1920.0f, 58.0f / 1080.0f }));
+            746.0f / 1080.0f, 268.0f / 1920.0f, 98.0f / 1080.0f }));
         hud->ApplyLayout(_needsView);
         _needsWidgetRegistered = true;
     }

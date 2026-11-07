@@ -105,10 +105,10 @@ namespace RadCorrectnessPolicy
     constexpr std::uint64_t kAllDomeShapesVisible = (std::uint64_t{ 1 } << RadDomeVisibility::kShapeCount) - 1;
 
     constexpr std::string_view kDomeHiddenShapes[] = {
-        "CoreBack", "CoreFront", "PortalA", "PortalB", "DiskOuter", "DiskInner", "DiskHalo", "PhotonRing",
+        "CoreBack", "CoreFront",
     };
 
-    // Constraint: the vortex funnel and portal ring shapes are never drawn; see docs/code-notes/Ashfall.md.
+    // Constraint: the vortex tube shapes are never drawn; see docs/code-notes/Ashfall.md.
     constexpr std::uint64_t DomeHiddenShapeMask()
     {
         std::uint64_t mask = 0;

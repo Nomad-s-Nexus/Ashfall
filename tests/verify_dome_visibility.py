@@ -34,4 +34,22 @@ assert "VisibleShapeMask(" in policy
 dome = (ROOT / "src" / "RadEngine_Storm_Dome.cpp").read_text(encoding="utf-8")
 assert "VisibleShapeMask(" in dome and "SetAppCulled(" in dome
 assert dome.count("SetAppCulled(") == 1
-print("verify_dome_visibility: OK (%d shapes, %d windows)" % (len(shapes), begin[-1]))
+
+# Constraint: only the vortex tube is never drawn; see docs/code-notes/Ashfall.md.
+hidden_block = policy.split("kDomeHiddenShapes[] = {", 1)[1].split("};", 1)[0]
+hidden = re.findall(r'"([^"]+)"', hidden_block)
+assert hidden == ["CoreBack", "CoreFront"], "kDomeHiddenShapes must be exactly the tube shapes, got %r" % hidden
+assert not re.search(r"\beight\b", policy, re.IGNORECASE), "RadCorrectnessPolicy.h still describes an eight-shape cull"
+
+
+def visible_at(name, t):
+    return any(a <= t <= b for a, b in wins[name])
+
+
+for name in ("PortalA", "PortalB", "DiskOuter", "DiskInner", "DiskHalo", "PhotonRing"):
+    assert visible_at(name, 200.0), "%s must be drawn at 200 s (baked window)" % name
+    assert not visible_at(name, 100.0), "%s must be culled at 100 s (before its window)" % name
+    assert name not in hidden
+for name in ("CoreBack", "CoreFront"):
+    assert name in hidden, "%s must stay hidden" % name
+print("verify_dome_visibility: OK (%d shapes, %d windows; tube hidden, portal follows baked windows)" % (len(shapes), begin[-1]))

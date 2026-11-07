@@ -24,11 +24,11 @@
     }
   }
 
-  function build(el, icon, label, small, solid) {
-    var id = "pc" + (++uid), n = small ? 10 : 20, gap = small ? 8.6 : 3.2, paths = "";
+  // Constraint: every core is 20 segments with no small variant; see docs/code-notes/Ashfall.md.
+  function build(el, icon, label, solid) {
+    var id = "pc" + (++uid), n = 20, gap = 3.2, paths = "";
     for (var k = 0; k < n; k++) paths += '<path d=""/>';
     el.classList.add("core");
-    if (small) el.classList.add("sm");
     el.innerHTML =
       '<svg viewBox="0 0 64 64"><circle class="disc" cx="32" cy="32" r="24.5"/>' +
       '<g class="trk">' + paths + '</g><g class="ghost">' + paths + '</g><g class="val">' + paths + '</g>' +
